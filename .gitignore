@@ -9,10 +9,12 @@ node_modules/
 .next/
 dist/
 build/
+*.tsbuildinfo
 
 # Env
 .env
 .env.local
+.env.*.local
 
 # Data
 data/app.db
@@ -26,3 +28,4 @@ data/uploads/*
 # OS
 .DS_Store
 Thumbs.db
+frontend/app/**/page.ts
