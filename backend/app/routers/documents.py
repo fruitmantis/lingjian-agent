@@ -1,25 +1,25 @@
-"""Partner document upload and management router."""
+"""Partner document upload and management router - requires authentication."""
 
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, status
 
+from ..auth import require_auth
 from ..database import get_db, UPLOADS_DIR
 from ..doc_extractor import extract_text, get_file_type
 from ..models import PartnerDocumentOut
 
-
-router = APIRouter(prefix="/partners", tags=["documents"])
-_DOC_COLS = "id, partner_id, filename, file_type, doc_category, extracted_text, created_at"
+router = APIRouter(prefix="/partners", tags=["documents"], dependencies=[Depends(require_auth)])
+_DOC_COLS = "id, partner_id, filename, file_path, file_type, doc_category, extracted_text, created_at"
 _ALLOWED_TYPES = {"pdf", "docx", "pptx", "xlsx"}
 
 
 @router.get("/{partner_id}/documents", response_model=list[PartnerDocumentOut])
 def list_documents(partner_id: str) -> list[PartnerDocumentOut]:
     with get_db() as conn:
-        rows = conn.execute(f"SELECT {_DOC_COLS} FROM partner_documents WHERE partner_id = ? ORDER BY created_at DESC", (partner_id,)).fetchall()
+        rows = conn.execute("SELECT id, partner_id, filename, file_type, doc_category, extracted_text, created_at FROM partner_documents WHERE partner_id = ? ORDER BY created_at DESC", (partner_id,)).fetchall()
     return [PartnerDocumentOut(**dict(r)) for r in rows]
 
 
@@ -43,7 +43,7 @@ async def upload_document(partner_id: str, file: UploadFile = File(...)) -> Part
     extracted = extract_text(str(file_path), file_type)
     doc = PartnerDocumentOut(id=doc_id, partner_id=partner_id, filename=file.filename, file_type=file_type, doc_category=None, extracted_text=extracted, created_at=datetime.now(timezone.utc).isoformat())
     with get_db() as conn:
-        conn.execute(f"INSERT INTO partner_documents ({_DOC_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?)", (doc.id, doc.partner_id, doc.filename, doc.file_type, doc.doc_category, doc.extracted_text, doc.created_at))
+        conn.execute(f"INSERT INTO partner_documents ({_DOC_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (doc.id, doc.partner_id, doc.filename, str(file_path), doc.file_type, doc.doc_category, doc.extracted_text, doc.created_at))
     return doc
 
 
