@@ -1,4 +1,4 @@
-"""Pydantic models for the partner domain."""
+"""Pydantic models."""
 
 from pydantic import BaseModel, Field
 
@@ -47,3 +47,58 @@ class DeliverableOut(BaseModel):
 class ProfileOut(BaseModel):
     partner_id: str
     ai_profile: str
+
+
+class PartnerDocumentOut(BaseModel):
+    id: str
+    partner_id: str
+    filename: str
+    file_type: str
+    doc_category: str | None
+    extracted_text: str | None
+    created_at: str
+
+
+class UserCreate(BaseModel):
+    username: str = Field(..., min_length=1, max_length=50)
+    password: str = Field(..., min_length=6, max_length=100)
+    display_name: str | None = None
+    role: str = Field("user", description="admin or user")
+
+
+class UserOut(BaseModel):
+    id: str
+    username: str
+    display_name: str | None
+    role: str
+    created_at: str
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+
+class MatchRequest(BaseModel):
+    requirement: str = Field(..., min_length=1)
+
+
+class PartnerRecommendation(BaseModel):
+    partner_id: str
+    partner_name: str
+    match_score: str
+    recommendation_reason: str
+    supporting_cases: str
+    supporting_deliverables: str
+    risk_or_gap_notes: str
+
+
+class MatchResponse(BaseModel):
+    requirement: str
+    recommendations: list[PartnerRecommendation]

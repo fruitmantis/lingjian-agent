@@ -7,8 +7,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .database import PROJECT_ROOT, initialize_storage
-from .routers import partners, cases, profile, match
+from .database import PROJECT_ROOT, initialize_storage, get_db
+from .routers import partners, cases, profile, match, documents, users
+from .auth import get_default_admin
 
 
 load_dotenv(PROJECT_ROOT / ".env")
@@ -22,6 +23,12 @@ def get_cors_origins() -> list[str]:
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     initialize_storage()
+    with get_db() as conn:
+        existing = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
+        if existing["cnt"] == 0:
+            admin = get_default_admin()
+            conn.execute("INSERT INTO users (id, username, hashed_password, display_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (admin["id"], admin["username"], admin["hashed_password"], admin["display_name"], admin["role"], admin["created_at"]))
     yield
 
 
@@ -31,7 +38,6 @@ class HealthResponse(BaseModel):
 
 
 app = FastAPI(title="灵鉴 Agent API", description="交付伙伴智能匹配智能体 MVP API", version="0.1.0", lifespan=lifespan)
-
 app.add_middleware(CORSMiddleware, allow_origins=get_cors_origins(), allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
@@ -44,3 +50,5 @@ app.include_router(partners.router)
 app.include_router(cases.router)
 app.include_router(profile.router)
 app.include_router(match.router)
+app.include_router(documents.router)
+app.include_router(users.router)
