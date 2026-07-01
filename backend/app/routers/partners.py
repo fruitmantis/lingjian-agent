@@ -1,16 +1,16 @@
-"""Partner CRUD router."""
+"""Partner CRUD router - requires authentication."""
 
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Depends, status
 
+from ..auth import require_auth
 from ..database import get_db
 from ..models import PartnerCreate, PartnerOut
 
 
-router = APIRouter(prefix="/partners", tags=["partners"])
-
+router = APIRouter(prefix="/partners", tags=["partners"], dependencies=[Depends(require_auth)])
 _COLUMNS = "id, name, intro, capabilities, service_areas, industries, ai_profile, created_at"
 
 
@@ -32,19 +32,7 @@ def get_partner(partner_id: str) -> PartnerOut:
 
 @router.post("", response_model=PartnerOut, status_code=status.HTTP_201_CREATED)
 def create_partner(payload: PartnerCreate) -> PartnerOut:
-    partner = PartnerOut(
-        id=str(uuid.uuid4()),
-        name=payload.name,
-        intro=payload.intro,
-        capabilities=payload.capabilities,
-        service_areas=payload.service_areas,
-        industries=payload.industries,
-        ai_profile=None,
-        created_at=datetime.now(timezone.utc).isoformat(),
-    )
+    partner = PartnerOut(id=str(uuid.uuid4()), name=payload.name, intro=payload.intro, capabilities=payload.capabilities, service_areas=payload.service_areas, industries=payload.industries, ai_profile=None, created_at=datetime.now(timezone.utc).isoformat())
     with get_db() as conn:
-        conn.execute(
-            f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (partner.id, partner.name, partner.intro, partner.capabilities, partner.service_areas, partner.industries, partner.ai_profile, partner.created_at),
-        )
+        conn.execute(f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (partner.id, partner.name, partner.intro, partner.capabilities, partner.service_areas, partner.industries, partner.ai_profile, partner.created_at))
     return partner

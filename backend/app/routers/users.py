@@ -3,9 +3,9 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Depends, status
 
-from ..auth import hash_password, verify_password, create_token
+from ..auth import hash_password, verify_password, create_token, require_auth
 from ..database import get_db
 from ..models import UserCreate, UserOut, LoginRequest, TokenResponse
 
@@ -24,14 +24,23 @@ def login(req: LoginRequest) -> TokenResponse:
     return TokenResponse(access_token=token, user=user)
 
 
-@router.get("/users", response_model=list[UserOut])
+@router.get("/me", response_model=UserOut)
+def get_current_user(payload: dict = Depends(require_auth)) -> UserOut:
+    with get_db() as conn:
+        row = conn.execute(f"SELECT {_USER_COLS} FROM users WHERE id = ?", (payload["sub"],)).fetchone()
+    if row is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+    return UserOut(**dict(row))
+
+
+@router.get("/users", response_model=list[UserOut], dependencies=[Depends(require_auth)])
 def list_users() -> list[UserOut]:
     with get_db() as conn:
         rows = conn.execute(f"SELECT {_USER_COLS} FROM users ORDER BY created_at DESC").fetchall()
     return [UserOut(**dict(r)) for r in rows]
 
 
-@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/users", response_model=UserOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_auth)])
 def create_user(payload: UserCreate) -> UserOut:
     user = UserOut(id=str(uuid.uuid4()), username=payload.username, display_name=payload.display_name, role=payload.role, created_at=datetime.now(timezone.utc).isoformat())
     with get_db() as conn:
@@ -42,7 +51,7 @@ def create_user(payload: UserCreate) -> UserOut:
     return user
 
 
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_auth)])
 def delete_user(user_id: str):
     with get_db() as conn:
         row = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()

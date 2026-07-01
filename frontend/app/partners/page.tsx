@@ -8,6 +8,11 @@ type PartnerDoc = { id: string; partner_id: string; filename: string; file_type:
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+function authHeaders() {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function PartnersPage() {
   const router = useRouter();
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -22,7 +27,9 @@ export default function PartnersPage() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) { router.push("/login"); return; }
-    setAuthChecked(true);
+    fetch(`${apiBaseUrl}/auth/me`, { headers: authHeaders() })
+      .then(res => { if (!res.ok) throw new Error("invalid"); setAuthChecked(true); })
+      .catch(() => { localStorage.removeItem("token"); localStorage.removeItem("user"); router.push("/login"); });
   }, [router]);
 
   useEffect(() => { if (authChecked) loadPartners(); }, [authChecked]);
@@ -30,13 +37,14 @@ export default function PartnersPage() {
   async function loadPartners() {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/partners`, { cache: "no-store" });
+      const res = await fetch(`${apiBaseUrl}/partners`, { cache: "no-store", headers: authHeaders() });
+      if (res.status === 401) { localStorage.removeItem("token"); localStorage.removeItem("user"); router.push("/login"); return; }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const list = await res.json();
       setPartners(list);
       const dMap: Record<string, PartnerDoc[]> = {};
       await Promise.all(list.map(async (p: Partner) => {
-        const dr = await fetch(`${apiBaseUrl}/partners/${p.id}/documents`, { cache: "no-store" });
+        const dr = await fetch(`${apiBaseUrl}/partners/${p.id}/documents`, { cache: "no-store", headers: authHeaders() });
         if (dr.ok) dMap[p.id] = await dr.json();
       }));
       setDocsMap(dMap);
@@ -46,7 +54,7 @@ export default function PartnersPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault(); setLoading(true); setError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/partners`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const res = await fetch(`${apiBaseUrl}/partners`, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify({ name }) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setName(""); await loadPartners();
     } catch (e) { setError(e instanceof Error ? e.message : "新增失败"); } finally { setLoading(false); }
@@ -54,17 +62,17 @@ export default function PartnersPage() {
 
   async function handleUploadDoc(partnerId: string, file: File) {
     setUploadingPartnerId(partnerId); setError(null);
-    try { const fd = new FormData(); fd.append("file", file); const res = await fetch(`${apiBaseUrl}/partners/${partnerId}/documents`, { method: "POST", body: fd }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartners(); } catch (e) { setError(e instanceof Error ? e.message : "上传失败"); } finally { setUploadingPartnerId(null); }
+    try { const fd = new FormData(); fd.append("file", file); const res = await fetch(`${apiBaseUrl}/partners/${partnerId}/documents`, { method: "POST", headers: authHeaders(), body: fd }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartners(); } catch (e) { setError(e instanceof Error ? e.message : "上传失败"); } finally { setUploadingPartnerId(null); }
   }
 
   async function handleDeleteDoc(partnerId: string, docId: string) {
     if (!confirm("确定删除该文档？")) return;
-    try { const res = await fetch(`${apiBaseUrl}/partners/${partnerId}/documents/${docId}`, { method: "DELETE" }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartners(); } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
+    try { const res = await fetch(`${apiBaseUrl}/partners/${partnerId}/documents/${docId}`, { method: "DELETE", headers: authHeaders() }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartners(); } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
   }
 
   async function handleGenerateProfile(partnerId: string) {
     setGeneratingId(partnerId); setError(null);
-    try { const res = await fetch(`${apiBaseUrl}/partners/${partnerId}/profile`, { method: "POST" }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartners(); } catch (e) { setError(e instanceof Error ? e.message : "生成画像失败"); } finally { setGeneratingId(null); }
+    try { const res = await fetch(`${apiBaseUrl}/partners/${partnerId}/profile`, { method: "POST", headers: authHeaders() }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartners(); } catch (e) { setError(e instanceof Error ? e.message : "生成画像失败"); } finally { setGeneratingId(null); }
   }
 
   if (!authChecked) return <main className="page"><p>检查登录状态...</p></main>;
@@ -74,7 +82,6 @@ export default function PartnersPage() {
       <p className="eyebrow">Partner Management</p>
       <h1>伙伴资料管理</h1>
       <p className="lead">维护伙伴资料，上传文档后 AI 自动分析生成能力画像。请先登录后操作。</p>
-
       <section className="card">
         <h2>新增伙伴</h2>
         <form onSubmit={handleSubmit} className="partner-form">
@@ -83,7 +90,6 @@ export default function PartnersPage() {
         </form>
         {error && <p className="error-text">{error}</p>}
       </section>
-
       <section className="card">
         <h2>伙伴列表</h2>
         <button onClick={loadPartners} disabled={loading} className="secondary-btn">刷新列表</button>
