@@ -1,5 +1,7 @@
 import sqlite3
+import uuid
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
@@ -56,4 +58,30 @@ def initialize_storage() -> None:
             complexity_level TEXT, urgency_level TEXT, project_keywords TEXT,
             matched_partner_count INTEGER, top_partner_names TEXT, supply_status TEXT, gap_analysis TEXT,
             created_at TEXT NOT NULL)""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS capability_tags (
+            id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT NOT NULL,
+            description TEXT, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0,
+            is_preset INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
+        # Seed preset capability tags
+        existing_tags = {row[0] for row in connection.execute("SELECT name FROM capability_tags")}
+        preset_tags = [
+            ("数据库", "数据与数据库"), ("昇腾云", "云平台与迁移"), ("盘古大模型", "AI 与智能体"),
+            ("软件开发生产线（CodeArts）", "应用开发与现代化"), ("智能物联与制造平台", "其他"),
+            ("数据仓库", "数据与数据库"), ("大数据", "数据与数据库"), ("集成与治理", "数据与数据库"),
+            ("工业智能平台", "其他"), ("云桌面（Workspace）", "云平台与迁移"),
+            ("上云规划实施", "云平台与迁移"), ("应用现代化", "应用开发与现代化"),
+            ("解决方案集成实施", "应用开发与现代化"), ("容器", "应用开发与现代化"),
+            ("数据管理分析与流通", "数据与数据库"), ("安全", "运维与安全"),
+            ("公有云云运维", "运维与安全"), ("卓越运营", "运维与安全"),
+            ("数字化转型咨询规划", "咨询与项目管理"), ("HCS基础设施规划设计与实施", "云平台与迁移"),
+            ("HCS云运维", "运维与安全"), ("开发者技术支持", "咨询与项目管理"),
+            ("SAP", "应用开发与现代化"), ("企业协同", "应用开发与现代化"),
+        ]
+        now = datetime.now(timezone.utc).isoformat()
+        for name, category in preset_tags:
+            if name not in existing_tags:
+                connection.execute(
+                    "INSERT INTO capability_tags (id, name, category, description, enabled, sort_order, is_preset, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 0, 1, ?, ?)",
+                    (str(uuid.uuid4()), name, category, "", now, now)
+                )
         connection.commit()

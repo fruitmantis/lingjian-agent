@@ -19,7 +19,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <Link href="/profiles">伙伴画像</Link>
               <Link href="/partners">伙伴资料管理</Link>
               <Link href="/demands">需求运营</Link>
-              <Link href="/users">用户管理</Link>
+              <Link href="/admin">系统管理</Link>
             </nav>
           </header>
           {children}
