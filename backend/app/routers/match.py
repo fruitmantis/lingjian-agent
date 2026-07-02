@@ -200,4 +200,72 @@ def match_partners(req: MatchRequest) -> MatchResponse:
     except Exception:
         pass  # Save failure doesn't affect response
 
+    # Auto-generate demand profile
+    try:
+        _generate_demand_profile(record_id, req.requirement, recs, now)
+    except Exception:
+        pass  # Profile generation failure doesn't affect response
+
     return MatchResponse(requirement=req.requirement, recommendations=recs, recordId=record_id)
+
+
+def _generate_demand_profile(match_record_id: str, requirement: str, recs: list[PartnerRecommendation], created_at: str):
+    """Generate demand profile using LLM, with fallback to rule-based extraction."""
+    partner_count = len(recs)
+    top_names = ", ".join(r.partnerName for r in recs[:3])
+
+    # Rule-based supply status
+    if partner_count == 0:
+        supply_status = "gap"
+    elif partner_count <= 2:
+        supply_status = "partial"
+    else:
+        supply_status = "sufficient"
+
+    # Try LLM classification
+    industry_tags = ""
+    capability_tags = ""
+    delivery_type_tags = ""
+    region_tags = ""
+    complexity_level = "中"
+    urgency_level = "中"
+    project_keywords = ""
+    gap_analysis = ""
+    llm_supply_status = supply_status
+
+    try:
+        llm_messages = [
+            {"role": "system", "content": "你是项目需求分析专家。根据项目需求文本，提取结构化标签。返回JSON含：industryTags(行业,逗号分隔), capabilityTags(能力,逗号分隔), deliveryTypeTags(交付类型如全栈/运维/咨询,逗号分隔), regionTags(区域,逗号分隔), complexityLevel(高/中/低), urgencyLevel(高/中/低), projectKeywords(关键词,逗号分隔), supplyStatus(sufficient/partial/gap), gapAnalysis(缺口分析一句话)。只返回JSON。"},
+            {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴数: {partner_count}\n推荐伙伴: {top_names}"},
+        ]
+        raw = chat_completion(llm_messages, timeout=30)
+        clean = raw.strip()
+        if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+        if clean.endswith("```"): clean = clean[:-3]
+        clean = clean.strip()
+        if clean.startswith("json"): clean = clean[4:].strip()
+        data = json.loads(clean)
+        industry_tags = data.get("industryTags", "")
+        capability_tags = data.get("capabilityTags", "")
+        delivery_type_tags = data.get("deliveryTypeTags", "")
+        region_tags = data.get("regionTags", "")
+        complexity_level = data.get("complexityLevel", "中")
+        urgency_level = data.get("urgencyLevel", "中")
+        project_keywords = data.get("projectKeywords", "")
+        llm_supply_status = data.get("supplyStatus", supply_status)
+        gap_analysis = data.get("gapAnalysis", "")
+    except Exception:
+        # Fallback: simple keyword extraction
+        keywords = []
+        for kw in ["Java", "Python", "AI", "数据治理", "云", "金融", "制造", "零售", "出海", "海外", "全栈", "运维", "安全", "大数据"]:
+            if kw.lower() in requirement.lower():
+                keywords.append(kw)
+        project_keywords = ", ".join(keywords) if keywords else "未提取到关键词"
+        gap_analysis = f"推荐伙伴{partner_count}个，{'供给不足' if partner_count <= 2 else '供给充足'}"
+
+    profile_id = str(uuid.uuid4())
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO demand_profiles (id, match_record_id, requirement_text, industry_tags, capability_tags, delivery_type_tags, region_tags, complexity_level, urgency_level, project_keywords, matched_partner_count, top_partner_names, supply_status, gap_analysis, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (profile_id, match_record_id, requirement, industry_tags, capability_tags, delivery_type_tags, region_tags, complexity_level, urgency_level, project_keywords, partner_count, top_names, llm_supply_status, gap_analysis, created_at)
+        )

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from .database import PROJECT_ROOT, initialize_storage, get_db
-from .routers import partners, cases, profile, match, documents, users
+from .routers import partners, cases, profile, match, documents, users, demand
 from .auth import get_default_admin
 
 
@@ -51,3 +51,4 @@ app.include_router(cases.router)
 app.include_router(match.router)
 app.include_router(documents.router)
 app.include_router(users.router)
+app.include_router(demand.router)

@@ -50,4 +50,10 @@ def initialize_storage() -> None:
         connection.execute("""CREATE TABLE IF NOT EXISTS match_records (
             id TEXT PRIMARY KEY, requirement TEXT NOT NULL, recommendations_json TEXT NOT NULL,
             created_at TEXT NOT NULL, created_by TEXT)""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS demand_profiles (
+            id TEXT PRIMARY KEY, match_record_id TEXT, requirement_text TEXT NOT NULL,
+            industry_tags TEXT, capability_tags TEXT, delivery_type_tags TEXT, region_tags TEXT,
+            complexity_level TEXT, urgency_level TEXT, project_keywords TEXT,
+            matched_partner_count INTEGER, top_partner_names TEXT, supply_status TEXT, gap_analysis TEXT,
+            created_at TEXT NOT NULL)""")
         connection.commit()
