@@ -47,4 +47,7 @@ def initialize_storage() -> None:
             id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, hashed_password TEXT NOT NULL,
             display_name TEXT, role TEXT DEFAULT 'user', created_at TEXT NOT NULL)""")
         connection.execute("UPDATE app_metadata SET value = '6' WHERE key = 'schema_version'")
+        connection.execute("""CREATE TABLE IF NOT EXISTS match_records (
+            id TEXT PRIMARY KEY, requirement TEXT NOT NULL, recommendations_json TEXT NOT NULL,
+            created_at TEXT NOT NULL, created_by TEXT)""")
         connection.commit()

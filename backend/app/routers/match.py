@@ -1,6 +1,8 @@
-"""LLM-based partner matching router."""
+"""LLM-based partner matching router with match record history."""
 
 import json
+import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
@@ -43,6 +45,45 @@ class PartnerRecommendation(BaseModel):
 class MatchResponse(BaseModel):
     requirement: str
     recommendations: list[PartnerRecommendation]
+    recordId: str | None = None
+
+
+class MatchRecordSummary(BaseModel):
+    id: str
+    requirement: str
+    topPartner: str
+    partnerCount: int
+    createdAt: str
+
+
+class MatchRecordDetail(BaseModel):
+    id: str
+    requirement: str
+    recommendations: list[PartnerRecommendation]
+    createdAt: str
+    createdBy: str | None
+
+
+@router.get("/match-records", response_model=list[MatchRecordSummary])
+def list_match_records() -> list[MatchRecordSummary]:
+    with get_db() as conn:
+        rows = conn.execute("SELECT id, requirement, recommendations_json, created_at FROM match_records ORDER BY created_at DESC LIMIT 20").fetchall()
+    result = []
+    for r in rows:
+        recs = json.loads(r["recommendations_json"])
+        top = recs[0]["partnerName"] if recs else "无"
+        result.append(MatchRecordSummary(id=r["id"], requirement=r["requirement"], topPartner=top, partnerCount=len(recs), createdAt=r["created_at"]))
+    return result
+
+
+@router.get("/match-records/{record_id}", response_model=MatchRecordDetail)
+def get_match_record(record_id: str) -> MatchRecordDetail:
+    with get_db() as conn:
+        row = conn.execute("SELECT id, requirement, recommendations_json, created_at, created_by FROM match_records WHERE id = ?", (record_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="记录不存在")
+    recs = json.loads(row["recommendations_json"])
+    return MatchRecordDetail(id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["created_by"])
 
 
 @router.post("/match", response_model=MatchResponse)
@@ -148,4 +189,15 @@ def match_partners(req: MatchRequest) -> MatchResponse:
         except (ValueError, TypeError):
             return 0
     recs.sort(key=_score_key, reverse=True)
-    return MatchResponse(requirement=req.requirement, recommendations=recs)
+
+    # Save match record
+    record_id = str(uuid.uuid4())
+    record_json = json.dumps([r.model_dump() for r in recs], ensure_ascii=False)
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        with get_db() as conn:
+            conn.execute("INSERT INTO match_records (id, requirement, recommendations_json, created_at, created_by) VALUES (?, ?, ?, ?, ?)", (record_id, req.requirement, record_json, now, "admin"))
+    except Exception:
+        pass  # Save failure doesn't affect response
+
+    return MatchResponse(requirement=req.requirement, recommendations=recs, recordId=record_id)

@@ -89,11 +89,36 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [copiedRank, setCopiedRank] = useState<number | null>(null);
+  const [matchRecords, setMatchRecords] = useState<{ id: string; requirement: string; topPartner: string; partnerCount: number; createdAt: string }[]>([]);
+  const [viewingHistory, setViewingHistory] = useState(false);
   const stageTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    loadMatchRecords();
     return () => { if (stageTimer.current) clearInterval(stageTimer.current); };
   }, []);
+
+  async function loadMatchRecords() {
+    try {
+      const res = await fetch(`${apiBaseUrl}/agent/match-records`, { cache: "no-store" });
+      if (res.ok) setMatchRecords(await res.json());
+    } catch { /* ignore */ }
+  }
+
+  async function handleViewRecord(recordId: string) {
+    try {
+      const res = await fetch(`${apiBaseUrl}/agent/match-records/${recordId}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setRequirement(data.requirement);
+      setRecommendations(data.recommendations || []);
+      setHasSearched(true);
+      setViewingHistory(true);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "加载记录失败");
+    }
+  }
 
   async function handleMatch(e: React.FormEvent) {
     e.preventDefault();
@@ -120,6 +145,8 @@ export default function HomePage() {
       }
       const data = await res.json();
       setRecommendations(data.recommendations || []);
+      setViewingHistory(false);
+      loadMatchRecords();
     } catch (e) {
       setError(e instanceof Error ? e.message : "匹配失败");
     } finally {
@@ -185,6 +212,13 @@ export default function HomePage() {
         <section className="card">
           <h2>推荐结果</h2>
           <p className="placeholder-text" style={{ marginTop: "12px" }}>未找到匹配的伙伴，请尝试调整需求描述。</p>
+        </section>
+      )}
+
+      {/* History banner */}
+      {!loading && viewingHistory && top3.length > 0 && (
+        <section className="card" style={{ padding: "12px 24px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "13px", color: "var(--muted)" }}>📌 当前展示的是历史匹配记录，未重新调用大模型</span>
         </section>
       )}
 
@@ -287,6 +321,28 @@ export default function HomePage() {
           </section>
         </>
       )}
+
+      {/* Match records history */}
+      <section className="card">
+        <h2>最近匹配记录</h2>
+        {matchRecords.length === 0 ? (
+          <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无匹配记录，请输入项目需求后点击智能匹配。</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
+            {matchRecords.map((r) => (
+              <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.requirement}</div>
+                  <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
+                    Top1: {r.topPartner} | 推荐伙伴: {r.partnerCount}个 | {r.createdAt.slice(0, 19).replace("T", " ")}
+                  </div>
+                </div>
+                <button onClick={() => handleViewRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px", marginLeft: "12px", flexShrink: 0 }}>查看详情</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="dashboard-grid" aria-label="工作台概览">
         <HealthStatus />
