@@ -84,7 +84,52 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
         <h2>基础信息</h2>
         {loading && <p>加载中...</p>}
         {error && <p className="error-text">{error}</p>}
-        {partner && (<dl className="partner-detail"><dt>名称</dt><dd>{partner.name}</dd><dt>简介</dt><dd>{partner.intro || "未填写"}</dd><dt>能力标签</dt><dd>{partner.capabilities || "未填写"}</dd><dt>服务区域</dt><dd>{partner.service_areas || "未填写"}</dd><dt>行业经验</dt><dd>{partner.industries || "未填写"}</dd><dt>创建时间</dt><dd>{partner.created_at}</dd></dl>)}
+        {partner && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 200px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>名称</div>
+                <div style={{ fontSize: "16px", fontWeight: 600 }}>{partner.name}</div>
+              </div>
+              <div style={{ flex: "1 1 200px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>创建时间</div>
+                <div style={{ fontSize: "14px" }}>{partner.created_at.slice(0, 10)}</div>
+              </div>
+            </div>
+            {partner.intro && (
+              <div style={{ padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>简介</div>
+                <div style={{ fontSize: "14px", lineHeight: 1.8 }}>{partner.intro}</div>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 200px", padding: "16px", background: "#fff1f2", borderRadius: "8px", border: "1px solid #ffd0d4" }}>
+                <div style={{ fontSize: "12px", color: "var(--brand-dark)", fontWeight: 600, marginBottom: "8px" }}>能力标签</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {(partner.capabilities || "未分析").split(/[,，]/).filter(Boolean).map((tag, i) => (
+                    <span key={i} style={{ display: "inline-block", padding: "4px 10px", fontSize: "13px", borderRadius: "6px", background: "white", color: "var(--brand-dark)", border: "1px solid #ffd0d4", fontWeight: 500 }}>{tag.trim()}</span>
+                  ))}
+                </div>
+              </div>
+              <div style={{ flex: "1 1 200px", padding: "16px", background: "#f0f5ff", borderRadius: "8px", border: "1px solid #d6e4ff" }}>
+                <div style={{ fontSize: "12px", color: "#1a4fa0", fontWeight: 600, marginBottom: "8px" }}>覆盖区域</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {(partner.service_areas || "未分析").split(/[,，]/).filter(Boolean).map((tag, i) => (
+                    <span key={i} style={{ display: "inline-block", padding: "4px 10px", fontSize: "13px", borderRadius: "6px", background: "white", color: "#1a4fa0", border: "1px solid #d6e4ff", fontWeight: 500 }}>{tag.trim()}</span>
+                  ))}
+                </div>
+              </div>
+              <div style={{ flex: "1 1 200px", padding: "16px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
+                <div style={{ fontSize: "12px", color: "var(--success)", fontWeight: 600, marginBottom: "8px" }}>行业经验</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {(partner.industries || "未分析").split(/[,，]/).filter(Boolean).map((tag, i) => (
+                    <span key={i} style={{ display: "inline-block", padding: "4px 10px", fontSize: "13px", borderRadius: "6px", background: "white", color: "var(--success)", border: "1px solid #bbf7d0", fontWeight: 500 }}>{tag.trim()}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="card">
