@@ -8,7 +8,7 @@ type PartnerDoc = { id: string; partner_id: string; filename: string; file_type:
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-function authHeaders() {
+function authHeaders(): Record<string, string> {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
@@ -24,6 +24,8 @@ export default function PartnersPage() {
   const [uploadingPartnerId, setUploadingPartnerId] = useState<string | null>(null);
   const [docsMap, setDocsMap] = useState<Record<string, PartnerDoc[]>>({});
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [batchGenerating, setBatchGenerating] = useState(false);
+  const [batchResult, setBatchResult] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -88,6 +90,17 @@ export default function PartnersPage() {
     try { const res = await fetch(`${apiBaseUrl}/partners/${partnerId}/profile`, { method: "POST", headers: authHeaders() }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartners(); } catch (e) { setError(e instanceof Error ? e.message : "生成画像失败"); } finally { setGeneratingId(null); }
   }
 
+  async function handleBatchGenerate() {
+    setBatchGenerating(true); setError(null); setBatchResult(null);
+    try {
+      const res = await fetch(`${apiBaseUrl}/partners/batch-profile`, { method: "POST", headers: authHeaders() });
+      if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); }
+      const data = await res.json();
+      setBatchResult(`批量生成完成：成功 ${data.success}/${data.total}，失败 ${data.failed}`);
+      await loadPartners();
+    } catch (e) { setError(e instanceof Error ? e.message : "批量生成失败"); } finally { setBatchGenerating(false); }
+  }
+
   if (!authChecked) return <main className="page"><p>检查登录状态...</p></main>;
 
   return (
@@ -111,7 +124,11 @@ export default function PartnersPage() {
       </section>
       <section className="card">
         <h2>伙伴列表</h2>
-        <button onClick={loadPartners} disabled={loading} className="secondary-btn">刷新列表</button>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
+          <button onClick={loadPartners} disabled={loading} className="secondary-btn">刷新列表</button>
+          <button onClick={handleBatchGenerate} disabled={batchGenerating || loading} style={{ fontSize: "13px", padding: "8px 16px", background: "var(--brand)", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600 }}>{batchGenerating ? "批量生成中..." : "一键重新生成 AI 画像"}</button>
+          {batchResult && <span style={{ fontSize: "13px", color: "var(--success)" }}>{batchResult}</span>}
+        </div>
         {partners.length === 0 ? <p className="placeholder-text">暂无伙伴。</p> : (
           <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "16px" }}>
             {partners.map((p) => (

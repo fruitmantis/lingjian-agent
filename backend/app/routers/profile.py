@@ -73,3 +73,41 @@ def generate_profile(partner_id: str) -> ProfileOut:
     with get_db() as conn:
         conn.execute("UPDATE partners SET ai_profile=?, capabilities=?, service_areas=?, industries=? WHERE id=?", (ai_profile, capabilities, service_areas, industries, partner_id))
     return ProfileOut(partner_id=partner_id, ai_profile=ai_profile)
+
+
+class BatchProfileResult(BaseModel):
+    partner_id: str
+    partner_name: str
+    success: bool
+    error: str | None = None
+
+
+class BatchProfileResponse(BaseModel):
+    total: int
+    success: int
+    failed: int
+    results: list[BatchProfileResult]
+
+
+@router.post("/batch-profile", response_model=BatchProfileResponse, dependencies=[Depends(require_auth)])
+def batch_generate_profiles() -> BatchProfileResponse:
+    """Generate AI profiles for all partners sequentially."""
+    with get_db() as conn:
+        partner_ids = conn.execute("SELECT id, name FROM partners ORDER BY created_at ASC").fetchall()
+    
+    results: list[BatchProfileResult] = []
+    success_count = 0
+    for p in partner_ids:
+        try:
+            generate_profile(p["id"])
+            results.append(BatchProfileResult(partner_id=p["id"], partner_name=p["name"], success=True))
+            success_count += 1
+        except Exception as e:
+            results.append(BatchProfileResult(partner_id=p["id"], partner_name=p["name"], success=False, error=str(e)))
+    
+    return BatchProfileResponse(
+        total=len(partner_ids),
+        success=success_count,
+        failed=len(partner_ids) - success_count,
+        results=results
+    )
