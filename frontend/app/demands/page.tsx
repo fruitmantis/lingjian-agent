@@ -154,21 +154,46 @@ export default function DemandsPage() {
                       </div>
                     </div>
                     {isExpanded && (
-                      <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--line)" }}>
+                      <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--line)" }}>
+                        <div style={{ padding: "14px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "12px" }}>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>原始需求</div>
+                          <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{p.requirementText}</div>
+                        </div>
                         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-                          <div style={{ flex: "1 1 200px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>原始需求</div><div style={{ fontSize: "13px", lineHeight: 1.6 }}>{p.requirementText}</div></div>
-                          <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>行业标签</div><TagsDisplay val={p.industryTags} /></div>
-                          <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>能力标签</div><TagsDisplay val={p.capabilityTags} /></div>
-                          <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>区域标签</div><TagsDisplay val={p.regionTags} /></div>
+                          <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#fff1f2", borderRadius: "8px", border: "1px solid #ffd0d4" }}>
+                            <div style={{ fontSize: "12px", color: "var(--brand-dark)", fontWeight: 600, marginBottom: "6px" }}>行业标签</div>
+                            <TagsDisplay val={p.industryTags} />
+                          </div>
+                          <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
+                            <div style={{ fontSize: "12px", color: "var(--success)", fontWeight: 600, marginBottom: "6px" }}>能力标签</div>
+                            <TagsDisplay val={p.capabilityTags} />
+                          </div>
+                          <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#f0f5ff", borderRadius: "8px", border: "1px solid #d6e4ff" }}>
+                            <div style={{ fontSize: "12px", color: "#1a4fa0", fontWeight: 600, marginBottom: "6px" }}>区域标签</div>
+                            <TagsDisplay val={p.regionTags} />
+                          </div>
                         </div>
-                        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "10px" }}>
-                          <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>交付类型</div><TagsDisplay val={p.deliveryTypeTags} /></div>
-                          <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>复杂度/紧急度</div><span style={{ fontSize: "13px" }}>{p.complexityLevel || "中"} / {p.urgencyLevel || "中"}</span></div>
-                          <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>推荐伙伴</div><span style={{ fontSize: "13px" }}>{p.topPartnerNames || "无"}</span></div>
+                        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
+                          <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#fafafa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>交付类型</div>
+                            <TagsDisplay val={p.deliveryTypeTags} />
+                          </div>
+                          <div style={{ flex: "1 1 120px", padding: "12px 14px", background: "#fafafa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>复杂度</div>
+                            <span style={{ fontSize: "13px", fontWeight: 500 }}>{p.complexityLevel || "中"}</span>
+                          </div>
+                          <div style={{ flex: "1 1 120px", padding: "12px 14px", background: "#fafafa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>紧急度</div>
+                            <span style={{ fontSize: "13px", fontWeight: 500 }}>{p.urgencyLevel || "中"}</span>
+                          </div>
+                          <div style={{ flex: "1 1 180px", padding: "12px 14px", background: "#fafafa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>推荐伙伴</div>
+                            <span style={{ fontSize: "13px", fontWeight: 500 }}>{p.topPartnerNames || "无"}</span>
+                          </div>
                         </div>
-                        <div style={{ marginTop: "10px", padding: "10px 14px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
-                          <div style={{ fontSize: "12px", color: "var(--danger)", fontWeight: 600, marginBottom: "4px" }}>缺口分析</div>
-                          <div style={{ fontSize: "13px", color: "#991b1b" }}>{p.gapAnalysis || "暂无分析"}</div>
+                        <div style={{ marginTop: "12px", padding: "14px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
+                          <div style={{ fontSize: "12px", color: "var(--danger)", fontWeight: 600, marginBottom: "6px" }}>缺口分析</div>
+                          <div style={{ fontSize: "14px", lineHeight: 1.6, color: "#991b1b" }}>{p.gapAnalysis || "暂无分析"}</div>
                         </div>
                       </div>
                     )}
