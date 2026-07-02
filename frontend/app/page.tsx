@@ -4,13 +4,16 @@ import { useState } from "react";
 import { HealthStatus } from "../components/health-status";
 
 type Recommendation = {
-  partner_id: string;
-  partner_name: string;
-  match_score: string;
-  recommendation_reason: string;
-  supporting_cases: string;
-  supporting_deliverables: string;
-  risk_or_gap_notes: string;
+  partnerId: string;
+  partnerName: string;
+  matchScore: number;
+  matchedCapabilities: string;
+  matchedIndustries: string;
+  matchedRegions: string;
+  recommendationReason: string;
+  evidenceCases: string;
+  evidenceDeliverables: string;
+  riskNotes: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -26,7 +29,7 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/match`, {
+      const res = await fetch(`${apiBaseUrl}/agent/match`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requirement }),
@@ -57,7 +60,7 @@ export default function HomePage() {
             <label htmlFor="requirement">项目需求</label>
             <textarea id="requirement" value={requirement} onChange={(e) => setRequirement(e.target.value)} required rows={4} placeholder="描述你的项目需求，如：需要一个有金融行业经验的Java全栈团队，负责银行核心系统重构" />
           </div>
-          <button type="submit" disabled={loading}>{loading ? "匹配中（可能需要数十秒）..." : "智能匹配"}</button>
+          <button type="submit" disabled={loading}>{loading ? "匹配中..." : "智能匹配"}</button>
         </form>
         {error && <p className="error-text">{error}</p>}
       </section>
@@ -65,22 +68,40 @@ export default function HomePage() {
       {recommendations.length > 0 && (
         <section className="card">
           <h2>推荐结果</h2>
-          <ul className="recommendation-list">
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "16px" }}>
             {recommendations.map((r, i) => (
-              <li key={i} className="recommendation-item">
+              <div key={i} className="case-item">
                 <div className="rec-header">
-                  <h3><a href={`/partners/${r.partner_id}`}>{r.partner_name}</a></h3>
-                  <span className="score-tag">匹配度: {r.match_score}</span>
+                  <h3><a href={`/partners/${r.partnerId}`}>{r.partnerName}</a></h3>
+                  <span className="score-tag">匹配度: {r.matchScore}</span>
                 </div>
-                <dl className="rec-detail">
-                  <dt>推荐理由</dt><dd>{r.recommendation_reason}</dd>
-                  <dt>支撑案例</dt><dd>{r.supporting_cases || "无"}</dd>
-                  <dt>支撑交付物</dt><dd>{r.supporting_deliverables || "无"}</dd>
-                  <dt>风险或缺口</dt><dd>{r.risk_or_gap_notes || "无"}</dd>
+                {r.matchedCapabilities && (
+                  <div style={{ marginTop: "8px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginRight: "8px" }}>匹配能力</span>
+                    <span style={{ fontSize: "13px" }}>{r.matchedCapabilities}</span>
+                  </div>
+                )}
+                {r.matchedIndustries && (
+                  <div style={{ marginTop: "6px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginRight: "8px" }}>匹配行业</span>
+                    <span style={{ fontSize: "13px" }}>{r.matchedIndustries}</span>
+                  </div>
+                )}
+                {r.matchedRegions && (
+                  <div style={{ marginTop: "6px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginRight: "8px" }}>匹配区域</span>
+                    <span style={{ fontSize: "13px" }}>{r.matchedRegions}</span>
+                  </div>
+                )}
+                <dl className="rec-detail" style={{ marginTop: "8px" }}>
+                  <dt>推荐理由</dt><dd>{r.recommendationReason}</dd>
+                  <dt>支撑案例</dt><dd>{r.evidenceCases || "无"}</dd>
+                  <dt>支撑交付物</dt><dd>{r.evidenceDeliverables || "无"}</dd>
+                  <dt>风险提示</dt><dd>{r.riskNotes || "无"}</dd>
                 </dl>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </section>
       )}
 

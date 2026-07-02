@@ -1,26 +1,15 @@
-"""Partner matching router using LLM."""
+"""Rule-based partner matching router."""
 
-import json
-
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from ..ai_client import chat_completion
 from ..database import get_db
 
 
-router = APIRouter(prefix="/match", tags=["match"])
+router = APIRouter(prefix="/agent", tags=["agent"])
 
 _P_COLS = "id, name, intro, capabilities, service_areas, industries, ai_profile, created_at"
 _CASE_COLS = "id, partner_id, title, description, created_at"
-
-
-def _to_str(val) -> str:
-    if val is None:
-        return ""
-    if isinstance(val, list):
-        return "; ".join(str(v) for v in val)
-    return str(val)
 
 
 class MatchRequest(BaseModel):
@@ -28,13 +17,16 @@ class MatchRequest(BaseModel):
 
 
 class PartnerRecommendation(BaseModel):
-    partner_id: str
-    partner_name: str
-    match_score: str
-    recommendation_reason: str
-    supporting_cases: str
-    supporting_deliverables: str
-    risk_or_gap_notes: str
+    partnerId: str
+    partnerName: str
+    matchScore: int
+    matchedCapabilities: str
+    matchedIndustries: str
+    matchedRegions: str
+    recommendationReason: str
+    evidenceCases: str
+    evidenceDeliverables: str
+    riskNotes: str
 
 
 class MatchResponse(BaseModel):
@@ -42,48 +34,121 @@ class MatchResponse(BaseModel):
     recommendations: list[PartnerRecommendation]
 
 
-@router.post("", response_model=MatchResponse)
+def _split_tags(val: str | None) -> list[str]:
+    if not val:
+        return []
+    return [t.strip() for t in val.replace("，", ",").split(",") if t.strip()]
+
+
+def _keyword_match(requirement_lower: str, tags: list[str]) -> list[str]:
+    """Return tags that appear in the requirement text."""
+    matched = []
+    for tag in tags:
+        if tag and tag.lower() in requirement_lower:
+            matched.append(tag)
+    return matched
+
+
+@router.post("/match", response_model=MatchResponse)
 def match_partners(req: MatchRequest) -> MatchResponse:
+    requirement_lower = req.requirement.lower()
+
     with get_db() as conn:
         partners = conn.execute(f"SELECT {_P_COLS} FROM partners").fetchall()
         if not partners:
             return MatchResponse(requirement=req.requirement, recommendations=[])
-        partner_cases: dict[str, list] = {}
+
+        results: list[PartnerRecommendation] = []
         for p in partners:
-            cases = conn.execute(f"SELECT {_CASE_COLS} FROM cases WHERE partner_id = ?", (p["id"],)).fetchall()
-            partner_cases[p["id"]] = [dict(c) for c in cases]
+            pd = dict(p)
+            pid = pd["id"]
 
-    partner_summaries = []
-    for p in partners:
-        pd = dict(p)
-        cases = partner_cases.get(pd["id"], [])
-        case_text = "; ".join(f"{c['title']}({c.get('description') or ''})" for c in cases) or "无案例"
-        summary = f"[伙伴ID: {pd['id']}] 名称: {pd['name']}, 简介: {pd.get('intro') or '未提供'}, 能力: {pd.get('capabilities') or '未提供'}, 服务区域: {pd.get('service_areas') or '未提供'}, 行业: {pd.get('industries') or '未提供'}, 案例: {case_text}, AI画像: {pd.get('ai_profile') or '未生成'}"
-        partner_summaries.append(summary)
+            # Get case count and deliverable count
+            case_count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM cases WHERE partner_id = ?", (pid,)
+            ).fetchone()["cnt"]
+            deliverable_count = conn.execute(
+                "SELECT COUNT(*) as cnt FROM deliverables WHERE case_id IN (SELECT id FROM cases WHERE partner_id = ?)",
+                (pid,),
+            ).fetchone()["cnt"]
 
-    context = "\n".join(partner_summaries)
-    messages = [
-        {"role": "system", "content": "你是交付伙伴匹配专家。根据用户的项目需求，从候选伙伴中推荐最合适的伙伴。请对每个伙伴给出以下信息，严格基于已有资料，不要编造：1. match_score 2. recommendation_reason 3. supporting_cases 4. supporting_deliverables 5. risk_or_gap_notes。以JSON数组格式返回，每个元素含 partner_id, partner_name, match_score, recommendation_reason, supporting_cases, supporting_deliverables, risk_or_gap_notes。所有值必须是字符串。只返回JSON。"},
-        {"role": "user", "content": f"项目需求: {req.requirement}\n\n候选伙伴:\n{context}"},
-    ]
+            # Get case titles for evidence
+            cases = conn.execute(
+                f"SELECT {_CASE_COLS} FROM cases WHERE partner_id = ?", (pid,)
+            ).fetchall()
+            case_titles = [c["title"] for c in cases]
 
-    try:
-        raw = chat_completion(messages, timeout=90)
-    except Exception as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 调用失败: {e}")
+            # Parse tags
+            cap_tags = _split_tags(pd.get("capabilities"))
+            ind_tags = _split_tags(pd.get("industries"))
+            area_tags = _split_tags(pd.get("service_areas"))
 
-    try:
-        clean = raw.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
-        if clean.endswith("```"):
-            clean = clean[:-3]
-        clean = clean.strip()
-        if clean.startswith("json"):
-            clean = clean[4:].strip()
-        items = json.loads(clean)
-        recs = [PartnerRecommendation(partner_id=str(item.get("partner_id","")), partner_name=str(item.get("partner_name","")), match_score=_to_str(item.get("match_score","")), recommendation_reason=_to_str(item.get("recommendation_reason","")), supporting_cases=_to_str(item.get("supporting_cases","")), supporting_deliverables=_to_str(item.get("supporting_deliverables","")), risk_or_gap_notes=_to_str(item.get("risk_or_gap_notes",""))) for item in items]
-    except (json.JSONDecodeError, KeyError) as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 返回解析失败: {e}, 原始内容: {raw[:500]}")
+            # Keyword matching
+            matched_caps = _keyword_match(requirement_lower, cap_tags)
+            matched_inds = _keyword_match(requirement_lower, ind_tags)
+            matched_areas = _keyword_match(requirement_lower, area_tags)
 
-    return MatchResponse(requirement=req.requirement, recommendations=recs)
+            has_ai_profile = bool(pd.get("ai_profile"))
+
+            # Scoring (0-100)
+            # Tag matching: 40% (capabilities 20%, industries 10%, regions 10%)
+            cap_score = min(20, len(matched_caps) * 10)
+            ind_score = min(10, len(matched_inds) * 5)
+            area_score = min(10, len(matched_areas) * 5)
+
+            # Case count: 20% (up to 20 points)
+            case_score = min(20, case_count * 5)
+
+            # Deliverable count: 15%
+            deliv_score = min(15, deliverable_count * 3)
+
+            # AI profile: 15%
+            ai_score = 15 if has_ai_profile else 0
+
+            total = cap_score + ind_score + area_score + case_score + deliv_score + ai_score
+
+            # Build reason
+            reason_parts = []
+            if matched_caps:
+                reason_parts.append(f"能力匹配({', '.join(matched_caps)})")
+            if matched_inds:
+                reason_parts.append(f"行业匹配({', '.join(matched_inds)})")
+            if matched_areas:
+                reason_parts.append(f"区域匹配({', '.join(matched_areas)})")
+            if case_count > 0:
+                reason_parts.append(f"有{case_count}个案例")
+            if deliverable_count > 0:
+                reason_parts.append(f"有{deliverable_count}个交付物")
+            if has_ai_profile:
+                reason_parts.append("AI画像已生成")
+            if not reason_parts:
+                reason_parts.append("无直接匹配项")
+
+            # Risk notes
+            risks = []
+            if not has_ai_profile:
+                risks.append("AI画像未生成")
+            if case_count == 0:
+                risks.append("无案例数据")
+            if deliverable_count == 0:
+                risks.append("无交付物")
+            if not matched_caps and cap_tags:
+                risks.append("能力标签未匹配需求")
+            risk_text = "；".join(risks) if risks else "暂无明显风险"
+
+            results.append(PartnerRecommendation(
+                partnerId=pid,
+                partnerName=pd["name"],
+                matchScore=total,
+                matchedCapabilities=", ".join(matched_caps) if matched_caps else "",
+                matchedIndustries=", ".join(matched_inds) if matched_inds else "",
+                matchedRegions=", ".join(matched_areas) if matched_areas else "",
+                recommendationReason="；".join(reason_parts),
+                evidenceCases=", ".join(case_titles) if case_titles else "",
+                evidenceDeliverables=f"{deliverable_count}个交付物" if deliverable_count else "",
+                riskNotes=risk_text,
+            ))
+
+    # Sort by score descending
+    results.sort(key=lambda x: x.matchScore, reverse=True)
+    return MatchResponse(requirement=req.requirement, recommendations=results)
