@@ -20,25 +20,63 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:800
 
 const LOADING_STAGES = [
   "正在理解项目需求...",
-  "正在检索伙伴画像...",
-  "正在分析匹配关系...",
-  "正在生成推荐理由...",
+  "正在分析伙伴画像...",
+  "正在匹配交付能力...",
+  "正在生成推荐依据...",
 ];
 
-function getRecommendLevel(score: string): { label: string; color: string } {
+function getRecommendLevel(score: string): { label: string; color: string; bg: string } {
   const num = parseInt(score) || 0;
-  if (num >= 80) return { label: "强烈推荐", color: "var(--brand)" };
-  if (num >= 60) return { label: "推荐", color: "#e8a317" };
-  if (num >= 30) return { label: "可考虑", color: "var(--muted)" };
-  return { label: "不推荐", color: "var(--danger)" };
+  if (num >= 80) return { label: "强推荐", color: "var(--brand)", bg: "#fff1f2" };
+  if (num >= 50) return { label: "可考虑", color: "#e8a317", bg: "#fffbeb" };
+  if (num >= 20) return { label: "备选", color: "var(--muted)", bg: "#f8f9fa" };
+  return { label: "不推荐", color: "var(--danger)", bg: "#fef2f2" };
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  if (!value) return null;
+function parseTags(val: string): string[] {
+  if (!val) return [];
+  return val.split(/[,，]/).map(t => t.trim()).filter(Boolean);
+}
+
+function copyToClipboard(text: string) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+  } else {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+}
+
+function buildCopyText(req: string, r: Recommendation, rank: number): string {
+  const level = getRecommendLevel(r.matchScore);
+  const lines = [
+    `【推荐排名】第${rank}名`,
+    `【伙伴名称】${r.partnerName}`,
+    `【匹配度】${r.matchScore}`,
+    `【推荐等级】${level.label}`,
+    `【推荐理由】${r.recommendationReason || "暂无"}`,
+    `【命中能力】${r.matchedCapabilities || "无"}`,
+    `【命中行业】${r.matchedIndustries || "无"}`,
+    `【命中区域】${r.matchedRegions || "无"}`,
+    `【支撑案例】${r.evidenceCases || "暂无支撑案例"}`,
+    `【支撑交付物】${r.evidenceDeliverables || "暂无交付物证据"}`,
+    `【风险/缺口】${r.riskNotes || "暂无"}`,
+    `【项目需求】${req}`,
+  ];
+  return lines.join("\n");
+}
+
+function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; bg: string; border: string }) {
+  if (tags.length === 0) return <span style={{ fontSize: "13px", color: "var(--muted)" }}>无</span>;
   return (
-    <div style={{ display: "flex", gap: "8px", marginTop: "6px" }}>
-      <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, minWidth: "70px", flexShrink: 0 }}>{label}</span>
-      <span style={{ fontSize: "13px", lineHeight: 1.6 }}>{value}</span>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+      {tags.map((tag, i) => (
+        <span key={i} style={{ display: "inline-block", padding: "4px 10px", fontSize: "13px", borderRadius: "6px", background: bg, color, border: `1px solid ${border}`, fontWeight: 500 }}>{tag}</span>
+      ))}
     </div>
   );
 }
@@ -50,6 +88,7 @@ export default function HomePage() {
   const [loadingStage, setLoadingStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [copiedRank, setCopiedRank] = useState<number | null>(null);
   const stageTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -63,8 +102,8 @@ export default function HomePage() {
     setHasSearched(true);
     setRecommendations([]);
     setLoadingStage(0);
+    setCopiedRank(null);
 
-    // Rotate loading stages every 4 seconds
     stageTimer.current = setInterval(() => {
       setLoadingStage(prev => Math.min(prev + 1, LOADING_STAGES.length - 1));
     }, 4000);
@@ -87,6 +126,13 @@ export default function HomePage() {
       if (stageTimer.current) { clearInterval(stageTimer.current); stageTimer.current = null; }
       setLoading(false);
     }
+  }
+
+  function handleCopy(rank: number, r: Recommendation) {
+    const text = buildCopyText(requirement, r, rank);
+    copyToClipboard(text);
+    setCopiedRank(rank);
+    setTimeout(() => setCopiedRank(null), 2000);
   }
 
   const top3 = recommendations.slice(0, 3);
@@ -156,40 +202,83 @@ export default function HomePage() {
 
           {/* Top 3 recommendations */}
           <section className="card">
-            <h2>推荐伙伴 Top {top3.length}</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "16px" }}>
+            <h2>推荐结果详情</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginTop: "16px" }}>
               {top3.map((r, i) => {
                 const level = getRecommendLevel(r.matchScore);
+                const capTags = parseTags(r.matchedCapabilities);
+                const indTags = parseTags(r.matchedIndustries);
+                const areaTags = parseTags(r.matchedRegions);
+                const rank = i + 1;
                 return (
-                  <div key={i} className="case-item" style={{ position: "relative" }}>
+                  <div key={i} className="case-item" style={{ position: "relative", padding: "24px" }}>
                     {/* Rank badge */}
                     <div style={{
-                      position: "absolute", top: "-8px", left: "16px",
-                      width: "28px", height: "28px", borderRadius: "50%",
+                      position: "absolute", top: "-10px", left: "20px",
+                      width: "32px", height: "32px", borderRadius: "50%",
                       background: i === 0 ? "var(--brand)" : i === 1 ? "#e8a317" : "var(--muted)",
-                      color: "white", fontSize: "14px", fontWeight: 700,
+                      color: "white", fontSize: "16px", fontWeight: 700,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>{i + 1}</div>
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    }}>{rank}</div>
 
-                    <div style={{ marginTop: "8px" }}>
+                    <div style={{ marginTop: "12px" }}>
+                      {/* Header: name + level + score + copy */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-                        <h3><a href={`/partners/${r.partnerId}`}>{r.partnerName}</a></h3>
-                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                          <h3 style={{ margin: 0 }}><a href={`/partners/${r.partnerId}`}>{r.partnerName}</a></h3>
                           <span style={{
-                            padding: "3px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600,
-                            background: `${level.color}15`, color: level.color, border: `1px solid ${level.color}40`,
+                            padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600,
+                            background: level.bg, color: level.color, border: `1px solid ${level.color}40`,
                           }}>{level.label}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                           <span className="score-tag">匹配度: {r.matchScore}</span>
+                          <button onClick={() => handleCopy(rank, r)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>
+                            {copiedRank === rank ? "已复制 ✓" : "复制推荐说明"}
+                          </button>
                         </div>
                       </div>
 
-                      <InfoRow label="推荐理由" value={r.recommendationReason} />
-                      <InfoRow label="命中能力" value={r.matchedCapabilities} />
-                      <InfoRow label="命中行业" value={r.matchedIndustries} />
-                      <InfoRow label="命中区域" value={r.matchedRegions} />
-                      <InfoRow label="支撑案例" value={r.evidenceCases} />
-                      <InfoRow label="支撑交付物" value={r.evidenceDeliverables} />
-                      <InfoRow label="风险提示" value={r.riskNotes} />
+                      {/* Recommendation reason */}
+                      <div style={{ marginTop: "12px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                        <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>推荐理由</div>
+                        <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{r.recommendationReason || "暂无推荐理由"}</div>
+                      </div>
+
+                      {/* Matched tags */}
+                      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
+                        <div style={{ flex: "1 1 180px" }}>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>命中能力标签</div>
+                          <TagPills tags={capTags} color="var(--brand-dark)" bg="#fff1f2" border="#ffd0d4" />
+                        </div>
+                        <div style={{ flex: "1 1 180px" }}>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>命中行业经验</div>
+                          <TagPills tags={indTags} color="var(--success)" bg="#f0fdf4" border="#bbf7d0" />
+                        </div>
+                        <div style={{ flex: "1 1 180px" }}>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>命中覆盖区域</div>
+                          <TagPills tags={areaTags} color="#1a4fa0" bg="#f0f5ff" border="#d6e4ff" />
+                        </div>
+                      </div>
+
+                      {/* Evidence */}
+                      <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
+                        <div style={{ flex: "1 1 200px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>支撑案例</div>
+                          <div style={{ fontSize: "13px", lineHeight: 1.6 }}>{r.evidenceCases || "暂无支撑案例"}</div>
+                        </div>
+                        <div style={{ flex: "1 1 200px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>支撑交付物</div>
+                          <div style={{ fontSize: "13px", lineHeight: 1.6 }}>{r.evidenceDeliverables || "暂无交付物证据"}</div>
+                        </div>
+                      </div>
+
+                      {/* Risk notes */}
+                      <div style={{ marginTop: "12px", padding: "12px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
+                        <div style={{ fontSize: "12px", color: "var(--danger)", fontWeight: 600, marginBottom: "4px" }}>风险/缺口提示</div>
+                        <div style={{ fontSize: "13px", lineHeight: 1.6, color: "#991b1b" }}>{r.riskNotes || "暂无风险提示"}</div>
+                      </div>
                     </div>
                   </div>
                 );
