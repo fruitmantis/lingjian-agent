@@ -163,7 +163,7 @@ export default function PartnersPage() {
       <section className="card">
         <h2>伙伴列表</h2>
         <div style={{ display: "flex", gap: "12px", alignItems: "center", marginBottom: "12px" }}>
-          <button onClick={loadPartners} disabled={loading} className="secondary-btn">刷新列表</button>
+          <button onClick={loadPartners} disabled={loading || batchGenerating} className="secondary-btn">刷新列表</button>
           <button onClick={handleBatchGenerate} disabled={batchGenerating || loading} style={{ fontSize: "13px", padding: "8px 16px", background: "var(--brand)", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: 600 }}>{batchGenerating ? "批量生成中..." : "一键重新生成 AI 画像"}</button>
           {batchResult && <span style={{ fontSize: "13px", color: "var(--success)" }}>{batchResult}</span>}
         </div>
@@ -192,7 +192,7 @@ export default function PartnersPage() {
                   )}
                   <div style={{ display: "flex", gap: "12px", marginTop: "8px" }}>
                     <label className="upload-btn">{uploadingPartnerId === p.id ? "上传中..." : "上传文档"}<input type="file" hidden accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" disabled={uploadingPartnerId === p.id} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadDoc(p.id, f); e.target.value = ""; }} /></label>
-                    <button onClick={() => handleGenerateProfile(p.id)} disabled={generatingId === p.id} className="secondary-btn" style={{ fontSize: "13px" }}>{generatingId === p.id ? "生成中..." : "生成 AI 画像"}</button>
+                    <button onClick={() => handleGenerateProfile(p.id)} disabled={generatingId === p.id || batchGenerating} className="secondary-btn" style={{ fontSize: "13px" }}>{generatingId === p.id ? "生成中..." : "生成 AI 画像"}</button>
                   </div>
                 </div>
 
