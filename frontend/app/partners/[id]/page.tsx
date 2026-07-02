@@ -76,8 +76,8 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
 
   return (
     <main className="page">
-      <div style={{ marginBottom: "16px" }}>
-        <a href="/profiles" className="secondary-btn" style={{ fontSize: "13px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>← 返回伙伴画像</a>
+      <div style={{ marginBottom: "20px" }}>
+        <a href="/profiles" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "10px 20px", fontSize: "14px", fontWeight: 600, color: "var(--brand)", background: "white", border: "1px solid var(--brand)", borderRadius: "8px", textDecoration: "none", transition: "all 0.2s" }}>← 返回伙伴画像</a>
       </div>
       <p className="eyebrow">Partner Profile</p>
       <h1>伙伴画像详情</h1>
