@@ -233,9 +233,14 @@ def _generate_demand_profile(match_record_id: str, requirement: str, recs: list[
     gap_analysis = ""
     llm_supply_status = supply_status
 
+    # Get enabled standard capability tags for LLM constraint
+    with get_db() as conn:
+        std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
+    std_tags_str = ", ".join(std_tags) if std_tags else "无标准标签"
+
     try:
         llm_messages = [
-            {"role": "system", "content": "你是项目需求分析专家。根据项目需求文本，提取结构化标签。返回JSON含：industryTags(行业,逗号分隔), capabilityTags(能力,逗号分隔), deliveryTypeTags(交付类型如全栈/运维/咨询,逗号分隔), regionTags(区域,逗号分隔), complexityLevel(高/中/低), urgencyLevel(高/中/低), projectKeywords(关键词,逗号分隔), supplyStatus(sufficient/partial/gap), gapAnalysis(缺口分析一句话)。只返回JSON。"},
+            {"role": "system", "content": f"你是项目需求分析专家。根据项目需求文本，提取结构化标签。返回JSON含：industryTags(行业,逗号分隔), capabilityTags(能力标签，只能从以下标准标签中选择：[{std_tags_str}]，选择匹配的，逗号分隔，不允许创造新标签，无匹配则返回空字符串), deliveryTypeTags(交付类型如全栈/运维/咨询,逗号分隔), regionTags(区域,逗号分隔), complexityLevel(高/中/低), urgencyLevel(高/中/低), projectKeywords(关键词,逗号分隔), supplyStatus(sufficient/partial/gap), gapAnalysis(缺口分析一句话)。只返回JSON。"},
             {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴数: {partner_count}\n推荐伙伴: {top_names}"},
         ]
         raw = chat_completion(llm_messages, timeout=30)
@@ -247,6 +252,10 @@ def _generate_demand_profile(match_record_id: str, requirement: str, recs: list[
         data = json.loads(clean)
         industry_tags = data.get("industryTags", "")
         capability_tags = data.get("capabilityTags", "")
+        # Post-filter: only keep tags that exist in standard dictionary
+        if capability_tags and std_tags:
+            cap_list = [t.strip() for t in capability_tags.split(",") if t.strip()]
+            capability_tags = ", ".join(t for t in cap_list if t in std_tags)
         delivery_type_tags = data.get("deliveryTypeTags", "")
         region_tags = data.get("regionTags", "")
         complexity_level = data.get("complexityLevel", "中")
@@ -262,6 +271,7 @@ def _generate_demand_profile(match_record_id: str, requirement: str, recs: list[
                 keywords.append(kw)
         project_keywords = ", ".join(keywords) if keywords else "未提取到关键词"
         gap_analysis = f"推荐伙伴{partner_count}个，{'供给不足' if partner_count <= 2 else '供给充足'}"
+        capability_tags = ""
 
     profile_id = str(uuid.uuid4())
     with get_db() as conn:
