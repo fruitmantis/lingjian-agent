@@ -135,24 +135,41 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
       <section className="card">
         <h2>资料与案例管理</h2>
 
-        {/* 分区1: 伙伴文档 */}
+        {/* 分区1: 伙伴基础资料 */}
         <div style={{ marginTop: "16px", paddingBottom: "20px", borderBottom: "1px solid var(--line)" }}>
-          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>伙伴文档资料</h3>
+          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>伙伴基础资料</h3>
           <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "10px" }}>支持上传 PPT、DOC、EXCEL、PDF 文件，系统自动提取文本用于 AI 画像分析。</p>
           <label className="upload-btn" style={{ display: "inline-block" }}>{uploadingDoc ? "上传中..." : "上传文档"}<input type="file" hidden accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" disabled={uploadingDoc} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadDoc(f); e.target.value = ""; }} /></label>
           {docs.length > 0 ? (<ul className="deliverable-list" style={{ marginTop: "12px" }}>{docs.map((d) => (<li key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{d.filename} <span className="partner-tag">{d.file_type}</span></span><button onClick={() => handleDeleteDoc(d.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>删除</button></li>))}</ul>) : <p className="placeholder-text" style={{ marginTop: "8px" }}>暂无文档。</p>}
         </div>
 
-        {/* 分区2: 新增案例 */}
+        {/* 分区2: 项目案例 */}
         <div style={{ marginTop: "20px", paddingBottom: "20px", borderBottom: "1px solid var(--line)" }}>
-          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>新增案例</h3>
+          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>项目案例</h3>
           <form onSubmit={handleCreateCase} className="partner-form" style={{ marginTop: "8px" }}><div className="form-row"><label htmlFor="caseTitle">案例标题</label><input id="caseTitle" type="text" value={caseTitle} onChange={(e) => setCaseTitle(e.target.value)} required maxLength={300} placeholder="案例标题" /></div><div className="form-row"><label htmlFor="caseDesc">案例描述</label><textarea id="caseDesc" value={caseDesc} onChange={(e) => setCaseDesc(e.target.value)} placeholder="选填" rows={3} /></div><button type="submit" disabled={submitting}>{submitting ? "提交中..." : "新增案例"}</button></form>
+          {cases.length > 0 && (
+            <ul className="deliverable-list" style={{ marginTop: "12px" }}>{cases.map((c) => (<li key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{c.title}{c.description && <span className="partner-tag" style={{ marginLeft: "8px" }}>{c.description}</span>}</span><span className="meta-text">{c.created_at.slice(0, 10)}</span></li>))}</ul>
+          )}
         </div>
 
-        {/* 分区3: 案例与交付物 */}
+        {/* 分区3: 项目交付物 */}
         <div style={{ marginTop: "20px" }}>
-          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>案例与交付物</h3>
-          {cases.length === 0 ? <p className="placeholder-text">暂无案例。</p> : (<ul className="case-list" style={{ marginTop: "8px" }}>{cases.map((c) => (<li key={c.id} className="case-item"><h3 style={{ fontSize: "14px" }}>{c.title}</h3>{c.description && <p style={{ fontSize: "13px" }}>{c.description}</p>}<p className="meta-text">创建时间：{c.created_at}</p><div className="deliverable-section"><h4>交付物</h4>{(deliverablesMap[c.id] || []).length === 0 ? <p className="placeholder-text">暂无交付物。</p> : <ul className="deliverable-list">{(deliverablesMap[c.id] || []).map((d) => <li key={d.id}>{d.filename}</li>)}</ul>}<label className="upload-btn">{uploadingCaseId === c.id ? "上传中..." : "上传交付物"}<input type="file" hidden disabled={uploadingCaseId === c.id} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadDeliverable(c.id, f); e.target.value = ""; }} /></label></div></li>))}</ul>)}
+          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>项目交付物</h3>
+          {cases.length === 0 ? <p className="placeholder-text">请先新增项目案例。</p> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}>
+              {cases.map((c) => (
+                <div key={c.id} style={{ padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                    <span style={{ fontSize: "14px", fontWeight: 600 }}>{c.title}</span>
+                    <label className="upload-btn" style={{ fontSize: "12px", padding: "4px 10px" }}>{uploadingCaseId === c.id ? "上传中..." : "上传交付物"}<input type="file" hidden disabled={uploadingCaseId === c.id} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadDeliverable(c.id, f); e.target.value = ""; }} /></label>
+                  </div>
+                  {(deliverablesMap[c.id] || []).length === 0 ? <p className="placeholder-text" style={{ fontSize: "12px" }}>暂无交付物。</p> : (
+                    <ul className="deliverable-list">{(deliverablesMap[c.id] || []).map((d) => (<li key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{d.filename}</span><span className="meta-text">{d.created_at.slice(0, 10)}</span></li>))}</ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
