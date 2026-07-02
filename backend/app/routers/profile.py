@@ -38,9 +38,11 @@ def generate_profile(partner_id: str) -> ProfileOut:
         else: parts.append("上传文档: 有文档但未提取到文本内容")
     else: parts.append("上传文档: 暂无")
     context = "\n".join(parts)
-    # Extract structured fields
     try:
-        struct_raw = chat_completion([{"role": "system", "content": "提取结构化信息，返回JSON含capabilities(能力,逗号分隔),service_areas(覆盖区域,逗号分隔),industries(行业经验,逗号分隔)。只返回JSON。"}, {"role": "user", "content": context}], timeout=60)
+        struct_raw = chat_completion([
+            {"role": "system", "content": "根据资料提取结构化标签。返回JSON含三个字段：capabilities(能力标签，3-4个，每个不超过10字，逗号分隔)，service_areas(覆盖区域，3-4个，每个不超过10字，逗号分隔)，industries(行业经验，3-4个，每个不超过10字，逗号分隔)。标签要简洁精炼。只返回JSON。"},
+            {"role": "user", "content": context}
+        ], timeout=60)
         clean = struct_raw.strip()
         if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
         if clean.endswith("```"): clean = clean[:-3]
@@ -52,9 +54,11 @@ def generate_profile(partner_id: str) -> ProfileOut:
         industries = sd.get("industries", "")
     except Exception:
         capabilities = None; service_areas = None; industries = None
-    # Generate profile text
     try:
-        ai_profile = chat_completion([{"role": "system", "content": "你是交付伙伴能力分析专家。根据资料和文档生成能力画像摘要：优势领域、核心技术能力、行业经验总结、交付能力评估、潜在风险或缺口。用中文分点描述，不编造，证据不足时说明。"}, {"role": "user", "content": context}], timeout=90)
+        ai_profile = chat_completion([
+            {"role": "system", "content": "你是交付伙伴能力分析专家。根据资料和文档生成能力画像摘要：优势领域、核心技术能力、行业经验总结、交付能力评估、潜在风险或缺口。用中文分点描述，不编造，证据不足时说明。"},
+            {"role": "user", "content": context}
+        ], timeout=90)
     except Exception as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 调用失败: {e}")
     with get_db() as conn:
