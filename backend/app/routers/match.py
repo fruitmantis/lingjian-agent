@@ -141,4 +141,11 @@ def match_partners(req: MatchRequest) -> MatchResponse:
     except (json.JSONDecodeError, KeyError) as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 返回解析失败: {e}, 原始内容: {raw[:500]}")
 
+    # Sort by matchScore descending (handle string scores)
+    def _score_key(r: PartnerRecommendation) -> int:
+        try:
+            return int(r.matchScore)
+        except (ValueError, TypeError):
+            return 0
+    recs.sort(key=_score_key, reverse=True)
     return MatchResponse(requirement=req.requirement, recommendations=recs)
