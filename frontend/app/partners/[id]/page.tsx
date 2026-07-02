@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { use } from "react";
 
 type Partner = { id: string; name: string; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; created_at: string; };
-type Case = { id: string; partner_id: string; title: string; description: string | null; created_at: string; };
-type Deliverable = { id: string; case_id: string; filename: string; file_path: string; created_at: string; };
 type PartnerDoc = { id: string; partner_id: string; filename: string; file_type: string; doc_category: string | null; extracted_text: string | null; created_at: string; };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -18,60 +16,102 @@ function authHeaders(): Record<string, string> {
 export default function PartnerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [partner, setPartner] = useState<Partner | null>(null);
-  const [cases, setCases] = useState<Case[]>([]);
   const [docs, setDocs] = useState<PartnerDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [caseTitle, setCaseTitle] = useState("");
-  const [caseDesc, setCaseDesc] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [deliverablesMap, setDeliverablesMap] = useState<Record<string, Deliverable[]>>({});
-  const [uploadingCaseId, setUploadingCaseId] = useState<string | null>(null);
   const [generatingProfile, setGeneratingProfile] = useState(false);
-  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<PartnerDoc | null>(null);
+  const [previewContent, setPreviewContent] = useState<string>("加载中...");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const docxContainerRef = useRef<HTMLDivElement>(null);
+  const xlsxContainerRef = useRef<HTMLDivElement>(null);
 
   async function loadPartner() {
     setLoading(true); setError(null);
     try {
-      const [pRes, cRes, dRes] = await Promise.all([fetch(`${apiBaseUrl}/partners/${id}`, { cache: "no-store", headers: authHeaders() }), fetch(`${apiBaseUrl}/cases/by-partner/${id}`, { cache: "no-store", headers: authHeaders() }), fetch(`${apiBaseUrl}/partners/${id}/documents`, { cache: "no-store", headers: authHeaders() })]);
+      const [pRes, dRes] = await Promise.all([
+        fetch(`${apiBaseUrl}/partners/${id}`, { cache: "no-store", headers: authHeaders() }),
+        fetch(`${apiBaseUrl}/partners/${id}/documents`, { cache: "no-store", headers: authHeaders() })
+      ]);
       if (!pRes.ok) throw new Error(`Partner HTTP ${pRes.status}`);
-      if (!cRes.ok) throw new Error(`Cases HTTP ${cRes.status}`);
       if (!dRes.ok) throw new Error(`Docs HTTP ${dRes.status}`);
       setPartner(await pRes.json());
-      const caseList: Case[] = await cRes.json();
-      setCases(caseList);
       setDocs(await dRes.json());
-      const dMap: Record<string, Deliverable[]> = {};
-      await Promise.all(caseList.map(async (c) => { const dr = await fetch(`${apiBaseUrl}/cases/${c.id}/deliverables`, { cache: "no-store", headers: authHeaders() }); if (dr.ok) dMap[c.id] = await dr.json(); }));
-      setDeliverablesMap(dMap);
     } catch (e) { setError(e instanceof Error ? e.message : "加载失败"); } finally { setLoading(false); }
   }
 
   useEffect(() => { loadPartner(); }, [id]);
 
-  async function handleCreateCase(e: React.FormEvent) {
-    e.preventDefault(); setSubmitting(true); setError(null);
-    try { const res = await fetch(`${apiBaseUrl}/cases`, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify({ partner_id: id, title: caseTitle, description: caseDesc || null }) }); if (!res.ok) throw new Error(`HTTP ${res.status}`); setCaseTitle(""); setCaseDesc(""); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "新增案例失败"); } finally { setSubmitting(false); }
-  }
-
-  async function handleUploadDeliverable(caseId: string, file: File) {
-    setUploadingCaseId(caseId); setError(null);
-    try { const fd = new FormData(); fd.append("file", file); const res = await fetch(`${apiBaseUrl}/cases/${caseId}/deliverables`, { method: "POST", headers: authHeaders(), body: fd }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "上传失败"); } finally { setUploadingCaseId(null); }
-  }
-
-  async function handleUploadDoc(file: File) {
-    setUploadingDoc(true); setError(null);
-    try { const fd = new FormData(); fd.append("file", file); const res = await fetch(`${apiBaseUrl}/partners/${id}/documents`, { method: "POST", headers: authHeaders(), body: fd }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "文档上传失败"); } finally { setUploadingDoc(false); }
-  }
-
-  async function handleDeleteDoc(docId: string) {
-    if (!confirm("确定删除该文档？")) return;
-    try { const res = await fetch(`${apiBaseUrl}/partners/${id}/documents/${docId}`, { method: "DELETE", headers: authHeaders() }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
-  }
-
   async function handleGenerateProfile() {
     setGeneratingProfile(true); setError(null);
-    try { const res = await fetch(`${apiBaseUrl}/partners/${id}/profile`, { method: "POST", headers: authHeaders() }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "生成画像失败"); } finally { setGeneratingProfile(false); }
+    try {
+      const res = await fetch(`${apiBaseUrl}/partners/${id}/profile`, { method: "POST", headers: authHeaders() });
+      if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); }
+      await loadPartner();
+    } catch (e) { setError(e instanceof Error ? e.message : "生成画像失败"); } finally { setGeneratingProfile(false); }
+  }
+
+  async function handlePreview(doc: PartnerDoc) {
+    setPreviewDoc(doc);
+    setPreviewLoading(true);
+    setPreviewContent("");
+    try {
+      const fileRes = await fetch(`${apiBaseUrl}/partners/${id}/documents/${doc.id}/file`, { headers: authHeaders() });
+      if (!fileRes.ok) throw new Error(`HTTP ${fileRes.status}`);
+      const blob = await fileRes.blob();
+
+      if (doc.file_type === "pdf") {
+        const url = URL.createObjectURL(blob);
+        setPreviewContent(url);
+      } else if (doc.file_type === "docx") {
+        const arrayBuffer = await blob.arrayBuffer();
+        setPreviewContent("__docx__");
+        setTimeout(async () => {
+          const { renderAsync } = await import("docx-preview");
+          if (docxContainerRef.current) {
+            docxContainerRef.current.innerHTML = "";
+            await renderAsync(arrayBuffer, docxContainerRef.current);
+          }
+          setPreviewLoading(false);
+        }, 100);
+        return;
+      } else if (doc.file_type === "xlsx") {
+        const arrayBuffer = await blob.arrayBuffer();
+        setPreviewContent("__xlsx__");
+        setTimeout(async () => {
+          const XLSX = await import("xlsx");
+          const wb = XLSX.read(arrayBuffer, { type: "array" });
+          if (xlsxContainerRef.current) {
+            xlsxContainerRef.current.innerHTML = "";
+            wb.SheetNames.forEach((sheetName) => {
+              const ws = wb.Sheets[sheetName];
+              const html = XLSX.utils.sheet_to_html(ws, { editable: false });
+              const wrapper = document.createElement("div");
+              wrapper.innerHTML = `<h4 style="margin:8px 0 4px;font-size:14px">${sheetName}</h4>${html}`;
+              wrapper.querySelector("table")?.setAttribute("style", "border-collapse:collapse;width:100%;font-size:12px");
+              xlsxContainerRef.current!.appendChild(wrapper);
+            });
+          }
+          setPreviewLoading(false);
+        }, 100);
+        return;
+      } else if (doc.file_type === "pptx") {
+        setPreviewContent("__pptx_download__");
+      } else {
+        if (doc.extracted_text) {
+          setPreviewContent(doc.extracted_text);
+        } else {
+          const text = await blob.text();
+          setPreviewContent(text || "无法预览此文件内容");
+        }
+      }
+    } catch (e) {
+      setPreviewContent("预览加载失败: " + (e instanceof Error ? e.message : "未知错误"));
+    } finally {
+      if (doc.file_type !== "docx" && doc.file_type !== "xlsx") {
+        setPreviewLoading(false);
+      }
+    }
   }
 
   return (
@@ -135,50 +175,52 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
         )}
       </section>
 
+      {/* 伙伴资料预览 */}
       <section className="card">
-        <h2>资料与案例管理</h2>
-
-        {/* 分区1: 伙伴基础资料 */}
-        <div style={{ marginTop: "16px", paddingBottom: "20px", borderBottom: "1px solid var(--line)" }}>
-          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>伙伴基础资料</h3>
-          <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "10px" }}>支持上传 PPT、DOC、EXCEL、PDF 文件，系统自动提取文本用于 AI 画像分析。</p>
-          <label className="upload-btn" style={{ display: "inline-block" }}>{uploadingDoc ? "上传中..." : "上传文档"}<input type="file" hidden accept=".pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls" disabled={uploadingDoc} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadDoc(f); e.target.value = ""; }} /></label>
-          {docs.length > 0 ? (<ul className="deliverable-list" style={{ marginTop: "12px" }}>{docs.map((d) => (<li key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{d.filename} <span className="partner-tag">{d.file_type}</span></span><button onClick={() => handleDeleteDoc(d.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>删除</button></li>))}</ul>) : <p className="placeholder-text" style={{ marginTop: "8px" }}>暂无文档。</p>}
-        </div>
-
-        {/* 分区2: 项目案例 */}
-        <div style={{ marginTop: "20px", paddingBottom: "20px", borderBottom: "1px solid var(--line)" }}>
-          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>项目案例</h3>
-          <form onSubmit={handleCreateCase} className="partner-form" style={{ marginTop: "8px" }}><div className="form-row"><label htmlFor="caseTitle">案例标题</label><input id="caseTitle" type="text" value={caseTitle} onChange={(e) => setCaseTitle(e.target.value)} required maxLength={300} placeholder="案例标题" /></div><div className="form-row"><label htmlFor="caseDesc">案例描述</label><textarea id="caseDesc" value={caseDesc} onChange={(e) => setCaseDesc(e.target.value)} placeholder="选填" rows={3} /></div><button type="submit" disabled={submitting}>{submitting ? "提交中..." : "新增案例"}</button></form>
-          {cases.length > 0 && (
-            <ul className="deliverable-list" style={{ marginTop: "12px" }}>{cases.map((c) => (<li key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{c.title}{c.description && <span className="partner-tag" style={{ marginLeft: "8px" }}>{c.description}</span>}</span><span className="meta-text">{c.created_at.slice(0, 10)}</span></li>))}</ul>
-          )}
-        </div>
-
-        {/* 分区3: 项目交付物 */}
-        <div style={{ marginTop: "20px" }}>
-          <h3 style={{ fontSize: "15px", marginBottom: "8px" }}>项目交付物</h3>
-          {cases.length === 0 ? <p className="placeholder-text">请先新增项目案例。</p> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "8px" }}>
-              {cases.map((c) => (
-                <div key={c.id} style={{ padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <span style={{ fontSize: "14px", fontWeight: 600 }}>{c.title}</span>
-                    <label className="upload-btn" style={{ fontSize: "12px", padding: "4px 10px" }}>{uploadingCaseId === c.id ? "上传中..." : "上传交付物"}<input type="file" hidden disabled={uploadingCaseId === c.id} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadDeliverable(c.id, f); e.target.value = ""; }} /></label>
-                  </div>
-                  {(deliverablesMap[c.id] || []).length === 0 ? <p className="placeholder-text" style={{ fontSize: "12px" }}>暂无交付物。</p> : (
-                    <ul className="deliverable-list">{(deliverablesMap[c.id] || []).map((d) => (<li key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{d.filename}</span><span className="meta-text">{d.created_at.slice(0, 10)}</span></li>))}</ul>
-                  )}
-                </div>
+        <h2>伙伴资料预览</h2>
+        {docs.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无伙伴资料文档。</p> : (
+          <div style={{ marginTop: "12px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
+              {docs.map((d) => (
+                <button key={d.id} onClick={() => handlePreview(d)} className="secondary-btn" style={{
+                  fontSize: "12px", padding: "6px 12px",
+                  background: previewDoc?.id === d.id ? "var(--brand)" : "white",
+                  color: previewDoc?.id === d.id ? "white" : "var(--brand)",
+                  border: `1px solid var(--brand)`,
+                }}>{d.filename} <span style={{ opacity: 0.7 }}>({d.file_type})</span></button>
               ))}
             </div>
-          )}
-        </div>
+            {previewDoc && (
+              <div style={{ border: "1px solid var(--line)", borderRadius: "8px", padding: "16px", background: "white", minHeight: "300px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", paddingBottom: "8px", borderBottom: "1px solid var(--line)" }}>
+                  <span style={{ fontSize: "14px", fontWeight: 600 }}>{previewDoc.filename}</span>
+                  <a href={`${apiBaseUrl}/partners/${id}/documents/${previewDoc.id}/file`} target="_blank" rel="noopener noreferrer" className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px" }}>下载</a>
+                </div>
+                {previewLoading && <p>加载预览中...</p>}
+                {!previewLoading && previewContent === "" && <p className="placeholder-text">点击文件名预览内容</p>}
+                {!previewLoading && previewContent === "__pptx_download__" && (
+                  <div style={{ padding: "20px", textAlign: "center" }}>
+                    <p style={{ fontSize: "14px", color: "var(--muted)", marginBottom: "12px" }}>PPTX 文件暂不支持在线预览，请下载查看</p>
+                    <a href={`${apiBaseUrl}/partners/${id}/documents/${previewDoc.id}/file`} target="_blank" rel="noopener noreferrer" className="secondary-btn" style={{ fontSize: "13px", padding: "8px 16px" }}>下载文件</a>
+                  </div>
+                )}
+                {!previewLoading && previewContent.startsWith("http") && previewDoc.file_type === "pdf" && (
+                  <iframe src={previewContent} style={{ width: "100%", height: "600px", border: "none" }} title="PDF Preview" />
+                )}
+                {!previewLoading && !previewContent.startsWith("http") && previewContent !== "__docx__" && previewContent !== "__xlsx__" && previewContent !== "__pptx_download__" && previewContent !== "" && (
+                  <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: "13px", lineHeight: 1.8, maxHeight: "600px", overflow: "auto" }}>{previewContent}</pre>
+                )}
+                {previewContent === "__docx__" && <div ref={docxContainerRef} style={{ maxHeight: "600px", overflow: "auto" }} />}
+                {previewContent === "__xlsx__" && <div ref={xlsxContainerRef} style={{ maxHeight: "600px", overflow: "auto" }} />}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="card">
         <h2>AI 能力画像</h2>
-        {partner?.ai_profile ? (<div className="ai-profile"><pre className="ai-profile-text">{partner.ai_profile}</pre><button onClick={handleGenerateProfile} disabled={generatingProfile} className="secondary-btn">{generatingProfile ? "生成中..." : "重新生成"}</button></div>) : (<div className="ai-profile-empty"><p className="placeholder-text">暂无 AI 画像。上传文档后点击生成，AI 将从文档中分析能力画像。</p><button onClick={handleGenerateProfile} disabled={generatingProfile}>{generatingProfile ? "生成中（可能需要数十秒）..." : "生成 AI 画像"}</button></div>)}
+        {partner?.ai_profile ? (<div className="ai-profile"><pre className="ai-profile-text">{partner.ai_profile}</pre><button onClick={handleGenerateProfile} disabled={generatingProfile} className="secondary-btn">{generatingProfile ? "生成中..." : "重新生成"}</button></div>) : (<div className="ai-profile-empty"><p className="placeholder-text">暂无 AI 画像。请在伙伴资料管理页面上传文档后生成。</p><button onClick={handleGenerateProfile} disabled={generatingProfile}>{generatingProfile ? "生成中（可能需要数十秒）..." : "生成 AI 画像"}</button></div>)}
       </section>
     </main>
   );

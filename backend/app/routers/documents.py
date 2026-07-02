@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, status
+from fastapi.responses import FileResponse
 
 from ..auth import require_auth
 from ..database import get_db, UPLOADS_DIR
@@ -45,6 +46,18 @@ async def upload_document(partner_id: str, file: UploadFile = File(...)) -> Part
     with get_db() as conn:
         conn.execute(f"INSERT INTO partner_documents ({_DOC_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (doc.id, doc.partner_id, doc.filename, str(file_path), doc.file_type, doc.doc_category, doc.extracted_text, doc.created_at))
     return doc
+
+
+@router.get("/{partner_id}/documents/{doc_id}/file")
+def download_document(partner_id: str, doc_id: str):
+    with get_db() as conn:
+        row = conn.execute("SELECT file_path, filename, file_type FROM partner_documents WHERE id = ? AND partner_id = ?", (doc_id, partner_id)).fetchone()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
+    file_path = Path(row["file_path"])
+    if not file_path.exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File not found on disk")
+    return FileResponse(path=str(file_path), filename=row["filename"], media_type="application/octet-stream")
 
 
 @router.delete("/{partner_id}/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
