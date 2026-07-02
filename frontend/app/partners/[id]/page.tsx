@@ -10,6 +10,11 @@ type PartnerDoc = { id: string; partner_id: string; filename: string; file_type:
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function PartnerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [partner, setPartner] = useState<Partner | null>(null);
@@ -28,7 +33,7 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
   async function loadPartner() {
     setLoading(true); setError(null);
     try {
-      const [pRes, cRes, dRes] = await Promise.all([fetch(`${apiBaseUrl}/partners/${id}`, { cache: "no-store" }), fetch(`${apiBaseUrl}/cases/by-partner/${id}`, { cache: "no-store" }), fetch(`${apiBaseUrl}/partners/${id}/documents`, { cache: "no-store" })]);
+      const [pRes, cRes, dRes] = await Promise.all([fetch(`${apiBaseUrl}/partners/${id}`, { cache: "no-store", headers: authHeaders() }), fetch(`${apiBaseUrl}/cases/by-partner/${id}`, { cache: "no-store", headers: authHeaders() }), fetch(`${apiBaseUrl}/partners/${id}/documents`, { cache: "no-store", headers: authHeaders() })]);
       if (!pRes.ok) throw new Error(`Partner HTTP ${pRes.status}`);
       if (!cRes.ok) throw new Error(`Cases HTTP ${cRes.status}`);
       if (!dRes.ok) throw new Error(`Docs HTTP ${dRes.status}`);
@@ -37,7 +42,7 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
       setCases(caseList);
       setDocs(await dRes.json());
       const dMap: Record<string, Deliverable[]> = {};
-      await Promise.all(caseList.map(async (c) => { const dr = await fetch(`${apiBaseUrl}/cases/${c.id}/deliverables`, { cache: "no-store" }); if (dr.ok) dMap[c.id] = await dr.json(); }));
+      await Promise.all(caseList.map(async (c) => { const dr = await fetch(`${apiBaseUrl}/cases/${c.id}/deliverables`, { cache: "no-store", headers: authHeaders() }); if (dr.ok) dMap[c.id] = await dr.json(); }));
       setDeliverablesMap(dMap);
     } catch (e) { setError(e instanceof Error ? e.message : "加载失败"); } finally { setLoading(false); }
   }
@@ -46,27 +51,27 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
 
   async function handleCreateCase(e: React.FormEvent) {
     e.preventDefault(); setSubmitting(true); setError(null);
-    try { const res = await fetch(`${apiBaseUrl}/cases`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ partner_id: id, title: caseTitle, description: caseDesc || null }) }); if (!res.ok) throw new Error(`HTTP ${res.status}`); setCaseTitle(""); setCaseDesc(""); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "新增案例失败"); } finally { setSubmitting(false); }
+    try { const res = await fetch(`${apiBaseUrl}/cases`, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify({ partner_id: id, title: caseTitle, description: caseDesc || null }) }); if (!res.ok) throw new Error(`HTTP ${res.status}`); setCaseTitle(""); setCaseDesc(""); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "新增案例失败"); } finally { setSubmitting(false); }
   }
 
   async function handleUploadDeliverable(caseId: string, file: File) {
     setUploadingCaseId(caseId); setError(null);
-    try { const fd = new FormData(); fd.append("file", file); const res = await fetch(`${apiBaseUrl}/cases/${caseId}/deliverables`, { method: "POST", body: fd }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "上传失败"); } finally { setUploadingCaseId(null); }
+    try { const fd = new FormData(); fd.append("file", file); const res = await fetch(`${apiBaseUrl}/cases/${caseId}/deliverables`, { method: "POST", headers: authHeaders(), body: fd }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "上传失败"); } finally { setUploadingCaseId(null); }
   }
 
   async function handleUploadDoc(file: File) {
     setUploadingDoc(true); setError(null);
-    try { const fd = new FormData(); fd.append("file", file); const res = await fetch(`${apiBaseUrl}/partners/${id}/documents`, { method: "POST", body: fd }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "文档上传失败"); } finally { setUploadingDoc(false); }
+    try { const fd = new FormData(); fd.append("file", file); const res = await fetch(`${apiBaseUrl}/partners/${id}/documents`, { method: "POST", headers: authHeaders(), body: fd }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "文档上传失败"); } finally { setUploadingDoc(false); }
   }
 
   async function handleDeleteDoc(docId: string) {
     if (!confirm("确定删除该文档？")) return;
-    try { const res = await fetch(`${apiBaseUrl}/partners/${id}/documents/${docId}`, { method: "DELETE" }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
+    try { const res = await fetch(`${apiBaseUrl}/partners/${id}/documents/${docId}`, { method: "DELETE", headers: authHeaders() }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
   }
 
   async function handleGenerateProfile() {
     setGeneratingProfile(true); setError(null);
-    try { const res = await fetch(`${apiBaseUrl}/partners/${id}/profile`, { method: "POST" }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "生成画像失败"); } finally { setGeneratingProfile(false); }
+    try { const res = await fetch(`${apiBaseUrl}/partners/${id}/profile`, { method: "POST", headers: authHeaders() }); if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); } await loadPartner(); } catch (e) { setError(e instanceof Error ? e.message : "生成画像失败"); } finally { setGeneratingProfile(false); }
   }
 
   return (
