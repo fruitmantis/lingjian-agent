@@ -23,6 +23,7 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
   const [previewDoc, setPreviewDoc] = useState<PartnerDoc | null>(null);
   const [previewContent, setPreviewContent] = useState<string>("加载中...");
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [pptxHtml, setPptxHtml] = useState("");
   const docxContainerRef = useRef<HTMLDivElement>(null);
   const xlsxContainerRef = useRef<HTMLDivElement>(null);
 
@@ -96,7 +97,14 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
         }, 100);
         return;
       } else if (doc.file_type === "pptx") {
-        setPreviewContent("__pptx_download__");
+        const previewRes = await fetch(`${apiBaseUrl}/partners/${id}/documents/${doc.id}/preview`, { headers: authHeaders() });
+        if (previewRes.ok) {
+          const html = await previewRes.text();
+          setPptxHtml(html);
+          setPreviewContent("__pptx_html__");
+        } else {
+          setPreviewContent("__pptx_download__");
+        }
       } else {
         if (doc.extracted_text) {
           setPreviewContent(doc.extracted_text);
@@ -207,7 +215,10 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
                 {!previewLoading && previewContent.startsWith("http") && previewDoc.file_type === "pdf" && (
                   <iframe src={previewContent} style={{ width: "100%", height: "600px", border: "none" }} title="PDF Preview" />
                 )}
-                {!previewLoading && !previewContent.startsWith("http") && previewContent !== "__docx__" && previewContent !== "__xlsx__" && previewContent !== "__pptx_download__" && previewContent !== "" && (
+                {!previewLoading && previewContent === "__pptx_html__" && (
+                  <div dangerouslySetInnerHTML={{ __html: pptxHtml }} style={{ maxHeight: "600px", overflow: "auto" }} />
+                )}
+                {!previewLoading && !previewContent.startsWith("http") && previewContent !== "__docx__" && previewContent !== "__xlsx__" && previewContent !== "__pptx_download__" && previewContent !== "__pptx_html__" && previewContent !== "" && (
                   <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: "13px", lineHeight: 1.8, maxHeight: "600px", overflow: "auto" }}>{previewContent}</pre>
                 )}
                 {previewContent === "__docx__" && <div ref={docxContainerRef} style={{ maxHeight: "600px", overflow: "auto" }} />}

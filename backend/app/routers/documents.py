@@ -48,6 +48,44 @@ async def upload_document(partner_id: str, file: UploadFile = File(...)) -> Part
     return doc
 
 
+@router.get("/{partner_id}/documents/{doc_id}/preview")
+def preview_document(partner_id: str, doc_id: str):
+    """Return HTML preview of a document (PPTX supported via python-pptx)."""
+    with get_db() as conn:
+        row = conn.execute("SELECT file_path, filename, file_type FROM partner_documents WHERE id = ? AND partner_id = ?", (doc_id, partner_id)).fetchone()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
+    file_path = Path(row["file_path"])
+    if not file_path.exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File not found on disk")
+
+    if row["file_type"] == "pptx":
+        from pptx import Presentation
+        from pptx.util import Inches
+        prs = Presentation(str(file_path))
+        slides_html = []
+        for i, slide in enumerate(prs.slides, 1):
+            shapes_text = []
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for para in shape.text_frame.paragraphs:
+                        text = para.text.strip()
+                        if text:
+                            shapes_text.append(f"<p>{text}</p>")
+                elif hasattr(shape, "text") and shape.text.strip():
+                    shapes_text.append(f"<p>{shape.text.strip()}</p>")
+            slides_html.append(
+                f'<div style="border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:16px;min-height:200px;background:white">'
+                f'<div style="font-size:12px;color:#999;margin-bottom:8px">幻灯片 {i}</div>'
+                f'{"".join(shapes_text) if shapes_text else "<p style=\"color:#ccc\">空白幻灯片</p>"}'
+                f'</div>'
+            )
+        html = f'<div style="font-family:sans-serif">{" ".join(slides_html)}</div>'
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(content=html)
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Preview not supported for this file type")
+
+
 @router.get("/{partner_id}/documents/{doc_id}/file")
 def download_document(partner_id: str, doc_id: str):
     with get_db() as conn:
