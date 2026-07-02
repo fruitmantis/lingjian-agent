@@ -76,6 +76,9 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
 
   return (
     <main className="page">
+      <div style={{ marginBottom: "16px" }}>
+        <a href="/profiles" className="secondary-btn" style={{ fontSize: "13px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>← 返回伙伴画像</a>
+      </div>
       <p className="eyebrow">Partner Profile</p>
       <h1>伙伴画像详情</h1>
       <p className="lead">伙伴标识：{id}</p>
