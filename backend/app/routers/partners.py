@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, status
+from pydantic import BaseModel
 
 from ..auth import require_auth
 from ..database import get_db
@@ -12,6 +13,30 @@ from ..models import PartnerCreate, PartnerOut
 
 router = APIRouter(prefix="/partners", tags=["partners"], dependencies=[Depends(require_auth)])
 _COLUMNS = "id, name, intro, capabilities, service_areas, industries, ai_profile, created_at"
+
+
+class PartnerProfileCard(BaseModel):
+    id: str
+    name: str
+    capabilities: str | None
+    service_areas: str | None
+    industries: str | None
+    ai_profile: str | None
+    case_count: int
+    deliverable_count: int
+
+
+@router.get("/profiles", response_model=list[PartnerProfileCard])
+def list_profiles() -> list[PartnerProfileCard]:
+    with get_db() as conn:
+        partners = conn.execute(f"SELECT {_COLUMNS} FROM partners ORDER BY created_at DESC").fetchall()
+        result = []
+        for p in partners:
+            pd = dict(p)
+            case_count = conn.execute("SELECT COUNT(*) as cnt FROM cases WHERE partner_id = ?", (pd["id"],)).fetchone()["cnt"]
+            deliverable_count = conn.execute("SELECT COUNT(*) as cnt FROM deliverables WHERE case_id IN (SELECT id FROM cases WHERE partner_id = ?)", (pd["id"],)).fetchone()["cnt"]
+            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), case_count=case_count, deliverable_count=deliverable_count))
+    return result
 
 
 @router.get("", response_model=list[PartnerOut])

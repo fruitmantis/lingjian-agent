@@ -27,8 +27,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         existing = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
         if existing["cnt"] == 0:
             admin = get_default_admin()
-            conn.execute("INSERT INTO users (id, username, hashed_password, display_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (admin["id"], admin["username"], admin["hashed_password"], admin["display_name"], admin["role"], admin["created_at"]))
+            conn.execute("INSERT INTO users (id, username, hashed_password, display_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?)", (admin["id"], admin["username"], admin["hashed_password"], admin["display_name"], admin["role"], admin["created_at"]))
     yield
 
 
@@ -46,9 +45,9 @@ async def health() -> HealthResponse:
     return HealthResponse(status="ok", service="lingjian-agent-api")
 
 
+app.include_router(profile.router)
 app.include_router(partners.router)
 app.include_router(cases.router)
-app.include_router(profile.router)
 app.include_router(match.router)
 app.include_router(documents.router)
 app.include_router(users.router)

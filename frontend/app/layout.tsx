@@ -16,6 +16,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </Link>
             <nav aria-label="主导航" className="nav">
               <Link href="/">Agent 工作台</Link>
+              <Link href="/profiles">伙伴画像</Link>
               <Link href="/partners">伙伴资料管理</Link>
               <Link href="/users">用户管理</Link>
             </nav>
