@@ -20,6 +20,24 @@ function authHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function TagGroup({ label, value }: { label: string; value: string | null }) {
+  const tags = value ? value.split(/[,，]/).map(t => t.trim()).filter(Boolean) : [];
+  return (
+    <div style={{ marginBottom: "10px" }}>
+      <span style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginRight: "8px" }}>{label}</span>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "4px" }}>
+        {tags.length === 0 ? (
+          <span style={{ fontSize: "13px", color: "var(--muted)" }}>未分析</span>
+        ) : (
+          tags.map((tag, i) => (
+            <span key={i} style={{ display: "inline-block", padding: "4px 10px", fontSize: "13px", borderRadius: "6px", background: "#fff1f2", color: "var(--brand-dark)", border: "1px solid #ffd0d4", fontWeight: 500 }}>{tag}</span>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,12 +62,10 @@ export default function ProfilesPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px", marginTop: "24px" }}>
           {profiles.map((p) => (
             <div key={p.id} className="card" style={{ marginBottom: 0, padding: "24px" }}>
-              <h2 style={{ marginBottom: "8px" }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>
-              <dl className="partner-detail" style={{ marginTop: "8px" }}>
-                <dt>能力</dt><dd>{p.capabilities || "未分析"}</dd>
-                <dt>覆盖区域</dt><dd>{p.service_areas || "未分析"}</dd>
-                <dt>行业经验</dt><dd>{p.industries || "未分析"}</dd>
-              </dl>
+              <h2 style={{ marginBottom: "12px" }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>
+              <TagGroup label="能力" value={p.capabilities} />
+              <TagGroup label="覆盖区域" value={p.service_areas} />
+              <TagGroup label="行业经验" value={p.industries} />
               <div style={{ display: "flex", gap: "12px", marginTop: "16px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
                   <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--brand)" }}>{p.case_count}</div>
