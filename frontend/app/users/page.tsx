@@ -5,6 +5,11 @@ import { useState, useEffect } from "react";
 type User = { id: string; username: string; display_name: string | null; role: string; created_at: string };
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
+function authHeaders(): Record<string, string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +24,7 @@ export default function UsersPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/auth/users`, { cache: "no-store" });
+      const res = await fetch(`${apiBaseUrl}/auth/users`, { cache: "no-store", headers: authHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setUsers(await res.json());
     } catch (e) { setError(e instanceof Error ? e.message : "加载失败"); } finally { setLoading(false); }
@@ -32,7 +37,7 @@ export default function UsersPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/auth/users`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: newUsername, password: newPassword, display_name: newDisplayName || null, role: newRole }) });
+      const res = await fetch(`${apiBaseUrl}/auth/users`, { method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify({ username: newUsername, password: newPassword, display_name: newDisplayName || null, role: newRole }) });
       if (!res.ok) { const errData = await res.json().catch(() => ({})); throw new Error(errData.detail || `HTTP ${res.status}`); }
       setNewUsername(""); setNewPassword(""); setNewDisplayName(""); setNewRole("user");
       await loadUsers();
@@ -42,7 +47,7 @@ export default function UsersPage() {
   async function handleDelete(id: string) {
     if (!confirm("确定删除该用户？")) return;
     try {
-      const res = await fetch(`${apiBaseUrl}/auth/users/${id}`, { method: "DELETE" });
+      const res = await fetch(`${apiBaseUrl}/auth/users/${id}`, { method: "DELETE", headers: authHeaders() });
       if (!res.ok) { const errData = await res.json().catch(() => ({})); throw new Error(errData.detail || `HTTP ${res.status}`); }
       await loadUsers();
     } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
