@@ -86,7 +86,7 @@ const DEFAULT_CATEGORIES = ["AI 与智能体", "云平台与迁移", "数据与�
 function CapabilityTagsTab() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
-  const [subTab, setSubTab] = useState<"tags" | "categories">("tags");
+  const [subTab, setSubTab] = useState<"tags" | "categories" | "suggestions">("tags");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -196,6 +196,52 @@ function CapabilityTagsTab() {
     catch (e) { setCatError(e instanceof Error ? e.message : "操作失败"); }
   }
 
+  // Suggestion tab state
+  const [sugList, setSugList] = useState<any[]>([]);
+  const [sugLoading, setSugLoading] = useState(false);
+  const [sugError, setSugError] = useState<string | null>(null);
+  const [sugStatus, setSugStatus] = useState("");
+  const [sugKeyword, setSugKeyword] = useState("");
+  const [adoptingId, setAdoptingId] = useState<string | null>(null);
+  const [adoptName, setAdoptName] = useState("");
+  const [adoptCat, setAdoptCat] = useState("");
+  const [adoptDesc, setAdoptDesc] = useState("");
+  const [adoptSort, setAdoptSort] = useState(0);
+
+  async function loadSugList() {
+    setSugLoading(true); setSugError(null);
+    try {
+      const p = new URLSearchParams();
+      if (sugStatus) p.set("status", sugStatus);
+      if (sugKeyword) p.set("keyword", sugKeyword);
+      const r = await fetch(`${apiBaseUrl}/capability-tags/suggestions?${p}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setSugList(await r.json());
+    } catch (e) { setSugError(e instanceof Error ? e.message : "加载失败"); } finally { setSugLoading(false); }
+  }
+  useEffect(() => { if (subTab === "suggestions") loadSugList(); }, [subTab, sugStatus, sugKeyword]);
+
+  function startAdopt(s: any) { setAdoptingId(s.id); setAdoptName(s.suggestedName); setAdoptCat(""); setAdoptDesc(s.description || ""); setAdoptSort(0); }
+  function cancelAdopt() { setAdoptingId(null); }
+  async function confirmAdopt(id: string) {
+    setSugError(null);
+    try {
+      const r = await fetch(`${apiBaseUrl}/capability-tags/suggestions/${id}/adopt`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: adoptName, categoryId: adoptCat || null, description: adoptDesc || null, sortOrder: adoptSort }) });
+      if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${r.status}`); }
+      cancelAdopt(); await loadSugList(); await loadCategories();
+    } catch (e) { setSugError(e instanceof Error ? e.message : "采纳失败"); }
+  }
+  async function scanSuggestions() {
+    setSugError(null);
+    try {
+      const r = await fetch(`${apiBaseUrl}/capability-tags/suggestions/scan`, { method: "POST" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      setSugError(d.created > 0 ? `扫描完成，新增 ${d.created} 条建议` : "扫描完成，未发现新建议");
+      await loadSugList();
+    } catch (e) { setSugError(e instanceof Error ? e.message : "扫描失败"); }
+  }
+
   const isCatEditing = editCatId !== null || isNewCat;
   const inpStyle = { padding: "4px 8px", border: "1px solid var(--brand)", borderRadius: "4px", fontSize: "13px", width: "100%", boxSizing: "border-box" as const };
   const checkBtn = { fontSize: "16px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", lineHeight: 1 };
@@ -206,6 +252,7 @@ function CapabilityTagsTab() {
       <div style={{ display: "flex", gap: "4px", marginBottom: "16px", borderBottom: "2px solid var(--line)" }}>
         <button onClick={() => setSubTab("tags")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "tags" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "tags" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>能力标签</button>
         <button onClick={() => setSubTab("categories")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "categories" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "categories" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>标签分类</button>
+        <button onClick={() => setSubTab("suggestions")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "suggestions" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "suggestions" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>AI 标签建议</button>
       </div>
 
       {subTab === "categories" && (
@@ -258,6 +305,61 @@ function CapabilityTagsTab() {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
+      {subTab === "suggestions" && (
+        <section className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <h2>AI 标签建议</h2>
+            <button onClick={scanSuggestions} style={{ fontSize: "13px", padding: "6px 16px" }}>扫描需求</button>
+          </div>
+          <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>基于项目需求识别标准能力标签未覆盖的新能力诉求，采纳后可上架为正式能力标签。</p>
+          <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
+            <input type="text" placeholder="搜索建议名称..." value={sugKeyword} onChange={(e) => setSugKeyword(e.target.value)} style={{ flex: "1 1 200px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+            <select value={sugStatus} onChange={(e) => setSugStatus(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}><option value="">全部状态</option><option value="pending">待采纳</option><option value="adopted">已采纳</option></select>
+          </div>
+          {sugError && <p className="error-text">{sugError}</p>}
+          {sugLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : sugList.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无标签建议。</p> : (
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+              <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>建议标签</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>分类</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>说明</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>次数</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>置信度</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>状态</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>操作</th>
+              </tr></thead>
+              <tbody>
+                {sugList.map((s) => (
+                  <tr key={s.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                    <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600 }}>
+                      {adoptingId === s.id ? <input type="text" value={adoptName} onChange={(e) => setAdoptName(e.target.value)} style={inpStyle} /> : s.suggestedName}
+                    </td>
+                    <td style={{ padding: "10px 8px", fontSize: "13px" }}>
+                      {adoptingId === s.id ? <select value={adoptCat} onChange={(e) => setAdoptCat(e.target.value)} style={inpStyle}><option value="">使用建议分类</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select> : s.suggestedCategoryName || "-"}
+                    </td>
+                    <td style={{ padding: "10px 8px", fontSize: "13px", color: "var(--muted)" }}>
+                      {adoptingId === s.id ? <input type="text" value={adoptDesc} onChange={(e) => setAdoptDesc(e.target.value)} style={inpStyle} /> : (s.description || "-")}
+                    </td>
+                    <td style={{ padding: "10px 8px", fontSize: "13px" }}>{s.occurrenceCount}</td>
+                    <td style={{ padding: "10px 8px", fontSize: "13px" }}>{(s.confidence * 100).toFixed(0)}%</td>
+                    <td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: s.status === "adopted" ? "#f0fdf4" : "#fffbeb", color: s.status === "adopted" ? "var(--success)" : "#e8a317", border: `1px solid ${s.status === "adopted" ? "#bbf7d0" : "#fde68a"}` }}>{s.status === "adopted" ? "已采纳" : "待采纳"}</span></td>
+                    <td style={{ padding: "10px 8px" }}>
+                      {s.status === "pending" && (
+                        adoptingId === s.id ? (
+                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => confirmAdopt(s.id)} style={checkBtn}>✓</button><button onClick={cancelAdopt} style={crossBtn}>✕</button></div>
+                        ) : (
+                          <button onClick={() => startAdopt(s)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>采纳</button>
+                        )
+                      )}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           )}

@@ -206,7 +206,48 @@ def match_partners(req: MatchRequest) -> MatchResponse:
     except Exception:
         pass  # Profile generation failure doesn't affect response
 
+    # Auto-generate AI tag suggestions
+    try:
+        _generate_tag_suggestions(req.requirement, record_id)
+    except Exception:
+        pass  # Suggestion failure doesn't affect response
+
     return MatchResponse(requirement=req.requirement, recommendations=recs, recordId=record_id)
+
+
+def _generate_tag_suggestions(requirement: str, match_record_id: str):
+    try:
+        with get_db() as conn:
+            std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
+            existing_sugs = {r["suggested_name"] for r in conn.execute("SELECT suggested_name FROM capability_tag_suggestions WHERE status = 'pending'").fetchall()}
+        std_tags_str = ", ".join(std_tags) if std_tags else "无标准标签"
+        raw = chat_completion([
+            {"role": "system", "content": f"分析项目需求，找出标准能力标签无法覆盖的新能力诉求。当前标准标签：[{std_tags_str}]。如果存在未覆盖的能力诉求，返回JSON数组，每项含suggestedName,suggestedCategoryName(从:AI与智能体,云平台与迁移,数据与数据库,应用开发与现代化,运维与安全,咨询与项目管理,其他),description,evidenceText,confidence(0-1)。不要把行业/区域误判为能力标签。无新诉求返回[]。只返回JSON。"},
+            {"role": "user", "content": f"项目需求: {requirement}"}
+        ], timeout=30)
+        clean = raw.strip()
+        if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+        if clean.endswith("```"): clean = clean[:-3]
+        clean = clean.strip()
+        if clean.startswith("json"): clean = clean[4:].strip()
+        items = json.loads(clean)
+        now = datetime.now(timezone.utc).isoformat()
+        for item in items:
+            name = item.get("suggestedName", "").strip()
+            if not name or name in std_tags or name in existing_sugs:
+                continue
+            with get_db() as conn:
+                existing = conn.execute("SELECT id, occurrence_count FROM capability_tag_suggestions WHERE suggested_name = ? AND status = 'pending'", (name,)).fetchone()
+                if existing:
+                    conn.execute("UPDATE capability_tag_suggestions SET occurrence_count = occurrence_count + 1, updated_at = ? WHERE id = ?", (now, existing["id"]))
+                else:
+                    conn.execute(
+                        "INSERT INTO capability_tag_suggestions (id, suggested_name, suggested_category_id, suggested_category_name, description, evidence_text, source_requirement, source_match_record_id, confidence, occurrence_count, status, created_at, updated_at, adopted_at) VALUES (?,?,?,?,?,?,?,?,?,1,'pending',?,?,NULL)",
+                        (str(uuid.uuid4()), name, None, item.get("suggestedCategoryName", "其他"), item.get("description", ""), item.get("evidenceText", ""), requirement, match_record_id, float(item.get("confidence", 0.5)), now, now)
+                    )
+            existing_sugs.add(name)
+    except Exception:
+        pass
 
 
 def _generate_demand_profile(match_record_id: str, requirement: str, recs: list[PartnerRecommendation], created_at: str):

@@ -64,6 +64,13 @@ def initialize_storage() -> None:
             is_preset INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
         now = datetime.now(timezone.utc).isoformat()
 
+        connection.execute("""CREATE TABLE IF NOT EXISTS capability_tag_suggestions (
+            id TEXT PRIMARY KEY, suggested_name TEXT NOT NULL, suggested_category_id TEXT,
+            suggested_category_name TEXT, description TEXT, evidence_text TEXT,
+            source_requirement TEXT, source_match_record_id TEXT, confidence REAL DEFAULT 0.5,
+            occurrence_count INTEGER DEFAULT 1, status TEXT DEFAULT 'pending',
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL, adopted_at TEXT)""")
+
         # Seed preset capability tag categories
         connection.execute("""CREATE TABLE IF NOT EXISTS capability_tag_categories (
             id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, code TEXT,
