@@ -251,12 +251,6 @@ function CapabilityTagsTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: "4px", marginBottom: "16px", borderBottom: "2px solid var(--line)" }}>
-        <button onClick={() => setSubTab("tags")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "tags" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "tags" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>能力标签</button>
-        <button onClick={() => setSubTab("categories")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "categories" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "categories" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>标签分类</button>
-        <button onClick={() => setSubTab("suggestions")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "suggestions" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "suggestions" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>AI 标签建议</button>
-      </div>
-
       {subTab === "categories" && (
         <section className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
