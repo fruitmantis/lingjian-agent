@@ -110,4 +110,27 @@ def initialize_storage() -> None:
                     "INSERT INTO capability_tags (id, name, category, description, enabled, sort_order, is_preset, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 0, 1, ?, ?)",
                     (str(uuid.uuid4()), name, category, "", now, now)
                 )
+        connection.execute("""CREATE TABLE IF NOT EXISTS model_configs (
+            id TEXT PRIMARY KEY, name TEXT NOT NULL, provider TEXT DEFAULT 'OpenAI Compatible',
+            base_url TEXT, api_key TEXT, api_key_source TEXT DEFAULT 'env',
+            api_key_env_name TEXT DEFAULT 'LLM_API_KEY', model_name TEXT,
+            temperature REAL DEFAULT 0.3, top_p REAL DEFAULT 1.0, max_tokens INTEGER DEFAULT 4096,
+            timeout_seconds INTEGER DEFAULT 60, enabled INTEGER DEFAULT 1, is_default INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
+        connection.execute("""CREATE TABLE IF NOT EXISTS model_usage_configs (
+            scene_key TEXT PRIMARY KEY, scene_name TEXT NOT NULL, model_config_id TEXT,
+            description TEXT, updated_at TEXT NOT NULL)""")
+        existing_mc = connection.execute("SELECT COUNT(*) as cnt FROM model_configs").fetchone()["cnt"]
+        if existing_mc == 0:
+            env_base = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
+            env_model = os.getenv("LLM_MODEL", "gpt-4o")
+            connection.execute(
+                "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, timeout_seconds, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, 'env', 'LLM_API_KEY', ?, 0.3, 1.0, 4096, 60, 1, 1, ?, ?)",
+                (str(uuid.uuid4()), "当前默认模型配置", "OpenAI Compatible", env_base, env_model, now, now)
+            )
+        existing_muc = connection.execute("SELECT COUNT(*) as cnt FROM model_usage_configs").fetchone()["cnt"]
+        if existing_muc == 0:
+            scenes = [("partner_profile", "伙伴画像生成"), ("partner_match", "智能匹配"), ("demand_profile", "需求画像分析"), ("tag_suggestion", "AI 标签建议"), ("recommendation_summary", "推荐说明生成"), ("default", "系统默认")]
+            for sk, sn in scenes:
+                connection.execute("INSERT OR IGNORE INTO model_usage_configs (scene_key, scene_name, model_config_id, description, updated_at) VALUES (?, ?, NULL, '', ?)", (sk, sn, now))
         connection.commit()
