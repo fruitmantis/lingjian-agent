@@ -212,7 +212,51 @@ def match_partners(req: MatchRequest) -> MatchResponse:
     except Exception:
         pass  # Suggestion failure doesn't affect response
 
+    # Auto-extract project opportunity info
+    try:
+        _extract_project_opportunity(req.requirement, record_id, recommendations)
+    except Exception:
+        pass  # Extraction failure doesn't affect response
+
     return MatchResponse(requirement=req.requirement, recommendations=recs, recordId=record_id)
+
+
+def _extract_project_opportunity(requirement: str, match_record_id: str, recommendations: list):
+    try:
+        from ..ai_client import chat_completion
+        rec_names = ", ".join([r.get("partnerName", "") for r in recommendations[:5]])
+        raw = chat_completion([
+            {"role": "system", "content": "从项目需求中抽取结构化项目信息。返回JSON含: customerName(客户名称),projectName(项目名称),industry(行业),region(区域),projectStage(项目阶段如需求调研/方案设计/招投标/实施交付),businessNeeds(业务诉求),technicalNeeds(技术诉求),deliveryNeeds(交付诉求),qualificationRequirements(资质要求),caseRequirements(案例要求),onsiteRequirement(驻场要求),timelineRequirement(时间要求),cloudPlatformPreference(云平台偏好),followUpQuestions(建议补充问题,数组)。无法识别的字段填'未识别'。只返回JSON。"},
+            {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴: {rec_names}"}
+        ], timeout=30, scene="demand_profile")
+        clean = raw.strip()
+        if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+        if clean.endswith("```"): clean = clean[:-3]
+        clean = clean.strip()
+        if clean.startswith("json"): clean = clean[4:].strip()
+        data = json.loads(clean)
+
+        # Calculate completeness
+        key_fields = ["customerName", "projectName", "industry", "region", "projectStage", "businessNeeds"]
+        identified = sum(1 for f in key_fields if data.get(f) and data.get(f) != "未识别")
+        completeness = round(identified / len(key_fields) * 100)
+        missing = [f for f in key_fields if not data.get(f) or data.get(f) == "未识别"]
+
+        # Get matched capabilities from demand profile
+        with get_db() as conn:
+            dp = conn.execute("SELECT capability_tags, supply_status FROM demand_profiles WHERE match_record_id = ?", (match_record_id,)).fetchone()
+            cap_tags = dp["capability_tags"] if dp else ""
+            supply = dp["supply_status"] if dp else ""
+
+        now = datetime.now(timezone.utc).isoformat()
+        opp_id = str(uuid.uuid4())
+        with get_db() as conn:
+            conn.execute(
+                "INSERT INTO project_opportunities (id, match_record_id, requirement_text, customer_name, project_name, industry, region, project_stage, business_needs, technical_needs, delivery_needs, qualification_requirements, case_requirements, onsite_requirement, timeline_requirement, cloud_platform_preference, matched_capability_tags, unmatched_capability_signals, recommended_partner_ids, recommended_partner_names, supply_status, completeness_score, missing_fields, follow_up_questions, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (opp_id, match_record_id, requirement, data.get("customerName","未识别"), data.get("projectName","未识别"), data.get("industry","未识别"), data.get("region","未识别"), data.get("projectStage","未识别"), data.get("businessNeeds","未识别"), data.get("technicalNeeds","未识别"), data.get("deliveryNeeds","未识别"), data.get("qualificationRequirements","未识别"), data.get("caseRequirements","未识别"), data.get("onsiteRequirement","未识别"), data.get("timelineRequirement","未识别"), data.get("cloudPlatformPreference","未识别"), cap_tags, "", "", rec_names, supply, completeness, ",".join(missing), json.dumps(data.get("followUpQuestions",[]), ensure_ascii=False), now, now)
+            )
+    except Exception:
+        pass
 
 
 def _generate_tag_suggestions(requirement: str, match_record_id: str):

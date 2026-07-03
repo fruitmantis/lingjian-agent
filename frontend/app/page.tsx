@@ -82,6 +82,7 @@ function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; 
 
 export default function HomePage() {
   const [stats, setStats] = useState({totalPartners: 0, withProfile: 0, totalMatches: 0, pendingSuggestions: 0});
+  const [oppSummary, setOppSummary] = useState<any>(null);
   const [requirement, setRequirement] = useState("");
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);

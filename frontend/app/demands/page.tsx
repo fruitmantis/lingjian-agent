@@ -70,7 +70,7 @@ export default function DemandsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [subTab, setSubTab] = useState<"profiles" | "report">("profiles");
+  const [subTab, setSubTab] = useState<"profiles" | "report" | "opportunities">("profiles");
   const [report, setReport] = useState<any>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -78,6 +78,14 @@ export default function DemandsPage() {
   const [filterIndustry, setFilterIndustry] = useState("");
   const [filterRegion, setFilterRegion] = useState("");
   const [filterCapability, setFilterCapability] = useState("");
+  const [opps, setOpps] = useState<any[]>([]);
+  const [oppLoading, setOppLoading] = useState(false);
+  const [oppError, setOppError] = useState<string | null>(null);
+  const [oppKeyword, setOppKeyword] = useState("");
+  const [oppIndustry, setOppIndustry] = useState("");
+  const [oppRegion, setOppRegion] = useState("");
+  const [oppStage, setOppStage] = useState("");
+  const [expandedOpp, setExpandedOpp] = useState<string | null>(null);
 
   async function loadData() {
     setLoading(true); setError(null);
@@ -105,6 +113,21 @@ export default function DemandsPage() {
   }
   useEffect(() => { if (subTab === "report") loadReport(); }, [subTab, filterDays, filterIndustry, filterRegion, filterCapability]);
 
+  async function loadOpps() {
+    setOppLoading(true); setOppError(null);
+    try {
+      const p = new URLSearchParams();
+      if (oppKeyword) p.set("keyword", oppKeyword);
+      if (oppIndustry) p.set("industry", oppIndustry);
+      if (oppRegion) p.set("region", oppRegion);
+      if (oppStage) p.set("stage", oppStage);
+      const r = await fetch(`${apiBaseUrl}/agent/opportunities?${p}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setOpps(await r.json());
+    } catch (e) { setOppError(e instanceof Error ? e.message : "加载失败"); } finally { setOppLoading(false); }
+  }
+  useEffect(() => { if (subTab === "opportunities") loadOpps(); }, [subTab, oppKeyword, oppIndustry, oppRegion, oppStage]);
+
   if (loading) return <main className="page"><p>加载中...</p></main>;
 
   return (
@@ -114,8 +137,73 @@ export default function DemandsPage() {
       <p className="lead">基于历史项目需求和智能匹配记录，分析需求趋势、能力热度与伙伴供给缺口。</p>
       <div style={{ display: "flex", gap: "4px", marginBottom: "16px", borderBottom: "2px solid var(--line)" }}>
         <button onClick={() => setSubTab("profiles")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "profiles" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "profiles" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>需求画像</button>
+        <button onClick={() => setSubTab("opportunities")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "opportunities" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "opportunities" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>项目机会库</button>
         <button onClick={() => setSubTab("report")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "report" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "report" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>运营报表</button>
       </div>
+      {subTab === "opportunities" && (
+        <section className="card">
+          <h2 className="section-title">项目机会库</h2>
+          <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
+            <input type="text" placeholder="搜索项目名称/客户..." value={oppKeyword} onChange={(e) => setOppKeyword(e.target.value)} style={{ flex: "1 1 180px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+            <input type="text" placeholder="行业" value={oppIndustry} onChange={(e) => setOppIndustry(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+            <input type="text" placeholder="区域" value={oppRegion} onChange={(e) => setOppRegion(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+            <input type="text" placeholder="阶段" value={oppStage} onChange={(e) => setOppStage(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+          </div>
+          {oppError && <p className="error-text">{oppError}</p>}
+          {oppLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : opps.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无项目机会。</p> : (
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+              <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>项目名称</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>客户</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>行业</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>区域</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>阶段</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>完整度</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>供给状态</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
+              </tr></thead>
+              <tbody>
+                {opps.map((o) => {
+                  const isExp = expandedOpp === o.id;
+                  const badge = o.supplyStatus === "gap" ? { l: "明显缺口", c: "var(--danger)", bg: "#fef2f2", bd: "#fecaca" } : o.supplyStatus === "partial" ? { l: "部分满足", c: "#e8a317", bg: "#fffbeb", bd: "#fde68a" } : { l: "基本满足", c: "var(--success)", bg: "#f0fdf4", bd: "#bbf7d0" };
+                  return (
+                    <>
+                      <tr key={o.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                        <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600 }}>{o.projectName || "未识别"}</td>
+                        <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.customerName || "未识别"}</td>
+                        <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.industry || "-"}</td>
+                        <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.region || "-"}</td>
+                        <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.projectStage || "-"}</td>
+                        <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 700, color: o.completenessScore >= 80 ? "var(--success)" : o.completenessScore >= 50 ? "#e8a317" : "var(--danger)" }}>{o.completenessScore}%</td>
+                        <td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: badge.bg, color: badge.c, border: `1px solid ${badge.bd}`, whiteSpace: "nowrap" }}>{badge.l}</span></td>
+                        <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{isExp ? "收起" : "详情"}</button></td>
+                      </tr>
+                      {isExp && (
+                        <tr key={o.id + "-detail"} style={{ background: "#f8f9fa" }}>
+                          <td colSpan={8} style={{ padding: "16px" }}>
+                            <div style={{ display: "flex", gap: "24px", flexWrap: "wrap" }}>
+                              <div style={{ flex: "1 1 200px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>原始需求</div><div style={{ fontSize: "13px", lineHeight: 1.6 }}>{o.requirementText}</div></div>
+                              <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>业务诉求</div><div style={{ fontSize: "13px" }}>{o.businessNeeds || "-"}</div></div>
+                              <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>技术诉求</div><div style={{ fontSize: "13px" }}>{o.technicalNeeds || "-"}</div></div>
+                              <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>交付诉求</div><div style={{ fontSize: "13px" }}>{o.deliveryNeeds || "-"}</div></div>
+                              <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>命中能力标签</div><div style={{ fontSize: "13px" }}>{o.matchedCapabilityTags || "-"}</div></div>
+                              <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>推荐伙伴</div><div style={{ fontSize: "13px" }}>{o.recommendedPartnerNames || "-"}</div></div>
+                              <div style={{ flex: "1 1 150px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>缺失字段</div><div style={{ fontSize: "13px", color: "var(--danger)" }}>{o.missingFields || "无"}</div></div>
+                            </div>
+                            <div style={{ marginTop: "12px" }}><div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>建议补充问题</div><div style={{ fontSize: "13px" }}>{o.followUpQuestions || "暂无"}</div></div>
+                            <div style={{ marginTop: "8px", fontSize: "12px", color: "var(--muted)" }}>创建时间: {o.createdAt.slice(0, 19).replace("T", " ")}</div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
       {subTab === "report" ? (
         <ReportTab report={report} loading={reportLoading} error={reportError} filterDays={filterDays} setFilterDays={setFilterDays} filterIndustry={filterIndustry} setFilterIndustry={setFilterIndustry} filterRegion={filterRegion} setFilterRegion={setFilterRegion} filterCapability={filterCapability} setFilterCapability={setFilterCapability} />
       ) : (

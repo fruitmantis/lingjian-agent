@@ -110,6 +110,16 @@ def initialize_storage() -> None:
                     "INSERT INTO capability_tags (id, name, category, description, enabled, sort_order, is_preset, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 0, 1, ?, ?)",
                     (str(uuid.uuid4()), name, category, "", now, now)
                 )
+        connection.execute("""CREATE TABLE IF NOT EXISTS project_opportunities (
+            id TEXT PRIMARY KEY, match_record_id TEXT, requirement_text TEXT,
+            customer_name TEXT, project_name TEXT, industry TEXT, region TEXT,
+            project_stage TEXT, business_needs TEXT, technical_needs TEXT,
+            delivery_needs TEXT, qualification_requirements TEXT, case_requirements TEXT,
+            onsite_requirement TEXT, timeline_requirement TEXT, cloud_platform_preference TEXT,
+            matched_capability_tags TEXT, unmatched_capability_signals TEXT,
+            recommended_partner_ids TEXT, recommended_partner_names TEXT,
+            supply_status TEXT, completeness_score REAL, missing_fields TEXT,
+            follow_up_questions TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
         connection.execute("""CREATE TABLE IF NOT EXISTS model_configs (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, provider TEXT DEFAULT 'OpenAI Compatible',
             base_url TEXT, api_key TEXT, api_key_source TEXT DEFAULT 'env',

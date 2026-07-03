@@ -262,3 +262,117 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
         uncoveredClues=total_sugs,
         topFormalTags=top_formal,
     )
+
+
+# ============ Project Opportunities ============
+
+class OpportunityOut(BaseModel):
+    id: str
+    matchRecordId: str | None
+    requirementText: str
+    customerName: str | None
+    projectName: str | None
+    industry: str | None
+    region: str | None
+    projectStage: str | None
+    businessNeeds: str | None
+    technicalNeeds: str | None
+    deliveryNeeds: str | None
+    qualificationRequirements: str | None
+    caseRequirements: str | None
+    onsiteRequirement: str | None
+    timelineRequirement: str | None
+    cloudPlatformPreference: str | None
+    matchedCapabilityTags: str | None
+    unmatchedCapabilitySignals: str | None
+    recommendedPartnerNames: str | None
+    supplyStatus: str | None
+    completenessScore: float
+    missingFields: str | None
+    followUpQuestions: str | None
+    createdAt: str
+    updatedAt: str
+
+
+class OpportunityUpdate(BaseModel):
+    customerName: str | None = None
+    projectName: str | None = None
+    industry: str | None = None
+    region: str | None = None
+    projectStage: str | None = None
+    businessNeeds: str | None = None
+
+
+_OPP_COLS = "id, match_record_id, requirement_text, customer_name, project_name, industry, region, project_stage, business_needs, technical_needs, delivery_needs, qualification_requirements, case_requirements, onsite_requirement, timeline_requirement, cloud_platform_preference, matched_capability_tags, unmatched_capability_signals, recommended_partner_names, supply_status, completeness_score, missing_fields, follow_up_questions, created_at, updated_at"
+
+
+def _opp_to_out(r) -> OpportunityOut:
+    return OpportunityOut(
+        id=r["id"], matchRecordId=r["match_record_id"], requirementText=r["requirement_text"],
+        customerName=r["customer_name"], projectName=r["project_name"], industry=r["industry"],
+        region=r["region"], projectStage=r["project_stage"], businessNeeds=r["business_needs"],
+        technicalNeeds=r["technical_needs"], deliveryNeeds=r["delivery_needs"],
+        qualificationRequirements=r["qualification_requirements"], caseRequirements=r["case_requirements"],
+        onsiteRequirement=r["onsite_requirement"], timelineRequirement=r["timeline_requirement"],
+        cloudPlatformPreference=r["cloud_platform_preference"],
+        matchedCapabilityTags=r["matched_capability_tags"], unmatchedCapabilitySignals=r["unmatched_capability_signals"],
+        recommendedPartnerNames=r["recommended_partner_names"], supplyStatus=r["supply_status"],
+        completenessScore=r["completeness_score"], missingFields=r["missing_fields"],
+        followUpQuestions=r["follow_up_questions"], createdAt=r["created_at"], updatedAt=r["updated_at"]
+    )
+
+
+@router.get("/opportunities", response_model=list[OpportunityOut])
+def list_opportunities(keyword: str | None = None, industry: str | None = None, region: str | None = None, stage: str | None = None, supplyStatus: str | None = None):
+    with get_db() as conn:
+        q = f"SELECT {_OPP_COLS} FROM project_opportunities"
+        conditions = []
+        params = []
+        if keyword:
+            conditions.append("(project_name LIKE ? OR customer_name LIKE ? OR requirement_text LIKE ?)")
+            params.extend([f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"])
+        if industry:
+            conditions.append("industry LIKE ?"); params.append(f"%{industry}%")
+        if region:
+            conditions.append("region LIKE ?"); params.append(f"%{region}%")
+        if stage:
+            conditions.append("project_stage LIKE ?"); params.append(f"%{stage}%")
+        if supplyStatus:
+            conditions.append("supply_status = ?"); params.append(supplyStatus)
+        if conditions:
+            q += " WHERE " + " AND ".join(conditions)
+        q += " ORDER BY created_at DESC"
+        rows = conn.execute(q, params).fetchall()
+    return [_opp_to_out(r) for r in rows]
+
+
+@router.get("/opportunities/{opp_id}", response_model=OpportunityOut)
+def get_opportunity(opp_id: str) -> OpportunityOut:
+    with get_db() as conn:
+        row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
+    if row is None:
+        from fastapi import HTTPException, status as _st
+        raise HTTPException(_st.HTTP_404_NOT_FOUND, detail="项目机会不存在")
+    return _opp_to_out(row)
+
+
+@router.put("/opportunities/{opp_id}", response_model=OpportunityOut)
+def update_opportunity(opp_id: str, payload: OpportunityUpdate) -> OpportunityOut:
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    with get_db() as conn:
+        row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
+        if row is None:
+            from fastapi import HTTPException, status as _st
+            raise HTTPException(_st.HTTP_404_NOT_FOUND, detail="项目机会不存在")
+        updates = []
+        params = []
+        for field, col in [("customerName","customer_name"),("projectName","project_name"),("industry","industry"),("region","region"),("projectStage","project_stage"),("businessNeeds","business_needs")]:
+            val = getattr(payload, field)
+            if val is not None:
+                updates.append(f"{col} = ?"); params.append(val)
+        if updates:
+            updates.append("updated_at = ?"); params.append(now); params.append(opp_id)
+            conn.execute(f"UPDATE project_opportunities SET {', '.join(updates)} WHERE id = ?", params)
+        row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
+    return _opp_to_out(row)
