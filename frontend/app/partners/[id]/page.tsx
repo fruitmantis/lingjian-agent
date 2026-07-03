@@ -127,9 +127,8 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
       <div style={{ marginBottom: "20px" }}>
         <a href="/profiles" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "10px 20px", fontSize: "14px", fontWeight: 600, color: "var(--brand)", background: "white", border: "1px solid var(--brand)", borderRadius: "8px", textDecoration: "none", transition: "all 0.2s" }}>← 返回伙伴画像</a>
       </div>
-      <p className="eyebrow">Partner Profile</p>
-      <h1>伙伴画像详情</h1>
-      <p className="lead">伙伴标识：{id}</p>
+      <h1 className="hero-title">伙伴画像详情</h1>
+      <p className="hero-subtitle">查看伙伴基础信息、能力标签、资料预览和 AI 生成的能力画像。</p>
 
       <section className="card">
         <h2>基础信息</h2>
@@ -229,8 +228,8 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
         )}
       </section>
 
-      <section className="card">
-        <h2>AI 能力画像</h2>
+      <section className="card card-highlight">
+        <h2 className="section-title">AI 能力画像</h2>
         {partner?.ai_profile ? (<div className="ai-profile"><pre className="ai-profile-text">{partner.ai_profile}</pre><button onClick={handleGenerateProfile} disabled={generatingProfile} className="secondary-btn">{generatingProfile ? "生成中..." : "重新生成"}</button></div>) : (<div className="ai-profile-empty"><p className="placeholder-text">暂无 AI 画像。请在伙伴资料管理页面上传文档后生成。</p><button onClick={handleGenerateProfile} disabled={generatingProfile}>{generatingProfile ? "生成中（可能需要数十秒）..." : "生成 AI 画像"}</button></div>)}
       </section>
     </main>

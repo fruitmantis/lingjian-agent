@@ -171,12 +171,18 @@ export default function HomePage() {
 
       <section className="card">
         <h2>伙伴智能匹配</h2>
-        <form onSubmit={handleMatch} className="match-form">
+        <div style={{ display: "flex", gap: "16px", marginTop: "32px", marginBottom: "32px", flexWrap: "wrap" }}>
+        <div className="metric-card" style={{ flex: "1 1 140px" }}><div className="metric-value">{stats.totalPartners}</div><div className="metric-label">已管理伙伴</div></div>
+        <div className="metric-card success" style={{ flex: "1 1 140px" }}><div className="metric-value">{stats.withProfile}</div><div className="metric-label">已生成 AI 画像</div></div>
+        <div className="metric-card info" style={{ flex: "1 1 140px" }}><div className="metric-value">{stats.totalMatches}</div><div className="metric-label">累计智能匹配</div></div>
+        <div className="metric-card warning" style={{ flex: "1 1 140px" }}><div className="metric-value">{stats.pendingSuggestions}</div><div className="metric-label">待采纳 AI 建议</div></div>
+      </div>
+      <form onSubmit={handleMatch} className="match-form">
           <div className="form-row">
             <label htmlFor="requirement">项目需求</label>
             <textarea id="requirement" value={requirement} onChange={(e) => setRequirement(e.target.value)} required rows={4} placeholder="描述你的项目需求，如：需要一个有金融行业经验的Java全栈团队，负责银行核心系统重构" />
           </div>
-          <button type="submit" disabled={loading}>{loading ? "匹配中..." : "智能匹配"}</button>
+          <button type="submit" disabled={loading} className="btn-primary-lg">{loading ? "匹配中..." : "智能匹配"}</button>
         </form>
         {error && <p className="error-text">{error}</p>}
       </section>

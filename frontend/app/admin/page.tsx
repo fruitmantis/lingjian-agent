@@ -561,9 +561,8 @@ export default function AdminPage() {
 
   return (
     <main className="page">
-      <p className="eyebrow">System Administration</p>
-      <h1>系统管理</h1>
-      <p className="lead">维护用户、标签、字典等平台基础配置。</p>
+      <h1 className="hero-title">系统管理</h1>
+      <p className="hero-subtitle">维护用户、标签、字典等平台基础配置。</p>
 
       <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "2px solid var(--line)" }}>
         <button onClick={() => setActiveTab("users")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "users" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "users" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>用户管理</button>
