@@ -210,7 +210,7 @@ function CapabilityTagsTab() {
                     <td style={{ padding: "8px" }}>
                       {isThisEditing ? (
                         <div style={{ display: "flex", gap: "6px" }}>
-                          <button onClick={() => saveEdit(t.id)} style={checkBtn}>✓</button>>
+                          <button onClick={() => saveEdit(t.id)} style={checkBtn}>✓</button>
                           <button onClick={cancelEdit} style={crossBtn}>✕</button>
                         </div>
                       ) : (
