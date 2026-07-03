@@ -76,11 +76,12 @@ export default function DemandsPage() {
   const [subTab, setSubTab] = useState<"profiles" | "report" | "opportunities">(initialTab);
 
   // Sync subTab with URL when searchParams change
+  const urlTabStr = searchParams.get("tab") || "";
   useEffect(() => {
-    const urlTab = searchParams.get("tab") as "profiles" | "report" | "opportunities" | null;
+    const urlTab = urlTabStr as "profiles" | "report" | "opportunities" | null;
     if (urlTab && urlTab !== subTab) setSubTab(urlTab);
-    if (!urlTab && subTab !== "profiles") changeSubTab("profiles");
-  }, [searchParams]);
+    if (!urlTab && subTab !== "profiles") setSubTab("profiles");
+  }, [urlTabStr]);
 
   // Update URL when subTab changes
   function changeSubTab(tab: "profiles" | "report" | "opportunities") {

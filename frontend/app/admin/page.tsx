@@ -707,11 +707,12 @@ export default function AdminPage() {
   const initialTab = (searchParams.get("tab") as "users" | "tags" | "status" | "model") || "users";
   const [activeTab, setActiveTab] = useState<"users" | "tags" | "status" | "model">(initialTab);
 
+  const urlTabStr = searchParams.get("tab") || "";
   useEffect(() => {
-    const urlTab = searchParams.get("tab") as "users" | "tags" | "status" | "model" | null;
+    const urlTab = urlTabStr as "users" | "tags" | "status" | "model" | null;
     if (urlTab && urlTab !== activeTab) setActiveTab(urlTab);
-    if (!urlTab && activeTab !== "users") changeTab("users");
-  }, [searchParams]);
+    if (!urlTab && activeTab !== "users") setActiveTab("users");
+  }, [urlTabStr]);
 
   function changeTab(tab: "users" | "tags" | "status" | "model") {
     setActiveTab(tab);
