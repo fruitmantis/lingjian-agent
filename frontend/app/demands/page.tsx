@@ -150,8 +150,8 @@ export default function DemandsPage() {
   return (
     <main className="page">
       <p className="eyebrow">Demand Operations</p>
-      <h1>项目需求画像</h1>
-      <p className="lead">基于历史项目需求和智能匹配记录，分析需求趋势、能力热度与伙伴供给缺口。</p>
+      <h1>{subTab === "profiles" ? "需求画像" : subTab === "report" ? "运营报表" : "项目机会库"}</h1>
+      <p className="lead">{subTab === "profiles" ? "基于历史项目需求和智能匹配记录，分析需求趋势、能力热度与伙伴供给缺口。" : subTab === "report" ? "洞察一线项目需求趋势，识别伙伴能力供给缺口。" : "沉淀和管理 AI 从项目需求中抽取出的结构化项目信息。"}</p>
       {error && <p className="error-text">{error}</p>}
 
       {subTab === "profiles" && !error && data && data.profiles.length === 0 && (

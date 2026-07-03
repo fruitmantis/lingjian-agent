@@ -41,12 +41,24 @@ const NAV_STRUCTURE = [
   },
 ];
 
-function getPageTitle(pathname: string): string {
+function getPageTitle(pathname: string, searchParams: URLSearchParams): string {
   for (const group of NAV_STRUCTURE) {
     for (const item of group.items) {
       const itemPath = item.href.split("?")[0];
+      const itemParams = new URLSearchParams(item.href.split("?")[1] || "");
+      const itemTab = itemParams.get("tab");
       if (pathname === itemPath || pathname.startsWith(itemPath + "/")) {
-        return `${group.group} / ${item.label}`;
+        // For /demands and /admin, also match tab param
+        if ((itemPath === "/demands" || itemPath === "/admin") && itemTab) {
+          if (searchParams.get("tab") === itemTab) {
+            return `${group.group} / ${item.label}`;
+          }
+        } else if (!itemTab) {
+          // No tab in href = default item, match when no tab in URL
+          if (!searchParams.get("tab") || (itemPath !== "/demands" && itemPath !== "/admin")) {
+            return `${group.group} / ${item.label}`;
+          }
+        }
       }
     }
   }
@@ -81,7 +93,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     
   }, []);
 
-  const pageTitle = getPageTitle(pathname);
+  const pageTitle = getPageTitle(pathname, searchParams);
 
   return (
     <div className="app-layout">
