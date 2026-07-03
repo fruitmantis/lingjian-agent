@@ -36,7 +36,7 @@ const NAV_STRUCTURE = [
       { label: "用户管理", href: "/admin" },
       { label: "能力标签配置", href: "/admin?tab=tags" },
       { label: "系统状态", href: "/admin?tab=status" },
-      { label: "系统配置", href: "/admin?tab=model" },
+      { label: "模型配置", href: "/admin?tab=model" },
     ],
   },
 ];

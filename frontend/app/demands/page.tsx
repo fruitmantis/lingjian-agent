@@ -160,6 +160,9 @@ export default function DemandsPage() {
 
       {subTab === "profiles" && !error && data && data.profiles.length > 0 && (
         <>
+          {data.profiles.length < 5 && (
+            <div style={{ padding: "10px 16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a", marginBottom: "16px", fontSize: "13px", color: "#92400e" }}>当前样本量较少（{data.profiles.length} 条），数据仅供参考。</div>
+          )}
           {/* 总览指标卡 */}
           <section className="card">
             <h2>总览指标</h2>
@@ -302,7 +305,7 @@ export default function DemandsPage() {
             <input type="text" placeholder="阶段" value={oppStage} onChange={(e) => setOppStage(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
           </div>
           {oppError && <p className="error-text">{oppError}</p>}
-          {oppLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : opps.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无项目机会。</p> : (
+          {oppLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : opps.length === 0 ? <div style={{ textAlign: "center", padding: "40px 20px" }}><p style={{ fontSize: "15px", color: "var(--muted)", marginBottom: "16px" }}>暂无项目机会。</p><p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "20px" }}>项目机会信息由 Agent 工作台智能匹配后自动抽取生成。</p><a href="/" className="btn-primary-lg" style={{ display: "inline-block", fontSize: "14px", padding: "10px 28px", textDecoration: "none" }}>前往智能匹配</a></div> : (
             <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
                 <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>项目名称</th>

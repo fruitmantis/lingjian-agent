@@ -145,12 +145,6 @@ export default function PartnersPage() {
     <main className="page">
       <p className="eyebrow">Partner Management</p>
       <h1>伙伴资料管理</h1>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <p className="lead">维护伙伴资料，上传文档后 AI 自动分析生成能力画像。</p>
-        <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          <span style={{ fontSize: "14px", color: "var(--muted)" }}>当前用户：{currentUser}</span>
-          <button onClick={handleLogout} className="secondary-btn" style={{ fontSize: "13px" }}>登出</button>
-        </div>
       </div>
       <section className="card">
         <h2>新增伙伴</h2>

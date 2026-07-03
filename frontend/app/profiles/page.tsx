@@ -60,7 +60,7 @@ export default function ProfilesPage() {
       {error && <p className="error-text">{error}</p>}
       {profiles.length === 0 ? <p className="placeholder-text">暂无伙伴画像数据。</p> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px", marginTop: "24px" }}>
-          {profiles.map((p) => (
+          {profiles.filter(p => !searchKeyword || p.name?.includes(searchKeyword) || (p.capabilities || "").includes(searchKeyword)).map((p) => (
             <div key={p.id} className="card" style={{ marginBottom: 0, padding: "24px" }}>
               <h2 style={{ marginBottom: "12px" }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>
               <TagGroup label="能力" value={p.capabilities} />
