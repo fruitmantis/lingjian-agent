@@ -715,6 +715,7 @@ export default function AdminPage() {
 
   return (
     <main className="page">
+      <p className="eyebrow">System Administration</p>
       <h1>{activeTab === "users" ? "用户管理" : activeTab === "tags" ? "能力标签配置" : activeTab === "status" ? "系统状态" : "模型配置"}</h1>
       <p className="lead">{activeTab === "users" ? "维护系统用户账号和角色权限。" : activeTab === "tags" ? "维护标准能力标签、标签分类和 AI 标签建议。" : activeTab === "status" ? "查看数据库、LLM 模型等系统运行状态。" : "维护大模型连接参数和业务场景模型策略。"}</p>
 

@@ -127,8 +127,9 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
       <div style={{ marginBottom: "20px" }}>
         <a href="/profiles" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "10px 20px", fontSize: "14px", fontWeight: 600, color: "var(--brand)", background: "white", border: "1px solid var(--brand)", borderRadius: "8px", textDecoration: "none", transition: "all 0.2s" }}>← 返回伙伴画像</a>
       </div>
-      <h1 className="hero-title">伙伴画像详情</h1>
-      <p className="hero-subtitle">查看伙伴基础信息、能力标签、资料预览和 AI 生成的能力画像。</p>
+      <p className="eyebrow">Partner Profile</p>
+      <h1>伙伴画像详情</h1>
+      <p className="lead">查看伙伴基础信息、能力标签、资料预览和 AI 生成的能力画像。</p>
 
       <section className="card">
         <h2>基础信息</h2>
