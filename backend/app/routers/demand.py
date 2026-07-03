@@ -90,3 +90,175 @@ def list_demand_profiles() -> DemandOverviewResponse:
         regionDistribution=_count_tags(rows, "region_tags"),
         deliveryTypeDistribution=_count_tags(rows, "delivery_type_tags"),
     )
+
+# ============ Operations Report ============
+
+class ReportOverview(BaseModel):
+    totalDemands: int
+    thisMonthDemands: int
+    totalPartners: int
+    partnersWithProfile: int
+    activePartners: int
+    noPartnerDemands: int
+    partialDemands: int
+    pendingSuggestions: int
+
+class ReportDist(BaseModel):
+    label: str
+    count: int
+
+class SupplyGapItem(BaseModel):
+    capability: str
+    demandCount: int
+    partnerCount: int
+    supplyStatus: str
+    gapNote: str
+
+class PartnerActivity(BaseModel):
+    partnerName: str
+    recommendCount: int
+    lastUpdated: str
+
+class ReportResponse(BaseModel):
+    overview: ReportOverview
+    capabilityDist: list[ReportDist]
+    industryDist: list[ReportDist]
+    regionDist: list[ReportDist]
+    deliveryTypeDist: list[ReportDist]
+    supplyGaps: list[SupplyGapItem]
+    activePartnerCount: int
+    activePartnerRatio: float
+    topRecommendedPartners: list[PartnerActivity]
+    inactivePartners: list[PartnerActivity]
+    pendingSuggestions: int
+    uncoveredClues: int
+    topFormalTags: list[ReportDist]
+
+
+@router.get("/report", response_model=ReportResponse)
+def get_report(days: int = 0, industry: str | None = None, region: str | None = None, capability: str | None = None):
+    from datetime import datetime, timezone, timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat() if days > 0 else "1970-01-01"
+    with get_db() as conn:
+        q = "SELECT * FROM demand_profiles WHERE created_at >= ?"
+        params = [cutoff]
+        if industry:
+            q += " AND industry_tags LIKE ?"
+            params.append(f"%{industry}%")
+        if region:
+            q += " AND region_tags LIKE ?"
+            params.append(f"%{region}%")
+        if capability:
+            q += " AND capability_tags LIKE ?"
+            params.append(f"%{capability}%")
+        q += " ORDER BY created_at DESC"
+        rows = conn.execute(q, params).fetchall()
+
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m")
+        total = len(rows)
+        this_month = sum(1 for r in rows if r["created_at"][:7] == now_str)
+        no_partner = sum(1 for r in rows if r["supply_status"] == "gap")
+        partial = sum(1 for r in rows if r["supply_status"] == "partial")
+
+        partners = conn.execute("SELECT id, name, ai_profile, created_at FROM partners").fetchall()
+        total_partners = len(partners)
+        with_profile = sum(1 for p in partners if p["ai_profile"])
+
+        # Active partners: appeared in match recommendations
+        active_set = set()
+        rec_counts = {}
+        recs_rows = conn.execute("SELECT recommendations_json, created_at FROM match_records").fetchall()
+        for rr in recs_rows:
+            import json as _j
+            try:
+                recs = _j.loads(rr["recommendations_json"])
+                for rec in recs:
+                    name = rec.get("partnerName", "")
+                    active_set.add(name)
+                    rec_counts[name] = rec_counts.get(name, 0) + 1
+            except Exception:
+                pass
+
+        active_count = len(active_set)
+        active_ratio = round(active_count / total_partners * 100, 1) if total_partners else 0
+
+        # Top recommended partners
+        top_recs = sorted(rec_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        top_rec_list = [PartnerActivity(partnerName=n, recommendCount=c, lastUpdated="-") for n, c in top_recs]
+
+        # Inactive partners (not in active_set)
+        inactive = [PartnerActivity(partnerName=p["name"], recommendCount=0, lastUpdated=p["created_at"][:10]) for p in partners if p["name"] not in active_set][:10]
+
+        # Pending suggestions
+        pending = conn.execute("SELECT COUNT(*) as cnt FROM capability_tag_suggestions WHERE status = 'pending'").fetchone()["cnt"]
+        total_sugs = conn.execute("SELECT COUNT(*) as cnt FROM capability_tag_suggestions").fetchone()["cnt"]
+
+        # Formal tags distribution from partners
+        partner_rows = conn.execute("SELECT capabilities FROM partners WHERE capabilities IS NOT NULL AND capabilities != ''").fetchall()
+        formal_counts = {}
+        for pr in partner_rows:
+            for tag in (pr["capabilities"] or "").split(","):
+                tag = tag.strip()
+                if tag:
+                    formal_counts[tag] = formal_counts.get(tag, 0) + 1
+        top_formal = sorted([ReportDist(label=k, count=v) for k, v in formal_counts.items()], key=lambda x: x.count, reverse=True)[:10]
+
+        # Supply gaps: aggregate by capability tag
+        cap_demand = {}
+        for r in rows:
+            for tag in (r["capability_tags"] or "").split(","):
+                tag = tag.strip()
+                if tag:
+                    if tag not in cap_demand:
+                        cap_demand[tag] = {"demand": 0, "partners": set()}
+                    cap_demand[tag]["demand"] += 1
+
+        # Count partners per capability
+        for pr in partner_rows:
+            for tag in (pr["capabilities"] or "").split(","):
+                tag = tag.strip()
+                if tag in cap_demand:
+                    cap_demand[tag]["partners"].add(pr["rowid"] if "rowid" in pr.keys() else 1)
+
+        supply_gaps = []
+        for cap, data in cap_demand.items():
+            pcount = len(data["partners"])
+            if pcount == 0:
+                status = "gap"
+                note = "无伙伴覆盖此能力"
+            elif pcount <= 2:
+                status = "partial"
+                note = f"仅{pcount}个伙伴覆盖"
+            else:
+                status = "sufficient"
+                note = f"{pcount}个伙伴可覆盖"
+            supply_gaps.append(SupplyGapItem(capability=cap, demandCount=data["demand"], partnerCount=pcount, supplyStatus=status, gapNote=note))
+        supply_gaps.sort(key=lambda x: (-1 if x.supplyStatus == "gap" else 0, x.demandCount), reverse=True)
+
+        # Distributions
+        def count_tags(col):
+            counts = {}
+            for r in rows:
+                for tag in (r[col] or "").split(","):
+                    tag = tag.strip()
+                    if tag:
+                        counts[tag] = counts.get(tag, 0) + 1
+            return sorted([ReportDist(label=k, count=v) for k, v in counts.items()], key=lambda x: x.count, reverse=True)[:10]
+
+    return ReportResponse(
+        overview=ReportOverview(totalDemands=total, thisMonthDemands=this_month, totalPartners=total_partners,
+            partnersWithProfile=with_profile, activePartners=active_count, noPartnerDemands=no_partner,
+            partialDemands=partial, pendingSuggestions=pending),
+        capabilityDist=count_tags("capability_tags"),
+        industryDist=count_tags("industry_tags"),
+        regionDist=count_tags("region_tags"),
+        deliveryTypeDist=count_tags("delivery_type_tags"),
+        supplyGaps=supply_gaps[:15],
+        activePartnerCount=active_count,
+        activePartnerRatio=active_ratio,
+        topRecommendedPartners=top_rec_list,
+        inactivePartners=inactive,
+        pendingSuggestions=pending,
+        uncoveredClues=total_sugs,
+        topFormalTags=top_formal,
+    )

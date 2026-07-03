@@ -70,6 +70,14 @@ export default function DemandsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [subTab, setSubTab] = useState<"profiles" | "report">("profiles");
+  const [report, setReport] = useState<any>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [filterDays, setFilterDays] = useState(0);
+  const [filterIndustry, setFilterIndustry] = useState("");
+  const [filterRegion, setFilterRegion] = useState("");
+  const [filterCapability, setFilterCapability] = useState("");
 
   async function loadData() {
     setLoading(true); setError(null);
@@ -82,6 +90,21 @@ export default function DemandsPage() {
 
   useEffect(() => { loadData(); }, []);
 
+  async function loadReport() {
+    setReportLoading(true); setReportError(null);
+    try {
+      const p = new URLSearchParams();
+      if (filterDays) p.set("days", String(filterDays));
+      if (filterIndustry) p.set("industry", filterIndustry);
+      if (filterRegion) p.set("region", filterRegion);
+      if (filterCapability) p.set("capability", filterCapability);
+      const res = await fetch(`${apiBaseUrl}/agent/report?${p}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setReport(await res.json());
+    } catch (e) { setReportError(e instanceof Error ? e.message : "报表加载失败"); } finally { setReportLoading(false); }
+  }
+  useEffect(() => { if (subTab === "report") loadReport(); }, [subTab, filterDays, filterIndustry, filterRegion, filterCapability]);
+
   if (loading) return <main className="page"><p>加载中...</p></main>;
 
   return (
@@ -89,6 +112,14 @@ export default function DemandsPage() {
       <p className="eyebrow">Demand Operations</p>
       <h1>项目需求画像</h1>
       <p className="lead">基于历史项目需求和智能匹配记录，分析需求趋势、能力热度与伙伴供给缺口。</p>
+      <div style={{ display: "flex", gap: "4px", marginBottom: "16px", borderBottom: "2px solid var(--line)" }}>
+        <button onClick={() => setSubTab("profiles")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "profiles" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "profiles" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>需求画像</button>
+        <button onClick={() => setSubTab("report")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "report" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "report" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>运营报表</button>
+      </div>
+      {subTab === "report" ? (
+        <ReportTab report={report} loading={reportLoading} error={reportError} filterDays={filterDays} setFilterDays={setFilterDays} filterIndustry={filterIndustry} setFilterIndustry={setFilterIndustry} filterRegion={filterRegion} setFilterRegion={setFilterRegion} filterCapability={filterCapability} setFilterCapability={setFilterCapability} />
+      ) : (
+      <>
       <div style={{ marginBottom: "16px" }}>
         <button onClick={loadData} className="secondary-btn">刷新数据</button>
       </div>
@@ -228,6 +259,61 @@ export default function DemandsPage() {
           </section>
         </>
       )}
+      </>
+      )}
     </main>
+  );
+}
+
+function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIndustry, setFilterIndustry, filterRegion, setFilterRegion, filterCapability, setFilterCapability }: any) {
+  if (loading) return <p>加载中...</p>;
+  if (error) return <p className="error-text">{error}</p>;
+  if (!report) return <p className="placeholder-text">暂无数据。</p>;
+  const max = (arr: any[]) => arr.length > 0 ? arr[0].count : 1;
+  return (
+    <>
+      <section className="card"><h2>筛选条件</h2>
+        <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
+          <select value={filterDays} onChange={(e: any) => setFilterDays(parseInt(e.target.value))} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}><option value={0}>全部时间</option><option value={7}>近7天</option><option value={30}>近30天</option><option value={90}>近90天</option></select>
+          <input type="text" placeholder="行业" value={filterIndustry} onChange={(e: any) => setFilterIndustry(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+          <input type="text" placeholder="区域" value={filterRegion} onChange={(e: any) => setFilterRegion(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+          <input type="text" placeholder="能力标签" value={filterCapability} onChange={(e: any) => setFilterCapability(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+        </div>
+      </section>
+      <section className="card"><h2>运营总览</h2><div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "16px" }}>
+        {[{v:report.overview.totalDemands,l:"累计需求"},{v:report.overview.thisMonthDemands,l:"本月新增"},{v:report.overview.totalPartners,l:"伙伴总数"},{v:report.overview.partnersWithProfile,l:"已生成画像"},{v:report.overview.activePartners,l:"活跃伙伴"},{v:report.overview.noPartnerDemands,l:"无合适伙伴"},{v:report.overview.partialDemands,l:"部分满足"},{v:report.overview.pendingSuggestions,l:"待采纳建议"}].map((m,i) => (
+          <div key={i} style={{ flex: "1 1 120px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", textAlign: "center" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "var(--brand)" }}>{m.v}</div><div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>{m.l}</div></div>
+        ))}
+      </div></section>
+      <section className="card"><h2>需求分布 TOP 10</h2><div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>
+        {[{t:"能力需求",d:report.capabilityDist},{t:"行业需求",d:report.industryDist},{t:"区域需求",d:report.regionDist},{t:"交付类型",d:report.deliveryTypeDist}].map((g,i) => (
+          <div key={i} style={{ flex: "1 1 200px" }}><h3 style={{ fontSize: "14px", marginBottom: "10px" }}>{g.t}</h3>
+            {g.d.length === 0 ? <p className="placeholder-text">暂无数据</p> : g.d.map((item: any, j: number) => (
+              <div key={j} style={{ marginBottom: "8px" }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "3px" }}><span>{item.label}</span><span style={{ color: "var(--muted)" }}>{item.count}</span></div><div style={{ height: "6px", background: "var(--line)", borderRadius: "3px", overflow: "hidden" }}><div style={{ height: "100%", width: `${(item.count / max(g.d)) * 100}%`, background: "var(--brand)", borderRadius: "3px" }} /></div></div>
+            ))}
+          </div>
+        ))}
+      </div></section>
+      <section className="card"><h2>供需缺口分析</h2>
+        {report.supplyGaps.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无数据。</p> : (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}><thead><tr style={{ borderBottom: "1px solid var(--line)" }}><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>能力</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>需求次数</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>可推荐伙伴</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>供给状态</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>缺口说明</th></tr></thead><tbody>
+            {report.supplyGaps.map((g: any, i: number) => { const b = g.supplyStatus === "gap" ? { l: "明显缺口", c: "var(--danger)", bg: "#fef2f2", bd: "#fecaca" } : g.supplyStatus === "partial" ? { l: "部分满足", c: "#e8a317", bg: "#fffbeb", bd: "#fde68a" } : { l: "基本满足", c: "var(--success)", bg: "#f0fdf4", bd: "#bbf7d0" }; return (
+              <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}><td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>{g.capability}</td><td style={{ padding: "10px 8px", fontSize: "13px" }}>{g.demandCount}</td><td style={{ padding: "10px 8px", fontSize: "13px" }}>{g.partnerCount}</td><td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: b.bg, color: b.c, border: `1px solid ${b.bd}`, whiteSpace: "nowrap" }}>{b.l}</span></td><td style={{ padding: "10px 8px", fontSize: "13px", color: "var(--muted)" }}>{g.gapNote}</td></tr>
+            ); })}
+          </tbody></table>
+        )}
+      </section>
+      <section className="card"><h2>伙伴活跃度</h2><div style={{ marginTop: "12px" }}>
+        <p style={{ fontSize: "14px" }}>活跃伙伴：<strong>{report.activePartnerCount}</strong> / {report.overview.totalPartners}（{report.activePartnerRatio}%）</p>
+        <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>
+          <div style={{ flex: "1 1 300px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>被推荐次数 TOP 10</h3>{report.topRecommendedPartners.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.topRecommendedPartners.map((p: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{i+1}. {p.partnerName}</span><span style={{ fontSize: "13px", color: "var(--brand)", fontWeight: 600" }}>{p.recommendCount}次</span></div>))}</div>
+          <div style={{ flex: "1 1 300px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>长期未更新伙伴</h3>{report.inactivePartners.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.inactivePartners.map((p: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{p.partnerName}</span><span style={{ fontSize: "12px", color: "var(--muted)" }}>{p.lastUpdated}</span></div>))}</div>
+        </div>
+      </div></section>
+      <section className="card"><h2>标签运营</h2><div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>
+        <div style={{ flex: "1 1 200px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>高频正式能力标签</h3>{report.topFormalTags.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.topFormalTags.map((t: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{t.label}</span><span style={{ fontSize: "13px", color: "var(--brand)", fontWeight: 600" }}>{t.count}</span></div>))}</div>
+        <div style={{ flex: "1 1 200px" }}><div style={{ padding: "16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a", marginBottom: "8px" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "#e8a317" }}>{report.uncoveredClues}</div><div style={{ fontSize: "12px", color: "var(--muted)" }}>未覆盖能力线索</div></div><div style={{ padding: "16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "#e8a317" }}>{report.pendingSuggestions}</div><div style={{ fontSize: "12px", color: "var(--muted)" }}>待采纳AI建议</div></div></div>
+      </div></section>
+    </>
   );
 }
