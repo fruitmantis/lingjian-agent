@@ -349,8 +349,8 @@ function CapabilityTagsTab() {
                     </td>
                     <td style={{ padding: "10px 8px", fontSize: "13px" }}>{s.occurrenceCount}</td>
                     <td style={{ padding: "10px 8px", fontSize: "13px" }}>{(s.confidence * 100).toFixed(0)}%</td>
-                    <td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: s.status === "adopted" ? "#f0fdf4" : "#fffbeb", color: s.status === "adopted" ? "var(--success)" : "#e8a317", border: `1px solid ${s.status === "adopted" ? "#bbf7d0" : "#fde68a"}` }}>{s.status === "adopted" ? "已采纳" : "待采纳"}</span></td>
-                    <td style={{ padding: "10px 8px" }}>
+                    <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: s.status === "adopted" ? "#f0fdf4" : "#fffbeb", color: s.status === "adopted" ? "var(--success)" : "#e8a317", border: `1px solid ${s.status === "adopted" ? "#bbf7d0" : "#fde68a"}`, whiteSpace: "nowrap" }}>{s.status === "adopted" ? "已采纳" : "待采纳"}</span></td>
+                    <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}>
                       {s.status === "pending" && (
                         adoptingId === s.id ? (
                           <div style={{ display: "flex", gap: "6px" }}><button onClick={() => confirmAdopt(s.id)} style={checkBtn}>✓</button><button onClick={cancelAdopt} style={crossBtn}>✕</button></div>
