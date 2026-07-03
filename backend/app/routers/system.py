@@ -63,41 +63,16 @@ def _check_database() -> tuple[list[ServiceStatus], bool]:
     has_error = False
     try:
         with get_db() as conn:
-            # Test read
             conn.execute("SELECT 1").fetchone()
             items.append(ServiceStatus(name="数据库连接", status="normal", message="连接正常"))
-
-            # Test write
             conn.execute("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER)")
             conn.execute("INSERT OR REPLACE INTO _health_check (id) VALUES (1)")
             conn.execute("DELETE FROM _health_check WHERE id = 1")
             items.append(ServiceStatus(name="数据库读写", status="normal", message="读写正常"))
-
-            # Data counts
-            partner_count = conn.execute("SELECT COUNT(*) as cnt FROM partners").fetchone()["cnt"]
-            items.append(ServiceStatus(name="伙伴数量", status="normal", message=f"{partner_count} 个伙伴"))
-
-            tag_count = conn.execute("SELECT COUNT(*) as cnt FROM capability_tags").fetchone()["cnt"]
-            items.append(ServiceStatus(name="能力标签数量", status="normal", message=f"{tag_count} 个标签"))
-
-            cat_count = conn.execute("SELECT COUNT(*) as cnt FROM capability_tag_categories").fetchone()["cnt"]
-            items.append(ServiceStatus(name="标签分类数量", status="normal", message=f"{cat_count} 个分类"))
-
-            match_count = conn.execute("SELECT COUNT(*) as cnt FROM match_records").fetchone()["cnt"]
-            items.append(ServiceStatus(name="匹配记录数量", status="normal", message=f"{match_count} 条记录"))
-
-            demand_count = conn.execute("SELECT COUNT(*) as cnt FROM demand_profiles").fetchone()["cnt"]
-            items.append(ServiceStatus(name="需求画像数量", status="normal", message=f"{demand_count} 条画像"))
-
     except Exception as e:
         has_error = True
         items.append(ServiceStatus(name="数据库连接", status="error", message=f"连接异常: {e}"))
         items.append(ServiceStatus(name="数据库读写", status="unknown", message="无法检测"))
-        items.append(ServiceStatus(name="伙伴数量", status="unknown", message="无法检测"))
-        items.append(ServiceStatus(name="能力标签数量", status="unknown", message="无法检测"))
-        items.append(ServiceStatus(name="标签分类数量", status="unknown", message="无法检测"))
-        items.append(ServiceStatus(name="匹配记录数量", status="unknown", message="无法检测"))
-        items.append(ServiceStatus(name="需求画像数量", status="unknown", message="无法检测"))
     return items, has_error
 
 
@@ -159,53 +134,6 @@ def _check_llm() -> tuple[list[ServiceStatus], bool, str]:
 def _check_business() -> tuple[list[ServiceStatus], list[AbnormalModule]]:
     items = []
     abnormals = []
-
-    # Capability tags dictionary
-    try:
-        with get_db() as conn:
-            enabled_tags = conn.execute("SELECT COUNT(*) as cnt FROM capability_tags WHERE enabled = 1").fetchone()["cnt"]
-            if enabled_tags > 0:
-                items.append(ServiceStatus(name="能力标签字典", status="normal", message=f"{enabled_tags} 个启用标签"))
-            else:
-                items.append(ServiceStatus(name="能力标签字典", status="warning", message="无启用的能力标签"))
-                abnormals.append(AbnormalModule(
-                    module="能力标签字典", status="warning", message="无启用的能力标签",
-                    impact="可能影响伙伴画像标签生成和智能匹配标签命中",
-                    suggestion="请确认至少存在一个启用的能力标签"
-                ))
-
-            # Category dictionary
-            enabled_cats = conn.execute("SELECT COUNT(*) as cnt FROM capability_tag_categories WHERE enabled = 1").fetchone()["cnt"]
-            if enabled_cats > 0:
-                items.append(ServiceStatus(name="标签分类字典", status="normal", message=f"{enabled_cats} 个启用分类"))
-            else:
-                items.append(ServiceStatus(name="标签分类字典", status="warning", message="无启用的标签分类"))
-                abnormals.append(AbnormalModule(
-                    module="标签分类字典", status="warning", message="无启用的标签分类",
-                    impact="可能影响能力标签维护和标签筛选",
-                    suggestion="请确认至少存在一个启用的标签分类"
-                ))
-
-            # Match history
-            match_count = conn.execute("SELECT COUNT(*) as cnt FROM match_records").fetchone()["cnt"]
-            items.append(ServiceStatus(name="匹配历史记录", status="normal", message=f"{match_count} 条记录"))
-
-            # Demand profiles
-            demand_count = conn.execute("SELECT COUNT(*) as cnt FROM demand_profiles").fetchone()["cnt"]
-            items.append(ServiceStatus(name="需求画像生成", status="normal", message=f"{demand_count} 条画像"))
-
-    except Exception as e:
-        items.append(ServiceStatus(name="能力标签字典", status="unknown", message="无法检测"))
-        items.append(ServiceStatus(name="标签分类字典", status="unknown", message="无法检测"))
-        items.append(ServiceStatus(name="匹配历史记录", status="unknown", message="无法检测"))
-        items.append(ServiceStatus(name="需求画像生成", status="unknown", message="无法检测"))
-        abnormals.append(AbnormalModule(
-            module="数据库", status="error", message=f"数据库查询异常: {e}",
-            impact="可能影响伙伴资料、标签配置、匹配历史读取",
-            suggestion="请检查数据库连接"
-        ))
-
-    # LLM-dependent capabilities
     api_key = os.getenv("LLM_API_KEY", "")
     if api_key:
         items.append(ServiceStatus(name="伙伴画像生成", status="normal", message="可用（LLM已配置）"))
@@ -215,10 +143,9 @@ def _check_business() -> tuple[list[ServiceStatus], list[AbnormalModule]]:
         items.append(ServiceStatus(name="智能匹配", status="error", message="不可用（LLM未配置）"))
         abnormals.append(AbnormalModule(
             module="LLM 模型", status="error", message="LLM API Key 未配置",
-            impact="可能影响 AI 画像生成、智能匹配和需求画像生成",
+            impact="可能影响 AI 画像生成和智能匹配",
             suggestion="请检查模型 API Key 和模型接口配置"
         ))
-
     return items, abnormals
 
 

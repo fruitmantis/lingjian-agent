@@ -445,7 +445,7 @@ function SystemStatusTab() {
       </section>
 
       <StatusCard title="基础服务" items={data.services} />
-      <StatusCard title="数据库与数据" items={data.database} />
+      <StatusCard title="数据库" items={data.database} />
       <StatusCard title="LLM 模型" items={data.llm} />
       <StatusCard title="业务能力" items={data.businessCapabilities} />
     </div>
