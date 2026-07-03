@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const NAV_STRUCTURE = [
@@ -53,14 +53,24 @@ function getPageTitle(pathname: string): string {
   return "灵鉴 Agent";
 }
 
-function isItemActive(pathname: string, href: string): boolean {
+function isItemActive(pathname: string, href: string, search: URLSearchParams): boolean {
   const itemPath = href.split("?")[0];
   if (itemPath === "/") return pathname === "/";
+  if (itemPath === "/demands" || itemPath === "/admin") {
+    if (pathname !== itemPath) return false;
+    // Check if query params match
+    const hrefParams = new URLSearchParams(href.split("?")[1] || "");
+    const tab = hrefParams.get("tab");
+    if (tab) return search.get("tab") === tab;
+    // No tab in href = default (first item), active when no tab in URL
+    return !search.get("tab");
+  }
   return pathname === itemPath || pathname.startsWith(itemPath + "/");
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [statusOk, setStatusOk] = useState<boolean | null>(null);
   const [currentUser, setCurrentUser] = useState<string>("");
 
@@ -88,7 +98,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <div className="nav-group-title"><span className="nav-group-icon">{group.icon}</span>{group.group}</div>
               <ul className="nav-items">
                 {group.items.map((item) => (
-                  <li key={item.href}><Link href={item.href} className={`nav-item ${isItemActive(pathname, item.href) ? "active" : ""}`}>{item.label}</Link></li>
+                  <li key={item.href}><Link href={item.href} className={`nav-item ${isItemActive(pathname, item.href, searchParams) ? "active" : ""}`}>{item.label}</Link></li>
                 ))}
               </ul>
             </div>
