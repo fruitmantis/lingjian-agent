@@ -286,8 +286,6 @@ export default function DemandsPage() {
           </section>
         </>
       )}
-      </>
-      )}
     </main>
   );
 }
