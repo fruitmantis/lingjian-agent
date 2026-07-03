@@ -154,11 +154,11 @@ export default function DemandsPage() {
       <p className="lead">基于历史项目需求和智能匹配记录，分析需求趋势、能力热度与伙伴供给缺口。</p>
       {error && <p className="error-text">{error}</p>}
 
-      {!error && data && data.profiles.length === 0 && (
+      {subTab === "profiles" && !error && data && data.profiles.length === 0 && (
         <section className="card"><p className="placeholder-text" style={{ marginTop: "12px" }}>暂无需求画像，请先在 Agent 工作台完成一次智能匹配。</p></section>
       )}
 
-      {!error && data && data.profiles.length > 0 && (
+      {subTab === "profiles" && !error && data && data.profiles.length > 0 && (
         <>
           {/* 总览指标卡 */}
           <section className="card">
