@@ -323,7 +323,7 @@ def scan_suggestions():
     with get_db() as conn:
         records = conn.execute("SELECT id, requirement, recommendations_json FROM match_records ORDER BY created_at DESC LIMIT 10").fetchall()
         std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
-        existing_sugs = {r["suggested_name"] for r in conn.execute("SELECT suggested_name FROM capability_tag_suggestions WHERE status = 'pending'").fetchall()}
+        existing_sugs = {r["suggested_name"] for r in conn.execute("SELECT suggested_name FROM capability_tag_suggestions").fetchall()}
     std_tags_str = ", ".join(std_tags) if std_tags else "无标准标签"
     created = 0
     for rec in records:

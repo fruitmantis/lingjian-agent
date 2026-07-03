@@ -327,18 +327,18 @@ function CapabilityTagsTab() {
           {sugLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : sugList.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无标签建议。</p> : (
             <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>建议标签</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>分类</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>建议标签</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>分类</th>
                 <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>说明</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>次数</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>置信度</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>状态</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>操作</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>次数</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>置信度</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>状态</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
               </tr></thead>
               <tbody>
                 {sugList.map((s) => (
                   <tr key={s.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600 }}>
+                    <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>
                       {adoptingId === s.id ? <input type="text" value={adoptName} onChange={(e) => setAdoptName(e.target.value)} style={inpStyle} /> : s.suggestedName}
                     </td>
                     <td style={{ padding: "10px 8px", fontSize: "13px" }}>
