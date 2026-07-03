@@ -77,8 +77,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
     fetch(`${apiBase}/health`).then((r) => r.ok).then((ok) => setStatusOk(ok)).catch(() => setStatusOk(false));
-    const user = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-    if (user) setCurrentUser(user);
+    const rawUser = typeof window !== "undefined" ? localStorage.getItem("user") : null; try { const userObj = rawUser ? JSON.parse(rawUser) : null; setCurrentUser(userObj?.display_name || userObj?.username || ""); } catch { setCurrentUser(rawUser || ""); }
+    
   }, []);
 
   const pageTitle = getPageTitle(pathname);
