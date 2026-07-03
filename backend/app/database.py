@@ -120,7 +120,7 @@ def initialize_storage() -> None:
         connection.execute("""CREATE TABLE IF NOT EXISTS model_usage_configs (
             scene_key TEXT PRIMARY KEY, scene_name TEXT NOT NULL, model_config_id TEXT,
             description TEXT, updated_at TEXT NOT NULL)""")
-        existing_mc = connection.execute("SELECT COUNT(*) as cnt FROM model_configs").fetchone()["cnt"]
+        existing_mc = connection.execute("SELECT COUNT(*) FROM model_configs").fetchone()[0]
         if existing_mc == 0:
             env_base = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
             env_model = os.getenv("LLM_MODEL", "gpt-4o")
@@ -128,7 +128,7 @@ def initialize_storage() -> None:
                 "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, timeout_seconds, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, 'env', 'LLM_API_KEY', ?, 0.3, 1.0, 4096, 60, 1, 1, ?, ?)",
                 (str(uuid.uuid4()), "当前默认模型配置", "OpenAI Compatible", env_base, env_model, now, now)
             )
-        existing_muc = connection.execute("SELECT COUNT(*) as cnt FROM model_usage_configs").fetchone()["cnt"]
+        existing_muc = connection.execute("SELECT COUNT(*) FROM model_usage_configs").fetchone()[0]
         if existing_muc == 0:
             scenes = [("partner_profile", "伙伴画像生成"), ("partner_match", "智能匹配"), ("demand_profile", "需求画像分析"), ("tag_suggestion", "AI 标签建议"), ("recommendation_summary", "推荐说明生成"), ("default", "系统默认")]
             for sk, sn in scenes:
