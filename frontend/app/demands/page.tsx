@@ -286,6 +286,55 @@ export default function DemandsPage() {
           </section>
         </>
       )}
+
+      {subTab === "report" && (
+        <ReportTab report={report} loading={reportLoading} error={reportError} filterDays={filterDays} setFilterDays={setFilterDays} filterIndustry={filterIndustry} setFilterIndustry={setFilterIndustry} filterRegion={filterRegion} setFilterRegion={setFilterRegion} filterCapability={filterCapability} setFilterCapability={setFilterCapability} />
+      )}
+
+      {subTab === "opportunities" && (
+        <section className="card">
+          <h2 className="section-title">项目机会库</h2>
+          <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
+            <input type="text" placeholder="搜索项目名称/客户..." value={oppKeyword} onChange={(e) => setOppKeyword(e.target.value)} style={{ flex: "1 1 180px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+            <input type="text" placeholder="行业" value={oppIndustry} onChange={(e) => setOppIndustry(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+            <input type="text" placeholder="区域" value={oppRegion} onChange={(e) => setOppRegion(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+            <input type="text" placeholder="阶段" value={oppStage} onChange={(e) => setOppStage(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+          </div>
+          {oppError && <p className="error-text">{oppError}</p>}
+          {oppLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : opps.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无项目机会。</p> : (
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+              <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>项目名称</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>客户</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>行业</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>区域</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>阶段</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>完整度</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>供给状态</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
+              </tr></thead>
+              <tbody>
+                {opps.map((o) => {
+                  const isExp = expandedOpp === o.id;
+                  const badge = o.supplyStatus === "gap" ? { l: "明显缺口", c: "var(--danger)", bg: "#fef2f2", bd: "#fecaca" } : o.supplyStatus === "partial" ? { l: "部分满足", c: "#e8a317", bg: "#fffbeb", bd: "#fde68a" } : { l: "基本满足", c: "var(--success)", bg: "#f0fdf4", bd: "#bbf7d0" };
+                  return (
+                    <tr key={o.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                      <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600 }}>{o.projectName || "未识别"}</td>
+                      <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.customerName || "未识别"}</td>
+                      <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.industry || "-"}</td>
+                      <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.region || "-"}</td>
+                      <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.projectStage || "-"}</td>
+                      <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 700, color: o.completenessScore >= 80 ? "var(--success)" : o.completenessScore >= 50 ? "#e8a317" : "var(--danger)" }}>{o.completenessScore}%</td>
+                      <td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: badge.bg, color: badge.c, border: `1px solid ${badge.bd}`, whiteSpace: "nowrap" }}>{badge.l}</span></td>
+                      <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{isExp ? "收起" : "详情"}</button></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
     </main>
   );
 }
