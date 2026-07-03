@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 type DemandProfile = {
   id: string; matchRecordId: string | null; requirementText: string;
@@ -70,7 +71,22 @@ export default function DemandsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [subTab, setSubTab] = useState<"profiles" | "report" | "opportunities">("profiles");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as "profiles" | "report" | "opportunities") || "profiles";
+  const [subTab, setSubTab] = useState<"profiles" | "report" | "opportunities">(initialTab);
+
+  // Sync subTab with URL when searchParams change
+  useEffect(() => {
+    const urlTab = searchParams.get("tab") as "profiles" | "report" | "opportunities" | null;
+    if (urlTab && urlTab !== subTab) setSubTab(urlTab);
+    if (!urlTab && subTab !== "profiles") changeSubTab("profiles");
+  }, [searchParams]);
+
+  // Update URL when subTab changes
+  function changeSubTab(tab: "profiles" | "report" | "opportunities") {
+    setSubTab(tab);
+    setSearchParams(tab === "profiles" ? {} : { tab });
+  }
   const [report, setReport] = useState<any>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -136,9 +152,9 @@ export default function DemandsPage() {
       <h1>项目需求画像</h1>
       <p className="lead">基于历史项目需求和智能匹配记录，分析需求趋势、能力热度与伙伴供给缺口。</p>
       <div style={{ display: "flex", gap: "4px", marginBottom: "16px", borderBottom: "2px solid var(--line)" }}>
-        <button onClick={() => setSubTab("profiles")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "profiles" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "profiles" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>需求画像</button>
-        <button onClick={() => setSubTab("opportunities")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "opportunities" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "opportunities" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>项目机会库</button>
-        <button onClick={() => setSubTab("report")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "report" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "report" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>运营报表</button>
+        <button onClick={() => changeSubTab("profiles")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "profiles" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "profiles" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>需求画像</button>
+        <button onClick={() => changeSubTab("opportunities")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "opportunities" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "opportunities" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>项目机会库</button>
+        <button onClick={() => changeSubTab("report")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "report" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "report" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>运营报表</button>
       </div>
       {subTab === "opportunities" && (
         <section className="card">

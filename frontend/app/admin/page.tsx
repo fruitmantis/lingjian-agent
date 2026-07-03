@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -702,7 +703,20 @@ function ModelConfigTab() {
 
 // ============ Main Admin Page ============
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"users" | "tags" | "status" | "model">("users");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as "users" | "tags" | "status" | "model") || "users";
+  const [activeTab, setActiveTab] = useState<"users" | "tags" | "status" | "model">(initialTab);
+
+  useEffect(() => {
+    const urlTab = searchParams.get("tab") as "users" | "tags" | "status" | "model" | null;
+    if (urlTab && urlTab !== activeTab) setActiveTab(urlTab);
+    if (!urlTab && activeTab !== "users") changeTab("users");
+  }, [searchParams]);
+
+  function changeTab(tab: "users" | "tags" | "status" | "model") {
+    setActiveTab(tab);
+    setSearchParams(tab === "users" ? {} : { tab });
+  }
 
   return (
     <main className="page">
@@ -710,10 +724,10 @@ export default function AdminPage() {
       <p className="hero-subtitle">维护用户、标签、字典等平台基础配置。</p>
 
       <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "2px solid var(--line)" }}>
-        <button onClick={() => setActiveTab("users")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "users" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "users" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>用户管理</button>
-        <button onClick={() => setActiveTab("tags")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "tags" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "tags" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>能力标签配置</button>
-        <button onClick={() => setActiveTab("status")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "status" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "status" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>系统状态</button>
-        <button onClick={() => setActiveTab("model")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "model" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "model" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>模型配置</button>
+        <button onClick={() => changeTab("users")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "users" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "users" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>用户管理</button>
+        <button onClick={() => changeTab("tags")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "tags" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "tags" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>能力标签配置</button>
+        <button onClick={() => changeTab("status")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "status" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "status" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>系统状态</button>
+        <button onClick={() => changeTab("model")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "model" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "model" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>模型配置</button>
       </div>
 
       {activeTab === "users" ? <UsersTab /> : activeTab === "tags" ? <CapabilityTagsTab /> : activeTab === "status" ? <SystemStatusTab /> : <ModelConfigTab />}
