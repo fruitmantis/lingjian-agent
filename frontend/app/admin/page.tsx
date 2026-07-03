@@ -78,7 +78,7 @@ function UsersTab() {
   );
 }
 
-// ============ Capability Tags Tab ============
+// ============ Capability Tags Tab (inline edit) ============
 type Tag = { id: string; name: string; category: string; description: string | null; enabled: boolean; sortOrder: number; isPreset: boolean; createdAt: string; updatedAt: string };
 
 const CATEGORIES = ["AI 与智能体", "云平台与迁移", "数据与数据库", "应用开发与现代化", "运维与安全", "咨询与项目管理", "其他"];
@@ -89,12 +89,12 @@ function CapabilityTagsTab() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editingTag, setEditingTag] = useState<Tag | null>(null);
-  const [formName, setFormName] = useState("");
-  const [formCategory, setFormCategory] = useState("其他");
-  const [formDesc, setFormDesc] = useState("");
-  const [formSort, setFormSort] = useState(0);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isNewRow, setIsNewRow] = useState(false);
+  const [eName, setEName] = useState("");
+  const [eCat, setECat] = useState("其他");
+  const [eDesc, setEDesc] = useState("");
+  const [eSort, setESort] = useState(0);
 
   async function loadTags() {
     setLoading(true); setError(null);
@@ -110,20 +110,28 @@ function CapabilityTagsTab() {
 
   useEffect(() => { loadTags(); }, [search, filterCategory]);
 
-  function openCreate() { setEditingTag(null); setFormName(""); setFormCategory("其他"); setFormDesc(""); setFormSort(0); setShowForm(true); }
-  function openEdit(t: Tag) { setEditingTag(t); setFormName(t.name); setFormCategory(t.category); setFormDesc(t.description || ""); setFormSort(t.sortOrder); setShowForm(true); }
+  function startEdit(t: Tag) {
+    setEditingId(t.id); setIsNewRow(false);
+    setEName(t.name); setECat(t.category); setEDesc(t.description || ""); setESort(t.sortOrder);
+  }
+  function startNew() {
+    setIsNewRow(true); setEditingId(null);
+    setEName(""); setECat("其他"); setEDesc(""); setESort(0);
+  }
+  function cancelEdit() { setEditingId(null); setIsNewRow(false); }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault(); setError(null);
+  async function saveEdit(id: string | null) {
+    setError(null);
     try {
-      if (editingTag) {
-        const res = await fetch(`${apiBaseUrl}/capability-tags/${editingTag.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: formName, category: formCategory, description: formDesc || null, sortOrder: formSort }) });
+      const body = JSON.stringify({ name: eName, category: eCat, description: eDesc || null, sortOrder: eSort });
+      if (id) {
+        const res = await fetch(`${apiBaseUrl}/capability-tags/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body });
         if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); }
       } else {
-        const res = await fetch(`${apiBaseUrl}/capability-tags`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: formName, category: formCategory, description: formDesc || null, sortOrder: formSort }) });
+        const res = await fetch(`${apiBaseUrl}/capability-tags`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
         if (!res.ok) { const ed = await res.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${res.status}`); }
       }
-      setShowForm(false); await loadTags();
+      cancelEdit(); await loadTags();
     } catch (e) { setError(e instanceof Error ? e.message : "保存失败"); }
   }
 
@@ -135,12 +143,17 @@ function CapabilityTagsTab() {
     } catch (e) { setError(e instanceof Error ? e.message : "操作失败"); }
   }
 
+  const isEditing = editingId !== null || isNewRow;
+  const inpStyle = { padding: "4px 8px", border: "1px solid var(--brand)", borderRadius: "4px", fontSize: "13px", width: "100%", boxSizing: "border-box" as const };
+  const checkBtn = { fontSize: "16px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", lineHeight: 1 };
+  const crossBtn = { fontSize: "16px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", lineHeight: 1 };
+
   return (
     <div>
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <h2>能力标签配置</h2>
-          <button onClick={openCreate} style={{ fontSize: "13px", padding: "6px 16px" }}>新增标签</button>
+          <button onClick={startNew} disabled={isEditing} style={{ fontSize: "13px", padding: "6px 16px", opacity: isEditing ? 0.5 : 1 }}>新增标签</button>
         </div>
         <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
           <input type="text" placeholder="搜索标签名称..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: "1 1 200px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
@@ -150,7 +163,7 @@ function CapabilityTagsTab() {
           </select>
         </div>
         {error && <p className="error-text">{error}</p>}
-        {loading ? <p style={{ marginTop: "12px" }}>加载中...</p> : tags.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无标签数据。</p> : (
+        {loading ? <p style={{ marginTop: "12px" }}>加载中...</p> : (tags.length === 0 && !isNewRow) ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无标签数据。</p> : (
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
             <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>标签名称</th>
@@ -161,41 +174,59 @@ function CapabilityTagsTab() {
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>类型</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>操作</th>
             </tr></thead>
-            <tbody>{tags.map((t) => (
-              <tr key={t.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600 }}>{t.name}</td>
-                <td style={{ padding: "10px 8px", fontSize: "13px" }}>{t.category}</td>
-                <td style={{ padding: "10px 8px", fontSize: "13px", color: "var(--muted)" }}>{t.description || "-"}</td>
-                <td style={{ padding: "10px 8px", fontSize: "13px" }}>{t.sortOrder}</td>
-                <td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: t.enabled ? "#f0fdf4" : "#fef2f2", color: t.enabled ? "var(--success)" : "var(--danger)", border: `1px solid ${t.enabled ? "#bbf7d0" : "#fecaca"}` }}>{t.enabled ? "启用" : "停用"}</span></td>
-                <td style={{ padding: "10px 8px" }}>{t.isPreset ? <span className="partner-tag">预置</span> : <span className="partner-tag" style={{ background: "#f0f5ff", color: "#1a4fa0", border: "1px solid #d6e4ff" }}>自定义</span>}</td>
-                <td style={{ padding: "10px 8px" }}>
-                  <div style={{ display: "flex", gap: "6px" }}>
-                    <button onClick={() => openEdit(t)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>编辑</button>
-                    <button onClick={() => handleToggle(t)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{t.enabled ? "停用" : "启用"}</button>
-                  </div>
-                </td>
-              </tr>
-            ))}</tbody>
+            <tbody>
+              {isNewRow && (
+                <tr style={{ borderBottom: "1px solid var(--line)", background: "#fffbeb" }}>
+                  <td style={{ padding: "8px" }}><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="标签名称" style={inpStyle} autoFocus /></td>
+                  <td style={{ padding: "8px" }}><select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
+                  <td style={{ padding: "8px" }}><input type="text" value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="选填" style={inpStyle} /></td>
+                  <td style={{ padding: "8px" }}><input type="number" value={eSort} onChange={(e) => setESort(parseInt(e.target.value) || 0)} style={{ ...inpStyle, width: "60px" }} /></td>
+                  <td style={{ padding: "8px" }}></td>
+                  <td style={{ padding: "8px" }}></td>
+                  <td style={{ padding: "8px" }}><div style={{ display: "flex", gap: "6px" }}>
+                    <button onClick={() => saveEdit(null)} style={checkBtn}>✓</button>
+                    <button onClick={cancelEdit} style={crossBtn}>✕</button>
+                  </div></td>
+                </tr>
+              )}
+              {tags.map((t) => {
+                const isThisEditing = editingId === t.id;
+                return (
+                  <tr key={t.id} style={{ borderBottom: "1px solid var(--line)", background: isThisEditing ? "#fffbeb" : "transparent" }}>
+                    <td style={{ padding: "8px" }}>
+                      {isThisEditing ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{t.name}</span>}
+                    </td>
+                    <td style={{ padding: "8px" }}>
+                      {isThisEditing ? <select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select> : <span style={{ fontSize: "13px" }}>{t.category}</span>}
+                    </td>
+                    <td style={{ padding: "8px" }}>
+                      {isThisEditing ? <input type="text" value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{t.description || "-"}</span>}
+                    </td>
+                    <td style={{ padding: "8px" }}>
+                      {isThisEditing ? <input type="number" value={eSort} onChange={(e) => setESort(parseInt(e.target.value) || 0)} style={{ ...inpStyle, width: "60px" }} /> : <span style={{ fontSize: "13px" }}>{t.sortOrder}</span>}
+                    </td>
+                    <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: t.enabled ? "#f0fdf4" : "#fef2f2", color: t.enabled ? "var(--success)" : "var(--danger)", border: `1px solid ${t.enabled ? "#bbf7d0" : "#fecaca"}` }}>{t.enabled ? "启用" : "停用"}</span></td>
+                    <td style={{ padding: "8px" }}>{t.isPreset ? <span className="partner-tag">预置</span> : <span className="partner-tag" style={{ background: "#f0f5ff", color: "#1a4fa0", border: "1px solid #d6e4ff" }}>自定义</span>}</td>
+                    <td style={{ padding: "8px" }}>
+                      {isThisEditing ? (
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button onClick={() => saveEdit(t.id)} style={checkBtn}>✓</button>>
+                          <button onClick={cancelEdit} style={crossBtn}>✕</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button onClick={() => startEdit(t)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>编辑</button>
+                          <button onClick={() => handleToggle(t)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{t.enabled ? "停用" : "启用"}</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
           </table>
         )}
       </section>
-
-      {showForm && (
-        <section className="card">
-          <h2>{editingTag ? "编辑标签" : "新增标签"}</h2>
-          <form onSubmit={handleSave} className="partner-form" style={{ marginTop: "12px" }}>
-            <div className="form-row"><label htmlFor="formName">标签名称</label><input id="formName" type="text" value={formName} onChange={(e) => setFormName(e.target.value)} required maxLength={50} placeholder="标签名称" /></div>
-            <div className="form-row"><label htmlFor="formCategory">分类</label><select id="formCategory" value={formCategory} onChange={(e) => setFormCategory(e.target.value)} style={{ padding: "10px 14px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-            <div className="form-row"><label htmlFor="formDesc">说明</label><input id="formDesc" type="text" value={formDesc} onChange={(e) => setFormDesc(e.target.value)} placeholder="选填" /></div>
-            <div className="form-row"><label htmlFor="formSort">排序</label><input id="formSort" type="number" value={formSort} onChange={(e) => setFormSort(parseInt(e.target.value) || 0)} style={{ width: "80px" }} /></div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button type="submit">保存</button>
-              <button type="button" onClick={() => setShowForm(false)} className="secondary-btn">取消</button>
-            </div>
-          </form>
-        </section>
-      )}
     </div>
   );
 }
