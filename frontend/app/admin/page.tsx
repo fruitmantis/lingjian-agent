@@ -202,6 +202,7 @@ function CapabilityTagsTab() {
   const [sugError, setSugError] = useState<string | null>(null);
   const [sugStatus, setSugStatus] = useState("");
   const [sugKeyword, setSugKeyword] = useState("");
+  const [scanning, setScanning] = useState(false);
   const [adoptingId, setAdoptingId] = useState<string | null>(null);
   const [adoptName, setAdoptName] = useState("");
   const [adoptCat, setAdoptCat] = useState("");
@@ -232,14 +233,14 @@ function CapabilityTagsTab() {
     } catch (e) { setSugError(e instanceof Error ? e.message : "采纳失败"); }
   }
   async function scanSuggestions() {
-    setSugError(null);
+    setScanning(true); setSugError(null);
     try {
       const r = await fetch(`${apiBaseUrl}/capability-tags/suggestions/scan`, { method: "POST" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       setSugError(d.created > 0 ? `扫描完成，新增 ${d.created} 条建议` : "扫描完成，未发现新建议");
       await loadSugList();
-    } catch (e) { setSugError(e instanceof Error ? e.message : "扫描失败"); }
+    } catch (e) { setSugError(e instanceof Error ? e.message : "扫描失败"); } finally { setScanning(false); }
   }
 
   const isCatEditing = editCatId !== null || isNewCat;
@@ -315,7 +316,7 @@ function CapabilityTagsTab() {
         <section className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
             <h2>AI 标签建议</h2>
-            <button onClick={scanSuggestions} style={{ fontSize: "13px", padding: "6px 16px" }}>扫描需求</button>
+            <button onClick={scanSuggestions} disabled={scanning} style={{ fontSize: "13px", padding: "6px 16px", opacity: scanning ? 0.6 : 1 }}>{scanning ? "扫描中..." : "扫描需求"}</button>
           </div>
           <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>基于项目需求识别标准能力标签未覆盖的新能力诉求，采纳后可上架为正式能力标签。</p>
           <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
