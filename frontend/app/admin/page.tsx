@@ -589,7 +589,7 @@ function ModelConfigTab() {
   async function saveEdit(id: string | null) {
     setError(null);
     try {
-      const body = JSON.stringify({ name: eName, provider: eProvider, baseUrl: eUrl||null, apiKey: eKey||null, modelName: eModel||null, temperature: eTemp, maxTokens: eMaxTokens, timeoutSeconds: eTimeout });
+      const body = JSON.stringify({ name: eName, provider: eProvider, baseUrl: eUrl || undefined, apiKey: eKey || undefined, modelName: eModel || undefined, temperature: eTemp, maxTokens: eMaxTokens, timeoutSeconds: eTimeout });
       const url = id ? `${apiBaseUrl}/model-configs/${id}` : `${apiBaseUrl}/model-configs`;
       const method = id ? "PUT" : "POST";
       const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body });
@@ -635,6 +635,7 @@ function ModelConfigTab() {
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>名称</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>供应商</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>模型</th>
+              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>API 地址</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>API Key</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>状态</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
@@ -645,6 +646,7 @@ function ModelConfigTab() {
                   <td style={{ padding: "8px" }}><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="配置名称" style={inp} autoFocus /></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} placeholder="模型名称" style={inp} /></td>
+                  <td style={{ padding: "8px" }}><input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /></td>
                   <td style={{ padding: "8px" }}><input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="输入新Key" style={inp} /></td>
                   <td style={{ padding: "8px" }}></td>
                   <td style={{ padding: "8px", whiteSpace: "nowrap" }}><div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveEdit(null)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div></td>
@@ -657,6 +659,7 @@ function ModelConfigTab() {
                     <td style={{ padding: "8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}{c.isDefault ? <span className="tag-red" style={{ marginLeft: "6px" }}>默认</span> : null}</span>}</td>
                     <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /> : c.provider}</td>
                     <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} style={inp} /> : c.modelName}</td>
+                    <td style={{ padding: "8px", fontSize: "12px", color: "var(--muted)" }}>{ic ? <input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /> : (c.baseUrl ? c.baseUrl.replace(/https?:\/\//, "").split("/")[0] : "-")}</td>
                     <td style={{ padding: "8px" }}>{ic ? <input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="留空保留原Key" style={inp} /> : <span style={{ fontSize: "12px", color: c.apiKeyConfigured ? "var(--success)" : "var(--danger)" }}>{c.apiKeyConfigured ? "已配置" : "未配置"}</span>}</td>
                     <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: c.enabled ? "#f0fdf4" : "#fef2f2", color: c.enabled ? "var(--success)" : "var(--danger)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}`, whiteSpace: "nowrap" }}>{c.enabled ? "启用" : "停用"}</span></td>
                     <td style={{ padding: "8px", whiteSpace: "nowrap" }}>

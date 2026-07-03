@@ -104,7 +104,7 @@ def _check_llm() -> tuple[list[ServiceStatus], bool, str]:
         try:
             parsed = urlparse(api_base)
             masked = f"{parsed.scheme}://{parsed.hostname}" if parsed.hostname else api_base
-            items.append(ServiceStatus(name="模型接口地址", status="normal", message=masked))
+            items.append(ServiceStatus(name="模型接口地址", status="normal", message=f"{masked}（{config_source}）"))
         except Exception:
             items.append(ServiceStatus(name="模型接口地址", status="warning", message="地址格式异常"))
     else:
