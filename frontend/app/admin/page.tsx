@@ -723,13 +723,6 @@ export default function AdminPage() {
       <h1 className="hero-title">系统管理</h1>
       <p className="hero-subtitle">维护用户、标签、字典等平台基础配置。</p>
 
-      <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "2px solid var(--line)" }}>
-        <button onClick={() => changeTab("users")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "users" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "users" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>用户管理</button>
-        <button onClick={() => changeTab("tags")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "tags" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "tags" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>能力标签配置</button>
-        <button onClick={() => changeTab("status")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "status" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "status" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>系统状态</button>
-        <button onClick={() => changeTab("model")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "model" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "model" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>模型配置</button>
-      </div>
-
       {activeTab === "users" ? <UsersTab /> : activeTab === "tags" ? <CapabilityTagsTab /> : activeTab === "status" ? <SystemStatusTab /> : <ModelConfigTab />}
     </main>
   );
