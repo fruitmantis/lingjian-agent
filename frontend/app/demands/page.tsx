@@ -71,7 +71,7 @@ export default function DemandsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as "profiles" | "report" | "opportunities") || "profiles";
   const [subTab, setSubTab] = useState<"profiles" | "report" | "opportunities">(initialTab);
 
@@ -85,7 +85,7 @@ export default function DemandsPage() {
   // Update URL when subTab changes
   function changeSubTab(tab: "profiles" | "report" | "opportunities") {
     setSubTab(tab);
-    setSearchParams(tab === "profiles" ? {} : { tab });
+    const url = new URL(window.location.href); if (tab === "profiles") url.searchParams.delete("tab"); else url.searchParams.set("tab", tab); window.history.pushState({}, "", url);
   }
   const [report, setReport] = useState<any>(null);
   const [reportLoading, setReportLoading] = useState(false);

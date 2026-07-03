@@ -703,7 +703,7 @@ function ModelConfigTab() {
 
 // ============ Main Admin Page ============
 export default function AdminPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as "users" | "tags" | "status" | "model") || "users";
   const [activeTab, setActiveTab] = useState<"users" | "tags" | "status" | "model">(initialTab);
 
@@ -715,7 +715,7 @@ export default function AdminPage() {
 
   function changeTab(tab: "users" | "tags" | "status" | "model") {
     setActiveTab(tab);
-    setSearchParams(tab === "users" ? {} : { tab });
+    const url = new URL(window.location.href); if (tab === "users") url.searchParams.delete("tab"); else url.searchParams.set("tab", tab); window.history.pushState({}, "", url);
   }
 
   return (
