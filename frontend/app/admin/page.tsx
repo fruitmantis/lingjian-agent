@@ -81,10 +81,12 @@ function UsersTab() {
 // ============ Capability Tags Tab (inline edit) ============
 type Tag = { id: string; name: string; category: string; description: string | null; enabled: boolean; sortOrder: number; isPreset: boolean; createdAt: string; updatedAt: string };
 
-const CATEGORIES = ["AI 与智能体", "云平台与迁移", "数据与数据库", "应用开发与现代化", "运维与安全", "咨询与项目管理", "其他"];
+const DEFAULT_CATEGORIES = ["AI 与智能体", "云平台与迁移", "数据与数据库", "应用开发与现代化", "运维与安全", "咨询与项目管理", "其他"];
 
 function CapabilityTagsTab() {
   const [tags, setTags] = useState<Tag[]>([]);
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [subTab, setSubTab] = useState<"tags" | "categories">("tags");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -109,6 +111,14 @@ function CapabilityTagsTab() {
   }
 
   useEffect(() => { loadTags(); }, [search, filterCategory]);
+
+  async function loadCategories() {
+    try {
+      const res = await fetch(`${apiBaseUrl}/capability-tags/categories?enabled=true`, { cache: "no-store" });
+      if (res.ok) setCategories((await res.json()).map((c: any) => c.name));
+    } catch {}
+  }
+  useEffect(() => { loadCategories(); }, []);
 
   function startEdit(t: Tag) {
     setEditingId(t.id); setIsNewRow(false);
@@ -144,12 +154,120 @@ function CapabilityTagsTab() {
   }
 
   const isEditing = editingId !== null || isNewRow;
+
+  const [catList, setCatList] = useState<any[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
+  const [catError, setCatError] = useState<string | null>(null);
+  const [catSearch, setCatSearch] = useState("");
+  const [catFilterEnabled, setCatFilterEnabled] = useState("");
+  const [editCatId, setEditCatId] = useState<string | null>(null);
+  const [isNewCat, setIsNewCat] = useState(false);
+  const [cN, setCN] = useState(""); const [cCo, setCCo] = useState(""); const [cD, setCD] = useState(""); const [cS, setCS] = useState(0);
+
+  async function loadCatList() {
+    setCatLoading(true); setCatError(null);
+    try {
+      const p = new URLSearchParams();
+      if (catSearch) p.set("search", catSearch);
+      if (catFilterEnabled) p.set("enabled", catFilterEnabled === "true" ? "true" : "false");
+      const r = await fetch(`${apiBaseUrl}/capability-tags/categories?${p}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setCatList(await r.json());
+    } catch (e) { setCatError(e instanceof Error ? e.message : "加载失败"); } finally { setCatLoading(false); }
+  }
+  useEffect(() => { if (subTab === "categories") loadCatList(); }, [subTab, catSearch, catFilterEnabled]);
+
+  function startCatEdit(c: any) { setEditCatId(c.id); setIsNewCat(false); setCN(c.name); setCCo(c.code||""); setCD(c.description||""); setCS(c.sortOrder); }
+  function startNewCat() { setIsNewCat(true); setEditCatId(null); setCN(""); setCCo(""); setCD(""); setCS(0); }
+  function cancelCatEdit() { setEditCatId(null); setIsNewCat(false); }
+  async function saveCatEdit(id: string | null) {
+    setCatError(null);
+    try {
+      const body = JSON.stringify({ name: cN, code: cCo||null, description: cD||null, sortOrder: cS });
+      const url = id ? `${apiBaseUrl}/capability-tags/categories/${id}` : `${apiBaseUrl}/capability-tags/categories`;
+      const method = id ? "PUT" : "POST";
+      const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body });
+      if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${r.status}`); }
+      cancelCatEdit(); await loadCatList(); await loadCategories();
+    } catch (e) { setCatError(e instanceof Error ? e.message : "保存失败"); }
+  }
+  async function toggleCatEnable(c: any) {
+    try { const r = await fetch(`${apiBaseUrl}/capability-tags/categories/${c.id}/enable`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: !c.enabled }) }); if (!r.ok) throw new Error(`HTTP ${r.status}`); await loadCatList(); await loadCategories(); }
+    catch (e) { setCatError(e instanceof Error ? e.message : "操作失败"); }
+  }
+
+  const isCatEditing = editCatId !== null || isNewCat;
   const inpStyle = { padding: "4px 8px", border: "1px solid var(--brand)", borderRadius: "4px", fontSize: "13px", width: "100%", boxSizing: "border-box" as const };
   const checkBtn = { fontSize: "16px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", lineHeight: 1 };
   const crossBtn = { fontSize: "16px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", lineHeight: 1 };
 
   return (
     <div>
+      <div style={{ display: "flex", gap: "4px", marginBottom: "16px", borderBottom: "2px solid var(--line)" }}>
+        <button onClick={() => setSubTab("tags")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "tags" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "tags" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>能力标签</button>
+        <button onClick={() => setSubTab("categories")} style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 600, border: "none", borderBottom: subTab === "categories" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: subTab === "categories" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>标签分类</button>
+      </div>
+
+      {subTab === "categories" && (
+        <section className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <h2>标签分类配置</h2>
+            <button onClick={startNewCat} disabled={isCatEditing} style={{ fontSize: "13px", padding: "6px 16px", opacity: isCatEditing ? 0.5 : 1 }}>新增分类</button>
+          </div>
+          <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
+            <input type="text" placeholder="搜索分类名称..." value={catSearch} onChange={(e) => setCatSearch(e.target.value)} style={{ flex: "1 1 200px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+            <select value={catFilterEnabled} onChange={(e) => setCatFilterEnabled(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}><option value="">全部状态</option><option value="true">启用</option><option value="false">停用</option></select>
+          </div>
+          {catError && <p className="error-text">{catError}</p>}
+          {catLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : (catList.length === 0 && !isNewCat) ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无分类数据。</p> : (
+            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+              <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>分类名称</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>编码</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>说明</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>排序</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>状态</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>类型</th>
+                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>操作</th>
+              </tr></thead>
+              <tbody>
+                {isNewCat && (
+                  <tr style={{ borderBottom: "1px solid var(--line)", background: "#fffbeb" }}>
+                    <td style={{ padding: "8px" }}><input type="text" value={cN} onChange={(e) => setCN(e.target.value)} placeholder="分类名称" style={inpStyle} autoFocus /></td>
+                    <td style={{ padding: "8px" }}><input type="text" value={cCo} onChange={(e) => setCCo(e.target.value)} placeholder="选填" style={inpStyle} /></td>
+                    <td style={{ padding: "8px" }}><input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /></td>
+                    <td style={{ padding: "8px" }}><input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /></td>
+                    <td style={{ padding: "8px" }}></td><td style={{ padding: "8px" }}></td>
+                    <td style={{ padding: "8px" }}><div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveCatEdit(null)} style={checkBtn}>✓</button><button onClick={cancelCatEdit} style={crossBtn}>✕</button></div></td>
+                  </tr>
+                )}
+                {catList.map((c) => {
+                  const ic = editCatId === c.id;
+                  return (
+                    <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "#fffbeb" : "transparent" }}>
+                      <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cN} onChange={(e) => setCN(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{c.name}</span>}</td>
+                      <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cCo} onChange={(e) => setCCo(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px" }}>{c.code || "-"}</span>}</td>
+                      <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{c.description || "-"}</span>}</td>
+                      <td style={{ padding: "8px" }}>{ic ? <input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /> : <span style={{ fontSize: "13px" }}>{c.sortOrder}</span>}</td>
+                      <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: c.enabled ? "#f0fdf4" : "#fef2f2", color: c.enabled ? "var(--success)" : "var(--danger)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}` }}>{c.enabled ? "启用" : "停用"}</span></td>
+                      <td style={{ padding: "8px" }}>{c.isPreset ? <span className="partner-tag">预置</span> : <span className="partner-tag" style={{ background: "#f0f5ff", color: "#1a4fa0", border: "1px solid #d6e4ff" }}>自定义</span>}</td>
+                      <td style={{ padding: "8px" }}>
+                        {ic ? (
+                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveCatEdit(c.id)} style={checkBtn}>✓</button><button onClick={cancelCatEdit} style={crossBtn}>✕</button></div>
+                        ) : (
+                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => startCatEdit(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>编辑</button><button onClick={() => toggleCatEnable(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{c.enabled ? "停用" : "启用"}</button></div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
+      {subTab === "tags" && (
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <h2>能力标签配置</h2>
@@ -159,7 +277,7 @@ function CapabilityTagsTab() {
           <input type="text" placeholder="搜索标签名称..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: "1 1 200px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
           <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}>
             <option value="">全部分类</option>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         {error && <p className="error-text">{error}</p>}
@@ -178,7 +296,7 @@ function CapabilityTagsTab() {
               {isNewRow && (
                 <tr style={{ borderBottom: "1px solid var(--line)", background: "#fffbeb" }}>
                   <td style={{ padding: "8px" }}><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="标签名称" style={inpStyle} autoFocus /></td>
-                  <td style={{ padding: "8px" }}><select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
+                  <td style={{ padding: "8px" }}><select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="选填" style={inpStyle} /></td>
                   <td style={{ padding: "8px" }}><input type="number" value={eSort} onChange={(e) => setESort(parseInt(e.target.value) || 0)} style={{ ...inpStyle, width: "60px" }} /></td>
                   <td style={{ padding: "8px" }}></td>
@@ -197,7 +315,7 @@ function CapabilityTagsTab() {
                       {isThisEditing ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{t.name}</span>}
                     </td>
                     <td style={{ padding: "8px" }}>
-                      {isThisEditing ? <select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select> : <span style={{ fontSize: "13px" }}>{t.category}</span>}
+                      {isThisEditing ? <select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select> : <span style={{ fontSize: "13px" }}>{t.category}</span>}
                     </td>
                     <td style={{ padding: "8px" }}>
                       {isThisEditing ? <input type="text" value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{t.description || "-"}</span>}
@@ -227,6 +345,7 @@ function CapabilityTagsTab() {
           </table>
         )}
       </section>
+      )}
     </div>
   );
 }

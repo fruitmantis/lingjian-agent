@@ -62,6 +62,25 @@ def initialize_storage() -> None:
             id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, category TEXT NOT NULL,
             description TEXT, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0,
             is_preset INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Seed preset capability tag categories
+        connection.execute("""CREATE TABLE IF NOT EXISTS capability_tag_categories (
+            id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, code TEXT,
+            description TEXT, enabled INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0,
+            is_preset INTEGER DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
+        existing_cats = {row[0] for row in connection.execute("SELECT name FROM capability_tag_categories")}
+        preset_cats = [
+            ("AI 与智能体", "ai"), ("云平台与迁移", "cloud"), ("数据与数据库", "data"),
+            ("应用开发与现代化", "dev"), ("运维与安全", "ops"), ("咨询与项目管理", "consulting"), ("其他", "other"),
+        ]
+        for cname, ccode in preset_cats:
+            if cname not in existing_cats:
+                connection.execute(
+                    "INSERT INTO capability_tag_categories (id, name, code, description, enabled, sort_order, is_preset, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 0, 1, ?, ?)",
+                    (str(uuid.uuid4()), cname, ccode, "", now, now)
+                )
+
         # Seed preset capability tags
         existing_tags = {row[0] for row in connection.execute("SELECT name FROM capability_tags")}
         preset_tags = [
@@ -77,7 +96,6 @@ def initialize_storage() -> None:
             ("HCS云运维", "运维与安全"), ("开发者技术支持", "咨询与项目管理"),
             ("SAP", "应用开发与现代化"), ("企业协同", "应用开发与现代化"),
         ]
-        now = datetime.now(timezone.utc).isoformat()
         for name, category in preset_tags:
             if name not in existing_tags:
                 connection.execute(
