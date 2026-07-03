@@ -10,7 +10,6 @@ const NAV_STRUCTURE = [
     icon: "🎯",
     items: [
       { label: "智能匹配", href: "/" },
-      { label: "匹配历史", href: "/?history=true" },
     ],
   },
   {
@@ -35,11 +34,9 @@ const NAV_STRUCTURE = [
     icon: "⚙️",
     items: [
       { label: "用户管理", href: "/admin" },
-      { label: "能力标签", href: "/admin?tab=tags" },
-      { label: "标签分类", href: "/admin?tab=tags&sub=categories" },
-      { label: "AI 标签建议", href: "/admin?tab=tags&sub=suggestions" },
-      { label: "模型配置", href: "/admin?tab=model" },
+      { label: "能力标签配置", href: "/admin?tab=tags" },
       { label: "系统状态", href: "/admin?tab=status" },
+      { label: "系统配置", href: "/admin?tab=model" },
     ],
   },
 ];
