@@ -39,6 +39,7 @@ function TagGroup({ label, value }: { label: string; value: string | null }) {
 }
 
 export default function ProfilesPage() {
+  const [searchKeyword, setSearchKeyword] = useState("");
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
