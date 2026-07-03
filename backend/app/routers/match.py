@@ -224,7 +224,7 @@ def _generate_tag_suggestions(requirement: str, match_record_id: str):
         raw = chat_completion([
             {"role": "system", "content": f"分析项目需求，找出标准能力标签无法覆盖的新能力诉求。当前标准标签：[{std_tags_str}]。如果存在未覆盖的能力诉求，返回JSON数组，每项含suggestedName,suggestedCategoryName(从:AI与智能体,云平台与迁移,数据与数据库,应用开发与现代化,运维与安全,咨询与项目管理,其他),description,evidenceText,confidence(0-1)。不要把行业/区域误判为能力标签。无新诉求返回[]。只返回JSON。"},
             {"role": "user", "content": f"项目需求: {requirement}"}
-        ], timeout=30)
+        ], timeout=30, scene="demand_profile")
         clean = raw.strip()
         if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
         if clean.endswith("```"): clean = clean[:-3]

@@ -331,7 +331,7 @@ def scan_suggestions():
             raw = chat_completion([
                 {"role": "system", "content": f"分析项目需求，找出标准能力标签无法覆盖的新能力诉求。当前标准标签：[{std_tags_str}]。如果存在未覆盖的能力诉求，返回JSON数组，每项含suggestedName(标签名),suggestedCategoryName(分类名,从以下选择:AI与智能体,云平台与迁移,数据与数据库,应用开发与现代化,运维与安全,咨询与项目管理,其他),description(说明),evidenceText(来源片段),confidence(0-1)。不要把行业/区域/资质误判为能力标签。如果没有新诉求返回空数组[]。只返回JSON。"},
                 {"role": "user", "content": f"项目需求: {rec['requirement']}"}
-            ], timeout=30)
+            ], timeout=30, scene="tag_suggestion")
             clean = raw.strip()
             if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
             if clean.endswith("```"): clean = clean[:-3]

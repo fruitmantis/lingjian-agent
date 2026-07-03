@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from ..database import get_db, DATABASE_PATH
 from ..ai_client import chat_completion
+from ..model_resolver import resolve_model_config, get_config_source_label
 
 
 router = APIRouter(prefix="/system", tags=["system"])
@@ -81,9 +82,11 @@ def _check_llm() -> tuple[list[ServiceStatus], bool, str]:
     has_error = False
     error_msg = ""
 
-    api_key = os.getenv("LLM_API_KEY", "")
-    api_base = os.getenv("LLM_API_BASE", os.getenv("OPENAI_API_BASE", ""))
-    model = os.getenv("LLM_MODEL", os.getenv("OPENAI_MODEL", "未知"))
+    cfg = resolve_model_config()
+    api_key = cfg.api_key
+    api_base = cfg.base_url
+    model = cfg.model
+    config_source = get_config_source_label()
 
     # API Key
     if api_key:
@@ -94,7 +97,7 @@ def _check_llm() -> tuple[list[ServiceStatus], bool, str]:
         error_msg = "LLM API Key 未配置"
 
     # Model name
-    items.append(ServiceStatus(name="当前模型", status="normal", message=model))
+    items.append(ServiceStatus(name="当前模型", status="normal", message=f"{model}（{config_source}）"))
 
     # API base (masked)
     if api_base:

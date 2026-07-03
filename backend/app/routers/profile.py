@@ -47,7 +47,7 @@ def generate_profile(partner_id: str) -> ProfileOut:
         struct_raw = chat_completion([
             {"role": "system", "content": f"根据资料提取结构化标签。返回JSON含三个字段：capabilities(能力标签，只能从以下标准标签中选择：[{std_tags_str}]，选择3-4个匹配的，逗号分隔，不允许创造新标签，无匹配则返回空字符串)，service_areas(覆盖区域，3-4个，每个不超过10字，逗号分隔)，industries(行业经验，3-4个，每个不超过10字，逗号分隔)。只返回JSON。"},
             {"role": "user", "content": context}
-        ], timeout=60)
+        ], timeout=60, scene="partner_profile")
         clean = struct_raw.strip()
         if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
         if clean.endswith("```"): clean = clean[:-3]

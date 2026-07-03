@@ -555,9 +555,151 @@ function SystemStatusTab() {
   );
 }
 
+
+// ============ Model Config Tab ============
+function ModelConfigTab() {
+  const [configs, setConfigs] = useState<any[]>([]);
+  const [usages, setUsages] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isNew, setIsNew] = useState(false);
+  const [eName, setEName] = useState(""); const [eProvider, setEProvider] = useState("OpenAI Compatible");
+  const [eUrl, setEUrl] = useState(""); const [eKey, setEKey] = useState(""); const [eModel, setEModel] = useState("");
+  const [eTemp, setETemp] = useState(0.3); const [eMaxTokens, setEMaxTokens] = useState(4096);
+  const [eTimeout, setETimeout] = useState(60); const [testing, setTesting] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  async function loadData() {
+    setLoading(true); setError(null);
+    try {
+      const [r1, r2] = await Promise.all([
+        fetch(`${apiBaseUrl}/model-configs`, { cache: "no-store" }),
+        fetch(`${apiBaseUrl}/model-configs/usage`, { cache: "no-store" })
+      ]);
+      setConfigs(await r1.json()); setUsages(await r2.json());
+    } catch (e) { setError("加载失败"); } finally { setLoading(false); }
+  }
+  useEffect(() => { loadData(); }, []);
+
+  function startEdit(c: any) { setEditingId(c.id); setIsNew(false); setEName(c.name); setEProvider(c.provider||""); setEUrl(c.baseUrl||""); setEKey(""); setEModel(c.modelName||""); setETemp(c.temperature); setEMaxTokens(c.maxTokens); setETimeout(c.timeoutSeconds); }
+  function startNew() { setIsNew(true); setEditingId(null); setEName(""); setEProvider("OpenAI Compatible"); setEUrl(""); setEKey(""); setEModel(""); setETemp(0.3); setEMaxTokens(4096); setETimeout(60); }
+  function cancelEdit() { setEditingId(null); setIsNew(false); }
+
+  async function saveEdit(id: string | null) {
+    setError(null);
+    try {
+      const body = JSON.stringify({ name: eName, provider: eProvider, baseUrl: eUrl||null, apiKey: eKey||null, modelName: eModel||null, temperature: eTemp, maxTokens: eMaxTokens, timeoutSeconds: eTimeout });
+      const url = id ? `${apiBaseUrl}/model-configs/${id}` : `${apiBaseUrl}/model-configs`;
+      const method = id ? "PUT" : "POST";
+      const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body });
+      if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${r.status}`); }
+      cancelEdit(); await loadData();
+    } catch (e) { setError(e instanceof Error ? e.message : "保存失败"); }
+  }
+
+  async function toggleEnable(c: any) {
+    try { await fetch(`${apiBaseUrl}/model-configs/${c.id}/enable?enabled=${!c.enabled}`, { method: "PATCH" }); await loadData(); } catch {}
+  }
+  async function setDefault(c: any) {
+    try { await fetch(`${apiBaseUrl}/model-configs/${c.id}/default`, { method: "PATCH" }); await loadData(); } catch {}
+  }
+  async function testConn(c: any) {
+    setTesting(c.id); setTestResult(null);
+    try {
+      const r = await fetch(`${apiBaseUrl}/model-configs/${c.id}/test`, { method: "POST" });
+      const d = await r.json();
+      setTestResult(d.success ? `连接成功（${d.latencyMs}ms）` : `失败: ${d.message}`);
+    } catch (e) { setTestResult("测试失败"); } finally { setTesting(null); }
+  }
+  async function updateUsage(scene: string, configId: string) {
+    try { await fetch(`${apiBaseUrl}/model-configs/usage/${scene}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelConfigId: configId || null }) }); await loadData(); } catch {}
+  }
+
+  const inp = { padding: "4px 8px", border: "1px solid var(--brand)", borderRadius: "4px", fontSize: "13px", width: "100%", boxSizing: "border-box" as const };
+
+  if (loading) return <div><p>加载中...</p></div>;
+  if (error) return <div><p className="error-text">{error}</p><button onClick={loadData} className="secondary-btn">重试</button></div>;
+
+  return (
+    <div>
+      <section className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+          <h2>模型配置</h2>
+          <button onClick={startNew} disabled={editingId || isNew} style={{ fontSize: "13px", padding: "6px 16px", opacity: editingId || isNew ? 0.5 : 1 }}>新增配置</button>
+        </div>
+        {testResult && <p style={{ fontSize: "13px", color: "var(--brand)", marginTop: "8px" }}>{testResult}</p>}
+        {configs.length === 0 && !isNew ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无模型配置。</p> : (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+            <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
+              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>名称</th>
+              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>供应商</th>
+              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>模型</th>
+              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>API Key</th>
+              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>状态</th>
+              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
+            </tr></thead>
+            <tbody>
+              {isNew && (
+                <tr style={{ borderBottom: "1px solid var(--line)", background: "#fffbeb" }}>
+                  <td style={{ padding: "8px" }}><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="配置名称" style={inp} autoFocus /></td>
+                  <td style={{ padding: "8px" }}><input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /></td>
+                  <td style={{ padding: "8px" }}><input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} placeholder="模型名称" style={inp} /></td>
+                  <td style={{ padding: "8px" }}><input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="输入新Key" style={inp} /></td>
+                  <td style={{ padding: "8px" }}></td>
+                  <td style={{ padding: "8px", whiteSpace: "nowrap" }}><div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveEdit(null)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div></td>
+                </tr>
+              )}
+              {configs.map((c) => {
+                const ic = editingId === c.id;
+                return (
+                  <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "#fffbeb" : "transparent" }}>
+                    <td style={{ padding: "8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}{c.isDefault ? <span className="tag-red" style={{ marginLeft: "6px" }}>默认</span> : null}</span>}</td>
+                    <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /> : c.provider}</td>
+                    <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} style={inp} /> : c.modelName}</td>
+                    <td style={{ padding: "8px" }}>{ic ? <input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="留空保留原Key" style={inp} /> : <span style={{ fontSize: "12px", color: c.apiKeyConfigured ? "var(--success)" : "var(--danger)" }}>{c.apiKeyConfigured ? "已配置" : "未配置"}</span>}</td>
+                    <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: c.enabled ? "#f0fdf4" : "#fef2f2", color: c.enabled ? "var(--success)" : "var(--danger)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}`, whiteSpace: "nowrap" }}>{c.enabled ? "启用" : "停用"}</span></td>
+                    <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
+                      {ic ? (
+                        <div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveEdit(c.id)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div>
+                      ) : (
+                        <div style={{ display: "flex", gap: "4px" }}>
+                          <button onClick={() => startEdit(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>编辑</button>
+                          <button onClick={() => testConn(c)} disabled={testing === c.id} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{testing === c.id ? "测试中" : "测试"}</button>
+                          <button onClick={() => toggleEnable(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{c.enabled ? "停用" : "启用"}</button>
+                          {!c.isDefault && c.enabled && <button onClick={() => setDefault(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>设默认</button>}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="card">
+        <h2>业务场景模型配置</h2>
+        <div style={{ marginTop: "12px" }}>
+          {usages.map((u) => (
+            <div key={u.sceneKey} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "8px" }}>
+              <div><span style={{ fontSize: "14px", fontWeight: 600 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "使用默认配置"}</span></div>
+              <select value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} style={{ padding: "6px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}>
+                <option value="">使用默认配置</option>
+                {configs.filter(c => c.enabled).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 // ============ Main Admin Page ============
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"users" | "tags" | "status">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "tags" | "status" | "model">("users");
 
   return (
     <main className="page">
@@ -568,9 +710,10 @@ export default function AdminPage() {
         <button onClick={() => setActiveTab("users")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "users" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "users" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>用户管理</button>
         <button onClick={() => setActiveTab("tags")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "tags" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "tags" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>能力标签配置</button>
         <button onClick={() => setActiveTab("status")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "status" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "status" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>系统状态</button>
+        <button onClick={() => setActiveTab("model")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "model" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "model" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>模型配置</button>
       </div>
 
-      {activeTab === "users" ? <UsersTab /> : activeTab === "tags" ? <CapabilityTagsTab /> : <SystemStatusTab />}
+      {activeTab === "users" ? <UsersTab /> : activeTab === "tags" ? <CapabilityTagsTab /> : activeTab === "status" ? <SystemStatusTab /> : <ModelConfigTab />}
     </main>
   );
 }
