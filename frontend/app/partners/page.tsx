@@ -145,7 +145,6 @@ export default function PartnersPage() {
     <main className="page">
       <p className="eyebrow">Partner Management</p>
       <h1>伙伴资料管理</h1>
-      </div>
       <section className="card">
         <h2>新增伙伴</h2>
         <form onSubmit={handleSubmit} className="partner-form">
