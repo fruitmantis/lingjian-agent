@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { HealthStatus } from "../components/health-status";
 
 type Recommendation = {
   partnerId: string;
@@ -344,9 +343,6 @@ export default function HomePage() {
         )}
       </section>
 
-      <section className="dashboard-grid" aria-label="工作台概览">
-        <HealthStatus />
-      </section>
     </main>
   );
 }

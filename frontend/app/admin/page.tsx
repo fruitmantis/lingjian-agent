@@ -347,9 +347,114 @@ function CapabilityTagsTab() {
   );
 }
 
+
+// ============ System Status Tab ============
+function SystemStatusTab() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadData() {
+    setLoading(true); setError(null);
+    try {
+      const res = await fetch(`${apiBaseUrl}/system/status`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setData(await res.json());
+    } catch (e) { setError(e instanceof Error ? e.message : "状态加载失败"); } finally { setLoading(false); }
+  }
+
+  useEffect(() => { loadData(); }, []);
+
+  function statusBadge(status: string) {
+    const map: Record<string, { label: string; color: string; bg: string; border: string }> = {
+      normal: { label: "正常", color: "var(--success)", bg: "#f0fdf4", border: "#bbf7d0" },
+      warning: { label: "警告", color: "#e8a317", bg: "#fffbeb", border: "#fde68a" },
+      error: { label: "异常", color: "var(--danger)", bg: "#fef2f2", border: "#fecaca" },
+      unknown: { label: "未知", color: "var(--muted)", bg: "#f8f9fa", border: "var(--line)" },
+    };
+    const s = map[status] || map.unknown;
+    return <span style={{ padding: "3px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{s.label}</span>;
+  }
+
+  function StatusCard({ title, items }: { title: string; items: any[] }) {
+    return (
+      <section className="card">
+        <h2>{title}</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px" }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+              <div>
+                <span style={{ fontSize: "14px", fontWeight: 600 }}>{item.name}</span>
+                <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "8px" }}>{item.message}</span>
+              </div>
+              {statusBadge(item.status)}
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
+  if (loading) return <div><p>加载中...</p></div>;
+  if (error) return <div><p className="error-text">{error}</p><button onClick={loadData} className="secondary-btn">重试</button></div>;
+  if (!data) return <div><p className="placeholder-text">暂无状态数据。</p></div>;
+
+  const overallMap: Record<string, { label: string; color: string }> = {
+    normal: { label: "全部核心能力运行正常", color: "var(--success)" },
+    partial: { label: `系统部分异常：${data.summary.abnormalModules.slice(0, 3).map((m: any) => m.module).join("、")}${data.summary.abnormalModules.length > 3 ? `等 ${data.summary.abnormalModules.length} 项` : ""}`, color: "#e8a317" },
+    error: { label: "系统异常", color: "var(--danger)" },
+    unknown: { label: "系统状态未知", color: "var(--muted)" },
+  };
+  const overall = overallMap[data.overallStatus] || overallMap.unknown;
+
+  return (
+    <div>
+      {/* Overall status */}
+      <section className="card" style={{ borderColor: overall.color }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+          <div>
+            <h2 style={{ color: overall.color }}>{overall.label}</h2>
+            <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>最后检查: {data.checkedAt.slice(0, 19).replace("T", " ")}</p>
+          </div>
+          <button onClick={loadData} className="secondary-btn">刷新状态</button>
+        </div>
+        {/* Stats */}
+        <div style={{ display: "flex", gap: "16px", marginTop: "12px", flexWrap: "wrap" }}>
+          <div style={{ padding: "8px 16px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--success)" }}>{data.summary.normalCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>正常</span></div>
+          <div style={{ padding: "8px 16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "#e8a317" }}>{data.summary.warningCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>警告</span></div>
+          <div style={{ padding: "8px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--danger)" }}>{data.summary.errorCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>异常</span></div>
+          <div style={{ padding: "8px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--muted)" }}>{data.summary.unknownCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>未知</span></div>
+        </div>
+        {/* Abnormal modules */}
+        {data.summary.abnormalModules.length > 0 && (
+          <div style={{ marginTop: "12px" }}>
+            <h3 style={{ fontSize: "14px", marginBottom: "8px" }}>异常详情</h3>
+            {data.summary.abnormalModules.map((m: any, i: number) => (
+              <div key={i} style={{ padding: "12px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#991b1b" }}>{m.module}</span>
+                  {statusBadge(m.status)}
+                </div>
+                <div style={{ fontSize: "13px", color: "#666" }}><strong>异常:</strong> {m.message}</div>
+                <div style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}><strong>影响范围:</strong> {m.impact}</div>
+                <div style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}><strong>处理建议:</strong> {m.suggestion}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <StatusCard title="基础服务" items={data.services} />
+      <StatusCard title="数据库与数据" items={data.database} />
+      <StatusCard title="LLM 模型" items={data.llm} />
+      <StatusCard title="业务能力" items={data.businessCapabilities} />
+    </div>
+  );
+}
+
 // ============ Main Admin Page ============
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"users" | "tags">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "tags" | "status">("users");
 
   return (
     <main className="page">
@@ -360,9 +465,10 @@ export default function AdminPage() {
       <div style={{ display: "flex", gap: "4px", marginBottom: "20px", borderBottom: "2px solid var(--line)" }}>
         <button onClick={() => setActiveTab("users")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "users" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "users" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>用户管理</button>
         <button onClick={() => setActiveTab("tags")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "tags" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "tags" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>能力标签配置</button>
+        <button onClick={() => setActiveTab("status")} style={{ padding: "10px 20px", fontSize: "14px", fontWeight: 600, border: "none", borderBottom: activeTab === "status" ? "2px solid var(--brand)" : "2px solid transparent", background: "transparent", color: activeTab === "status" ? "var(--brand)" : "var(--muted)", cursor: "pointer", marginBottom: "-2px" }}>系统状态</button>
       </div>
 
-      {activeTab === "users" ? <UsersTab /> : <CapabilityTagsTab />}
+      {activeTab === "users" ? <UsersTab /> : activeTab === "tags" ? <CapabilityTagsTab /> : <SystemStatusTab />}
     </main>
   );
 }
