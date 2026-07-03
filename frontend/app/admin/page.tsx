@@ -223,8 +223,7 @@ function CapabilityTagsTab() {
             <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
                 <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>分类名称</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>编码</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>说明</th>
+                                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>说明</th>
                 <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>排序</th>
                 <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>状态</th>
                 <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>类型</th>
@@ -234,8 +233,7 @@ function CapabilityTagsTab() {
                 {isNewCat && (
                   <tr style={{ borderBottom: "1px solid var(--line)", background: "#fffbeb" }}>
                     <td style={{ padding: "8px" }}><input type="text" value={cN} onChange={(e) => setCN(e.target.value)} placeholder="分类名称" style={inpStyle} autoFocus /></td>
-                    <td style={{ padding: "8px" }}><input type="text" value={cCo} onChange={(e) => setCCo(e.target.value)} placeholder="选填" style={inpStyle} /></td>
-                    <td style={{ padding: "8px" }}><input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /></td>
+                                        <td style={{ padding: "8px" }}><input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /></td>
                     <td style={{ padding: "8px" }}><input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /></td>
                     <td style={{ padding: "8px" }}></td><td style={{ padding: "8px" }}></td>
                     <td style={{ padding: "8px" }}><div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveCatEdit(null)} style={checkBtn}>✓</button><button onClick={cancelCatEdit} style={crossBtn}>✕</button></div></td>
@@ -246,8 +244,7 @@ function CapabilityTagsTab() {
                   return (
                     <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "#fffbeb" : "transparent" }}>
                       <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cN} onChange={(e) => setCN(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{c.name}</span>}</td>
-                      <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cCo} onChange={(e) => setCCo(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px" }}>{c.code || "-"}</span>}</td>
-                      <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{c.description || "-"}</span>}</td>
+                                            <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{c.description || "-"}</span>}</td>
                       <td style={{ padding: "8px" }}>{ic ? <input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /> : <span style={{ fontSize: "13px" }}>{c.sortOrder}</span>}</td>
                       <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: c.enabled ? "#f0fdf4" : "#fef2f2", color: c.enabled ? "var(--success)" : "var(--danger)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}` }}>{c.enabled ? "启用" : "停用"}</span></td>
                       <td style={{ padding: "8px" }}>{c.isPreset ? <span className="partner-tag">预置</span> : <span className="partner-tag" style={{ background: "#f0f5ff", color: "#1a4fa0", border: "1px solid #d6e4ff" }}>自定义</span>}</td>
