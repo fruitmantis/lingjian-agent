@@ -21,6 +21,8 @@ export default function PartnersPage() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editNameValue, setEditNameValue] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState<string>("");
   const [uploadingPartnerId, setUploadingPartnerId] = useState<string | null>(null);
