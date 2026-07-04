@@ -621,7 +621,7 @@ function ModelConfigTab() {
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <h2>模型配置</h2>
-          <button onClick={startNew} disabled={editingId || isNew} style={{ fontSize: "13px", padding: "6px 16px", opacity: editingId || isNew ? 0.5 : 1 }}>新增配置</button>
+          <button onClick={startNew} disabled={Boolean(editingId) || isNew} style={{ fontSize: "13px", padding: "6px 16px", opacity: Boolean(editingId) || isNew ? 0.5 : 1 }}>新增配置</button>
         </div>
         {testResult && <p style={{ fontSize: "13px", color: "var(--brand)", marginTop: "8px" }}>{testResult}</p>}
         {configs.length === 0 && !isNew ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无模型配置。</p> : (
@@ -715,7 +715,7 @@ export default function AdminPage() {
 
   return (
     <main className="page">
-      <p className="eyebrow">System Administration</p>
+      <p className="eyebrow">{activeTab === "users" ? "User Management" : activeTab === "tags" ? "Capability Tag Configuration" : activeTab === "status" ? "System Status" : "Model Configuration"}</p>
       <h1>{activeTab === "users" ? "用户管理" : activeTab === "tags" ? "能力标签配置" : activeTab === "status" ? "系统状态" : "模型配置"}</h1>
       <p className="lead">{activeTab === "users" ? "维护系统用户账号和角色权限。" : activeTab === "tags" ? "维护标准能力标签、标签分类和 AI 标签建议。" : activeTab === "status" ? "查看数据库、LLM 模型等系统运行状态。" : "维护大模型连接参数和业务场景模型策略。"}</p>
 

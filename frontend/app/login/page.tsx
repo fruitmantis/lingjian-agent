@@ -29,7 +29,7 @@ export default function LoginPage() {
   return (
     <main className="page" style={{ maxWidth: "440px", marginTop: "80px" }}>
       <div className="card" style={{ padding: "40px" }}>
-        <p className="eyebrow">Login</p>
+        <p className="eyebrow">Lingjian Agent Login</p>
         <h1 style={{ fontSize: "28px" }}>登录灵鉴 Agent</h1>
         <p className="lead" style={{ fontSize: "14px", marginTop: "8px" }}>请输入用户名和密码登录系统</p>
         <form onSubmit={handleLogin} className="partner-form" style={{ marginTop: "24px" }}>

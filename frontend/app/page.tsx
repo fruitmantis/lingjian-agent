@@ -82,7 +82,6 @@ function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; 
 
 export default function HomePage() {
   const [stats, setStats] = useState({totalPartners: 0, withProfile: 0, totalMatches: 0, pendingSuggestions: 0});
-  const [oppSummary, setOppSummary] = useState<any>(null);
   const [requirement, setRequirement] = useState("");
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,13 +95,33 @@ export default function HomePage() {
 
   useEffect(() => {
     loadMatchRecords();
+    loadDashboardStats();
     return () => { if (stageTimer.current) clearInterval(stageTimer.current); };
   }, []);
 
   async function loadMatchRecords() {
     try {
       const res = await fetch(`${apiBaseUrl}/agent/match-records`, { cache: "no-store" });
-      if (res.ok) setMatchRecords(await res.json());
+      if (res.ok) {
+        const records = await res.json();
+        setMatchRecords(records);
+        setStats((current) => ({ ...current, totalMatches: records.length }));
+      }
+    } catch { /* ignore */ }
+  }
+
+  async function loadDashboardStats() {
+    try {
+      const res = await fetch(`${apiBaseUrl}/agent/report`, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setStats((current) => ({
+          ...current,
+          totalPartners: data.overview.totalPartners,
+          withProfile: data.overview.partnersWithProfile,
+          pendingSuggestions: data.overview.pendingSuggestions,
+        }));
+      }
     } catch { /* ignore */ }
   }
 
@@ -167,24 +186,21 @@ export default function HomePage() {
 
   return (
     <main className="page">
-      <p className="eyebrow">Delivery Partner Intelligence</p>
+      <p className="eyebrow">Lingjian Agent Workspace</p>
       <h1>灵鉴 Agent 工作台</h1>
       <p className="lead">归集伙伴档案、项目案例与交付物，形成可信的能力画像，并基于项目需求推荐合适的交付伙伴。</p>
 
-      <section className="card">
-        <h2>伙伴智能匹配</h2>
-        <div style={{ display: "flex", gap: "16px", marginTop: "32px", marginBottom: "32px", flexWrap: "wrap" }}>
-        <div className="metric-card" style={{ flex: "1 1 140px" }}><div className="metric-value">{stats.totalPartners}</div><div className="metric-label">已管理伙伴</div></div>
-        <div className="metric-card success" style={{ flex: "1 1 140px" }}><div className="metric-value">{stats.withProfile}</div><div className="metric-label">已生成 AI 画像</div></div>
-        <div className="metric-card info" style={{ flex: "1 1 140px" }}><div className="metric-value">{stats.totalMatches}</div><div className="metric-label">累计智能匹配</div></div>
-        <div className="metric-card warning" style={{ flex: "1 1 140px" }}><div className="metric-value">{stats.pendingSuggestions}</div><div className="metric-label">待采纳 AI 建议</div></div>
-      </div>
-      <form onSubmit={handleMatch} className="match-form">
+      <section className="card match-entry-card">
+        <h2>项目需求</h2>
+        <form onSubmit={handleMatch} className="match-form match-composer">
           <div className="form-row">
-            <label htmlFor="requirement">项目需求</label>
-            <textarea id="requirement" value={requirement} onChange={(e) => setRequirement(e.target.value)} required rows={4} placeholder="描述你的项目需求，如：需要一个有金融行业经验的Java全栈团队，负责银行核心系统重构" />
+            <label htmlFor="requirement">描述项目需求</label>
+            <textarea id="requirement" value={requirement} onChange={(e) => setRequirement(e.target.value)} required rows={6} placeholder="描述项目背景、行业、区域、交付范围与关键能力要求…" />
           </div>
-          <button type="submit" disabled={loading} className="btn-primary-lg">{loading ? "匹配中..." : "智能匹配"}</button>
+          <div className="match-composer-footer">
+            <p className="match-scope">当前基于 <strong>{stats.totalPartners}</strong> 家伙伴进行寻源，其中 <strong>{stats.withProfile}</strong> 家已生成能力画像</p>
+            <button type="submit" disabled={loading} className="btn-primary-lg">{loading ? "匹配中..." : "开始寻源"}</button>
+          </div>
         </form>
         {error && <p className="error-text">{error}</p>}
       </section>
@@ -336,7 +352,7 @@ export default function HomePage() {
           <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无匹配记录，请输入项目需求后点击智能匹配。</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
-            {matchRecords.map((r) => (
+            {matchRecords.slice(0, 3).map((r) => (
               <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.requirement}</div>
@@ -349,6 +365,16 @@ export default function HomePage() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="card operations-overview">
+        <h2>运营概览</h2>
+        <div className="operations-overview-grid">
+          <div className="operations-overview-item"><span>已管理伙伴</span><strong>{stats.totalPartners}</strong></div>
+          <div className="operations-overview-item"><span>已生成 AI 画像</span><strong>{stats.withProfile}</strong></div>
+          <div className="operations-overview-item"><span>累计智能匹配</span><strong>{stats.totalMatches}</strong></div>
+          <div className="operations-overview-item"><span>待采纳 AI 建议</span><strong>{stats.pendingSuggestions}</strong></div>
+        </div>
       </section>
 
     </main>

@@ -6,27 +6,22 @@ import { useState, useEffect } from "react";
 
 const NAV_STRUCTURE = [
   {
-    group: "Agent 工作台",
+    group: "灵鉴 Agent",
     icon: "🎯",
     items: [
       { label: "智能匹配", href: "/" },
-    ],
-  },
-  {
-    group: "伙伴中心",
-    icon: "👥",
-    items: [
-      { label: "伙伴资料管理", href: "/partners" },
       { label: "伙伴画像", href: "/profiles" },
     ],
   },
   {
-    group: "需求运营",
+    group: "运营管理",
     icon: "📊",
     items: [
+      { label: "伙伴资料管理", href: "/partners" },
       { label: "需求画像", href: "/demands" },
       { label: "项目机会库", href: "/demands?tab=opportunities" },
       { label: "运营报表", href: "/demands?tab=report" },
+      { label: "能力标签配置", href: "/admin?tab=tags" },
     ],
   },
   {
@@ -34,9 +29,8 @@ const NAV_STRUCTURE = [
     icon: "⚙️",
     items: [
       { label: "用户管理", href: "/admin" },
-      { label: "能力标签配置", href: "/admin?tab=tags" },
-      { label: "系统状态", href: "/admin?tab=status" },
       { label: "模型配置", href: "/admin?tab=model" },
+      { label: "系统状态", href: "/admin?tab=status" },
     ],
   },
 ];
