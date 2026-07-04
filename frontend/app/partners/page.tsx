@@ -100,6 +100,15 @@ export default function PartnersPage() {
     } catch (e) { setError(e instanceof Error ? e.message : "上传失败"); } finally { setUploadingPartnerId(null); }
   }
 
+  async function savePartnerName(id: string) {
+    if (!editNameValue.trim()) { setEditingNameId(null); return; }
+    try {
+      const res = await fetch(`${apiBaseUrl}/partners/${id}`, { method: "PUT", headers: { "Content-Type": "application/json", ...authHeaders() }, body: JSON.stringify({ name: editNameValue.trim() }) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadPartners();
+    } catch (e) { setError(e instanceof Error ? e.message : "修改失败"); } finally { setEditingNameId(null); }
+  }
+
   async function handleDeletePartner(id: string, name: string) {
     if (!confirm(`确定删除伙伴「${name}」？此操作将同时删除其所有案例、交付物和文档，且不可恢复。`)) return;
     try {
@@ -174,7 +183,7 @@ export default function PartnersPage() {
             {partners.map((p) => (
               <div key={p.id} className="case-item">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <h3><a href={`/partners/${p.id}`}>{p.name}</a> <button onClick={() => handleDeletePartner(p.id, p.name)} className="secondary-btn" style={{ fontSize: "11px", padding: "2px 8px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button></h3>
+                  <h3>{editingNameId === p.id ? (<><input type="text" value={editNameValue} onChange={(e) => setEditNameValue(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") savePartnerName(p.id); if (e.key === "Escape") setEditingNameId(null); }} autoFocus style={{ fontSize: "16px", fontWeight: 600, border: "1px solid var(--brand)", borderRadius: "4px", padding: "2px 6px" }} /><button onClick={() => savePartnerName(p.id)} style={{ fontSize: "11px", padding: "2px 6px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", marginLeft: "4px" }}>✓</button><button onClick={() => setEditingNameId(null)} style={{ fontSize: "11px", padding: "2px 6px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", marginLeft: "2px" }}>✕</button></>) : (<><a href={`/partners/${p.id}`}>{p.name}</a> <button onClick={() => { setEditingNameId(p.id); setEditNameValue(p.name); }} className="secondary-btn" style={{ fontSize: "11px", padding: "2px 6px" }}>改名</button></>)} <button onClick={() => handleDeletePartner(p.id, p.name)} className="secondary-btn" style={{ fontSize: "11px", padding: "2px 8px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button></h3>
                   <span className="partner-tag">创建于 {p.created_at.slice(0, 10)}</span>
                 </div>
                 {p.ai_profile ? <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>AI 画像已生成</p> : <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>暂无 AI 画像</p>}
