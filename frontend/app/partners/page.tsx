@@ -100,6 +100,15 @@ export default function PartnersPage() {
     } catch (e) { setError(e instanceof Error ? e.message : "上传失败"); } finally { setUploadingPartnerId(null); }
   }
 
+  async function handleDeletePartner(id: string, name: string) {
+    if (!confirm(`确定删除伙伴「${name}」？此操作将同时删除其所有案例、交付物和文档，且不可恢复。`)) return;
+    try {
+      const res = await fetch(`${apiBaseUrl}/partners/${id}`, { method: "DELETE", headers: authHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadPartners();
+    } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
+  }
+
   async function handleDeleteDoc(partnerId: string, docId: string) {
     if (!confirm("确定删除该文档？")) return;
     try { const res = await fetch(`${apiBaseUrl}/partners/${partnerId}/documents/${docId}`, { method: "DELETE", headers: authHeaders() }); if (!res.ok) throw new Error(`HTTP ${res.status}`); await loadPartners(); } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
@@ -165,7 +174,7 @@ export default function PartnersPage() {
             {partners.map((p) => (
               <div key={p.id} className="case-item">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <h3><a href={`/partners/${p.id}`}>{p.name}</a></h3>
+                  <h3><a href={`/partners/${p.id}`}>{p.name}</a> <button onClick={() => handleDeletePartner(p.id, p.name)} className="secondary-btn" style={{ fontSize: "11px", padding: "2px 8px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button></h3>
                   <span className="partner-tag">创建于 {p.created_at.slice(0, 10)}</span>
                 </div>
                 {p.ai_profile ? <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>AI 画像已生成</p> : <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>暂无 AI 画像</p>}

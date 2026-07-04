@@ -61,3 +61,19 @@ def create_partner(payload: PartnerCreate) -> PartnerOut:
     with get_db() as conn:
         conn.execute(f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (partner.id, partner.name, partner.intro, partner.capabilities, partner.service_areas, partner.industries, partner.ai_profile, partner.created_at))
     return partner
+
+
+@router.delete("/{partner_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_partner(partner_id: str):
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM partners WHERE id = ?", (partner_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="伙伴不存在")
+        # Delete related data first
+        case_ids = [r[0] for r in conn.execute("SELECT id FROM cases WHERE partner_id = ?", (partner_id,)).fetchall()]
+        if case_ids:
+            placeholders = ",".join("?" * len(case_ids))
+            conn.execute(f"DELETE FROM deliverables WHERE case_id IN ({placeholders})", case_ids)
+            conn.execute(f"DELETE FROM cases WHERE partner_id = ?", (partner_id,))
+        conn.execute("DELETE FROM partner_documents WHERE partner_id = ?", (partner_id,))
+        conn.execute("DELETE FROM partners WHERE id = ?", (partner_id,))
