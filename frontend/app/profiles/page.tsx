@@ -40,6 +40,9 @@ function TagGroup({ label, value }: { label: string; value: string | null }) {
 
 export default function ProfilesPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
+  const [filterCap, setFilterCap] = useState("");
+  const [filterIndustry, setFilterIndustry] = useState("");
+  const [filterRegion, setFilterRegion] = useState("");
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,9 +62,20 @@ export default function ProfilesPage() {
       <h1>伙伴画像</h1>
       <p className="lead">以卡片形式展示所有伙伴的能力画像、覆盖区域、行业经验及案例交付物统计。</p>
       {error && <p className="error-text">{error}</p>}
+      <input type="text" placeholder="搜索伙伴名称、能力标签..." value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} style={{ width: "100%", padding: "10px 16px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px", marginBottom: "16px" }} />
+      <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
+        <input type="text" placeholder="能力标签筛选" value={filterCap} onChange={(e) => setFilterCap(e.target.value)} style={{ flex: "1 1 140px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+        <input type="text" placeholder="行业筛选" value={filterIndustry} onChange={(e) => setFilterIndustry(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+        <input type="text" placeholder="区域筛选" value={filterRegion} onChange={(e) => setFilterRegion(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+      </div>
       {profiles.length === 0 ? <p className="placeholder-text">暂无伙伴画像数据。</p> : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px", marginTop: "24px" }}>
-          {profiles.filter(p => !searchKeyword || p.name?.includes(searchKeyword) || (p.capabilities || "").includes(searchKeyword)).map((p) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px" }}>
+          {profiles.filter(p => 
+            (!searchKeyword || p.name?.includes(searchKeyword) || (p.capabilities || "").includes(searchKeyword)) &&
+            (!filterCap || (p.capabilities || "").includes(filterCap)) &&
+            (!filterIndustry || (p.industries || "").includes(filterIndustry)) &&
+            (!filterRegion || (p.service_areas || "").includes(filterRegion))
+          ).map((p) => (
             <div key={p.id} className="card" style={{ marginBottom: 0, padding: "24px" }}>
               <h2 style={{ marginBottom: "12px" }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>
               <TagGroup label="能力" value={p.capabilities} />
