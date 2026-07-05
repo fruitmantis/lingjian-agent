@@ -92,6 +92,7 @@ export default function HomePage() {
   const [copiedRank, setCopiedRank] = useState<number | null>(null);
   const [matchRecords, setMatchRecords] = useState<{ id: string; requirement: string; topPartner: string; partnerCount: number; createdAt: string }[]>([]);
   const [viewingHistory, setViewingHistory] = useState(false);
+  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [historyDetail, setHistoryDetail] = useState<{ requirement: string; recommendations: Recommendation[] } | null>(null);
   const stageTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -128,6 +129,9 @@ export default function HomePage() {
   }
 
   async function handleViewRecord(recordId: string) {
+    if (expandedRecordId === recordId) { setExpandedRecordId(null); setHistoryDetail(null); return; }
+    setExpandedRecordId(recordId);
+    setHistoryDetail(null);
     try {
       const res = await fetch(`${apiBaseUrl}/agent/match-records/${recordId}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -399,45 +403,46 @@ export default function HomePage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
             {matchRecords.slice(0, 10).map((r) => (
-              <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.requirement}</div>
-                  <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-                    Top1: {r.topPartner} | 推荐伙伴: {r.partnerCount}个 | {r.createdAt.slice(0, 19).replace("T", " ")}
+              <div key={r.id}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.requirement}</div>
+                    <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
+                      Top1: {r.topPartner} | 推荐伙伴: {r.partnerCount}个 | {r.createdAt.slice(0, 19).replace("T", " ")}
+                    </div>
                   </div>
+                  <button onClick={() => handleViewRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px", marginLeft: "12px", flexShrink: 0 }}>{expandedRecordId === r.id ? "收起" : "查看详情"}</button>
                 </div>
-                <button onClick={() => handleViewRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px", marginLeft: "12px", flexShrink: 0 }}>查看详情</button>
+                {expandedRecordId === r.id && historyDetail && (
+                  <div style={{ marginTop: "8px", padding: "14px 16px", background: "white", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                    <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>原始需求</div>
+                    <div style={{ fontSize: "14px", lineHeight: 1.7, marginBottom: "12px" }}>{historyDetail.requirement}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {historyDetail.recommendations.slice(0, 3).map((rec, j) => {
+                        const level = getRecommendLevel(rec.matchScore);
+                        return (
+                          <div key={j} style={{ padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                <span style={{ fontSize: "13px", fontWeight: 600 }}>{j + 1}. {rec.partnerName}</span>
+                                <span style={{ padding: "2px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: level.bg, color: level.color, border: `1px solid ${level.color}40` }}>{level.label}</span>
+                              </div>
+                              <span style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 600 }}>匹配度: {rec.matchScore}</span>
+                            </div>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px", lineHeight: 1.5 }}>{rec.recommendationReason || "暂无推荐理由"}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {expandedRecordId === r.id && !historyDetail && (
+                  <div style={{ marginTop: "8px", padding: "14px 16px", background: "white", borderRadius: "8px", border: "1px solid var(--line)", textAlign: "center" }}>
+                    <span style={{ fontSize: "13px", color: "var(--muted)" }}>加载中...</span>
+                  </div>
+                )}
               </div>
             ))}
-          </div>
-        )}
-        {historyDetail && (
-          <div style={{ marginTop: "16px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <h3 style={{ margin: 0, fontSize: "15px" }}>历史记录详情</h3>
-              <button onClick={() => setHistoryDetail(null)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>关闭</button>
-            </div>
-            <div style={{ padding: "12px 14px", background: "white", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "12px" }}>
-              <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>原始需求</div>
-              <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{historyDetail.requirement}</div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-              {historyDetail.recommendations.slice(0, 3).map((r, i) => {
-                const level = getRecommendLevel(r.matchScore);
-                return (
-                  <div key={i} style={{ padding: "14px 16px", background: "white", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                        <span style={{ fontSize: "14px", fontWeight: 600 }}>{i + 1}. {r.partnerName}</span>
-                        <span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: level.bg, color: level.color, border: `1px solid ${level.color}40` }}>{level.label}</span>
-                      </div>
-                      <span className="score-tag">匹配度: {r.matchScore}</span>
-                    </div>
-                    <div style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6 }}>{r.recommendationReason || "暂无推荐理由"}</div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         )}
       </section>
