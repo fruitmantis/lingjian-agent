@@ -18,10 +18,10 @@ type Recommendation = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 const LOADING_STAGES = [
-  "正在理解项目需求...",
-  "正在分析伙伴画像...",
-  "正在匹配交付能力...",
-  "正在生成推荐依据...",
+  "需求解析：正在分析项目需求的行业、区域与能力诉求……",
+  "伙伴画像匹配：正在从伙伴库中检索匹配的交付能力……",
+  "候选筛选：正在评估候选伙伴的案例与交付物证据……",
+  "推荐理由生成：正在生成推荐短名单与风险提示……",
 ];
 
 function getRecommendLevel(score: string): { label: string; color: string; bg: string } {
@@ -178,6 +178,42 @@ export default function HomePage() {
     }
   }
 
+  async function handleMatchDirect(reqText: string) {
+    setRequirement(reqText);
+    setLoading(true);
+    setError(null);
+    setHasSearched(true);
+    setRecommendations([]);
+    setLoadingStage(0);
+    setCopiedRank(null);
+    stageTimer.current = setInterval(() => {
+      setLoadingStage(prev => Math.min(prev + 1, LOADING_STAGES.length - 1));
+    }, 4000);
+    try {
+      const res = await fetch(`${apiBaseUrl}/agent/match`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirement: reqText }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setRecommendations(data.recommendations || []);
+      setViewingHistory(false);
+      loadMatchRecords();
+      setSubmittedRequirement(reqText);
+      setRequirement("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "匹配失败");
+      setRequirement(reqText);
+    } finally {
+      if (stageTimer.current) { clearInterval(stageTimer.current); stageTimer.current = null; }
+      setLoading(false);
+    }
+  }
+
   function handleCopy(rank: number, r: Recommendation) {
     const text = buildCopyText(submittedRequirement || requirement, r, rank);
     copyToClipboard(text);
@@ -198,7 +234,7 @@ export default function HomePage() {
         <form onSubmit={handleMatch} className="match-form match-composer">
           <div className="form-row">
             <label htmlFor="requirement">描述项目需求</label>
-            <textarea id="requirement" value={requirement} onChange={(e) => setRequirement(e.target.value)} required rows={6} placeholder="描述项目背景、行业、区域、交付范围与关键能力要求…" />
+            <textarea id="requirement" value={requirement} onChange={(e) => setRequirement(e.target.value)} required rows={6} placeholder={submittedRequirement ? "继续输入新的项目需求……" : "描述项目背景、行业、区域、交付范围与关键能力要求…"} />
           </div>
           <div className="match-composer-footer">
             <p className="match-scope">当前基于 <strong>{stats.totalPartners}</strong> 家伙伴进行寻源，其中 <strong>{stats.withProfile}</strong> 家已生成能力画像</p>
@@ -207,6 +243,23 @@ export default function HomePage() {
         </form>
         {error && <p className="error-text">{error}</p>}
       </section>
+
+      {/* 本次项目需求卡片 - only show after submit */}
+      {!loading && submittedRequirement && !viewingHistory && (
+        <section className="card" style={{ borderColor: "var(--brand)", borderWidth: "1px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <h2 style={{ margin: 0 }}>本次项目需求</h2>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => { const text = submittedRequirement; copyToClipboard(text); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>复制需求</button>
+              <button onClick={() => { setRequirement(submittedRequirement); setSubmittedRequirement(""); setRecommendations([]); setHasSearched(false); document.getElementById("requirement")?.focus(); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>重新编辑</button>
+              <button onClick={() => { const req = submittedRequirement; handleMatchDirect(req); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px", color: "var(--brand)", borderColor: "var(--brand)" }}>再次寻源</button>
+            </div>
+          </div>
+          <div style={{ padding: "14px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+            <p style={{ fontSize: "14px", lineHeight: 1.8, margin: 0, whiteSpace: "pre-wrap" }}>{submittedRequirement}</p>
+          </div>
+        </section>
+      )}
 
       {/* Loading state */}
       {loading && (
@@ -251,18 +304,10 @@ export default function HomePage() {
       {/* Results */}
       {!loading && top3.length > 0 && (
         <>
-          {/* Requirement analysis */}
-          <section className="card">
-            <h2>项目需求解析</h2>
-            <div style={{ marginTop: "12px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-              <p style={{ fontSize: "14px", lineHeight: 1.8, margin: 0, whiteSpace: "pre-wrap" }}>{submittedRequirement || requirement}</p>
-            </div>
-            <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "8px" }}>共检索到 {recommendations.length} 个候选伙伴，展示推荐前 {top3.length} 名</p>
-          </section>
-
           {/* Top 3 recommendations */}
           <section className="card">
             <h2>推荐结果详情</h2>
+            <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "16px" }}>基于本次项目需求，共检索到 {recommendations.length} 个候选伙伴，展示推荐前 {top3.length} 名</p>
             <div style={{ display: "flex", flexDirection: "column", gap: "24px", marginTop: "16px" }}>
               {top3.map((r, i) => {
                 const level = getRecommendLevel(r.matchScore);
@@ -271,7 +316,7 @@ export default function HomePage() {
                 const areaTags = parseTags(r.matchedRegions);
                 const rank = i + 1;
                 return (
-                  <div key={i} className="case-item" style={{ position: "relative", padding: "24px" }}>
+                  <div key={i} className="case-item" style={{ position: "relative", padding: "24px", border: i === 0 ? "2px solid var(--brand)" : "1px solid var(--line)", boxShadow: i === 0 ? "0 4px 20px rgba(199,0,11,0.08)" : "none" }}>
                     {/* Rank badge */}
                     <div style={{
                       position: "absolute", top: "-10px", left: "20px",
