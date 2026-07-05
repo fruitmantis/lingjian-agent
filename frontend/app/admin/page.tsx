@@ -251,6 +251,11 @@ function CapabilityTagsTab() {
 
   return (
     <div>
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+        <button onClick={() => setSubTab("tags")} className="secondary-btn" style={{ fontSize: "13px", padding: "6px 14px", fontWeight: subTab === "tags" ? 700 : 400, color: subTab === "tags" ? "var(--brand)" : "var(--muted)", borderColor: subTab === "tags" ? "var(--brand)" : "var(--line)" }}>能力标签</button>
+        <button onClick={() => setSubTab("categories")} className="secondary-btn" style={{ fontSize: "13px", padding: "6px 14px", fontWeight: subTab === "categories" ? 700 : 400, color: subTab === "categories" ? "var(--brand)" : "var(--muted)", borderColor: subTab === "categories" ? "var(--brand)" : "var(--line)" }}>标签分类</button>
+        <button onClick={() => setSubTab("suggestions")} className="secondary-btn" style={{ fontSize: "13px", padding: "6px 14px", fontWeight: subTab === "suggestions" ? 700 : 400, color: subTab === "suggestions" ? "var(--brand)" : "var(--muted)", borderColor: subTab === "suggestions" ? "var(--brand)" : "var(--line)" }}>AI 标签建议</button>
+      </div>
       {subTab === "categories" && (
         <section className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
