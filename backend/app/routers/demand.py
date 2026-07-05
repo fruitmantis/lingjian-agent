@@ -385,3 +385,11 @@ def delete_demand_profile(profile_id: str):
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="需求画像不存在")
         conn.execute("DELETE FROM demand_profiles WHERE id = ?", (profile_id,))
+
+@router.delete("/opportunities/{opp_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_opportunity(opp_id: str):
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="项目机会不存在")
+        conn.execute("DELETE FROM project_opportunities WHERE id = ?", (opp_id,))

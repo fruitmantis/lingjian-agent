@@ -75,6 +75,8 @@ export default function DemandsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [gapPage, setGapPage] = useState(1);
   const [gapPageSize, setGapPageSize] = useState(10);
+  const [oppPage, setOppPage] = useState(1);
+  const [oppPageSize, setOppPageSize] = useState(10);
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as "profiles" | "report" | "opportunities") || "profiles";
   const [subTab, setSubTab] = useState<"profiles" | "report" | "opportunities">(initialTab);
@@ -126,6 +128,15 @@ export default function DemandsPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await loadData();
     } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
+  }
+
+  async function deleteOpp(id: string) {
+    if (!confirm("确定删除该项目机会？此操作不可恢复。")) return;
+    try {
+      const res = await fetch(`${apiBaseUrl}/agent/opportunities/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadOpps();
+    } catch (e) { setOppError(e instanceof Error ? e.message : "删除失败"); }
   }
 
   async function loadReport() {
@@ -363,7 +374,7 @@ export default function DemandsPage() {
                 <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
               </tr></thead>
               <tbody>
-                {opps.map((o) => {
+                {opps.slice((oppPage - 1) * oppPageSize, oppPage * oppPageSize).map((o) => {
                   const isExp = expandedOpp === o.id;
                   const badge = o.supplyStatus === "gap" ? { l: "明显缺口", c: "var(--danger)", bg: "#fef2f2", bd: "#fecaca" } : o.supplyStatus === "partial" ? { l: "部分满足", c: "#e8a317", bg: "#fffbeb", bd: "#fde68a" } : { l: "基本满足", c: "var(--success)", bg: "#f0fdf4", bd: "#bbf7d0" };
                   return (
@@ -375,12 +386,28 @@ export default function DemandsPage() {
                       <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.projectStage || "-"}</td>
                       <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 700, color: o.completenessScore >= 80 ? "var(--success)" : o.completenessScore >= 50 ? "#e8a317" : "var(--danger)" }}>{o.completenessScore}%</td>
                       <td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: badge.bg, color: badge.c, border: `1px solid ${badge.bd}`, whiteSpace: "nowrap" }}>{badge.l}</span></td>
-                      <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{isExp ? "收起" : "详情"}</button></td>
+                      <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{isExp ? "收起" : "详情"}</button> <button onClick={() => deleteOpp(o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button></td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          )}
+          {opps.length > oppPageSize && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
+                <select value={oppPageSize} onChange={(e) => { setOppPageSize(Number(e.target.value)); setOppPage(1); }} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: "4px", fontSize: "13px" }}>
+                  <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+                </select>
+                <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {opps.length} 条</span>
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button onClick={() => setOppPage(p => Math.max(1, p - 1))} disabled={oppPage === 1} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: oppPage === 1 ? 0.5 : 1 }}>上一页</button>
+                <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {oppPage} / {Math.ceil(opps.length / oppPageSize)} 页</span>
+                <button onClick={() => setOppPage(p => Math.min(Math.ceil(opps.length / oppPageSize), p + 1))} disabled={oppPage >= Math.ceil(opps.length / oppPageSize)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: oppPage >= Math.ceil(opps.length / oppPageSize) ? 0.5 : 1 }}>下一页</button>
+              </div>
+            </div>
           )}
         </section>
       )}
