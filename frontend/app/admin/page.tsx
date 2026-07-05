@@ -566,7 +566,7 @@ function ModelConfigTab() {
   const [isNew, setIsNew] = useState(false);
   const [eName, setEName] = useState(""); const [eProvider, setEProvider] = useState("OpenAI Compatible");
   const [eUrl, setEUrl] = useState(""); const [eKey, setEKey] = useState(""); const [eModel, setEModel] = useState("");
-  const [eTemp, setETemp] = useState(0.3); const [eMaxTokens, setEMaxTokens] = useState(4096);
+  const [eTemp, setETemp] = useState(0.3); const [eMaxTokens, setEMaxTokens] = useState(131072);
   const [eTimeout, setETimeout] = useState(60); const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
 
@@ -583,7 +583,7 @@ function ModelConfigTab() {
   useEffect(() => { loadData(); }, []);
 
   function startEdit(c: any) { setEditingId(c.id); setIsNew(false); setEName(c.name); setEProvider(c.provider||""); setEUrl(c.baseUrl||""); setEKey(""); setEModel(c.modelName||""); setETemp(c.temperature); setEMaxTokens(c.maxTokens); setETimeout(c.timeoutSeconds); }
-  function startNew() { setIsNew(true); setEditingId(null); setEName(""); setEProvider("OpenAI Compatible"); setEUrl(""); setEKey(""); setEModel(""); setETemp(0.3); setEMaxTokens(4096); setETimeout(60); }
+  function startNew() { setIsNew(true); setEditingId(null); setEName(""); setEProvider("OpenAI Compatible"); setEUrl(""); setEKey(""); setEModel(""); setETemp(0.3); setEMaxTokens(131072); setETimeout(60); }
   function cancelEdit() { setEditingId(null); setIsNew(false); }
 
   async function saveEdit(id: string | null) {
@@ -635,6 +635,7 @@ function ModelConfigTab() {
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>名称</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>供应商</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>模型</th>
+              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>最大输出</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>API 地址</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>API Key</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>状态</th>
@@ -646,6 +647,7 @@ function ModelConfigTab() {
                   <td style={{ padding: "8px" }}><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="配置名称" style={inp} autoFocus /></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} placeholder="模型名称" style={inp} /></td>
+                  <td style={{ padding: "8px" }}><input type="number" min={1} max={131072} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /></td>
                   <td style={{ padding: "8px" }}><input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="输入新Key" style={inp} /></td>
                   <td style={{ padding: "8px" }}></td>
@@ -659,6 +661,7 @@ function ModelConfigTab() {
                     <td style={{ padding: "8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}{c.isDefault ? <span className="tag-red" style={{ marginLeft: "6px" }}>默认</span> : null}</span>}</td>
                     <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /> : c.provider}</td>
                     <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} style={inp} /> : c.modelName}</td>
+                    <td style={{ padding: "8px", fontSize: "13px", whiteSpace: "nowrap" }}>{ic ? <input type="number" min={1} max={131072} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /> : c.maxTokens.toLocaleString()}</td>
                     <td style={{ padding: "8px", fontSize: "12px", color: "var(--muted)" }}>{ic ? <input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /> : (c.baseUrl ? c.baseUrl.replace(/https?:\/\//, "").split("/")[0] : "-")}</td>
                     <td style={{ padding: "8px" }}>{ic ? <input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="留空保留原Key" style={inp} /> : <span style={{ fontSize: "12px", color: c.apiKeyConfigured ? "var(--success)" : "var(--danger)" }}>{c.apiKeyConfigured ? "已配置" : "未配置"}</span>}</td>
                     <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: !c.enabled ? "#fef2f2" : !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}`, whiteSpace: "nowrap" }}>{!c.enabled ? "停用" : !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>

@@ -13,6 +13,8 @@ from ..database import get_db
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
+MAX_RECOMMENDATIONS = 5
+
 _P_COLS = "id, name, intro, capabilities, service_areas, industries, ai_profile, created_at"
 _CASE_COLS = "id, partner_id, title, description, created_at"
 
@@ -105,9 +107,10 @@ def match_partners(req: MatchRequest) -> MatchResponse:
             ).fetchone()["cnt"]
             partner_deliv_counts[pid] = deliv_count
 
+    partner_dicts = [dict(partner) for partner in partners]
+
     partner_summaries = []
-    for p in partners:
-        pd = dict(p)
+    for pd in partner_dicts:
         cases = partner_cases.get(pd["id"], [])
         deliv_count = partner_deliv_counts.get(pd["id"], 0)
         case_text = "; ".join(f"{c['title']}({c.get('description') or ''})" for c in cases) or "无案例"
@@ -129,7 +132,8 @@ def match_partners(req: MatchRequest) -> MatchResponse:
             "role": "system",
             "content": (
                 "你是交付伙伴匹配专家。根据用户的项目需求，从候选伙伴中推荐最合适的伙伴。"
-                "请对每个伙伴给出以下信息，严格基于已有资料，不要编造：\n"
+                f"请从全部候选伙伴中最多推荐{MAX_RECOMMENDATIONS}家，不要逐一评价所有候选。"
+                "严格基于已有资料，不要编造。每个推荐伙伴给出以下信息：\n"
                 "1. matchScore: 匹配评分(0-100数字)\n"
                 "2. matchedCapabilities: 匹配的能力标签\n"
                 "3. matchedIndustries: 匹配的行业经验\n"
@@ -140,7 +144,8 @@ def match_partners(req: MatchRequest) -> MatchResponse:
                 "8. riskNotes: 风险或缺口提示\n\n"
                 "请以JSON数组格式返回，每个元素包含 partnerId, partnerName, matchScore, "
                 "matchedCapabilities, matchedIndustries, matchedRegions, recommendationReason, "
-                "evidenceCases, evidenceDeliverables, riskNotes。所有值必须是字符串。只返回JSON。"
+                "evidenceCases, evidenceDeliverables, riskNotes。所有值必须是字符串。"
+                f"数组最多包含{MAX_RECOMMENDATIONS}个元素，只返回JSON，不要输出分析过程。"
             ),
         },
         {
@@ -150,7 +155,7 @@ def match_partners(req: MatchRequest) -> MatchResponse:
     ]
 
     try:
-        raw = chat_completion(messages, timeout=90)
+        raw = chat_completion(messages, timeout=90, scene="partner_match")
     except Exception as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 调用失败: {e}")
 
@@ -164,10 +169,25 @@ def match_partners(req: MatchRequest) -> MatchResponse:
         if clean.startswith("json"):
             clean = clean[4:].strip()
         items = json.loads(clean)
-        recs = [
-            PartnerRecommendation(
-                partnerId=str(item.get("partnerId", item.get("partner_id", ""))),
-                partnerName=str(item.get("partnerName", item.get("partner_name", ""))),
+        if isinstance(items, dict):
+            items = items.get("recommendations")
+        if not isinstance(items, list):
+            raise ValueError("返回内容不是推荐数组")
+
+        allowed_by_id = {partner["id"]: partner for partner in partner_dicts}
+        allowed_by_name = {partner["name"]: partner for partner in partner_dicts}
+        recs = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            partner_id = str(item.get("partnerId", item.get("partner_id", "")))
+            partner_name = str(item.get("partnerName", item.get("partner_name", "")))
+            partner = allowed_by_id.get(partner_id) or allowed_by_name.get(partner_name)
+            if not partner:
+                continue
+            recs.append(PartnerRecommendation(
+                partnerId=partner["id"],
+                partnerName=partner["name"],
                 matchScore=_to_str(item.get("matchScore", item.get("match_score", ""))),
                 matchedCapabilities=_to_str(item.get("matchedCapabilities", item.get("matched_capabilities", ""))),
                 matchedIndustries=_to_str(item.get("matchedIndustries", item.get("matched_industries", ""))),
@@ -176,19 +196,11 @@ def match_partners(req: MatchRequest) -> MatchResponse:
                 evidenceCases=_to_str(item.get("evidenceCases", item.get("evidence_cases", ""))),
                 evidenceDeliverables=_to_str(item.get("evidenceDeliverables", item.get("evidence_deliverables", ""))),
                 riskNotes=_to_str(item.get("riskNotes", item.get("risk_notes", ""))),
-            )
-            for item in items
-        ]
-    except (json.JSONDecodeError, KeyError) as e:
+            ))
+        if not recs:
+            raise ValueError("返回内容未包含有效候选伙伴")
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 返回解析失败: {e}, 原始内容: {raw[:500]}")
-
-    # Sort by matchScore descending (handle string scores)
-    def _score_key(r: PartnerRecommendation) -> int:
-        try:
-            return int(r.matchScore)
-        except (ValueError, TypeError):
-            return 0
-    recs.sort(key=_score_key, reverse=True)
 
     # Save match record
     record_id = str(uuid.uuid4())

@@ -42,7 +42,7 @@ class ModelConfigCreate(BaseModel):
     modelName: str | None = None
     temperature: float = 0.3
     topP: float = 1.0
-    maxTokens: int = 4096
+    maxTokens: int = 131072
     timeoutSeconds: int = 60
 
 

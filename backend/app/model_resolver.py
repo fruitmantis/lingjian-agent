@@ -75,7 +75,7 @@ def resolve_model_config(scene: str = "default") -> ResolvedModelConfig:
                         model=row["model_name"] or os.getenv("LLM_MODEL", "gpt-4o"),
                         temperature=row["temperature"] or 0.3,
                         top_p=row["top_p"] or 1.0,
-                        max_tokens=row["max_tokens"] or 4096,
+                        max_tokens=row["max_tokens"] or 131072,
                         timeout_seconds=row["timeout_seconds"] or 60,
                         source="db",
                     )
@@ -89,7 +89,7 @@ def resolve_model_config(scene: str = "default") -> ResolvedModelConfig:
         model=os.getenv("LLM_MODEL", "gpt-4o"),
         temperature=0.3,
         top_p=1.0,
-        max_tokens=4096,
+        max_tokens=131072,
         timeout_seconds=60,
         source="env",
     )

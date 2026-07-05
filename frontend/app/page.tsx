@@ -83,6 +83,7 @@ function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; 
 export default function HomePage() {
   const [stats, setStats] = useState({totalPartners: 0, withProfile: 0, totalMatches: 0, pendingSuggestions: 0});
   const [requirement, setRequirement] = useState("");
+  const [submittedRequirement, setSubmittedRequirement] = useState("");
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
@@ -167,6 +168,8 @@ export default function HomePage() {
       setRecommendations(data.recommendations || []);
       setViewingHistory(false);
       loadMatchRecords();
+      setSubmittedRequirement(requirement);
+      setRequirement("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "匹配失败");
     } finally {
@@ -176,7 +179,7 @@ export default function HomePage() {
   }
 
   function handleCopy(rank: number, r: Recommendation) {
-    const text = buildCopyText(requirement, r, rank);
+    const text = buildCopyText(submittedRequirement || requirement, r, rank);
     copyToClipboard(text);
     setCopiedRank(rank);
     setTimeout(() => setCopiedRank(null), 2000);
@@ -252,7 +255,7 @@ export default function HomePage() {
           <section className="card">
             <h2>项目需求解析</h2>
             <div style={{ marginTop: "12px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-              <p style={{ fontSize: "14px", lineHeight: 1.8, margin: 0, whiteSpace: "pre-wrap" }}>{requirement}</p>
+              <p style={{ fontSize: "14px", lineHeight: 1.8, margin: 0, whiteSpace: "pre-wrap" }}>{submittedRequirement || requirement}</p>
             </div>
             <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "8px" }}>共检索到 {recommendations.length} 个候选伙伴，展示推荐前 {top3.length} 名</p>
           </section>
