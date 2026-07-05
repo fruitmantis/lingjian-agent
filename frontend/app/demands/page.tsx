@@ -71,6 +71,10 @@ export default function DemandsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [gapPage, setGapPage] = useState(1);
+  const [gapPageSize, setGapPageSize] = useState(10);
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as "profiles" | "report" | "opportunities") || "profiles";
   const [subTab, setSubTab] = useState<"profiles" | "report" | "opportunities">(initialTab);
@@ -114,6 +118,15 @@ export default function DemandsPage() {
   }
 
   useEffect(() => { loadData(); }, []);
+
+  async function deleteProfile(id: string) {
+    if (!confirm("确定删除该需求画像？此操作不可恢复。")) return;
+    try {
+      const res = await fetch(`${apiBaseUrl}/agent/demand-profiles/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await loadData();
+    } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
+  }
 
   async function loadReport() {
     setReportLoading(true); setReportError(null);
@@ -193,7 +206,7 @@ export default function DemandsPage() {
           <section className="card">
             <h2>高频需求列表</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
-              {data.profiles.map((p) => {
+              {data.profiles.slice((page - 1) * pageSize, page * pageSize).map((p) => {
                 const badge = supplyBadge(p.supplyStatus);
                 const isExpanded = expandedId === p.id;
                 return (
@@ -212,7 +225,7 @@ export default function DemandsPage() {
                       </div>
                       <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
                         <span style={{ padding: "4px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>{badge.label}</span>
-                        <button onClick={() => setExpandedId(isExpanded ? null : p.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>{isExpanded ? "收起" : "展开"}</button>
+                        <button onClick={() => setExpandedId(isExpanded ? null : p.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>{isExpanded ? "收起" : "展开"}</button> <button onClick={() => deleteProfile(p.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button>
                       </div>
                     </div>
                     {isExpanded && (
@@ -263,6 +276,22 @@ export default function DemandsPage() {
                 );
               })}
             </div>
+          {data.profiles.length > pageSize && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
+                <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: "4px", fontSize: "13px" }}>
+                  <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+                </select>
+                <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {data.profiles.length} 条</span>
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: page === 1 ? 0.5 : 1 }}>上一页</button>
+                <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {page} / {Math.ceil(data.profiles.length / pageSize)} 页</span>
+                <button onClick={() => setPage(p => Math.min(Math.ceil(data.profiles.length / pageSize), p + 1))} disabled={page >= Math.ceil(data.profiles.length / pageSize)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: page >= Math.ceil(data.profiles.length / pageSize) ? 0.5 : 1 }}>下一页</button>
+              </div>
+            </div>
+          )}
           </section>
 
           {/* 供需缺口分析 */}
@@ -272,19 +301,35 @@ export default function DemandsPage() {
               <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无供给缺口需求。</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
-                {data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").map((p) => {
+                {data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").slice((gapPage - 1) * gapPageSize, gapPage * gapPageSize).map((p) => {
                   const badge = supplyBadge(p.supplyStatus);
                   return (
                     <div key={p.id} style={{ padding: "12px 16px", background: badge.bg, borderRadius: "8px", border: `1px solid ${badge.border}` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                         <span style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.requirementText}</span>
-                        <span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: "white", color: badge.color, border: `1px solid ${badge.border}`, flexShrink: 0, marginLeft: "8px" }}>{badge.label}</span>
+                        <span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: "white", color: badge.color, border: `1px solid ${badge.border}`, flexShrink: 0, marginLeft: "8px" }}>{badge.label}</span> <button onClick={() => deleteProfile(p.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "2px 8px", color: "var(--danger)", borderColor: "#fecaca", flexShrink: 0 }}>删除</button>
                       </div>
                       <div style={{ fontSize: "13px", color: "#666", lineHeight: 1.6 }}>{p.gapAnalysis || "暂无分析"}</div>
                       {p.supplyStatus === "gap" && <div style={{ fontSize: "12px", color: "var(--danger)", marginTop: "4px" }}>建议：补充相关行业案例和交付资源</div>}
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length > gapPageSize && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
+                  <select value={gapPageSize} onChange={(e) => { setGapPageSize(Number(e.target.value)); setGapPage(1); }} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: "4px", fontSize: "13px" }}>
+                    <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
+                  </select>
+                  <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length} 条</span>
+                </div>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button onClick={() => setGapPage(p => Math.max(1, p - 1))} disabled={gapPage === 1} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: gapPage === 1 ? 0.5 : 1 }}>上一页</button>
+                  <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {gapPage} / {Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize)} 页</span>
+                  <button onClick={() => setGapPage(p => Math.min(Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize), p + 1))} disabled={gapPage >= Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: gapPage >= Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize) ? 0.5 : 1 }}>下一页</button>
+                </div>
               </div>
             )}
           </section>

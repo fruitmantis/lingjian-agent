@@ -1,6 +1,6 @@
 """Demand profile operations router."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from ..database import get_db
 
@@ -376,3 +376,12 @@ def update_opportunity(opp_id: str, payload: OpportunityUpdate) -> OpportunityOu
             conn.execute(f"UPDATE project_opportunities SET {', '.join(updates)} WHERE id = ?", params)
         row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
     return _opp_to_out(row)
+
+
+@router.delete("/demand-profiles/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_demand_profile(profile_id: str):
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM demand_profiles WHERE id = ?", (profile_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="需求画像不存在")
+        conn.execute("DELETE FROM demand_profiles WHERE id = ?", (profile_id,))
