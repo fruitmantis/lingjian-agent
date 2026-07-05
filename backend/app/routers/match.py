@@ -155,7 +155,7 @@ def match_partners(req: MatchRequest) -> MatchResponse:
     ]
 
     try:
-        raw = chat_completion(messages, timeout=90, scene="partner_match")
+        raw = chat_completion(messages, timeout=180, scene="partner_match")
     except Exception as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 调用失败: {e}")
 
