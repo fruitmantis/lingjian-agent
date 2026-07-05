@@ -214,7 +214,7 @@ def match_partners(req: MatchRequest) -> MatchResponse:
 
     # Auto-extract project opportunity info
     try:
-        _extract_project_opportunity(req.requirement, record_id, recommendations)
+        _extract_project_opportunity(req.requirement, record_id, recs)
     except Exception as e:
         print(f"[WARN] opportunity extraction failed: {e}", flush=True)
 
@@ -224,7 +224,7 @@ def match_partners(req: MatchRequest) -> MatchResponse:
 def _extract_project_opportunity(requirement: str, match_record_id: str, recommendations: list):
     try:
         from ..ai_client import chat_completion
-        rec_names = ", ".join([r.get("partnerName", "") for r in recommendations[:5]])
+        rec_names = ", ".join([r.partnerName for r in recommendations[:5]])
         raw = chat_completion([
             {"role": "system", "content": "从项目需求中抽取结构化项目信息。返回JSON含: customerName(客户名称),projectName(项目名称),industry(行业),region(区域),projectStage(项目阶段如需求调研/方案设计/招投标/实施交付),businessNeeds(业务诉求),technicalNeeds(技术诉求),deliveryNeeds(交付诉求),qualificationRequirements(资质要求),caseRequirements(案例要求),onsiteRequirement(驻场要求),timelineRequirement(时间要求),cloudPlatformPreference(云平台偏好),followUpQuestions(建议补充问题,数组)。无法识别的字段填'未识别'。只返回JSON。"},
             {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴: {rec_names}"}
