@@ -370,7 +370,7 @@ function CapabilityTagsTab() {
       {subTab === "tags" && (
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
-          <h2>能力标签配置</h2>
+          <h2>能力标签</h2>
           <button onClick={startNew} disabled={isEditing} style={{ fontSize: "13px", padding: "6px 16px", opacity: isEditing ? 0.5 : 1 }}>新增标签</button>
         </div>
         <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
@@ -723,8 +723,8 @@ export default function AdminPage() {
 
   return (
     <main className="page">
-      <p className="eyebrow">{activeTab === "users" ? "User Management" : activeTab === "tags" ? "Capability Tag Configuration" : activeTab === "status" ? "System Status" : "Model Configuration"}</p>
-      <h1>{activeTab === "users" ? "用户管理" : activeTab === "tags" ? "能力标签配置" : activeTab === "status" ? "系统状态" : "模型配置"}</h1>
+      <p className="eyebrow">{activeTab === "users" ? "User Management" : activeTab === "tags" ? "Capability Tags" : activeTab === "status" ? "System Status" : "Model Configuration"}</p>
+      <h1>{activeTab === "users" ? "用户管理" : activeTab === "tags" ? "能力标签" : activeTab === "status" ? "系统状态" : "模型配置"}</h1>
       <p className="lead">{activeTab === "users" ? "维护系统用户账号和角色权限。" : activeTab === "tags" ? "维护标准能力标签、标签分类和 AI 标签建议。" : activeTab === "status" ? "查看数据库、LLM 模型等系统运行状态。" : "维护大模型连接参数和业务场景模型策略。"}</p>
 
       {activeTab === "users" ? <UsersTab /> : activeTab === "tags" ? <CapabilityTagsTab /> : activeTab === "status" ? <SystemStatusTab /> : <ModelConfigTab />}

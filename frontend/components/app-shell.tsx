@@ -14,14 +14,14 @@ const NAV_STRUCTURE = [
     ],
   },
   {
-    group: "运营管理",
+    group: "伙伴管理",
     icon: "📊",
     items: [
-      { label: "伙伴资料管理", href: "/partners" },
+      { label: "伙伴资料", href: "/partners" },
       { label: "需求画像", href: "/demands" },
       { label: "项目机会库", href: "/demands?tab=opportunities" },
       { label: "运营报表", href: "/demands?tab=report" },
-      { label: "能力标签配置", href: "/admin?tab=tags" },
+      { label: "能力标签", href: "/admin?tab=tags" },
     ],
   },
   {
