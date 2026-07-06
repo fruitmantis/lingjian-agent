@@ -58,9 +58,9 @@ function buildCopyText(req: string, r: Recommendation, rank: number): string {
     `【匹配度】${r.matchScore}`,
     `【推荐等级】${level.label}`,
     `【推荐理由】${r.recommendationReason || "暂无"}`,
-    `【命中能力】${r.matchedCapabilities || "无"}`,
-    `【命中行业】${r.matchedIndustries || "无"}`,
-    `【命中区域】${r.matchedRegions || "无"}`,
+    `【匹配能力】${r.matchedCapabilities || "无"}`,
+    `【匹配行业】${r.matchedIndustries || "无"}`,
+    `【匹配区域】${r.matchedRegions || "无"}`,
     `【支撑案例】${r.evidenceCases || "暂无支撑案例"}`,
     `【支撑交付物】${r.evidenceDeliverables || "暂无交付物证据"}`,
     `【风险/缺口】${r.riskNotes || "暂无"}`,
@@ -368,15 +368,15 @@ export default function HomePage() {
                       {/* Matched tags */}
                       <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
                         <div style={{ flex: "1 1 180px" }}>
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>命中能力标签</div>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配能力标签</div>
                           <TagPills tags={capTags} color="var(--brand-dark)" bg="#fff1f2" border="#ffd0d4" />
                         </div>
                         <div style={{ flex: "1 1 180px" }}>
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>命中行业经验</div>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配行业经验</div>
                           <TagPills tags={indTags} color="var(--success)" bg="#f0fdf4" border="#bbf7d0" />
                         </div>
                         <div style={{ flex: "1 1 180px" }}>
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>命中覆盖区域</div>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配覆盖区域</div>
                           <TagPills tags={areaTags} color="#1a4fa0" bg="#f0f5ff" border="#d6e4ff" />
                         </div>
                       </div>
