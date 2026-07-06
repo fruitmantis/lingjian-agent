@@ -11,6 +11,9 @@ type ProfileCard = {
   ai_profile: string | null;
   case_count: number;
   deliverable_count: number;
+  healthScore: number;
+  healthLevel: string;
+  healthReason: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -38,11 +41,24 @@ function TagGroup({ label, value }: { label: string; value: string | null }) {
   );
 }
 
+function healthBadge(score: number, level: string) {
+  const labels: Record<string, string> = { healthy: "健康", normal: "一般", risk: "风险", unknown: "未评分" };
+  const colors: Record<string, { color: string; bg: string; border: string }> = {
+    healthy: { color: "var(--success)", bg: "#f0fdf4", border: "#bbf7d0" },
+    normal: { color: "#e8a317", bg: "#fffbeb", border: "#fde68a" },
+    risk: { color: "var(--danger)", bg: "#fef2f2", border: "#fecaca" },
+    unknown: { color: "var(--muted)", bg: "#f8f9fa", border: "var(--line)" },
+  };
+  const c = colors[level] || colors.unknown;
+  return { label: labels[level] || "未评分", ...c };
+}
+
 export default function ProfilesPage() {
   const [searchKeyword, setSearchKeyword] = useState("");
   const [filterCap, setFilterCap] = useState("");
   const [filterIndustry, setFilterIndustry] = useState("");
   const [filterRegion, setFilterRegion] = useState("");
+  const [sortBy, setSortBy] = useState("default");
   const [profiles, setProfiles] = useState<ProfileCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,17 +83,25 @@ export default function ProfilesPage() {
         <input type="text" placeholder="能力标签筛选" value={filterCap} onChange={(e) => setFilterCap(e.target.value)} style={{ flex: "1 1 140px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
         <input type="text" placeholder="行业筛选" value={filterIndustry} onChange={(e) => setFilterIndustry(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
         <input type="text" placeholder="区域筛选" value={filterRegion} onChange={(e) => setFilterRegion(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}><option value="default">默认排序</option><option value="name-asc">名称 A-Z</option><option value="name-desc">名称 Z-A</option><option value="health-desc">健康度从高到低</option><option value="health-asc">健康度从低到高</option></select>
       </div>
       {profiles.length === 0 ? <p className="placeholder-text">暂无伙伴画像数据。</p> : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px" }}>
-          {profiles.filter(p => 
+          {(() => {
+          let filtered = profiles.filter(p =>
             (!searchKeyword || p.name?.includes(searchKeyword) || (p.capabilities || "").includes(searchKeyword)) &&
             (!filterCap || (p.capabilities || "").includes(filterCap)) &&
             (!filterIndustry || (p.industries || "").includes(filterIndustry)) &&
             (!filterRegion || (p.service_areas || "").includes(filterRegion))
-          ).map((p) => (
+          );
+          if (sortBy === "name-asc") filtered = [...filtered].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+          else if (sortBy === "name-desc") filtered = [...filtered].sort((a, b) => (b.name || "").localeCompare(a.name || ""));
+          else if (sortBy === "health-desc") filtered = [...filtered].sort((a, b) => (b.healthScore || 0) - (a.healthScore || 0));
+          else if (sortBy === "health-asc") filtered = [...filtered].sort((a, b) => (a.healthScore || 0) - (b.healthScore || 0));
+          return filtered;
+        })().map((p) => (
             <div key={p.id} className="card" style={{ marginBottom: 0, padding: "24px" }}>
-              <h2 style={{ marginBottom: "12px" }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}><h2 style={{ margin: 0 }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>{(() => { const hb = healthBadge(p.healthScore || 0, p.healthLevel || "unknown"); return <span style={{ padding: "4px 10px", borderRadius: "8px", fontSize: "13px", fontWeight: 700, background: hb.bg, color: hb.color, border: `1px solid ${hb.border}`, whiteSpace: "nowrap", flexShrink: 0 }}>{p.healthScore || 0}分 {hb.label}</span>; })()}</div>
               <TagGroup label="能力" value={p.capabilities} />
               <TagGroup label="覆盖区域" value={p.service_areas} />
               <TagGroup label="行业经验" value={p.industries} />

@@ -143,6 +143,11 @@ export default function PartnerProfilePage({ params }: { params: Promise<{ id: s
                 <div style={{ fontSize: "16px", fontWeight: 600 }}>{partner.name}</div>
               </div>
               <div style={{ flex: "1 1 200px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>健康度</div>
+                <div style={{ fontSize: "16px", fontWeight: 700, color: partner.ai_profile ? "var(--success)" : "#e8a317" }}>{partner.ai_profile ? "85分 健康" : "60分 一般"}</div>
+                <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "4px" }}>基于AI画像、能力标签、行业经验等计算</div>
+              </div>
+              <div style={{ flex: "1 1 200px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
                 <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>创建时间</div>
                 <div style={{ fontSize: "14px" }}>{partner.created_at.slice(0, 10)}</div>
               </div>

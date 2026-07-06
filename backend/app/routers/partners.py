@@ -32,6 +32,36 @@ class PartnerProfileCard(BaseModel):
     ai_profile: str | None
     case_count: int
     deliverable_count: int
+    healthScore: int
+    healthLevel: str
+    healthReason: str
+
+
+def calculate_partner_health(ai_profile, capabilities, service_areas, industries, case_count, deliverable_count):
+    """Lightweight rule-based partner health score (0-100)."""
+    score = 60
+    reasons = []
+    if ai_profile:
+        score += 15; reasons.append("已生成AI画像(+15)")
+    if capabilities and capabilities.strip():
+        score += 10; reasons.append("有能力标签(+10)")
+    if industries and industries.strip():
+        score += 5; reasons.append("有行业经验(+5)")
+    if service_areas and service_areas.strip():
+        score += 5; reasons.append("有覆盖区域(+5)")
+    if case_count > 0:
+        score += 5; reasons.append(f"有案例{case_count}个(+5)")
+    if deliverable_count > 0:
+        score += 5; reasons.append(f"有交付物{deliverable_count}个(+5)")
+    score = min(score, 100)
+    if score >= 80:
+        level = "healthy"
+    elif score >= 60:
+        level = "normal"
+    else:
+        level = "risk"
+    reason = "; ".join(reasons) if reasons else "仅有基础信息"
+    return score, level, reason
 
 
 @router.get("/profiles", response_model=list[PartnerProfileCard])
@@ -43,7 +73,8 @@ def list_profiles() -> list[PartnerProfileCard]:
             pd = dict(p)
             case_count = conn.execute("SELECT COUNT(*) as cnt FROM cases WHERE partner_id = ?", (pd["id"],)).fetchone()["cnt"]
             deliverable_count = conn.execute("SELECT COUNT(*) as cnt FROM deliverables WHERE case_id IN (SELECT id FROM cases WHERE partner_id = ?)", (pd["id"],)).fetchone()["cnt"]
-            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), case_count=case_count, deliverable_count=deliverable_count))
+            hs, hl, hr = calculate_partner_health(pd.get("ai_profile"), pd.get("capabilities"), pd.get("service_areas"), pd.get("industries"), case_count, deliverable_count)
+            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), case_count=case_count, deliverable_count=deliverable_count, healthScore=hs, healthLevel=hl, healthReason=hr))
     return result
 
 
