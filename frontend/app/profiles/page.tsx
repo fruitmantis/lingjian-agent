@@ -100,12 +100,12 @@ export default function ProfilesPage() {
           else if (sortBy === "health-asc") filtered = [...filtered].sort((a, b) => (a.healthScore || 0) - (b.healthScore || 0));
           return filtered;
         })().map((p) => (
-            <div key={p.id} className="card" style={{ marginBottom: 0, padding: "24px" }}>
+            <div key={p.id} className="card" style={{ marginBottom: 0, padding: "24px", display: "flex", flexDirection: "column", height: "100%" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "12px" }}><h2 style={{ margin: 0, flex: 1, minWidth: 0, fontSize: "15px", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>{(() => { const hb = healthBadge(p.healthScore || 0, p.healthLevel || "unknown"); return <div title={`伙伴健康度：${p.healthScore || 0}分`} style={{ minWidth: "72px", height: "56px", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "14px", background: hb.bg, border: `1px solid ${hb.border}`, flexShrink: 0 }}><span style={{ fontSize: "30px", fontWeight: 800, color: hb.color, lineHeight: 1 }}>{p.healthScore > 0 ? p.healthScore : "--"}</span></div>; })()}</div>
               <TagGroup label="能力" value={p.capabilities} />
               <TagGroup label="覆盖区域" value={p.service_areas} />
               <TagGroup label="行业经验" value={p.industries} />
-              <div style={{ display: "flex", gap: "12px", marginTop: "16px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+              <div style={{ display: "flex", gap: "12px", marginTop: "auto", paddingTop: "16px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
                 <div style={{ textAlign: "center", flex: 1 }}>
                   <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--brand)" }}>{p.case_count}</div>
                   <div style={{ fontSize: "12px", color: "var(--muted)" }}>案例数</div>
