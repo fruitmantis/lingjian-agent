@@ -101,7 +101,7 @@ export default function ProfilesPage() {
           return filtered;
         })().map((p) => (
             <div key={p.id} className="card" style={{ marginBottom: 0, padding: "24px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}><h2 style={{ margin: 0 }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>{(() => { const hb = healthBadge(p.healthScore || 0, p.healthLevel || "unknown"); return <span style={{ padding: "4px 10px", borderRadius: "8px", fontSize: "13px", fontWeight: 700, background: hb.bg, color: hb.color, border: `1px solid ${hb.border}`, whiteSpace: "nowrap", flexShrink: 0 }}>{p.healthScore || 0}分 {hb.label}</span>; })()}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}><h2 style={{ margin: 0 }}><a href={`/partners/${p.id}`}>{p.name}</a></h2>{(() => { const hb = healthBadge(p.healthScore || 0, p.healthLevel || "unknown"); return <span title={`伙伴健康度：${p.healthScore || 0}分`} style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "13px", fontWeight: 600, background: hb.bg, color: hb.color, border: `1px solid ${hb.border}`, whiteSpace: "nowrap", flexShrink: 0, lineHeight: 1.4 }}>{p.healthScore > 0 ? `${p.healthScore}分` : "未评分"}</span>; })()}</div>
               <TagGroup label="能力" value={p.capabilities} />
               <TagGroup label="覆盖区域" value={p.service_areas} />
               <TagGroup label="行业经验" value={p.industries} />
