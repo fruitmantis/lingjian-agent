@@ -180,6 +180,18 @@ export default function HomePage() {
     }
   }
 
+  async function deleteMatchRecord(recordId: string) {
+    if (!confirm("确定删除该匹配记录？此操作不可恢复。")) return;
+    try {
+      const res = await fetch(`${apiBaseUrl}/agent/match-records/${recordId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (expandedRecordId === recordId) { setExpandedRecordId(null); setHistoryDetail(null); }
+      loadMatchRecords();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "删除失败");
+    }
+  }
+
   async function handleMatchDirect(reqText: string) {
     setRequirement(reqText);
     setLoading(true);
@@ -411,7 +423,7 @@ export default function HomePage() {
                       Top1: {r.topPartner} | 推荐伙伴: {r.partnerCount}个 | {r.createdAt.slice(0, 19).replace("T", " ")}
                     </div>
                   </div>
-                  <button onClick={() => handleViewRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px", marginLeft: "12px", flexShrink: 0 }}>{expandedRecordId === r.id ? "收起" : "查看详情"}</button>
+                  <div style={{ display: "flex", gap: "6px", marginLeft: "12px", flexShrink: 0 }}><button onClick={() => handleViewRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px" }}>{expandedRecordId === r.id ? "收起" : "查看详情"}</button><button onClick={() => deleteMatchRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button></div>
                 </div>
                 {expandedRecordId === r.id && historyDetail && (
                   <div style={{ marginTop: "8px", padding: "14px 16px", background: "white", borderRadius: "8px", border: "1px solid var(--line)" }}>

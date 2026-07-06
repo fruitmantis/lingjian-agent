@@ -379,3 +379,13 @@ def _generate_demand_profile(match_record_id: str, requirement: str, recs: list[
             "INSERT INTO demand_profiles (id, match_record_id, requirement_text, industry_tags, capability_tags, delivery_type_tags, region_tags, complexity_level, urgency_level, project_keywords, matched_partner_count, top_partner_names, supply_status, gap_analysis, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (profile_id, match_record_id, requirement, industry_tags, capability_tags, delivery_type_tags, region_tags, complexity_level, urgency_level, project_keywords, partner_count, top_names, llm_supply_status, gap_analysis, created_at)
         )
+
+
+@router.delete("/match-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_match_record(record_id: str):
+    with get_db() as conn:
+        row = conn.execute("SELECT id FROM match_records WHERE id = ?", (record_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
+        conn.execute("DELETE FROM match_records WHERE id = ?", (record_id,))
+
