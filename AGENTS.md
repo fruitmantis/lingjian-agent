@@ -1,57 +1,78 @@
 # AGENTS.md
 
-## Project
+## 项目事实
 
-This project is "灵鉴 Agent：交付伙伴智能匹配智能体".
+- 项目：灵鉴 Agent，交付伙伴智能匹配与需求运营平台。
+- 运行环境：WSL Ubuntu-24.04；项目路径：`/home/yuan/project/lingjian-agent`。
+- 当前本地代码、Git 状态和实际配置高于旧对话上下文。
+- 前端：Next.js；后端：FastAPI；数据库：SQLite（`data/app.db`）；上传文件：`data/uploads`。
+- Chroma 是否实际接入必须以现有代码为准，不得依据早期规划判断。
+- 当前使用真实模型和 OpenAI 兼容接口；不得擅自修改模型 API 地址、模型名、API Key、默认模型或业务场景绑定。
 
-## Goal
+## 产品与 MVP 边界
 
-Build an MVP system that helps users upload partner profiles, delivery cases and deliverables, then uses AI to generate partner capability profiles and recommend suitable delivery partners for project requirements.
+- 平台沉淀伙伴能力、案例、交付物和资质等信息；一线人员输入项目需求后，系统推荐合适伙伴。
+- 项目需求应沉淀为需求画像、项目机会和运营分析数据。
+- 必需页面：Agent 工作台、伙伴资料管理、伙伴画像详情页。
+- 前端保持华为风格的红、白、浅灰企业 SaaS 设计，界面简洁聚焦。
+- 仅实现 MVP。未经明确要求，不引入生产部署或重大架构升级。
 
-## Tech Stack
+## Git 工作方式
 
-- Frontend: Next.js
-- Backend: FastAPI
-- Database: SQLite
-- Vector Store: Chroma
-- File Storage: local data/uploads
-- AI: external LLM and embedding APIs
+- 单人开发，始终直接在 `main` 分支迭代。
+- 不创建或切换分支、worktree，不进行分支合并，也不主动建议其他分支工作流。
+- 不擅自执行 `reset`、`revert`、`clean`、`checkout` 丢弃修改或删除标签。
+- 不提交、不推送，除非用户明确要求。
 
-## MVP Scope
+## 修改原则
 
-Only implement the MVP. Do not add Docker, PostgreSQL, Redis, Kubernetes, complex authentication, microservices, or production deployment unless explicitly requested.
+- 修改前先定位现有实现、调用链和影响范围；默认采用最小范围修改。
+- 不做与当前任务无关的重构，不因代码不够优雅而重写已有功能。
+- 不擅自修改导航、路由、接口、数据结构、目录或已有功能、兼容逻辑。
+- UI 调整不得顺带改变业务逻辑；文案调整原则上只改展示文字。
+- 不主动执行无关的 build、迁移、批量修复或全量测试。
+- 用户仅要求检查、分析或评审时，不得自动修改代码。
 
-## Required Pages
+## 数据与敏感信息
 
-1. Agent 工作台
-2. 伙伴资料管理
-3. 伙伴画像详情页
+- 不得删除或覆盖 `data/app.db`，不得删除或覆盖 `data/uploads` 现有文件。
+- 数据库结构变更前，说明影响范围、兼容方式和回退方案。
+- 不擅自清理被忽略文件、上传文件、数据库文件或运行数据。
+- 不得将 API Key、Token、密码、客户数据或其他敏感信息写入代码、日志、报告或界面；回复中不得输出完整密钥。
 
-## Backend Rules
+## 模型调用与标签
 
-- Use FastAPI.
-- Store SQLite database at `data/app.db`.
-- Store uploaded files under `data/uploads`.
-- Keep API design simple and readable.
-- Do not hardcode API keys.
-- Use `.env` for secrets.
+- 任务确有需要时可使用已配置的真实模型；静态检查、普通 UI 修改不得无意义调用模型。
+- 批量模型调用、批量画像生成、批量匹配或可能产生明显费用时，执行前说明调用范围和影响。
+- 模型调用必须使用正确的业务场景配置，不得擅自变更配置。
+- 最终用户不得看到 Prompt、原始模型 JSON、调试日志或模型内部过程；模型解析失败时也不得直接返回原始模型输出。
+- 推荐必须包含匹配伙伴、匹配分、推荐理由、支撑案例、支撑交付物、风险或缺口；证据不足时明确说明缺失内容，不生成无依据结论。
+- 正式能力标签由后台人工配置；AI 仅生成建议，管理员采纳后才进入正式标签。标签建议流程只保留“待采纳”和“已采纳”。
 
-## Frontend Rules
+## 伙伴健康度
 
-- Use Next.js.
-- Use a clean enterprise SaaS style.
-- Main visual theme should use Huawei-style red, white and light gray.
-- Keep pages simple and focused.
+- 健康度后续由外部平台提供；现阶段不负责正式评估或计算。
+- 当前健康度为临时占位，可沿用现有写死值或临时实现。
+- 未经明确要求，不调整算法、不新增评分规则、不根据伙伴资料、案例、交付物或 AI 画像推导正式健康度。
+- 外部接口明确前，不重构健康度链路或扩展评分维度；相关修改仅限用户明确提出的展示问题，并采用最小改动。
 
-## AI Rules
+## 架构限制
 
-- AI recommendations must include:
-  - matched partner
-  - match score
-  - recommendation reason
-  - supporting cases
-  - supporting deliverables
-  - risk or gap notes
+除非用户明确要求，不引入 Docker、PostgreSQL、Redis、微服务、消息队列、复杂权限体系、大规模状态管理框架、新数据库迁移框架或无关基础设施。
 
-- Do not generate unsupported conclusions.
-- When evidence is insufficient, say what is missing.
+## 任务执行与验证
+
+- UI 小调整可直接定位并最小修改；跨前后端、数据库或模型调用的复杂任务，先分析现状、影响范围和实施方案，再开始修改。
+- 发现方案不合理应直接说明；不确定内容标记为“未确认”，不得猜测。
+- 用户提供截图时，结合截图中的实际页面和状态判断。
+- 修改完成后只执行与本次变更直接相关的验证，不扩大验证范围。
+
+## 交付汇报
+
+每次修改完成后汇报：
+
+1. 修改文件及关键变化。
+2. 是否改变接口、路由、数据结构或业务逻辑。
+3. 执行的验证和结果。
+4. 剩余风险或未确认事项。
+5. 当前 Git 分支和工作区状态。
