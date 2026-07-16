@@ -200,7 +200,7 @@ def match_partners(req: MatchRequest) -> MatchResponse:
         if not recs:
             raise ValueError("返回内容未包含有效候选伙伴")
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 返回解析失败: {e}, 原始内容: {raw[:500]}")
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 返回解析失败: {e}")
 
     # Save match record
     record_id = str(uuid.uuid4())
