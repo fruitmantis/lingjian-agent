@@ -13,6 +13,7 @@ export type IconName =
   | "logout"
   | "refresh"
   | "search"
+  | "send"
   | "settings"
   | "spark"
   | "tag"
@@ -33,6 +34,7 @@ function iconContent(name: IconName): ReactNode {
     case "logout": return <><path d="M10 5H5v14h5M14 8l4 4-4 4M9 12h9" /></>;
     case "refresh": return <><path d="M19 8a7.5 7.5 0 0 0-12.5-2L4 8.5" /><path d="M4 4v4.5h4.5M5 16a7.5 7.5 0 0 0 12.5 2l2.5-2.5" /><path d="M20 20v-4.5h-4.5" /></>;
     case "search": return <><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4 4" /></>;
+    case "send": return <><path d="M5 12h14M13 6l6 6-6 6" /></>;
     case "settings": return <><circle cx="12" cy="12" r="3" /><path d="M19 13.5v-3l-2-.7-.6-1.4.9-1.9-2.1-2.1-1.9.9-1.4-.6-.7-2h-3l-.7 2-1.4.6-1.9-.9-2.1 2.1.9 1.9-.6 1.4-2 .7v3l2 .7.6 1.4-.9 1.9 2.1 2.1 1.9-.9 1.4.6.7 2h3l.7-2 1.4-.6 1.9.9 2.1-2.1-.9-1.9.6-1.4z" /></>;
     case "spark": return <><path d="m12 3 1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5z" /><path d="m18.5 16 .6 2.1 2.1.6-2.1.6-.6 2.1-.6-2.1-2.1-.6 2.1-.6z" /></>;
     case "tag": return <><path d="M4 5v6l8.5 8.5 7-7L11 4H5a1 1 0 0 0-1 1Z" /><circle cx="8" cy="8" r="1.2" /></>;

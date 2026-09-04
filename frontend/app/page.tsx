@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { ENABLED_SCENES } from "@/lib/scenes";
 import { apiFetch } from "@/components/auth-provider";
+import { LingjianMark, UiIcon, type IconName } from "@/components/ui-icons";
 
 type Recommendation = {
   partnerId: string;
@@ -29,6 +30,25 @@ const LOADING_STAGES = [
 const TASK_STATUS_LABELS: Record<string, string> = {
   matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "失败",
 };
+
+const HOME_CATEGORIES = ["猜你想做", "智能匹配", "伙伴洞察", "能力发展", "项目机会", "运营分析"] as const;
+type HomeCategory = (typeof HOME_CATEGORIES)[number];
+
+function sceneIcon(category: string): IconName {
+  if (category === "智能匹配") return "spark";
+  if (category === "伙伴洞察") return "users";
+  if (category === "能力发展") return "chart";
+  if (category === "项目机会") return "file";
+  return "grid";
+}
+
+function sceneTone(category: string): string {
+  if (category === "智能匹配") return "match";
+  if (category === "伙伴洞察") return "partner";
+  if (category === "能力发展") return "capability";
+  if (category === "项目机会") return "opportunity";
+  return "operations";
+}
 
 function getRecommendLevel(score: string): { label: string; color: string; bg: string } {
   const num = parseInt(score) || 0;
@@ -100,6 +120,8 @@ export default function HomePage() {
   const [viewingHistory, setViewingHistory] = useState(false);
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [historyDetail, setHistoryDetail] = useState<{ requirement: string; recommendations: Recommendation[] } | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<HomeCategory>("猜你想做");
+  const [sceneOffset, setSceneOffset] = useState(0);
   const stageTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const requirementInput = useRef<HTMLTextAreaElement | null>(null);
 
@@ -247,14 +269,16 @@ export default function HomePage() {
     "project-demand-profile",
     "project-opportunity-identification",
   ].includes(scene.id));
+  const scenePool = selectedCategory === "猜你想做" ? featuredScenes : ENABLED_SCENES.filter(scene => scene.category === selectedCategory);
+  const visibleScenes = scenePool.length <= 4
+    ? scenePool
+    : Array.from({ length: 4 }, (_, index) => scenePool[(sceneOffset + index) % scenePool.length]);
 
   return (
     <main className="page assistant-page">
       <section className="assistant-hero">
-        <div className="assistant-orb" aria-hidden="true"><span /></div>
-        <p className="assistant-kicker">伙伴能力智能助手</p>
-        <h1>灵鉴助手</h1>
-        <p className="assistant-subtitle">懂伙伴、懂能力、懂项目，让伙伴能力发展有据可依</p>
+        <div className="assistant-title"><LingjianMark size={48} /><h1>灵鉴助手</h1></div>
+        <p className="assistant-subtitle">懂伙伴、懂能力、懂项目，智能匹配好伙伴</p>
 
         <form onSubmit={handleMatch} className="assistant-composer">
           <label htmlFor="requirement" className="sr-only">输入项目需求</label>
@@ -265,42 +289,37 @@ export default function HomePage() {
             onChange={(event) => setRequirement(event.target.value)}
             required
             rows={4}
-            placeholder="请输入项目需求，或告诉我你想找什么伙伴、分析什么能力，也可以从下方场景开始"
+            maxLength={2000}
+            placeholder="输入项目需求，或告诉我您想完成什么…"
           />
           <div className="assistant-composer-footer">
-            <span>当前输入使用智能匹配能力 · partner_match</span>
-            <button type="submit" disabled={loading} className="assistant-submit">
-              <span>{loading ? "分析中" : "开始任务"}</span><span aria-hidden="true">→</span>
+            <span className="assistant-counter">{requirement.length}/2000</span>
+            <button type="submit" disabled={loading || !requirement.trim()} className="assistant-submit" aria-label={loading ? "分析中" : "开始任务"}>
+              {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={20} />}
             </button>
           </div>
         </form>
-
-        <div className="assistant-examples" aria-label="示例问题">
-          <span>试试这样问</span>
-          {["帮我找适合制造行业知识库 Agent 项目的伙伴", "XX伙伴有哪些AI能力？", "找有金融AI案例的伙伴", "XX伙伴有哪些能力短板？"].map((example) => (
-            <button key={example} type="button" onClick={() => { setRequirement(example); requirementInput.current?.focus(); }}>{example}</button>
-          ))}
-        </div>
       </section>
 
       <section className="assistant-section" aria-labelledby="featured-heading">
-        <div className="assistant-section-heading">
-          <div><p>基于现有能力为你推荐</p><h2 id="featured-heading">猜你想做</h2></div>
-          <Link href="/scenes">进入场景广场 <span aria-hidden="true">→</span></Link>
+        <h2 className="sr-only" id="featured-heading">猜你想做</h2>
+        <div className="assistant-category-row">
+          <div className="assistant-category-tabs" role="tablist" aria-label="推荐场景分类">
+            {HOME_CATEGORIES.map(item => <button key={item} type="button" role="tab" aria-selected={selectedCategory === item} className={selectedCategory === item ? "active" : ""} onClick={() => { setSelectedCategory(item); setSceneOffset(0); }}>{item}</button>)}
+          </div>
+          <button type="button" className="assistant-refresh" onClick={() => setSceneOffset(current => scenePool.length ? (current + 4) % scenePool.length : 0)}><UiIcon name="refresh" size={16} /><span>换一批</span></button>
         </div>
         <div className="featured-scene-grid">
-          {featuredScenes.map((scene) => {
+          {visibleScenes.map((scene) => {
             const content = (
               <>
                 <div className="featured-scene-heading">
+                  <span className={`scene-line-icon scene-tone-${sceneTone(scene.category)}`}><UiIcon name={sceneIcon(scene.category)} size={20} /></span>
                   <h3>{scene.name}</h3>
-                  <span className={`availability-badge ${scene.availability}`}>
-                    {scene.availability === "ready" ? "可使用" : scene.availability === "embedded" ? "随匹配生成" : "建设中"}
-                  </span>
                 </div>
                 <p>{scene.description}</p>
-                <div className="scene-tag-row">{scene.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
-                <div className="featured-scene-action">{scene.actionLabel}<span aria-hidden="true">→</span></div>
+                <ul className="featured-scene-queries">{scene.exampleQueries.slice(0, 2).map(query => <li key={query}>{query}</li>)}</ul>
+                <div className="featured-scene-action">{scene.actionLabel}<UiIcon name="send" size={15} /></div>
               </>
             );
             return scene.actionHref ? <Link className="featured-scene-card" href={scene.actionHref} key={scene.id}>{content}</Link> : <article className="featured-scene-card disabled" key={scene.id}>{content}</article>;
