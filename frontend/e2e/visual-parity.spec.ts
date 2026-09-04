@@ -45,8 +45,10 @@ test("capture cloudbao visual parity pages and validate browser health", async (
     const page = await context.newPage();
     const pageErrors: string[] = [];
     const consoleErrors: string[] = [];
+    const requestFailures: string[] = [];
     page.on("pageerror", error => pageErrors.push(error.message));
     page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
+    page.on("requestfailed", request => requestFailures.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || "failed"}`));
     await page.goto(route.url);
     await page.locator("main").last().waitFor({ state: "visible" });
     await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
@@ -55,6 +57,7 @@ test("capture cloudbao visual parity pages and validate browser health", async (
     await page.screenshot({ path: path.join(screenshotRoot, `${route.name}.png`), fullPage: false });
     expect(pageErrors, `${route.name} page errors`).toEqual([]);
     expect(consoleErrors, `${route.name} console errors`).toEqual([]);
+    expect(requestFailures, `${route.name} request failures`).toEqual([]);
     await context.close();
   }
 });
