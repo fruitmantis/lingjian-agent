@@ -763,3 +763,76 @@ button:hover:not(:disabled) { background: var(--primary-hover); }
   .assistant-category-tabs button { padding-right: 12px; padding-left: 12px; }
   .featured-scene-grid { grid-template-columns: 1fr; }
 }
+
+/* ===== Cloudbao visual parity: scene plaza ===== */
+.scenes-page { max-width: var(--content-max-width); }
+.scenes-hero { display: block; padding: 7px 0 24px; }
+.scenes-hero h1 { margin: 0; color: var(--text-primary); font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.scene-toolbar { overflow: visible; margin: 0 0 20px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.scene-category-tabs { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 0 0 18px; scrollbar-width: none; }
+.scene-category-tabs::-webkit-scrollbar { display: none; }
+.scene-category-tabs button { flex: 0 0 auto; padding: 2px 18px; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 14px; font-weight: 400; line-height: 20px; }
+.scene-category-tabs button:first-child { padding-left: 0; }
+.scene-category-tabs button + button { border-left: 1px solid var(--divider); }
+.scene-category-tabs button:hover:not(:disabled), .scene-category-tabs button.active { background: transparent; color: var(--text-primary); }
+.scene-category-tabs button.active { font-weight: 650; }
+.scene-search { display: flex; height: 42px; align-items: center; gap: 10px; padding: 0 14px; border: 1px solid var(--divider); border-radius: 10px; background: var(--surface); }
+.scene-search svg { flex: 0 0 auto; color: var(--text-tertiary); }
+.scene-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text-primary); font: inherit; font-size: 13px; }
+.scene-search input::placeholder { color: #a3a3a3; }
+.scene-search > button { display: grid; width: 24px; height: 24px; place-items: center; padding: 0; border-radius: 50%; background: var(--surface-hover); color: var(--text-tertiary); font-size: 16px; font-weight: 400; }
+.scene-result-summary { display: flex; align-items: center; gap: 10px; margin: 0 0 13px; }
+.scene-result-summary span { color: var(--text-primary); font-size: 14px; font-weight: 650; }
+.scene-result-summary small { color: var(--text-tertiary); font-size: 12px; }
+.scene-gallery-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.scene-gallery-card {
+  display: flex;
+  min-height: 250px;
+  flex-direction: column;
+  padding: 21px 22px 17px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.scene-gallery-card:hover { border-color: #d8e4f5; box-shadow: 0 10px 28px rgb(0 0 0 / 6%); transform: none; }
+.scene-gallery-card.building { background: #fafafa; }
+.scene-card-header { display: flex; min-width: 0; align-items: flex-start; gap: 11px; }
+.scene-card-title-wrap { min-width: 0; flex: 1; }
+.scene-card-title-wrap h2 { overflow: hidden; margin: 0 0 8px; color: var(--text-primary); font-size: 17px; font-weight: 650; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.scene-gallery-meta { flex: 0 0 auto; }
+.availability-badge { padding: 3px 7px; border-radius: 6px; background: #eff8f4; color: #087a52; font-size: 10px; font-weight: 550; }
+.availability-badge.embedded { background: #fff5e8; color: #a95508; }
+.availability-badge.building { background: #f0f1f3; color: var(--text-secondary); }
+.scene-gallery-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; }
+.scene-gallery-tags span { padding: 3px 7px; border: 0; border-radius: 5px; background: #f1f2f4; color: var(--text-secondary); font-size: 10px; }
+.scene-card-description { min-height: 42px; margin: 15px 0 0 45px; color: var(--text-secondary); font-size: 13px; line-height: 1.65; }
+.scene-example { margin: 13px 0 0 45px; padding: 9px 11px; border-radius: 8px; background: #f7f7f8; }
+.scene-example span { display: block; margin-bottom: 3px; color: var(--text-tertiary); font-size: 10px; font-weight: 500; }
+.scene-example p { overflow: hidden; margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.55; text-overflow: ellipsis; white-space: nowrap; }
+.scene-card-action { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: auto; padding-top: 15px; border-top: 0; color: var(--primary); font-size: 12px; font-weight: 500; }
+.scene-card-action:hover { color: var(--primary-hover); }
+.scene-card-action.disabled { color: var(--text-tertiary); }
+.scene-empty { padding: 64px 20px; border: 1px dashed #d3d3d6; border-radius: var(--radius-lg); background: rgb(255 255 255 / 55%); text-align: center; }
+.scene-empty > svg { margin: 0 auto; color: #b0b0b3; }
+.scene-empty h2 { margin: 12px 0 6px; color: var(--text-primary); font-size: 18px; }
+.scene-empty p { margin: 0 0 18px; color: var(--text-tertiary); font-size: 13px; }
+.scene-pagination { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 20px; color: var(--text-secondary); font-size: 12px; }
+.scene-pagination > div { display: flex; align-items: center; gap: 14px; }
+.scene-pagination label { display: flex; align-items: center; gap: 7px; }
+.scene-pagination select { height: 30px; padding: 0 24px 0 9px; border: 1px solid var(--divider); border-radius: 7px; background: var(--surface); color: var(--text-primary); font-size: 12px; }
+.scene-page-controls { gap: 6px !important; }
+.scene-page-controls button { display: grid; min-width: 30px; height: 30px; place-items: center; padding: 0 9px; border: 1px solid var(--divider); border-radius: 7px; background: var(--surface); color: var(--text-secondary); font-size: 12px; font-weight: 500; }
+.scene-page-controls button:hover:not(:disabled) { border-color: #b8cdf2; background: var(--brand-soft); color: var(--primary); }
+.scene-page-controls button.active { border-color: var(--primary); background: var(--primary); color: white; }
+
+@media (max-width: 1100px) {
+  .scene-gallery-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .scene-gallery-grid { grid-template-columns: 1fr; }
+  .scene-card-description, .scene-example { margin-left: 0; }
+  .scene-pagination { align-items: flex-start; flex-direction: column; }
+}
