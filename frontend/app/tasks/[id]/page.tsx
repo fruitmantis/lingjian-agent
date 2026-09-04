@@ -105,7 +105,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
   return (
     <main className="page">
-      <div className="page-heading-row"><div><p className="eyebrow">Task Detail</p><h1>任务详情</h1><p className="lead">创建于 {new Date(task.createdAt).toLocaleString("zh-CN")} · 创建人 {task.createdBy || "历史数据"}</p></div><Link href={returnHref} className="secondary-btn">返回任务列表</Link></div>
+      <div className="page-heading-row"><div><h1>任务详情</h1><p className="lead">创建于 {new Date(task.createdAt).toLocaleString("zh-CN")} · 创建人 {task.createdBy || "历史数据"}</p></div><Link href={returnHref} className="secondary-btn">返回任务列表</Link></div>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重新加载</button></div>}
       {task.taskStatus !== "ready" && <div className={`${task.taskStatus === "failed" ? "notice-error" : "notice-warning"} task-status-notice`}><strong>{taskStatusText[task.taskStatus]}</strong>{task.lastErrorStage && <span>未完成环节：{errorStageText(task.lastErrorStage)}</span>}{(task.taskStatus === "partial" || task.taskStatus === "failed") && <button onClick={() => void retryTask()} disabled={retrying}>{retrying ? "重试中..." : "重试任务"}</button>}</div>}
       <section className="card"><h2>项目需求</h2><p className="requirement-block">{task.requirement}</p></section>
