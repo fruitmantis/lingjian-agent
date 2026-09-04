@@ -1,18 +1,20 @@
 """Partner document upload and management router - requires authentication."""
 
 import uuid
+import html
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, status
 from fastapi.responses import FileResponse
 
-from ..auth import require_auth
+from ..auth import require_admin
 from ..database import get_db, UPLOADS_DIR
 from ..doc_extractor import extract_text, get_file_type
+from ..file_storage import save_upload_limited, validate_office_document
 from ..models import PartnerDocumentOut
 
-router = APIRouter(prefix="/partners", tags=["documents"], dependencies=[Depends(require_auth)])
+router = APIRouter(prefix="/partners", tags=["documents"], dependencies=[Depends(require_admin)])
 _DOC_COLS = "id, partner_id, filename, file_path, file_type, doc_category, extracted_text, created_at"
 _ALLOWED_TYPES = {"pdf", "docx", "pptx", "xlsx"}
 
@@ -39,12 +41,16 @@ async def upload_document(partner_id: str, file: UploadFile = File(...)) -> Part
     safe_name = Path(file.filename).name
     stored_name = f"{doc_id}_{safe_name}"
     file_path = UPLOADS_DIR / stored_name
-    content = await file.read()
-    file_path.write_bytes(content)
-    extracted = extract_text(str(file_path), file_type)
-    doc = PartnerDocumentOut(id=doc_id, partner_id=partner_id, filename=file.filename, file_type=file_type, doc_category=None, extracted_text=extracted, created_at=datetime.now(timezone.utc).isoformat())
-    with get_db() as conn:
-        conn.execute(f"INSERT INTO partner_documents ({_DOC_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (doc.id, doc.partner_id, doc.filename, str(file_path), doc.file_type, doc.doc_category, doc.extracted_text, doc.created_at))
+    try:
+        await save_upload_limited(file, file_path)
+        validate_office_document(file_path, file_type)
+        extracted = extract_text(str(file_path), file_type)
+        doc = PartnerDocumentOut(id=doc_id, partner_id=partner_id, filename=file.filename, file_type=file_type, doc_category=None, extracted_text=extracted, created_at=datetime.now(timezone.utc).isoformat())
+        with get_db() as conn:
+            conn.execute(f"INSERT INTO partner_documents ({_DOC_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (doc.id, doc.partner_id, doc.filename, str(file_path), doc.file_type, doc.doc_category, doc.extracted_text, doc.created_at))
+    except Exception:
+        file_path.unlink(missing_ok=True)
+        raise
     return doc
 
 
@@ -61,7 +67,6 @@ def preview_document(partner_id: str, doc_id: str):
 
     if row["file_type"] == "pptx":
         from pptx import Presentation
-        from pptx.util import Inches
         prs = Presentation(str(file_path))
         slides_html = []
         for i, slide in enumerate(prs.slides, 1):
@@ -71,18 +76,21 @@ def preview_document(partner_id: str, doc_id: str):
                     for para in shape.text_frame.paragraphs:
                         text = para.text.strip()
                         if text:
-                            shapes_text.append(f"<p>{text}</p>")
+                            shapes_text.append(f"<p>{html.escape(text)}</p>")
                 elif hasattr(shape, "text") and shape.text.strip():
-                    shapes_text.append(f"<p>{shape.text.strip()}</p>")
+                    shapes_text.append(f"<p>{html.escape(shape.text.strip())}</p>")
             slides_html.append(
                 f'<div style="border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:16px;min-height:200px;background:white">'
                 f'<div style="font-size:12px;color:#999;margin-bottom:8px">幻灯片 {i}</div>'
                 f'{"".join(shapes_text) if shapes_text else "<p style=\"color:#ccc\">空白幻灯片</p>"}'
                 f'</div>'
             )
-        html = f'<div style="font-family:sans-serif">{" ".join(slides_html)}</div>'
+        html_content = f'<div style="font-family:sans-serif">{" ".join(slides_html)}</div>'
         from fastapi.responses import HTMLResponse
-        return HTMLResponse(content=html)
+        return HTMLResponse(
+            content=html_content,
+            headers={"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'"},
+        )
     raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Preview not supported for this file type")
 
 
@@ -104,9 +112,9 @@ def delete_document(partner_id: str, doc_id: str):
         row = conn.execute("SELECT file_path FROM partner_documents WHERE id = ? AND partner_id = ?", (doc_id, partner_id)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
-        try:
-            Path(row["file_path"]).unlink(missing_ok=True)
-        except Exception:
-            pass
         conn.execute("DELETE FROM partner_documents WHERE id = ? AND partner_id = ?", (doc_id, partner_id))
+    try:
+        Path(row["file_path"]).unlink(missing_ok=True)
+    except OSError:
+        pass
     return None

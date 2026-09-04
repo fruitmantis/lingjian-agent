@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 
-from ..auth import require_auth
+from ..auth import require_active_user, require_admin
 from ..database import get_db
 from ..models import PartnerCreate, PartnerOut
 
@@ -17,10 +17,11 @@ class PartnerUpdate(BaseModel):
     capabilities: str | None = None
     service_areas: str | None = None
     industries: str | None = None
+    status: str | None = None
 
 
-router = APIRouter(prefix="/partners", tags=["partners"], dependencies=[Depends(require_auth)])
-_COLUMNS = "id, name, intro, capabilities, service_areas, industries, ai_profile, created_at"
+router = APIRouter(prefix="/partners", tags=["partners"], dependencies=[Depends(require_active_user)])
+_COLUMNS = "id, name, intro, capabilities, service_areas, industries, ai_profile, status, created_at, updated_at"
 
 
 class PartnerProfileCard(BaseModel):
@@ -67,7 +68,7 @@ def calculate_partner_health(ai_profile, capabilities, service_areas, industries
 @router.get("/profiles", response_model=list[PartnerProfileCard])
 def list_profiles() -> list[PartnerProfileCard]:
     with get_db() as conn:
-        partners = conn.execute(f"SELECT {_COLUMNS} FROM partners ORDER BY created_at DESC").fetchall()
+        partners = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE status = 'active' ORDER BY created_at DESC").fetchall()
         result = []
         for p in partners:
             pd = dict(p)
@@ -79,31 +80,37 @@ def list_profiles() -> list[PartnerProfileCard]:
 
 
 @router.get("", response_model=list[PartnerOut])
-def list_partners() -> list[PartnerOut]:
+def list_partners(include_disabled: bool = False, user: dict = Depends(require_active_user)) -> list[PartnerOut]:
+    if include_disabled and user["role"] != "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
     with get_db() as conn:
-        rows = conn.execute(f"SELECT {_COLUMNS} FROM partners ORDER BY created_at DESC").fetchall()
+        where = "" if include_disabled else " WHERE status = 'active'"
+        rows = conn.execute(f"SELECT {_COLUMNS} FROM partners{where} ORDER BY created_at DESC").fetchall()
     return [PartnerOut(**dict(r)) for r in rows]
 
 
 @router.get("/{partner_id}", response_model=PartnerOut)
-def get_partner(partner_id: str) -> PartnerOut:
+def get_partner(partner_id: str, user: dict = Depends(require_active_user)) -> PartnerOut:
     with get_db() as conn:
         row = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
+    if row["status"] != "active" and user["role"] != "admin":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
     return PartnerOut(**dict(row))
 
 
-@router.post("", response_model=PartnerOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PartnerOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 def create_partner(payload: PartnerCreate) -> PartnerOut:
-    partner = PartnerOut(id=str(uuid.uuid4()), name=payload.name, intro=payload.intro, capabilities=payload.capabilities, service_areas=payload.service_areas, industries=payload.industries, ai_profile=None, created_at=datetime.now(timezone.utc).isoformat())
+    now = datetime.now(timezone.utc).isoformat()
+    partner = PartnerOut(id=str(uuid.uuid4()), name=payload.name, intro=payload.intro, capabilities=payload.capabilities, service_areas=payload.service_areas, industries=payload.industries, ai_profile=None, status="active", created_at=now, updated_at=now)
     with get_db() as conn:
-        conn.execute(f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (partner.id, partner.name, partner.intro, partner.capabilities, partner.service_areas, partner.industries, partner.ai_profile, partner.created_at))
+        conn.execute(f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (partner.id, partner.name, partner.intro, partner.capabilities, partner.service_areas, partner.industries, partner.ai_profile, partner.status, partner.created_at, partner.updated_at))
     return partner
 
 
 
-@router.put("/{partner_id}", response_model=PartnerOut)
+@router.put("/{partner_id}", response_model=PartnerOut, dependencies=[Depends(require_admin)])
 def update_partner(partner_id: str, payload: PartnerUpdate) -> PartnerOut:
     with get_db() as conn:
         row = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
@@ -121,24 +128,13 @@ def update_partner(partner_id: str, payload: PartnerUpdate) -> PartnerOut:
             updates.append("service_areas = ?"); params.append(payload.service_areas)
         if payload.industries is not None:
             updates.append("industries = ?"); params.append(payload.industries)
+        if payload.status is not None:
+            if payload.status not in ("active", "disabled"):
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="伙伴状态无效")
+            updates.append("status = ?"); params.append(payload.status)
         if updates:
+            updates.append("updated_at = ?"); params.append(datetime.now(timezone.utc).isoformat())
             params.append(partner_id)
             conn.execute(f"UPDATE partners SET {', '.join(updates)} WHERE id = ?", params)
         row = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
     return PartnerOut(**dict(row))
-
-
-@router.delete("/{partner_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_partner(partner_id: str):
-    with get_db() as conn:
-        row = conn.execute("SELECT id FROM partners WHERE id = ?", (partner_id,)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="伙伴不存在")
-        # Delete related data first
-        case_ids = [r[0] for r in conn.execute("SELECT id FROM cases WHERE partner_id = ?", (partner_id,)).fetchall()]
-        if case_ids:
-            placeholders = ",".join("?" * len(case_ids))
-            conn.execute(f"DELETE FROM deliverables WHERE case_id IN ({placeholders})", case_ids)
-            conn.execute(f"DELETE FROM cases WHERE partner_id = ?", (partner_id,))
-        conn.execute("DELETE FROM partner_documents WHERE partner_id = ?", (partner_id,))
-        conn.execute("DELETE FROM partners WHERE id = ?", (partner_id,))

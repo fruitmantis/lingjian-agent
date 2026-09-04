@@ -3,13 +3,14 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from ..database import get_db
+from ..auth import require_admin
 
 
-router = APIRouter(prefix="/capability-tags", tags=["capability-tags"])
+router = APIRouter(prefix="/admin/capability-tags", tags=["capability-tags"], dependencies=[Depends(require_admin)])
 
 
 class CapabilityTagOut(BaseModel):

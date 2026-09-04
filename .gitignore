@@ -10,6 +10,8 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+frontend/test-results/
+frontend/playwright-report/
 
 # Env
 .env
@@ -18,6 +20,7 @@ build/
 
 # Data
 data/app.db
+data/app.db.bak-*
 data/chroma/*
 data/uploads/*
 

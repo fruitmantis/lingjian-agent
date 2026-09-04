@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from ..ai_client import chat_completion
-from ..auth import require_auth
+from ..auth import require_admin
 from ..database import get_db
 
 router = APIRouter(prefix="/partners", tags=["ai"])
@@ -16,7 +16,7 @@ class ProfileOut(BaseModel):
     partner_id: str
     ai_profile: str
 
-@router.post("/{partner_id}/profile", response_model=ProfileOut, dependencies=[Depends(require_auth)])
+@router.post("/{partner_id}/profile", response_model=ProfileOut, dependencies=[Depends(require_admin)])
 def generate_profile(partner_id: str) -> ProfileOut:
     with get_db() as conn:
         partner = conn.execute(f"SELECT {_P_COLS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
@@ -89,11 +89,11 @@ class BatchProfileResponse(BaseModel):
     results: list[BatchProfileResult]
 
 
-@router.post("/batch-profile", response_model=BatchProfileResponse, dependencies=[Depends(require_auth)])
+@router.post("/batch-profile", response_model=BatchProfileResponse, dependencies=[Depends(require_admin)])
 def batch_generate_profiles() -> BatchProfileResponse:
     """Generate AI profiles for all partners sequentially."""
     with get_db() as conn:
-        partner_ids = conn.execute("SELECT id, name FROM partners ORDER BY created_at ASC").fetchall()
+        partner_ids = conn.execute("SELECT id, name FROM partners WHERE status = 'active' ORDER BY created_at ASC").fetchall()
     
     results: list[BatchProfileResult] = []
     success_count = 0

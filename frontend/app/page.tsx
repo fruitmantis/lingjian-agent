@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
+import { ENABLED_SCENES } from "@/lib/scenes";
+import { apiFetch } from "@/components/auth-provider";
 
 type Recommendation = {
   partnerId: string;
@@ -15,8 +19,6 @@ type Recommendation = {
   riskNotes: string;
 };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-
 const LOADING_STAGES = [
   "需求解析：正在分析项目需求的行业、区域与能力诉求……",
   "伙伴画像匹配：正在从伙伴库中检索匹配的交付能力……",
@@ -24,9 +26,13 @@ const LOADING_STAGES = [
   "推荐理由生成：正在生成推荐短名单与风险提示……",
 ];
 
+const TASK_STATUS_LABELS: Record<string, string> = {
+  matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "失败",
+};
+
 function getRecommendLevel(score: string): { label: string; color: string; bg: string } {
   const num = parseInt(score) || 0;
-  if (num >= 80) return { label: "强推荐", color: "var(--brand)", bg: "#fff1f2" };
+  if (num >= 80) return { label: "强推荐", color: "var(--brand-dark)", bg: "var(--brand-soft)" };
   if (num >= 50) return { label: "可考虑", color: "#e8a317", bg: "#fffbeb" };
   if (num >= 20) return { label: "备选", color: "var(--muted)", bg: "#f8f9fa" };
   return { label: "不推荐", color: "var(--danger)", bg: "#fef2f2" };
@@ -81,7 +87,7 @@ function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; 
 }
 
 export default function HomePage() {
-  const [stats, setStats] = useState({totalPartners: 0, withProfile: 0, totalMatches: 0, pendingSuggestions: 0});
+  const searchParams = useSearchParams();
   const [requirement, setRequirement] = useState("");
   const [submittedRequirement, setSubmittedRequirement] = useState("");
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -90,40 +96,35 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [copiedRank, setCopiedRank] = useState<number | null>(null);
-  const [matchRecords, setMatchRecords] = useState<{ id: string; requirement: string; topPartner: string; partnerCount: number; createdAt: string }[]>([]);
+  const [matchRecords, setMatchRecords] = useState<{ id: string; requirement: string; topPartner: string; partnerCount: number; createdAt: string; taskStatus: string }[]>([]);
   const [viewingHistory, setViewingHistory] = useState(false);
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [historyDetail, setHistoryDetail] = useState<{ requirement: string; recommendations: Recommendation[] } | null>(null);
   const stageTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const requirementInput = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     loadMatchRecords();
-    loadDashboardStats();
     return () => { if (stageTimer.current) clearInterval(stageTimer.current); };
   }, []);
 
+  useEffect(() => {
+    const prompt = searchParams.get("prompt");
+    if (prompt) {
+      setRequirement(prompt);
+      window.setTimeout(() => requirementInput.current?.focus(), 0);
+    }
+    if (searchParams.get("view") === "history") {
+      window.setTimeout(() => document.getElementById("history")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    }
+  }, [searchParams]);
+
   async function loadMatchRecords() {
     try {
-      const res = await fetch(`${apiBaseUrl}/agent/match-records`, { cache: "no-store" });
+      const res = await apiFetch("/agent/tasks?status=active&page=1&pageSize=5", { cache: "no-store" });
       if (res.ok) {
         const records = await res.json();
-        setMatchRecords(records);
-        setStats((current) => ({ ...current, totalMatches: records.length }));
-      }
-    } catch { /* ignore */ }
-  }
-
-  async function loadDashboardStats() {
-    try {
-      const res = await fetch(`${apiBaseUrl}/agent/report`, { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setStats((current) => ({
-          ...current,
-          totalPartners: data.overview.totalPartners,
-          withProfile: data.overview.partnersWithProfile,
-          pendingSuggestions: data.overview.pendingSuggestions,
-        }));
+        setMatchRecords(records.items || []);
       }
     } catch { /* ignore */ }
   }
@@ -133,7 +134,7 @@ export default function HomePage() {
     setExpandedRecordId(recordId);
     setHistoryDetail(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/agent/match-records/${recordId}`, { cache: "no-store" });
+      const res = await apiFetch(`/agent/tasks/${recordId}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setHistoryDetail({ requirement: data.requirement, recommendations: data.recommendations || [] });
@@ -157,7 +158,7 @@ export default function HomePage() {
     }, 4000);
 
     try {
-      const res = await fetch(`${apiBaseUrl}/agent/match`, {
+      const res = await apiFetch("/agent/match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requirement }),
@@ -174,21 +175,22 @@ export default function HomePage() {
       setRequirement("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "匹配失败");
+      void loadMatchRecords();
     } finally {
       if (stageTimer.current) { clearInterval(stageTimer.current); stageTimer.current = null; }
       setLoading(false);
     }
   }
 
-  async function deleteMatchRecord(recordId: string) {
-    if (!confirm("确定删除该匹配记录？此操作不可恢复。")) return;
+  async function archiveMatchRecord(recordId: string) {
+    if (!confirm("确定归档该任务？归档后可在“我的任务”中恢复。")) return;
     try {
-      const res = await fetch(`${apiBaseUrl}/agent/match-records/${recordId}`, { method: "DELETE" });
+      const res = await apiFetch(`/agent/tasks/${recordId}/archive`, { method: "PATCH" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (expandedRecordId === recordId) { setExpandedRecordId(null); setHistoryDetail(null); }
       loadMatchRecords();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "删除失败");
+      setError(e instanceof Error ? e.message : "归档失败");
     }
   }
 
@@ -204,7 +206,7 @@ export default function HomePage() {
       setLoadingStage(prev => Math.min(prev + 1, LOADING_STAGES.length - 1));
     }, 4000);
     try {
-      const res = await fetch(`${apiBaseUrl}/agent/match`, {
+      const res = await apiFetch("/agent/match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requirement: reqText }),
@@ -222,6 +224,7 @@ export default function HomePage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "匹配失败");
       setRequirement(reqText);
+      void loadMatchRecords();
     } finally {
       if (stageTimer.current) { clearInterval(stageTimer.current); stageTimer.current = null; }
       setLoading(false);
@@ -236,27 +239,93 @@ export default function HomePage() {
   }
 
   const top3 = recommendations.slice(0, 3);
+  const featuredScenes = ENABLED_SCENES.filter((scene) => [
+    "ai-project-partner-recommendation",
+    "partner-capability-query",
+    "partner-ai-profile",
+    "partner-capability-gap-analysis",
+    "project-demand-profile",
+    "project-opportunity-identification",
+  ].includes(scene.id));
+  const quickCategories = ["智能匹配", "伙伴洞察", "能力发展", "项目机会", "运营分析"];
 
   return (
-    <main className="page">
-      <p className="eyebrow">Lingjian Agent Workspace</p>
-      <h1>灵鉴 Agent 工作台</h1>
-      <p className="lead">归集伙伴档案、项目案例与交付物，形成可信的能力画像，并基于项目需求推荐合适的交付伙伴。</p>
+    <main className="page assistant-page">
+      <section className="assistant-hero">
+        <div className="assistant-orb" aria-hidden="true"><span /></div>
+        <p className="assistant-kicker">伙伴能力智能助手</p>
+        <h1>灵鉴助手</h1>
+        <p className="assistant-subtitle">懂伙伴、懂能力、懂项目，让伙伴能力发展有据可依</p>
 
-      <section className="card match-entry-card">
-        <h2>项目需求</h2>
-        <form onSubmit={handleMatch} className="match-form match-composer">
-          <div className="form-row">
-            <label htmlFor="requirement">描述项目需求</label>
-            <textarea id="requirement" value={requirement} onChange={(e) => setRequirement(e.target.value)} required rows={6} placeholder={submittedRequirement ? "继续输入新的项目需求……" : "描述项目背景、行业、区域、交付范围与关键能力要求…"} />
-          </div>
-          <div className="match-composer-footer">
-            <p className="match-scope">当前基于 <strong>{stats.totalPartners}</strong> 家伙伴进行寻源，其中 <strong>{stats.withProfile}</strong> 家已生成能力画像</p>
-            <button type="submit" disabled={loading} className="btn-primary-lg">{loading ? "匹配中..." : "开始寻源"}</button>
+        <form onSubmit={handleMatch} className="assistant-composer">
+          <label htmlFor="requirement" className="sr-only">输入项目需求</label>
+          <textarea
+            ref={requirementInput}
+            id="requirement"
+            value={requirement}
+            onChange={(event) => setRequirement(event.target.value)}
+            required
+            rows={4}
+            placeholder="请输入项目需求，或告诉我你想找什么伙伴、分析什么能力，也可以从下方场景开始"
+          />
+          <div className="assistant-composer-footer">
+            <span>当前输入使用智能匹配能力 · partner_match</span>
+            <button type="submit" disabled={loading} className="assistant-submit">
+              <span>{loading ? "分析中" : "开始任务"}</span><span aria-hidden="true">→</span>
+            </button>
           </div>
         </form>
-        {error && <p className="error-text">{error}</p>}
+
+        <div className="assistant-examples" aria-label="示例问题">
+          <span>试试这样问</span>
+          {["帮我找适合制造行业知识库 Agent 项目的伙伴", "XX伙伴有哪些AI能力？", "找有金融AI案例的伙伴", "XX伙伴有哪些能力短板？"].map((example) => (
+            <button key={example} type="button" onClick={() => { setRequirement(example); requirementInput.current?.focus(); }}>{example}</button>
+          ))}
+        </div>
       </section>
+
+      <section className="assistant-section assistant-category-section" aria-labelledby="category-heading">
+        <div className="assistant-section-heading">
+          <div><p>从能力域开始</p><h2 id="category-heading">场景分类</h2></div>
+          <Link href="/scenes">浏览全部场景 <span aria-hidden="true">→</span></Link>
+        </div>
+        <div className="assistant-category-grid">
+          {quickCategories.map((category, index) => (
+            <Link key={category} href={`/scenes?category=${encodeURIComponent(category)}`} className="assistant-category-card">
+              <span className={`assistant-category-icon tone-${index + 1}`} aria-hidden="true">{["匹", "察", "能", "机", "析"][index]}</span>
+              <span><strong>{category}</strong><small>{ENABLED_SCENES.filter((scene) => scene.category === category).length} 个场景</small></span>
+              <span className="card-arrow" aria-hidden="true">→</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="assistant-section" aria-labelledby="featured-heading">
+        <div className="assistant-section-heading">
+          <div><p>基于现有能力为你推荐</p><h2 id="featured-heading">猜你想做</h2></div>
+          <Link href="/scenes">进入场景广场 <span aria-hidden="true">→</span></Link>
+        </div>
+        <div className="featured-scene-grid">
+          {featuredScenes.map((scene) => {
+            const content = (
+              <>
+                <div className="featured-scene-heading">
+                  <h3>{scene.name}</h3>
+                  <span className={`availability-badge ${scene.availability}`}>
+                    {scene.availability === "ready" ? "可使用" : scene.availability === "embedded" ? "随匹配生成" : "建设中"}
+                  </span>
+                </div>
+                <p>{scene.description}</p>
+                <div className="scene-tag-row">{scene.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
+                <div className="featured-scene-action">{scene.actionLabel}<span aria-hidden="true">→</span></div>
+              </>
+            );
+            return scene.actionHref ? <Link className="featured-scene-card" href={scene.actionHref} key={scene.id}>{content}</Link> : <article className="featured-scene-card disabled" key={scene.id}>{content}</article>;
+          })}
+        </div>
+      </section>
+
+      {error && <p className="error-text assistant-error">{error}</p>}
 
       {/* 本次项目需求卡片 - only show after submit */}
       {!loading && submittedRequirement && !viewingHistory && (
@@ -330,7 +399,7 @@ export default function HomePage() {
                 const areaTags = parseTags(r.matchedRegions);
                 const rank = i + 1;
                 return (
-                  <div key={i} className="case-item" style={{ position: "relative", padding: "24px", border: i === 0 ? "2px solid var(--brand)" : "1px solid var(--line)", boxShadow: i === 0 ? "0 4px 20px rgba(199,0,11,0.08)" : "none" }}>
+                  <div key={i} className="case-item" style={{ position: "relative", padding: "24px", border: i === 0 ? "2px solid var(--brand)" : "1px solid var(--line)", boxShadow: i === 0 ? "0 4px 20px rgb(var(--brand-rgb) / 10%)" : "none" }}>
                     {/* Rank badge */}
                     <div style={{
                       position: "absolute", top: "-10px", left: "20px",
@@ -369,7 +438,7 @@ export default function HomePage() {
                       <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
                         <div style={{ flex: "1 1 180px" }}>
                           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配能力标签</div>
-                          <TagPills tags={capTags} color="var(--brand-dark)" bg="#fff1f2" border="#ffd0d4" />
+                          <TagPills tags={capTags} color="var(--brand-dark)" bg="var(--brand-soft)" border="var(--brand-border)" />
                         </div>
                         <div style={{ flex: "1 1 180px" }}>
                           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配行业经验</div>
@@ -377,7 +446,7 @@ export default function HomePage() {
                         </div>
                         <div style={{ flex: "1 1 180px" }}>
                           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配覆盖区域</div>
-                          <TagPills tags={areaTags} color="#1a4fa0" bg="#f0f5ff" border="#d6e4ff" />
+                          <TagPills tags={areaTags} color="var(--accent-teal)" bg="var(--accent-teal-soft)" border="var(--accent-teal-border)" />
                         </div>
                       </div>
 
@@ -407,23 +476,26 @@ export default function HomePage() {
         </>
       )}
 
-      {/* Match records history */}
-      <section className="card">
-        <h2>最近匹配记录</h2>
+      {/* Recent tasks */}
+      <section className="card history-card" id="history">
+        <div className="history-heading">
+          <div><span>任务</span><h2>历史任务</h2></div>
+          <small><Link href="/tasks">查看全部</Link></small>
+        </div>
         {matchRecords.length === 0 ? (
           <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无匹配记录，请输入项目需求后点击智能匹配。</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
-            {matchRecords.slice(0, 10).map((r) => (
+            {matchRecords.map((r) => (
               <div key={r.id}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.requirement}</div>
                     <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-                      Top1: {r.topPartner} | 推荐伙伴: {r.partnerCount}个 | {r.createdAt.slice(0, 19).replace("T", " ")}
+                      <span className={`status-badge task-${r.taskStatus}`}>{TASK_STATUS_LABELS[r.taskStatus] || r.taskStatus}</span> · Top1: {r.topPartner} · 推荐伙伴: {r.partnerCount}个 · {r.createdAt.slice(0, 19).replace("T", " ")}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: "6px", marginLeft: "12px", flexShrink: 0 }}><button onClick={() => handleViewRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px" }}>{expandedRecordId === r.id ? "收起" : "查看详情"}</button><button onClick={() => deleteMatchRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button></div>
+                  <div style={{ display: "flex", gap: "6px", marginLeft: "12px", flexShrink: 0 }}><button onClick={() => handleViewRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px" }}>{expandedRecordId === r.id ? "收起" : "快速查看"}</button><Link href={`/tasks/${r.id}`} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px" }}>完整详情</Link><button onClick={() => archiveMatchRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px" }}>归档</button></div>
                 </div>
                 {expandedRecordId === r.id && historyDetail && (
                   <div style={{ marginTop: "8px", padding: "14px 16px", background: "white", borderRadius: "8px", border: "1px solid var(--line)" }}>
@@ -457,16 +529,6 @@ export default function HomePage() {
             ))}
           </div>
         )}
-      </section>
-
-      <section className="card operations-overview">
-        <h2>运营概览</h2>
-        <div className="operations-overview-grid">
-          <div className="operations-overview-item"><span>已管理伙伴</span><strong>{stats.totalPartners}</strong></div>
-          <div className="operations-overview-item"><span>已生成 AI 画像</span><strong>{stats.withProfile}</strong></div>
-          <div className="operations-overview-item"><span>累计智能匹配</span><strong>{stats.totalMatches}</strong></div>
-          <div className="operations-overview-item"><span>待采纳 AI 建议</span><strong>{stats.pendingSuggestions}</strong></div>
-        </div>
       </section>
 
     </main>

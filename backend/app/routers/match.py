@@ -1,17 +1,20 @@
 """LLM-based partner matching router with match record history."""
 
 import json
+import math
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from ..ai_client import chat_completion
-from ..database import get_db
+from ..database import get_db, recover_stale_tasks
+from ..auth import require_active_user, require_admin
 
 
 router = APIRouter(prefix="/agent", tags=["agent"])
+admin_router = APIRouter(prefix="/admin", tags=["admin-tasks"], dependencies=[Depends(require_admin)])
 
 MAX_RECOMMENDATIONS = 5
 
@@ -48,6 +51,7 @@ class MatchResponse(BaseModel):
     requirement: str
     recommendations: list[PartnerRecommendation]
     recordId: str | None = None
+    taskStatus: str = "ready"
 
 
 class MatchRecordSummary(BaseModel):
@@ -56,6 +60,20 @@ class MatchRecordSummary(BaseModel):
     topPartner: str
     partnerCount: int
     createdAt: str
+    archivedAt: str | None
+    ownerName: str | None
+    department: str | None
+    completenessScore: float | None
+    taskStatus: str
+    lastErrorStage: str | None
+
+
+class TaskListResponse(BaseModel):
+    items: list[MatchRecordSummary]
+    page: int
+    pageSize: int
+    total: int
+    totalPages: int
 
 
 class MatchRecordDetail(BaseModel):
@@ -64,36 +82,164 @@ class MatchRecordDetail(BaseModel):
     recommendations: list[PartnerRecommendation]
     createdAt: str
     createdBy: str | None
+    archivedAt: str | None
+    demandProfile: dict | None
+    opportunity: dict | None
+    taskStatus: str
+    lastErrorStage: str | None
 
 
-@router.get("/match-records", response_model=list[MatchRecordSummary])
-def list_match_records() -> list[MatchRecordSummary]:
+def _demand_profile_dict(row) -> dict | None:
+    if row is None:
+        return None
+    return {
+        "id": row["id"], "industryTags": row["industry_tags"], "capabilityTags": row["capability_tags"],
+        "deliveryTypeTags": row["delivery_type_tags"], "regionTags": row["region_tags"],
+        "complexityLevel": row["complexity_level"], "urgencyLevel": row["urgency_level"],
+        "projectKeywords": row["project_keywords"], "matchedPartnerCount": row["matched_partner_count"],
+        "topPartnerNames": row["top_partner_names"], "supplyStatus": row["supply_status"],
+        "gapAnalysis": row["gap_analysis"], "createdAt": row["created_at"],
+    }
+
+
+def _opportunity_dict(row) -> dict | None:
+    if row is None:
+        return None
+    mapping = {
+        "id": "id", "customerName": "customer_name", "projectName": "project_name", "industry": "industry",
+        "region": "region", "projectStage": "project_stage", "businessNeeds": "business_needs",
+        "technicalNeeds": "technical_needs", "deliveryNeeds": "delivery_needs",
+        "qualificationRequirements": "qualification_requirements", "caseRequirements": "case_requirements",
+        "onsiteRequirement": "onsite_requirement", "timelineRequirement": "timeline_requirement",
+        "cloudPlatformPreference": "cloud_platform_preference", "matchedCapabilityTags": "matched_capability_tags",
+        "unmatchedCapabilitySignals": "unmatched_capability_signals", "recommendedPartnerNames": "recommended_partner_names",
+        "supplyStatus": "supply_status", "completenessScore": "completeness_score", "missingFields": "missing_fields",
+        "followUpQuestions": "follow_up_questions", "createdAt": "created_at", "updatedAt": "updated_at",
+    }
+    return {key: row[column] for key, column in mapping.items()}
+
+
+def _query_tasks(
+    *, owner_user_id: str | None, archived: bool, keyword: str | None,
+    owner_keyword: str | None, task_status: str | None, page: int, page_size: int,
+) -> TaskListResponse:
+    recover_stale_tasks(owner_user_id=owner_user_id)
+    conditions = ["mr.archived_at IS NOT NULL" if archived else "mr.archived_at IS NULL"]
+    params: list[object] = []
+    if owner_user_id:
+        conditions.append("mr.owner_user_id = ?"); params.append(owner_user_id)
+    if keyword:
+        conditions.append("mr.requirement LIKE ?"); params.append(f"%{keyword}%")
+    if owner_keyword:
+        conditions.append("(u.username LIKE ? OR u.display_name LIKE ? OR u.department LIKE ?)")
+        params.extend([f"%{owner_keyword}%", f"%{owner_keyword}%", f"%{owner_keyword}%"])
+    if task_status:
+        conditions.append("mr.task_status = ?"); params.append(task_status)
+    where = " WHERE " + " AND ".join(conditions)
     with get_db() as conn:
-        rows = conn.execute("SELECT id, requirement, recommendations_json, created_at FROM match_records ORDER BY created_at DESC LIMIT 20").fetchall()
-    result = []
-    for r in rows:
-        recs = json.loads(r["recommendations_json"])
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM match_records mr LEFT JOIN users u ON u.id = mr.owner_user_id{where}", params,
+        ).fetchone()[0]
+        rows = conn.execute(
+            f"""SELECT mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
+                       mr.task_status, mr.last_error_stage, u.display_name AS owner_name, u.department,
+                       (SELECT po.completeness_score FROM project_opportunities po
+                        WHERE po.match_record_id = mr.id ORDER BY po.created_at DESC LIMIT 1) AS completeness_score
+                FROM match_records mr
+                LEFT JOIN users u ON u.id = mr.owner_user_id
+                {where} ORDER BY mr.created_at DESC, mr.id DESC LIMIT ? OFFSET ?""",
+            [*params, page_size, (page - 1) * page_size],
+        ).fetchall()
+    items = []
+    for row in rows:
+        recs = json.loads(row["recommendations_json"])
         top = recs[0]["partnerName"] if recs else "无"
-        result.append(MatchRecordSummary(id=r["id"], requirement=r["requirement"], topPartner=top, partnerCount=len(recs), createdAt=r["created_at"]))
-    return result
+        items.append(MatchRecordSummary(
+            id=row["id"], requirement=row["requirement"], topPartner=top, partnerCount=len(recs),
+            createdAt=row["created_at"], archivedAt=row["archived_at"], ownerName=row["owner_name"],
+            department=row["department"], completenessScore=row["completeness_score"],
+            taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],
+        ))
+    return TaskListResponse(
+        items=items, page=page, pageSize=page_size, total=total,
+        totalPages=math.ceil(total / page_size) if total else 0,
+    )
 
 
-@router.get("/match-records/{record_id}", response_model=MatchRecordDetail)
-def get_match_record(record_id: str) -> MatchRecordDetail:
+@router.get("/tasks", response_model=TaskListResponse)
+def list_match_records(
+    archive_status: str = Query("active", alias="status", pattern="^(active|archived)$"),
+    keyword: str | None = None,
+    task_status: str | None = Query(None, alias="taskStatus", pattern="^(matching|enriching|ready|partial|failed)$"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
+    user: dict = Depends(require_active_user),
+) -> TaskListResponse:
+    return _query_tasks(
+        owner_user_id=user["id"], archived=archive_status == "archived", keyword=keyword,
+        owner_keyword=None, task_status=task_status, page=page, page_size=page_size,
+    )
+
+
+@admin_router.get("/tasks", response_model=TaskListResponse)
+def list_admin_tasks(
+    archive_status: str = Query("active", alias="status", pattern="^(active|archived)$"),
+    keyword: str | None = None,
+    owner: str | None = None,
+    task_status: str | None = Query(None, alias="taskStatus", pattern="^(matching|enriching|ready|partial|failed)$"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
+    _: dict = Depends(require_admin),
+) -> TaskListResponse:
+    return _query_tasks(
+        owner_user_id=None, archived=archive_status == "archived", keyword=keyword,
+        owner_keyword=owner, task_status=task_status, page=page, page_size=page_size,
+    )
+
+
+@admin_router.get("/dashboard")
+def get_admin_dashboard(_: dict = Depends(require_admin)) -> dict:
+    month = datetime.now(timezone.utc).strftime("%Y-%m")
     with get_db() as conn:
-        row = conn.execute("SELECT id, requirement, recommendations_json, created_at, created_by FROM match_records WHERE id = ?", (record_id,)).fetchone()
+        return {
+            "users": conn.execute("SELECT COUNT(*) FROM users").fetchone()[0],
+            "disabledUsers": conn.execute("SELECT COUNT(*) FROM users WHERE status = 'disabled'").fetchone()[0],
+            "pendingUserApplications": conn.execute("SELECT COUNT(*) FROM user_applications WHERE status = 'pending'").fetchone()[0],
+            "partners": conn.execute("SELECT COUNT(*) FROM partners WHERE status = 'active'").fetchone()[0],
+            "partnersWithoutProfile": conn.execute("SELECT COUNT(*) FROM partners WHERE status = 'active' AND (ai_profile IS NULL OR ai_profile = '')").fetchone()[0],
+            "tasks": conn.execute("SELECT COUNT(*) FROM match_records").fetchone()[0],
+            "monthTasks": conn.execute("SELECT COUNT(*) FROM match_records WHERE substr(created_at, 1, 7) = ?", (month,)).fetchone()[0],
+            "opportunities": conn.execute("SELECT COUNT(*) FROM project_opportunities").fetchone()[0],
+            "gapDemands": conn.execute("SELECT COUNT(*) FROM demand_profiles WHERE supply_status = 'gap'").fetchone()[0],
+            "pendingSuggestions": conn.execute("SELECT COUNT(*) FROM capability_tag_suggestions WHERE status = 'pending'").fetchone()[0],
+        }
+
+
+@router.get("/tasks/{record_id}", response_model=MatchRecordDetail)
+def get_match_record(record_id: str, user: dict = Depends(require_active_user)) -> MatchRecordDetail:
+    recover_stale_tasks(record_id=record_id)
+    with get_db() as conn:
+        row = conn.execute("""SELECT mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
+                                     mr.task_status, mr.last_error_stage,
+                                     mr.owner_user_id, u.display_name AS owner_name
+                              FROM match_records mr LEFT JOIN users u ON u.id = mr.owner_user_id
+                              WHERE mr.id = ?""", (record_id,)).fetchone()
+        if row is not None and row["owner_user_id"] != user["id"] and user["role"] != "admin":
+            row = None
+        demand_profile = conn.execute("SELECT * FROM demand_profiles WHERE match_record_id = ? ORDER BY created_at DESC LIMIT 1", (record_id,)).fetchone() if row else None
+        opportunity = conn.execute("SELECT * FROM project_opportunities WHERE match_record_id = ? ORDER BY created_at DESC LIMIT 1", (record_id,)).fetchone() if row else None
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="记录不存在")
     recs = json.loads(row["recommendations_json"])
-    return MatchRecordDetail(id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["created_by"])
+    return MatchRecordDetail(id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=_demand_profile_dict(demand_profile), opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"])
 
 
-@router.post("/match", response_model=MatchResponse)
-def match_partners(req: MatchRequest) -> MatchResponse:
+def _perform_partner_match(requirement: str) -> list[PartnerRecommendation]:
+    """Run partner matching without changing task persistence state."""
     with get_db() as conn:
-        partners = conn.execute(f"SELECT {_P_COLS} FROM partners").fetchall()
+        partners = conn.execute(f"SELECT {_P_COLS} FROM partners WHERE status = 'active'").fetchall()
         if not partners:
-            return MatchResponse(requirement=req.requirement, recommendations=[])
+            return []
 
         partner_cases: dict[str, list] = {}
         partner_deliv_counts: dict[str, int] = {}
@@ -150,14 +296,17 @@ def match_partners(req: MatchRequest) -> MatchResponse:
         },
         {
             "role": "user",
-            "content": f"项目需求: {req.requirement}\n\n候选伙伴:\n{context}",
+            "content": f"项目需求: {requirement}\n\n候选伙伴:\n{context}",
         },
     ]
 
     try:
         raw = chat_completion(messages, timeout=180, scene="partner_match")
-    except Exception as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 调用失败: {e}")
+    except Exception:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail="伙伴匹配暂时失败，项目需求已保存，可在“我的任务”中重试",
+        )
 
     try:
         clean = raw.strip()
@@ -199,41 +348,151 @@ def match_partners(req: MatchRequest) -> MatchResponse:
             ))
         if not recs:
             raise ValueError("返回内容未包含有效候选伙伴")
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=f"LLM 返回解析失败: {e}")
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail="伙伴匹配结果处理失败，项目需求已保存，可在“我的任务”中重试",
+        )
+    return recs
 
-    # Save match record
+
+def _set_task_state(
+    record_id: str,
+    task_status: str,
+    error_stage: str | None = None,
+    recommendations: list[PartnerRecommendation] | None = None,
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with get_db() as conn:
+        if recommendations is None:
+            cursor = conn.execute(
+                "UPDATE match_records SET task_status = ?, last_error_stage = ?, updated_at = ? WHERE id = ?",
+                (task_status, error_stage, now, record_id),
+            )
+        else:
+            cursor = conn.execute(
+                """UPDATE match_records
+                   SET recommendations_json = ?, task_status = ?, last_error_stage = ?, updated_at = ?
+                   WHERE id = ?""",
+                (
+                    json.dumps([item.model_dump() for item in recommendations], ensure_ascii=False),
+                    task_status, error_stage, now, record_id,
+                ),
+            )
+        if cursor.rowcount != 1:
+            raise RuntimeError("task state update target was not found")
+
+
+def _claim_task_retry(record_id: str, current_status: str, next_status: str) -> None:
+    """Atomically prevent two retry requests from running the same task."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            """UPDATE match_records
+               SET task_status = ?, last_error_stage = NULL, updated_at = ?
+               WHERE id = ? AND task_status = ?""",
+            (next_status, datetime.now(timezone.utc).isoformat(), record_id, current_status),
+        )
+        if cursor.rowcount != 1:
+            raise HTTPException(status.HTTP_409_CONFLICT, detail="任务状态已变化，请刷新后再试")
+
+
+def _run_task_enrichment(
+    record_id: str,
+    requirement: str,
+    recommendations: list[PartnerRecommendation],
+    created_at: str,
+    *,
+    include_tag_suggestions: bool,
+) -> str:
+    """Generate missing task derivatives and persist a truthful final task state."""
+    with get_db() as conn:
+        demand_exists = conn.execute(
+            "SELECT 1 FROM demand_profiles WHERE match_record_id = ? LIMIT 1", (record_id,),
+        ).fetchone() is not None
+        opportunity_exists = conn.execute(
+            "SELECT 1 FROM project_opportunities WHERE match_record_id = ? LIMIT 1", (record_id,),
+        ).fetchone() is not None
+
+    failed_stages: list[str] = []
+    if not demand_exists:
+        try:
+            _generate_demand_profile(record_id, requirement, recommendations, created_at)
+            demand_exists = True
+        except Exception:
+            failed_stages.append("demand_profile")
+            print(f"[WARN] demand profile generation failed for task {record_id}", flush=True)
+
+    if include_tag_suggestions:
+        if not _generate_tag_suggestions(requirement, record_id):
+            print(f"[WARN] tag suggestion generation failed for task {record_id}", flush=True)
+
+    if not opportunity_exists:
+        opportunity_exists = _extract_project_opportunity(requirement, record_id, recommendations)
+        if not opportunity_exists:
+            failed_stages.append("project_opportunity")
+
+    final_status = "ready" if demand_exists and opportunity_exists else "partial"
+    _set_task_state(record_id, final_status, ",".join(failed_stages) or None)
+    return final_status
+
+
+@router.post("/match", response_model=MatchResponse)
+def match_partners(req: MatchRequest, user: dict = Depends(require_active_user)) -> MatchResponse:
     record_id = str(uuid.uuid4())
-    record_json = json.dumps([r.model_dump() for r in recs], ensure_ascii=False)
     now = datetime.now(timezone.utc).isoformat()
     try:
         with get_db() as conn:
-            conn.execute("INSERT INTO match_records (id, requirement, recommendations_json, created_at, created_by) VALUES (?, ?, ?, ?, ?)", (record_id, req.requirement, record_json, now, "admin"))
+            conn.execute(
+                """INSERT INTO match_records
+                   (id, requirement, recommendations_json, created_at, created_by, owner_user_id,
+                    task_status, last_error_stage, updated_at)
+                   VALUES (?, ?, '[]', ?, ?, ?, 'matching', NULL, ?)""",
+                (record_id, req.requirement, now, user["username"], user["id"], now),
+            )
     except Exception:
-        pass  # Save failure doesn't affect response
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="项目需求保存失败，请稍后重试")
 
-    # Auto-generate demand profile
     try:
-        _generate_demand_profile(record_id, req.requirement, recs, now)
+        recs = _perform_partner_match(req.requirement)
+    except HTTPException:
+        try:
+            _set_task_state(record_id, "failed", "partner_match")
+        except Exception:
+            print(f"[WARN] failed to persist failure state for task {record_id}", flush=True)
+        raise
     except Exception:
-        pass  # Profile generation failure doesn't affect response
+        try:
+            _set_task_state(record_id, "failed", "partner_data")
+        except Exception:
+            print(f"[WARN] failed to persist failure state for task {record_id}", flush=True)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="伙伴数据读取失败，项目需求已保存，可在“我的任务”中重试",
+        )
 
-    # Auto-generate AI tag suggestions
     try:
-        _generate_tag_suggestions(req.requirement, record_id)
+        _set_task_state(record_id, "enriching", recommendations=recs)
+        task_status = _run_task_enrichment(
+            record_id, req.requirement, recs, now, include_tag_suggestions=True,
+        )
     except Exception:
-        pass  # Suggestion failure doesn't affect response
+        try:
+            _set_task_state(record_id, "partial", "persistence")
+        except Exception:
+            print(f"[WARN] failed to persist partial state for task {record_id}", flush=True)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="匹配结果已保存，但后续处理未完成，可在“我的任务”中重试",
+        )
 
-    # Auto-extract project opportunity info
-    try:
-        _extract_project_opportunity(req.requirement, record_id, recs)
-    except Exception as e:
-        print(f"[WARN] opportunity extraction failed: {e}", flush=True)
-
-    return MatchResponse(requirement=req.requirement, recommendations=recs, recordId=record_id)
+    return MatchResponse(
+        requirement=req.requirement, recommendations=recs, recordId=record_id, taskStatus=task_status,
+    )
 
 
-def _extract_project_opportunity(requirement: str, match_record_id: str, recommendations: list):
+def _extract_project_opportunity(
+    requirement: str, match_record_id: str, recommendations: list[PartnerRecommendation],
+) -> bool:
     try:
         from ..ai_client import chat_completion
         rec_names = ", ".join([r.partnerName for r in recommendations[:5]])
@@ -247,8 +506,7 @@ def _extract_project_opportunity(requirement: str, match_record_id: str, recomme
         clean = clean.strip()
         if clean.startswith("json"): clean = clean[4:].strip()
         if not clean:
-            print("[WARN] _extract_project_opportunity: LLM returned empty", flush=True)
-            return
+            return False
         data = json.loads(clean)
 
         # Calculate completeness
@@ -270,11 +528,13 @@ def _extract_project_opportunity(requirement: str, match_record_id: str, recomme
                 "INSERT INTO project_opportunities (id, match_record_id, requirement_text, customer_name, project_name, industry, region, project_stage, business_needs, technical_needs, delivery_needs, qualification_requirements, case_requirements, onsite_requirement, timeline_requirement, cloud_platform_preference, matched_capability_tags, unmatched_capability_signals, recommended_partner_ids, recommended_partner_names, supply_status, completeness_score, missing_fields, follow_up_questions, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (opp_id, match_record_id, requirement, data.get("customerName","未识别"), data.get("projectName","未识别"), data.get("industry","未识别"), data.get("region","未识别"), data.get("projectStage","未识别"), data.get("businessNeeds","未识别"), data.get("technicalNeeds","未识别"), data.get("deliveryNeeds","未识别"), data.get("qualificationRequirements","未识别"), data.get("caseRequirements","未识别"), data.get("onsiteRequirement","未识别"), data.get("timelineRequirement","未识别"), data.get("cloudPlatformPreference","未识别"), cap_tags, "", "", rec_names, supply, completeness, ",".join(missing), json.dumps(data.get("followUpQuestions",[]), ensure_ascii=False), now, now)
             )
-    except Exception as e:
-        print(f"[WARN] _extract_project_opportunity inner error: {e}", flush=True)
+        return True
+    except Exception:
+        print(f"[WARN] project opportunity extraction failed for task {match_record_id}", flush=True)
+        return False
 
 
-def _generate_tag_suggestions(requirement: str, match_record_id: str):
+def _generate_tag_suggestions(requirement: str, match_record_id: str) -> bool:
     try:
         with get_db() as conn:
             std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
@@ -305,11 +565,17 @@ def _generate_tag_suggestions(requirement: str, match_record_id: str):
                         (str(uuid.uuid4()), name, None, item.get("suggestedCategoryName", "其他"), item.get("description", ""), item.get("evidenceText", ""), requirement, match_record_id, float(item.get("confidence", 0.5)), now, now)
                     )
             existing_sugs.add(name)
+        return True
     except Exception:
-        pass
+        return False
 
 
-def _generate_demand_profile(match_record_id: str, requirement: str, recs: list[PartnerRecommendation], created_at: str):
+def _generate_demand_profile(
+    match_record_id: str,
+    requirement: str,
+    recs: list[PartnerRecommendation],
+    created_at: str,
+) -> None:
     """Generate demand profile using LLM, with fallback to rule-based extraction."""
     partner_count = len(recs)
     top_names = ", ".join(r.partnerName for r in recs[:3])
@@ -381,11 +647,77 @@ def _generate_demand_profile(match_record_id: str, requirement: str, recs: list[
         )
 
 
-@router.delete("/match-records/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_match_record(record_id: str):
+@router.post("/tasks/{record_id}/retry", response_model=MatchResponse)
+def retry_match_record(record_id: str, user: dict = Depends(require_active_user)) -> MatchResponse:
+    recover_stale_tasks(record_id=record_id)
     with get_db() as conn:
-        row = conn.execute("SELECT id FROM match_records WHERE id = ?", (record_id,)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
-        conn.execute("DELETE FROM match_records WHERE id = ?", (record_id,))
+        row = conn.execute(
+            """SELECT id, requirement, recommendations_json, created_at, owner_user_id, task_status
+               FROM match_records WHERE id = ?""",
+            (record_id,),
+        ).fetchone()
+    if row is None or (row["owner_user_id"] != user["id"] and user["role"] != "admin"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
+    if row["task_status"] == "ready":
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="任务已完成，无需重试")
+    if row["task_status"] in {"matching", "enriching"}:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="任务正在处理中，请稍后再试")
 
+    requirement = row["requirement"]
+    created_at = row["created_at"]
+    recommendations: list[PartnerRecommendation] = []
+    if row["task_status"] == "partial":
+        try:
+            stored = json.loads(row["recommendations_json"])
+            if isinstance(stored, list):
+                recommendations = [PartnerRecommendation.model_validate(item) for item in stored]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            recommendations = []
+
+    should_rematch = row["task_status"] == "failed" or not recommendations
+    _claim_task_retry(
+        record_id, row["task_status"], "matching" if should_rematch else "enriching",
+    )
+    if should_rematch:
+        try:
+            recommendations = _perform_partner_match(requirement)
+        except HTTPException:
+            _set_task_state(record_id, "failed", "partner_match")
+            raise
+        except Exception:
+            _set_task_state(record_id, "failed", "partner_data")
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="伙伴数据读取失败，请稍后再试")
+        _set_task_state(record_id, "enriching", recommendations=recommendations)
+
+    try:
+        task_status = _run_task_enrichment(
+            record_id, requirement, recommendations, created_at, include_tag_suggestions=False,
+        )
+    except Exception:
+        _set_task_state(record_id, "partial", "persistence")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="任务重试未完成，请稍后再试")
+    return MatchResponse(
+        requirement=requirement, recommendations=recommendations, recordId=record_id, taskStatus=task_status,
+    )
+
+
+@router.patch("/tasks/{record_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
+def archive_match_record(record_id: str, user: dict = Depends(require_active_user)):
+    with get_db() as conn:
+        row = conn.execute("SELECT id, owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
+        if row is None or (row["owner_user_id"] != user["id"] and user["role"] != "admin"):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute("UPDATE match_records SET archived_at = ?, updated_at = ? WHERE id = ?", (now, now, record_id))
+
+
+@router.patch("/tasks/{record_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
+def restore_match_record(record_id: str, user: dict = Depends(require_active_user)):
+    with get_db() as conn:
+        row = conn.execute("SELECT id, owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
+        if row is None or (row["owner_user_id"] != user["id"] and user["role"] != "admin"):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
+        conn.execute(
+            "UPDATE match_records SET archived_at = NULL, updated_at = ? WHERE id = ?",
+            (datetime.now(timezone.utc).isoformat(), record_id),
+        )

@@ -1,33 +1,40 @@
-import os
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .database import PROJECT_ROOT, initialize_storage, get_db
+from .config import get_jwt_secret_key
+from .database import initialize_storage, get_db, recover_stale_tasks
 from .routers import partners, cases, profile, match, documents, users, demand, capability_tags, system, model_config
-from .auth import get_default_admin
-
-
-load_dotenv(PROJECT_ROOT / ".env")
+from .auth import get_bootstrap_admin
 
 
 def get_cors_origins() -> list[str]:
+    import os
     configured_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
     return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
 
 
-@asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+def initialize_application() -> None:
+    """Validate runtime security and initialize persistent application state."""
+    get_jwt_secret_key()
     initialize_storage()
     with get_db() as conn:
         existing = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
         if existing["cnt"] == 0:
-            admin = get_default_admin()
-            conn.execute("INSERT INTO users (id, username, hashed_password, display_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?)", (admin["id"], admin["username"], admin["hashed_password"], admin["display_name"], admin["role"], admin["created_at"]))
+            admin = get_bootstrap_admin()
+            conn.execute(
+                "INSERT INTO users (id, username, hashed_password, display_name, role, status, must_change_password, token_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (admin["id"], admin["username"], admin["hashed_password"], admin["display_name"], admin["role"], admin["status"], admin["must_change_password"], admin["token_version"], admin["created_at"], admin["updated_at"]),
+            )
+    recover_stale_tasks()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    initialize_application()
     yield
 
 
@@ -49,9 +56,11 @@ app.include_router(profile.router)
 app.include_router(partners.router)
 app.include_router(cases.router)
 app.include_router(match.router)
+app.include_router(match.admin_router)
 app.include_router(documents.router)
 app.include_router(users.router)
 app.include_router(demand.router)
+app.include_router(demand.admin_router)
 app.include_router(capability_tags.router)
 app.include_router(system.router)
 app.include_router(model_config.router)

@@ -1,5 +1,7 @@
 """Pydantic models."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -19,7 +21,9 @@ class PartnerOut(BaseModel):
     service_areas: str | None
     industries: str | None
     ai_profile: str | None
+    status: Literal["active", "disabled"] = "active"
     created_at: str
+    updated_at: str | None = None
 
 
 class CaseCreate(BaseModel):
@@ -40,7 +44,6 @@ class DeliverableOut(BaseModel):
     id: str
     case_id: str
     filename: str
-    file_path: str
     created_at: str
 
 
@@ -60,18 +63,24 @@ class PartnerDocumentOut(BaseModel):
 
 
 class UserCreate(BaseModel):
-    username: str = Field(..., min_length=1, max_length=50)
-    password: str = Field(..., min_length=6, max_length=100)
-    display_name: str | None = None
-    role: str = Field("user", description="admin or user")
+    username: str = Field(..., min_length=1, max_length=50, pattern=r"^[A-Za-z0-9._-]+$")
+    display_name: str = Field(..., min_length=1, max_length=100)
+    department: str | None = Field(None, max_length=100)
+    role: Literal["admin", "user"] = "user"
 
 
 class UserOut(BaseModel):
     id: str
     username: str
     display_name: str | None
-    role: str
+    department: str | None = None
+    role: Literal["admin", "user"]
+    status: Literal["active", "disabled"] = "active"
+    must_change_password: bool = False
     created_at: str
+    updated_at: str | None = None
+    last_login_at: str | None = None
+    locked_until: str | None = None
 
 
 class LoginRequest(BaseModel):

@@ -5,15 +5,16 @@ import time
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from ..database import get_db, DATABASE_PATH
 from ..ai_client import chat_completion
 from ..model_resolver import resolve_model_config, get_config_source_label
+from ..auth import require_admin
 
 
-router = APIRouter(prefix="/system", tags=["system"])
+router = APIRouter(prefix="/admin/system", tags=["system"], dependencies=[Depends(require_admin)])
 
 
 class AbnormalModule(BaseModel):

@@ -1,11 +1,13 @@
 """Demand profile operations router."""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from ..database import get_db
+from ..auth import require_active_user, require_admin
 
 
-router = APIRouter(prefix="/agent", tags=["demand"])
+router = APIRouter(prefix="/agent", tags=["demand"], dependencies=[Depends(require_active_user)])
+admin_router = APIRouter(prefix="/admin", tags=["admin-demand"], dependencies=[Depends(require_admin)])
 
 
 class DemandProfileOut(BaseModel):
@@ -54,10 +56,17 @@ def _count_tags(rows, col) -> dict[str, int]:
     return counts
 
 
-@router.get("/demand-profiles", response_model=DemandOverviewResponse)
+@admin_router.get("/demand-profiles", response_model=DemandOverviewResponse)
 def list_demand_profiles() -> DemandOverviewResponse:
     with get_db() as conn:
-        rows = conn.execute("SELECT id, match_record_id, requirement_text, industry_tags, capability_tags, delivery_type_tags, region_tags, complexity_level, urgency_level, project_keywords, matched_partner_count, top_partner_names, supply_status, gap_analysis, created_at FROM demand_profiles ORDER BY created_at DESC").fetchall()
+        rows = conn.execute("""SELECT dp.id, dp.match_record_id, dp.requirement_text, dp.industry_tags, dp.capability_tags,
+                                      dp.delivery_type_tags, dp.region_tags, dp.complexity_level, dp.urgency_level,
+                                      dp.project_keywords, dp.matched_partner_count, dp.top_partner_names,
+                                      dp.supply_status, dp.gap_analysis, dp.created_at
+                               FROM demand_profiles dp
+                               LEFT JOIN match_records mr ON mr.id = dp.match_record_id
+                               WHERE dp.match_record_id IS NULL OR mr.archived_at IS NULL
+                               ORDER BY dp.created_at DESC""").fetchall()
 
     profiles = [DemandProfileOut(
         id=r["id"], matchRecordId=r["match_record_id"], requirementText=r["requirement_text"],
@@ -135,12 +144,14 @@ class ReportResponse(BaseModel):
     topFormalTags: list[ReportDist]
 
 
-@router.get("/report", response_model=ReportResponse)
+@admin_router.get("/reports", response_model=ReportResponse)
 def get_report(days: int = 0, industry: str | None = None, region: str | None = None, capability: str | None = None):
     from datetime import datetime, timezone, timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat() if days > 0 else "1970-01-01"
     with get_db() as conn:
-        q = "SELECT * FROM demand_profiles WHERE created_at >= ?"
+        q = """SELECT dp.* FROM demand_profiles dp
+               LEFT JOIN match_records mr ON mr.id = dp.match_record_id
+               WHERE dp.created_at >= ? AND (dp.match_record_id IS NULL OR mr.archived_at IS NULL)"""
         params = [cutoff]
         if industry:
             q += " AND industry_tags LIKE ?"
@@ -317,16 +328,16 @@ def _opp_to_out(r) -> OpportunityOut:
         cloudPlatformPreference=r["cloud_platform_preference"],
         matchedCapabilityTags=r["matched_capability_tags"], unmatchedCapabilitySignals=r["unmatched_capability_signals"],
         recommendedPartnerNames=r["recommended_partner_names"], supplyStatus=r["supply_status"],
-        completenessScore=r["completeness_score"], missingFields=r["missing_fields"],
+        completenessScore=r["completeness_score"] or 0, missingFields=r["missing_fields"],
         followUpQuestions=r["follow_up_questions"], createdAt=r["created_at"], updatedAt=r["updated_at"]
     )
 
 
-@router.get("/opportunities", response_model=list[OpportunityOut])
+@admin_router.get("/opportunities", response_model=list[OpportunityOut])
 def list_opportunities(keyword: str | None = None, industry: str | None = None, region: str | None = None, stage: str | None = None, supplyStatus: str | None = None):
     with get_db() as conn:
         q = f"SELECT {_OPP_COLS} FROM project_opportunities"
-        conditions = []
+        conditions = ["(match_record_id IS NULL OR match_record_id IN (SELECT id FROM match_records WHERE archived_at IS NULL))"]
         params = []
         if keyword:
             conditions.append("(project_name LIKE ? OR customer_name LIKE ? OR requirement_text LIKE ?)")
@@ -346,7 +357,7 @@ def list_opportunities(keyword: str | None = None, industry: str | None = None, 
     return [_opp_to_out(r) for r in rows]
 
 
-@router.get("/opportunities/{opp_id}", response_model=OpportunityOut)
+@admin_router.get("/opportunities/{opp_id}", response_model=OpportunityOut)
 def get_opportunity(opp_id: str) -> OpportunityOut:
     with get_db() as conn:
         row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
@@ -356,7 +367,7 @@ def get_opportunity(opp_id: str) -> OpportunityOut:
     return _opp_to_out(row)
 
 
-@router.put("/opportunities/{opp_id}", response_model=OpportunityOut)
+@admin_router.put("/opportunities/{opp_id}", response_model=OpportunityOut)
 def update_opportunity(opp_id: str, payload: OpportunityUpdate) -> OpportunityOut:
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
@@ -378,18 +389,24 @@ def update_opportunity(opp_id: str, payload: OpportunityUpdate) -> OpportunityOu
     return _opp_to_out(row)
 
 
-@router.delete("/demand-profiles/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_demand_profile(profile_id: str):
+@router.patch("/tasks/{record_id}/opportunity", response_model=OpportunityOut)
+def update_own_opportunity(record_id: str, payload: OpportunityUpdate, user: dict = Depends(require_active_user)) -> OpportunityOut:
+    now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
     with get_db() as conn:
-        row = conn.execute("SELECT id FROM demand_profiles WHERE id = ?", (profile_id,)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="需求画像不存在")
-        conn.execute("DELETE FROM demand_profiles WHERE id = ?", (profile_id,))
-
-@router.delete("/opportunities/{opp_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_opportunity(opp_id: str):
-    with get_db() as conn:
-        row = conn.execute("SELECT id FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
+        task = conn.execute("SELECT owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
+        if task is None or (task["owner_user_id"] != user["id"] and user["role"] != "admin"):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="任务不存在")
+        row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE match_record_id = ? ORDER BY created_at DESC LIMIT 1", (record_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="项目机会不存在")
-        conn.execute("DELETE FROM project_opportunities WHERE id = ?", (opp_id,))
+        updates = []
+        params = []
+        for field, col in [("customerName","customer_name"),("projectName","project_name"),("industry","industry"),("region","region"),("projectStage","project_stage"),("businessNeeds","business_needs")]:
+            val = getattr(payload, field)
+            if val is not None:
+                updates.append(f"{col} = ?"); params.append(val)
+        if updates:
+            updates.append("updated_at = ?"); params.append(now); params.append(row["id"])
+            conn.execute(f"UPDATE project_opportunities SET {', '.join(updates)} WHERE id = ?", params)
+        fresh = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (row["id"],)).fetchone()
+    return _opp_to_out(fresh)

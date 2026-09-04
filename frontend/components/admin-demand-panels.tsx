@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 
 type DemandProfile = {
   id: string; matchRecordId: string | null; requirementText: string;
@@ -23,6 +22,18 @@ type DemandResponse = {
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+function fetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return window.fetch(input, { ...init, headers, signal: init.signal ?? AbortSignal.timeout(30_000) }).then(response => {
+    if (response.status === 401) {
+      localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.assign("/login");
+    }
+    return response;
+  });
+}
 
 function supplyBadge(status: string | null) {
   if (status === "sufficient") return { label: "供给充足", color: "var(--success)", bg: "#f0fdf4", border: "#bbf7d0" };
@@ -66,7 +77,7 @@ function TagsDisplay({ val }: { val: string | null }) {
   return <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>{tags.map((t, i) => <span key={i} className="partner-tag">{t}</span>)}</div>;
 }
 
-export default function DemandsPage() {
+export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" | "opportunities" }) {
   const [data, setData] = useState<DemandResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,23 +88,6 @@ export default function DemandsPage() {
   const [gapPageSize, setGapPageSize] = useState(10);
   const [oppPage, setOppPage] = useState(1);
   const [oppPageSize, setOppPageSize] = useState(10);
-  const searchParams = useSearchParams();
-  const initialTab = (searchParams.get("tab") as "profiles" | "report" | "opportunities") || "profiles";
-  const [subTab, setSubTab] = useState<"profiles" | "report" | "opportunities">(initialTab);
-
-  // Sync subTab with URL when searchParams change
-  const urlTabStr = searchParams.get("tab") || "";
-  useEffect(() => {
-    const urlTab = urlTabStr as "profiles" | "report" | "opportunities" | null;
-    if (urlTab && urlTab !== subTab) setSubTab(urlTab);
-    if (!urlTab && subTab !== "profiles") setSubTab("profiles");
-  }, [urlTabStr]);
-
-  // Update URL when subTab changes
-  function changeSubTab(tab: "profiles" | "report" | "opportunities") {
-    setSubTab(tab);
-    const url = new URL(window.location.href); if (tab === "profiles") url.searchParams.delete("tab"); else url.searchParams.set("tab", tab); window.history.pushState({}, "", url);
-  }
   const [report, setReport] = useState<any>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -113,31 +107,13 @@ export default function DemandsPage() {
   async function loadData() {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/agent/demand-profiles`, { cache: "no-store" });
+      const res = await fetch(`${apiBaseUrl}/admin/demand-profiles`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setData(await res.json());
     } catch (e) { setError(e instanceof Error ? e.message : "需求画像加载失败，请稍后重试"); } finally { setLoading(false); }
   }
 
   useEffect(() => { loadData(); }, []);
-
-  async function deleteProfile(id: string) {
-    if (!confirm("确定删除该需求画像？此操作不可恢复。")) return;
-    try {
-      const res = await fetch(`${apiBaseUrl}/agent/demand-profiles/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await loadData();
-    } catch (e) { setError(e instanceof Error ? e.message : "删除失败"); }
-  }
-
-  async function deleteOpp(id: string) {
-    if (!confirm("确定删除该项目机会？此操作不可恢复。")) return;
-    try {
-      const res = await fetch(`${apiBaseUrl}/agent/opportunities/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      await loadOpps();
-    } catch (e) { setOppError(e instanceof Error ? e.message : "删除失败"); }
-  }
 
   async function loadReport() {
     setReportLoading(true); setReportError(null);
@@ -147,7 +123,7 @@ export default function DemandsPage() {
       if (filterIndustry) p.set("industry", filterIndustry);
       if (filterRegion) p.set("region", filterRegion);
       if (filterCapability) p.set("capability", filterCapability);
-      const res = await fetch(`${apiBaseUrl}/agent/report?${p}`, { cache: "no-store" });
+      const res = await fetch(`${apiBaseUrl}/admin/reports?${p}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setReport(await res.json());
     } catch (e) { setReportError(e instanceof Error ? e.message : "报表加载失败"); } finally { setReportLoading(false); }
@@ -162,7 +138,7 @@ export default function DemandsPage() {
       if (oppIndustry) p.set("industry", oppIndustry);
       if (oppRegion) p.set("region", oppRegion);
       if (oppStage) p.set("stage", oppStage);
-      const r = await fetch(`${apiBaseUrl}/agent/opportunities?${p}`, { cache: "no-store" });
+      const r = await fetch(`${apiBaseUrl}/admin/opportunities?${p}`, { cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       setOpps(await r.json());
     } catch (e) { setOppError(e instanceof Error ? e.message : "加载失败"); } finally { setOppLoading(false); }
@@ -176,7 +152,7 @@ export default function DemandsPage() {
       <p className="eyebrow">{subTab === "profiles" ? "Demand Profiles" : subTab === "report" ? "Operations Report" : "Project Opportunities"}</p>
       <h1>{subTab === "profiles" ? "需求画像" : subTab === "report" ? "运营报表" : "项目机会库"}</h1>
       <p className="lead">{subTab === "profiles" ? "基于历史项目需求和智能匹配记录，分析需求趋势、能力热度与伙伴供给缺口。" : subTab === "report" ? "洞察一线项目需求趋势，识别伙伴能力供给缺口。" : "沉淀和管理 AI 从项目需求中抽取出的结构化项目信息。"}</p>
-      {error && <p className="error-text">{error}</p>}
+      {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void loadData()}>重试</button></div>}
 
       {subTab === "profiles" && !error && data && data.profiles.length === 0 && (
         <section className="card"><p className="placeholder-text" style={{ marginTop: "12px" }}>暂无需求画像，请先在 Agent 工作台完成一次智能匹配。</p></section>
@@ -196,7 +172,7 @@ export default function DemandsPage() {
               <MetricCard label="供给不足需求数" value={data.overview.gapDemandCount} color="var(--danger)" />
               <MetricCard label="平均推荐伙伴数" value={data.overview.avgPartnerCount} />
             </div>
-            <div style={{ marginTop: "12px", padding: "12px 16px", background: "#fff1f2", borderRadius: "8px", border: "1px solid #ffd0d4" }}>
+            <div style={{ marginTop: "12px", padding: "12px 16px", background: "var(--brand-soft)", borderRadius: "8px", border: "1px solid var(--brand-border)" }}>
               <span style={{ fontSize: "13px", color: "var(--brand-dark)", fontWeight: 600 }}>高频能力标签：</span>
               <span style={{ fontSize: "14px" }}>{data.overview.topCapabilityTags}</span>
             </div>
@@ -236,7 +212,7 @@ export default function DemandsPage() {
                       </div>
                       <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
                         <span style={{ padding: "4px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>{badge.label}</span>
-                        <button onClick={() => setExpandedId(isExpanded ? null : p.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>{isExpanded ? "收起" : "展开"}</button> <button onClick={() => deleteProfile(p.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button>
+                        <button onClick={() => setExpandedId(isExpanded ? null : p.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>{isExpanded ? "收起" : "展开"}</button>
                       </div>
                     </div>
                     {isExpanded && (
@@ -246,7 +222,7 @@ export default function DemandsPage() {
                           <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{p.requirementText}</div>
                         </div>
                         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-                          <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#fff1f2", borderRadius: "8px", border: "1px solid #ffd0d4" }}>
+                          <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "var(--brand-soft)", borderRadius: "8px", border: "1px solid var(--brand-border)" }}>
                             <div style={{ fontSize: "12px", color: "var(--brand-dark)", fontWeight: 600, marginBottom: "6px" }}>行业标签</div>
                             <TagsDisplay val={p.industryTags} />
                           </div>
@@ -254,8 +230,8 @@ export default function DemandsPage() {
                             <div style={{ fontSize: "12px", color: "var(--success)", fontWeight: 600, marginBottom: "6px" }}>能力标签</div>
                             <TagsDisplay val={p.capabilityTags} />
                           </div>
-                          <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#f0f5ff", borderRadius: "8px", border: "1px solid #d6e4ff" }}>
-                            <div style={{ fontSize: "12px", color: "#1a4fa0", fontWeight: 600, marginBottom: "6px" }}>区域标签</div>
+                          <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "var(--accent-teal-soft)", borderRadius: "8px", border: "1px solid var(--accent-teal-border)" }}>
+                            <div style={{ fontSize: "12px", color: "var(--accent-teal)", fontWeight: 600, marginBottom: "6px" }}>区域标签</div>
                             <TagsDisplay val={p.regionTags} />
                           </div>
                         </div>
@@ -318,7 +294,7 @@ export default function DemandsPage() {
                     <div key={p.id} style={{ padding: "12px 16px", background: badge.bg, borderRadius: "8px", border: `1px solid ${badge.border}` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                         <span style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.requirementText}</span>
-                        <span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: "white", color: badge.color, border: `1px solid ${badge.border}`, flexShrink: 0, marginLeft: "8px" }}>{badge.label}</span> <button onClick={() => deleteProfile(p.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "2px 8px", color: "var(--danger)", borderColor: "#fecaca", flexShrink: 0 }}>删除</button>
+                        <span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: "white", color: badge.color, border: `1px solid ${badge.border}`, flexShrink: 0, marginLeft: "8px" }}>{badge.label}</span>
                       </div>
                       <div style={{ fontSize: "13px", color: "#666", lineHeight: 1.6 }}>{p.gapAnalysis || "暂无分析"}</div>
                       {p.supplyStatus === "gap" && <div style={{ fontSize: "12px", color: "var(--danger)", marginTop: "4px" }}>建议：补充相关行业案例和交付资源</div>}
@@ -386,7 +362,7 @@ export default function DemandsPage() {
                       <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.projectStage || "-"}</td>
                       <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 700, color: o.completenessScore >= 80 ? "var(--success)" : o.completenessScore >= 50 ? "#e8a317" : "var(--danger)" }}>{o.completenessScore}%</td>
                       <td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: badge.bg, color: badge.c, border: `1px solid ${badge.bd}`, whiteSpace: "nowrap" }}>{badge.l}</span></td>
-                      <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{isExp ? "收起" : "详情"}</button> <button onClick={() => deleteOpp(o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px", color: "var(--danger)", borderColor: "#fecaca" }}>删除</button></td>
+                      <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{isExp ? "收起" : "详情"}</button></td>
                     </tr>
                   );
                 })}
@@ -414,7 +390,6 @@ export default function DemandsPage() {
     </main>
   );
 }
-
 function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIndustry, setFilterIndustry, filterRegion, setFilterRegion, filterCapability, setFilterCapability }: any) {
   if (loading) return <p>加载中...</p>;
   if (error) return <p className="error-text">{error}</p>;

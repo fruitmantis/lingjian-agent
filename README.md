@@ -75,13 +75,16 @@ cp .env.example .env
 cp frontend/.env.local.example frontend/.env.local
 ```
 
-在 `.env` 中填入 LLM API 信息：
+在 `.env` 中配置 JWT 密钥和 LLM API 信息。`JWT_SECRET_KEY` 必须是至少 32 位、不可预测的随机值；缺失或使用历史默认值时后端会拒绝启动：
 
 ```
+JWT_SECRET_KEY=使用安全随机源生成的至少32位密钥
 LLM_API_KEY=你的key
 LLM_BASE_URL=https://your-llm-endpoint/v1
 LLM_MODEL=模型名称
 ```
+
+仅当数据库完全为空、需要首次创建管理员时，再设置 `BOOTSTRAP_ADMIN_USERNAME` 和强密码 `BOOTSTRAP_ADMIN_PASSWORD`。该管理员首次登录必须修改密码；项目不再内置固定管理员密码。
 
 ### 2. 启动后端
 
@@ -102,7 +105,7 @@ npm install
 npm run dev
 ```
 
-访问 http://localhost:3000 ，默认账号 `admin` / `admin123`。
+访问 http://localhost:3000 。使用已有内部账号登录；没有账号的员工可在登录页提交申请，由管理员在“用户管理 → 账号申请”中审批。
 
 ### 一键启动
 
@@ -113,6 +116,28 @@ bash dev.sh
 ```
 
 > 在 Codex 桌面端内运行时，需将 agent 模式切到 Full Access（完全访问）以放开网络端口绑定；否则沙箱会禁用网络，导致服务无法监听端口。
+
+## 自动化验证
+
+后端测试使用临时 SQLite 数据库，不会修改 `data/app.db`：
+
+```bash
+source .venv/bin/activate
+pip install -r backend/requirements-dev.txt
+pytest -q
+```
+
+前端类型检查、生产构建和 Playwright E2E：
+
+```bash
+cd frontend
+npm install
+npm run typecheck
+npm run build
+npm run test:e2e
+```
+
+Playwright 会在 `/tmp/lingjian-agent-e2e` 创建隔离数据，并启动测试专属端口。完整发布验收范围与结果见 `docs/validation/`。
 
 ## API 接口
 
@@ -243,5 +268,5 @@ bash dev.sh
 
 - **向量检索未接入**：`data/chroma/` 仅为预留目录，`chromadb` 未加入依赖；当前匹配采用全量伙伴摘要塞入单条 LLM prompt，伙伴规模较大时可能超出 token 上限。
 - **认证范围不统一**：`partners` / `profile` / `documents` / `users` 需登录，`cases` / `match` / `demand` / `capability_tags` / `system` / `model_config` 暂未加鉴权。
-- **默认凭据**：首次启动自动创建 `admin` / `admin123`；`JWT_SECRET_KEY` 建议在 `.env` 中显式设置。
+- **登录安全**：无内置默认凭据；`JWT_SECRET_KEY` 为强制配置，空库管理员只能通过 bootstrap 环境变量创建并要求首次改密。
 - **演示数据偏薄**：35 个伙伴中仅少数生成画像，交付物为 0，推荐中「支撑交付物」可能为空。
