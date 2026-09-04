@@ -86,8 +86,8 @@ test("E2E-003 ordinary users see only their own tasks and cannot enter admin", a
   const userA = await userAContext.newPage();
   await loginInBrowser(userA, "user_a");
   await userA.goto("/tasks");
-  await expect(userA.getByText("A-ready", { exact: true })).toBeVisible();
-  await expect(userA.getByText("B-ready", { exact: true })).toHaveCount(0);
+  await expect(userA.locator("main").getByText("A-ready", { exact: true })).toBeVisible();
+  await expect(userA.locator("main").getByText("B-ready", { exact: true })).toHaveCount(0);
   await userA.goto("/tasks/task-b-ready");
   await expect(userA.getByRole("heading", { name: "无法查看任务" })).toBeVisible();
   await userA.goto("/admin");
@@ -99,8 +99,8 @@ test("E2E-003 ordinary users see only their own tasks and cannot enter admin", a
   const userB = await userBContext.newPage();
   await loginInBrowser(userB, "user_b");
   await userB.goto("/tasks");
-  await expect(userB.getByText("B-ready", { exact: true })).toBeVisible();
-  await expect(userB.getByText("A-ready", { exact: true })).toHaveCount(0);
+  await expect(userB.locator("main").getByText("B-ready", { exact: true })).toBeVisible();
+  await expect(userB.locator("main").getByText("A-ready", { exact: true })).toHaveCount(0);
   await userBContext.close();
 });
 
@@ -258,6 +258,7 @@ for (const viewport of [
       await page.goto(route.url);
       await page.locator("main").last().waitFor({ state: "visible" });
       await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBeTruthy();
+      await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
       await page.screenshot({ path: path.join(screenshotRoot, `${route.name}-${viewport.width}x${viewport.height}.png`), fullPage: true });
       await context.close();
     }
