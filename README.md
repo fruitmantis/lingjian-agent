@@ -1,125 +1,263 @@
 # 灵鉴 Agent
 
-灵鉴 Agent 是一个交付伙伴智能匹配智能体，用于归集伙伴档案、项目案例和交付物，通过 AI 生成伙伴能力画像，并根据项目需求推荐合适的交付伙伴。
+灵鉴 Agent 是面向公司内部人员的伙伴能力洞察与项目需求匹配平台。普通用户可以提交项目需求、获得有证据支撑的伙伴推荐并持续跟进自己的任务；管理员在独立后台维护伙伴、用户、需求运营数据、能力标签、模型配置和系统状态。
+
+当前版本为单机 MVP，运行于 WSL Ubuntu，采用 Next.js + FastAPI + SQLite，不包含面向外部伙伴的开放访问能力。
+
+## 当前能力
+
+- **灵鉴助手工作台**：输入自然语言项目需求，生成伙伴推荐、匹配分、推荐理由、支撑案例、支撑交付物及风险或缺口。
+- **用户级任务隔离**：普通用户只能查看和操作自己创建的任务及其需求画像、项目机会；管理员可以查看全部用户任务。
+- **任务生命周期**：支持匹配中、信息补全中、已完成、部分完成、失败状态，以及归档、恢复和失败重试。
+- **场景广场**：提供按行业找伙伴、按能力找伙伴、伙伴能力查询、伙伴案例查询等预置入口。
+- **伙伴洞察**：普通用户只读查看伙伴资料、AI 能力画像、案例和交付证据。
+- **独立管理后台**：集中管理伙伴、任务、需求画像、项目机会、运营报表、能力标签、用户、模型和系统状态。
+- **完整用户管理**：支持登录页申请账号、管理员审批或驳回、管理员直接创建、角色与状态管理、密码重置、账号解锁和审计日志。
+- **运行安全加固**：强制 JWT 密钥、首次改密、登录失败锁定、会话失效、上传大小限制、文件类型校验和异常任务恢复。
 
 ## 技术栈
 
-- Frontend: Next.js 15、React 19、TypeScript
-- Backend: FastAPI、Python 3.11+
-- Database: SQLite（`data/app.db`）
-- File Storage: `data/uploads`
-- AI: OpenAI 兼容 LLM API（`ai_client.py` 经 httpx 调用，支持按业务场景配置模型）
+- Frontend：Next.js 15、React 19、TypeScript
+- Backend：FastAPI、Python 3.11+
+- Database：SQLite（默认 `data/app.db`）
+- File Storage：本地目录（默认 `data/uploads`）
+- AI：OpenAI 兼容接口，由 `httpx` 调用，支持按业务场景绑定模型
+- Test：pytest、Playwright
+
+## 页面与角色
+
+### 公共页面
+
+| 路径 | 功能 |
+|---|---|
+| `/login` | 账号登录、公司内部账号申请 |
+| `/403` | 无权限提示 |
+
+### 普通用户工作区
+
+| 路径 | 功能 |
+|---|---|
+| `/` | 开启新的伙伴匹配任务 |
+| `/scenes` | 浏览和进入业务场景 |
+| `/tasks` | 查看、筛选、归档和恢复自己的任务 |
+| `/tasks/{id}` | 查看自己的推荐结果、需求画像和项目机会，处理失败重试 |
+| `/partners` | 只读浏览伙伴能力与画像 |
+| `/partners/{id}` | 只读查看伙伴详情、案例与交付物摘要 |
+| `/account` | 查看账号信息、修改显示名称和密码、注销全部会话 |
+
+### 管理后台
+
+| 路径 | 功能 |
+|---|---|
+| `/admin` | 管理概览 |
+| `/admin/tasks` | 查看全部用户任务 |
+| `/admin/partners` | 伙伴资料管理 |
+| `/admin/partners/{id}` | 伙伴详情、案例、交付物、文档和 AI 画像维护 |
+| `/admin/demands` | 全量需求画像 |
+| `/admin/opportunities` | 项目机会运营 |
+| `/admin/reports` | 运营报表 |
+| `/admin/tags` | 能力标签、分类和 AI 标签建议 |
+| `/admin/users` | 用户、账号申请和审计日志管理 |
+| `/admin/users/{id}` | 用户详情 |
+| `/admin/models` | 模型连接与业务场景绑定 |
+| `/admin/system` | 数据库、模型和业务能力状态 |
+
+管理员也可以返回普通用户工作区使用灵鉴助手；普通用户访问 `/admin/*` 时会被拒绝。
+
+## 权限与数据隔离
+
+- 除健康检查、登录和账号申请外，所有 API 都要求 Bearer Token。
+- 所有 `/admin/*` API 都在后端执行管理员权限校验，前端隐藏菜单不是安全边界。
+- 匹配任务通过 `owner_user_id` 归属用户；普通用户的列表、详情、归档、恢复、重试及项目机会更新均校验所有权。
+- 普通用户越权访问其他用户任务时返回 404，避免泄露任务是否存在；管理员可通过后台查看全量数据。
+- 普通用户只能读取启用状态的伙伴及其案例、交付物摘要；伙伴、案例、交付物、文档和画像写操作仅限管理员。
+- 用户停用、角色变更、密码修改、管理员重置密码或“注销全部会话”后，旧 Token 会立即失效。
+- 连续 5 次密码错误会锁定账号 15 分钟，管理员可在用户管理中解锁。
+- 系统禁止管理员停用或降级自己，也禁止停用或降级最后一个有效管理员。
+
+## 账号申请与首次登录
+
+1. 公司内部人员在 `/login` 切换到“申请账号”，填写姓名、用户名、部门、企业邮箱或工号及密码。
+2. 系统只保存密码的不可逆哈希，并限制同一来源的申请频率、重复用户名或联系方式以及待审批总量。
+3. 管理员在“用户管理 → 账号申请”中批准或驳回申请。
+4. 审批通过后，申请人使用申请时设置的密码登录，并按提示完成一次密码更新。
+5. 管理员也可以直接创建账号；系统仅在创建结果中展示一次临时密码，用户首次登录后必须修改。
 
 ## 项目结构
 
 ```text
 .
-├── backend/                       # FastAPI 应用
+├── backend/
 │   ├── app/
-│   │   ├── ai_client.py           # LLM 客户端（OpenAI 兼容，httpx）
-│   │   ├── model_resolver.py      # 按场景解析模型配置（DB → env 回退）
-│   │   ├── database.py            # SQLite 与本地目录初始化
-│   │   ├── main.py                # API 入口 + lifespan 初始化
-│   │   ├── models.py              # Pydantic 模型
-│   │   ├── auth.py                # JWT + bcrypt 认证
-│   │   ├── doc_extractor.py       # PDF/DOCX/PPTX/XLSX 文本抽取
-│   │   └── routers/
-│   │       ├── partners.py        # 伙伴 CRUD + 画像卡片 + 健康分
-│   │       ├── profile.py         # AI 画像生成（单个 / 批量）
-│   │       ├── cases.py           # 案例与交付物
-│   │       ├── documents.py       # 伙伴文档上传 / 预览
-│   │       ├── match.py           # 智能匹配推荐 + 匹配记录
-│   │       ├── demand.py          # 需求画像 + 项目机会 + 运营报表
-│   │       ├── capability_tags.py # 能力标签字典 + 分类 + AI 建议
-│   │       ├── model_config.py    # 多场景模型配置管理
-│   │       ├── system.py          # 系统状态监控
-│   │       └── users.py           # 用户与登录
-│   ├── scripts/seed_huawei_service_partners.py  # 种子数据
-│   └── requirements.txt
-├── frontend/                      # Next.js 应用
-│   ├── app/
-│   │   ├── layout.tsx             # 根布局
-│   │   ├── page.tsx               # 智能匹配（Agent 工作台）
-│   │   ├── partners/page.tsx      # 伙伴资料管理
-│   │   ├── partners/[id]/page.tsx # 伙伴画像详情
-│   │   ├── profiles/page.tsx      # 伙伴画像总览
-│   │   ├── demands/page.tsx       # 需求画像 / 项目机会库 / 运营报表
-│   │   ├── admin/page.tsx         # 用户 / 标签 / 模型配置 / 系统状态
-│   │   ├── users/page.tsx         # 用户管理
-│   │   └── login/page.tsx         # 登录
-│   ├── components/
-│   │   ├── app-shell.tsx          # 导航外壳
-│   │   └── health-status.tsx      # 后端连接状态
-│   └── package.json
+│   │   ├── main.py                 # FastAPI 入口、CORS、启动初始化
+│   │   ├── config.py               # JWT、数据库与存储路径配置
+│   │   ├── auth.py                 # 密码、JWT、用户与管理员依赖
+│   │   ├── database.py             # SQLite schema、迁移与中断任务恢复
+│   │   ├── ai_client.py            # OpenAI 兼容模型客户端
+│   │   ├── model_resolver.py       # 业务场景模型解析（数据库优先、环境变量回退）
+│   │   ├── file_storage.py         # 流式上传、大小和文件内容校验
+│   │   ├── doc_extractor.py        # PDF、DOCX、PPTX、XLSX 文本抽取
+│   │   ├── models.py               # Pydantic 数据模型
+│   │   └── routers/                # 认证、伙伴、匹配、需求和管理接口
+│   ├── tests/                      # 后端、权限、迁移、文件与故障恢复测试
+│   ├── scripts/                    # 测试支持与伙伴种子数据脚本
+│   ├── requirements.txt
+│   └── requirements-dev.txt
+├── frontend/
+│   ├── app/                        # 普通用户、登录和 /admin 管理页面
+│   ├── components/                 # 导航、认证、任务列表和后台面板
+│   ├── e2e/                        # Playwright 发布验收用例
+│   ├── lib/scenes.ts               # 场景注册表
+│   ├── lib/skills.ts               # 业务能力注册表
+│   ├── package.json
+│   └── playwright.config.ts
 ├── data/
-│   ├── app.db                     # SQLite 数据库
-│   ├── chroma/                    # 预留向量库目录（当前未接入）
-│   └── uploads/                   # 上传文件目录
-├── dev.sh                         # 一键启动前后端
-├── docs/product-spec.md
+│   ├── app.db                      # 真实 SQLite 数据库，请勿覆盖
+│   ├── uploads/                    # 上传文件，请勿清理
+│   └── chroma/                     # 预留目录，当前未接入 Chroma
+├── docs/
+│   ├── product-spec.md
+│   └── validation/                 # 发布验证计划与报告
+├── artifacts/validation/           # 多分辨率界面验收截图
+├── dev.sh                          # 本地服务生命周期脚本
+├── pytest.ini
 └── AGENTS.md
 ```
 
 ## 环境要求
 
+- WSL Ubuntu 24.04 或兼容 Linux 环境
 - Node.js 18.18 或更高版本
 - npm 9 或更高版本
 - Python 3.11 或更高版本
+- `curl`、`fuser`、`setsid`（使用 `dev.sh` 时需要）
 
-## 本地运行
+## 首次配置
 
-### 1. 配置环境变量
+### 1. 安装依赖
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+
+cd frontend
+npm install
+cd ..
+```
+
+### 2. 创建环境文件
 
 ```bash
 cp .env.example .env
 cp frontend/.env.local.example frontend/.env.local
 ```
 
-在 `.env` 中配置 JWT 密钥和 LLM API 信息。`JWT_SECRET_KEY` 必须是至少 32 位、不可预测的随机值；缺失或使用历史默认值时后端会拒绝启动：
+`.env` 至少需要配置安全的 JWT 密钥和实际使用的模型连接信息：
 
-```
+```dotenv
 JWT_SECRET_KEY=使用安全随机源生成的至少32位密钥
-LLM_API_KEY=你的key
-LLM_BASE_URL=https://your-llm-endpoint/v1
+LLM_API_KEY=你的模型API密钥
+LLM_BASE_URL=https://your-openai-compatible-endpoint/v1
 LLM_MODEL=模型名称
 ```
 
-仅当数据库完全为空、需要首次创建管理员时，再设置 `BOOTSTRAP_ADMIN_USERNAME` 和强密码 `BOOTSTRAP_ADMIN_PASSWORD`。该管理员首次登录必须修改密码；项目不再内置固定管理员密码。
-
-### 2. 启动后端
+可以使用下面的命令生成 JWT 密钥：
 
 ```bash
-python3 -m venv .venv
+openssl rand -hex 32
+```
+
+不得提交 `.env` 或任何真实 API Key。项目会拒绝空值、短于 32 位或历史默认值形式的 `JWT_SECRET_KEY`。
+
+### 3. 仅为空数据库创建首位管理员
+
+仅当 `users` 表完全为空时，在 `.env` 中临时配置：
+
+```dotenv
+BOOTSTRAP_ADMIN_USERNAME=admin
+BOOTSTRAP_ADMIN_PASSWORD=至少12位且同时包含字母和数字的强密码
+```
+
+后端首次初始化后会创建管理员并要求首次改密。已有用户的数据库不需要这两个变量，项目也不再内置固定管理员密码。
+
+## 启动与停止
+
+推荐在项目根目录使用服务脚本：
+
+```bash
+bash dev.sh start
+bash dev.sh status
+bash dev.sh logs
+bash dev.sh restart
+bash dev.sh stop
+```
+
+`bash dev.sh` 等价于 `bash dev.sh start`。脚本只复用或停止工作目录属于本项目的 3000/8000 端口进程，不会直接清理其他项目进程。
+
+启动成功后访问：
+
+- 前端：http://localhost:3000
+- 后端健康检查：http://localhost:8000/health
+- Swagger API 文档：http://localhost:8000/docs
+
+也可以分别启动：
+
+```bash
 source .venv/bin/activate
-pip install -r backend/requirements.txt
 python -m uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
 ```
 
-### 3. 启动前端
-
-另开一个终端：
+另开终端：
 
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-访问 http://localhost:3000 。使用已有内部账号登录；没有账号的员工可在登录页提交申请，由管理员在“用户管理 → 账号申请”中审批。
+> 在受限沙箱中，端口绑定或本机健康检查可能被禁止；这属于运行环境限制，并不代表应用启动失败。应在允许本机网络访问的 WSL 会话中运行服务。
 
-### 一键启动
+## 主要 API
 
-也可用项目根目录的 `dev.sh` 一条命令起前后端：
+FastAPI 的 `/docs` 和 `/openapi.json` 是完整接口清单。当前接口按职责分为：
 
-```bash
-bash dev.sh
+| 范围 | 主要接口 | 权限 |
+|---|---|---|
+| 健康检查 | `GET /health` | 公开 |
+| 登录与申请 | `POST /auth/login`、`POST /auth/user-applications` | 公开 |
+| 个人账号 | `GET/PATCH /auth/me`、`POST /auth/change-password`、`POST /auth/logout-all` | 已登录用户 |
+| 个人任务 | `POST /agent/match`、`GET /agent/tasks`、任务详情、重试、归档、恢复、机会更新 | 本人或管理员 |
+| 伙伴洞察 | `GET /partners`、`GET /partners/{id}`、`GET /partners/profiles`、案例与交付物查询 | 已登录用户 |
+| 全量运营 | `/admin/dashboard`、`/admin/tasks`、`/admin/demand-profiles`、`/admin/opportunities`、`/admin/reports` | 管理员 |
+| 用户管理 | `/admin/users`、`/admin/user-applications`、`/admin/user-audit-logs` | 管理员 |
+| 伙伴维护 | 伙伴写接口、案例与交付物写接口、文档接口、AI 画像生成 | 管理员 |
+| 系统配置 | `/admin/capability-tags`、`/admin/model-configs`、`/admin/system/status` | 管理员 |
+
+当前 OpenAPI 公开面严格限定为 `GET /health`、`POST /auth/login` 和 `POST /auth/user-applications`。
+
+## 数据与运行配置
+
+默认运行数据位于：
+
+- 数据库：`data/app.db`
+- 上传文件：`data/uploads`
+- Chroma 预留目录：`data/chroma`
+
+测试或隔离环境可以通过以下变量覆盖路径，不应指向真实运行数据：
+
+```dotenv
+LINGJIAN_DATABASE_PATH=/tmp/lingjian-test/app.db
+LINGJIAN_UPLOADS_DIR=/tmp/lingjian-test/uploads
+LINGJIAN_CHROMA_DIR=/tmp/lingjian-test/chroma
 ```
 
-> 在 Codex 桌面端内运行时，需将 agent 模式切到 Full Access（完全访问）以放开网络端口绑定；否则沙箱会禁用网络，导致服务无法监听端口。
+其他可调参数见 `.env.example`，包括 CORS、上传上限、中断任务判定时间、账号申请频率和待审批数量上限。默认上传上限为 20 MiB；伙伴文档支持 PDF、DOCX、PPTX 和 XLSX。
 
 ## 自动化验证
 
-后端测试使用临时 SQLite 数据库，不会修改 `data/app.db`：
+### 后端
+
+后端测试使用 pytest 临时目录，不会修改 `data/app.db` 或 `data/uploads`：
 
 ```bash
 source .venv/bin/activate
@@ -127,146 +265,46 @@ pip install -r backend/requirements-dev.txt
 pytest -q
 ```
 
-前端类型检查、生产构建和 Playwright E2E：
+### 前端
 
 ```bash
 cd frontend
-npm install
 npm run typecheck
 npm run build
+npx playwright install chromium   # 首次运行 Playwright 时执行
 npm run test:e2e
 ```
 
-Playwright 会在 `/tmp/lingjian-agent-e2e` 创建隔离数据，并启动测试专属端口。完整发布验收范围与结果见 `docs/validation/`。
+生产构建和开发服务共用 `.next` 目录。运行 `npm run build` 或 Playwright 发布验收前，建议先执行 `bash dev.sh stop`，验证完成后再执行 `bash dev.sh start`，避免并行构建造成缓存冲突。
 
-## API 接口
+Playwright 使用 3100/18000/18080 测试专属端口，并将隔离数据写入 `/tmp/lingjian-agent-e2e`。发布验证不会写入真实数据库或上传目录。
 
-### 系统
+2026-09-04 的发布前验证结果：
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/health` | 健康检查 |
-| GET | `/system/status` | 系统状态监控 |
+- pytest：50/50 通过
+- Playwright E2E：12/12 通过
+- TypeScript 类型检查、Next.js 生产构建、FastAPI 启动和健康检查通过
+- OpenAPI：60 paths / 71 operations，仅 3 个公开操作
+- A/B 用户隔离、管理员权限、迁移回放、任务故障恢复、文件安全和真实模型受控 E2E 通过
 
-### 认证与用户（`/auth`）
+详细范围与证据：
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/auth/login` | 登录，返回 JWT |
-| GET | `/auth/me` | 当前登录用户 |
-| GET | `/auth/users` | 用户列表（需登录） |
-| POST | `/auth/users` | 新增用户（需登录） |
-| DELETE | `/auth/users/{user_id}` | 删除用户（需登录） |
-
-### 伙伴（`/partners`，均需登录）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/partners` | 伙伴列表 |
-| GET | `/partners/{id}` | 伙伴详情 |
-| POST | `/partners` | 新增伙伴 |
-| PUT | `/partners/{id}` | 更新伙伴 |
-| DELETE | `/partners/{id}` | 删除伙伴 |
-| GET | `/partners/profiles` | 伙伴画像卡片（含健康分） |
-| POST | `/partners/{id}/profile` | 生成 AI 能力画像 |
-| POST | `/partners/batch-profile` | 批量生成画像 |
-| GET | `/partners/{id}/documents` | 伙伴文档列表 |
-| POST | `/partners/{id}/documents` | 上传伙伴文档 |
-| GET | `/partners/{id}/documents/{doc_id}/preview` | 文档预览 |
-| DELETE | `/partners/{id}/documents/{doc_id}` | 删除文档 |
-
-### 案例与交付物（`/cases`）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/cases/by-partner/{partner_id}` | 按伙伴查案例 |
-| POST | `/cases` | 新增案例 |
-| GET | `/cases/{case_id}/deliverables` | 案例交付物列表 |
-| POST | `/cases/{case_id}/deliverables` | 上传交付物文件 |
-
-### 智能匹配与需求（`/agent`）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/agent/match` | 智能匹配推荐 |
-| GET | `/agent/match-records` | 匹配记录列表 |
-| GET | `/agent/match-records/{id}` | 匹配记录详情 |
-| DELETE | `/agent/match-records/{id}` | 删除匹配记录 |
-| GET | `/agent/demand-profiles` | 需求画像总览 |
-| GET | `/agent/report` | 运营报表 |
-| GET | `/agent/opportunities` | 项目机会列表 |
-| GET | `/agent/opportunities/{id}` | 项目机会详情 |
-| PUT | `/agent/opportunities/{id}` | 更新项目机会 |
-| DELETE | `/agent/demand-profiles/{id}` | 删除需求画像 |
-| DELETE | `/agent/opportunities/{id}` | 删除项目机会 |
-
-### 能力标签（`/capability-tags`）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/capability-tags` | 标签列表 |
-| POST | `/capability-tags` | 新增标签 |
-| PUT | `/capability-tags/{tag_id}` | 更新标签 |
-| POST | `/capability-tags/seed` | 种子标签 |
-| GET | `/capability-tags/categories` | 分类列表 |
-| POST | `/capability-tags/categories` | 新增分类 |
-| GET | `/capability-tags/suggestions` | AI 标签建议列表 |
-| POST | `/capability-tags/suggestions/scan` | 扫描生成建议 |
-| POST | `/capability-tags/suggestions/{sug_id}/adopt` | 采纳建议 |
-
-### 模型配置（`/model-configs`）
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/model-configs` | 模型配置列表 |
-| POST | `/model-configs` | 新增模型配置 |
-| PUT | `/model-configs/{mc_id}` | 更新模型配置 |
-| POST | `/model-configs/{mc_id}/test` | 测试模型连通性 |
-| GET | `/model-configs/usage` | 场景用途配置 |
-| PUT | `/model-configs/usage/{scene_key}` | 设置某场景使用的模型 |
-
-## 功能说明
-
-### 智能匹配 / Agent 工作台（`/`）
-
-输入自然语言项目需求，AI 基于伙伴资料、案例和画像进行匹配，返回推荐伙伴、匹配评分、推荐理由、支撑案例、支撑交付物和风险提示；匹配结果可查看历史记录。
-
-### 伙伴资料管理（`/partners`）
-
-维护伙伴基础信息（名称、简介、能力标签、服务区域、行业经验），支持新增、编辑、删除和列表查看。
-
-### 伙伴画像总览（`/profiles`）
-
-按健康分排序展示所有伙伴的能力画像卡片，含案例数、交付物数和健康等级。
-
-### 伙伴画像详情（`/partners/{id}`）
-
-展示伙伴基础信息、AI 能力画像、案例列表、交付物与上传文档。支持生成 / 重新生成 AI 画像、批量生成、新增案例、上传交付物与文档。
-
-### 需求画像（`/demands`）
-
-三个 Tab：
-- **需求画像**：每次匹配自动生成的需求结构化标签与供需状态。
-- **项目机会库**：从匹配中抽取的项目机会，可编辑与筛选。
-- **运营报表**：伙伴活跃度、能力分布、供需缺口等统计。
-
-### 系统管理（`/admin`）
-
-多 Tab：用户管理、能力标签配置（含 AI 标签建议）、模型配置（按场景绑定）、系统状态监控。
+- [发布验证计划](docs/validation/VALIDATION_PLAN.md)
+- [发布验证报告](docs/validation/RELEASE_VALIDATION_REPORT.md)
 
 ## AI 规则
 
-- 推荐结果包含：匹配伙伴、匹配评分、推荐理由、支撑案例、支撑交付物、风险或缺口提示。
-- 不生成无证据支撑的结论；证据不足时显式说明缺失项。
-- 能力标签、服务区域、行业等结构化字段限定在标准字典内，LLM 不得创造新标签。
+- 推荐必须包含匹配伙伴、匹配分、推荐理由、支撑案例、支撑交付物以及风险或缺口。
+- 证据不足时明确说明缺失内容，不生成无依据结论。
+- 正式能力标签由管理员维护；AI 只生成“待采纳”建议，管理员采纳后才进入正式标签。
+- 业务场景优先使用后台绑定的模型配置，未配置时回退到环境变量；不得在前端展示 Prompt、原始模型 JSON 或调试过程。
 
-## MVP 边界
+## MVP 边界与已知限制
 
-当前项目不包含 Docker、PostgreSQL、Redis、Kubernetes、复杂权限、审核流、多租户、微服务或生产部署配置。
-
-## 已知限制
-
-- **向量检索未接入**：`data/chroma/` 仅为预留目录，`chromadb` 未加入依赖；当前匹配采用全量伙伴摘要塞入单条 LLM prompt，伙伴规模较大时可能超出 token 上限。
-- **认证范围不统一**：`partners` / `profile` / `documents` / `users` 需登录，`cases` / `match` / `demand` / `capability_tags` / `system` / `model_config` 暂未加鉴权。
-- **登录安全**：无内置默认凭据；`JWT_SECRET_KEY` 为强制配置，空库管理员只能通过 bootstrap 环境变量创建并要求首次改密。
-- **演示数据偏薄**：35 个伙伴中仅少数生成画像，交付物为 0，推荐中「支撑交付物」可能为空。
+- 当前仅面向公司内部人员，不开放外部伙伴注册或访问。
+- 使用单机 SQLite 和本地文件存储，不包含 Docker、PostgreSQL、Redis、消息队列、微服务或生产部署编排。
+- `data/chroma` 只是预留目录，当前未接入 Chroma 或向量检索；匹配仍会汇总伙伴摘要进入模型上下文，伙伴规模扩大后需重新设计检索链路。
+- 账号申请限流为单进程内存实现，未处理多实例共享限流或可信代理 IP；这符合当前单机 MVP 范围。
+- 伙伴健康度仍为临时展示能力，正式健康度后续由外部平台提供。
+- “伙伴能力短板分析”尚无独立执行接口，目前仅在匹配结果中提供风险或缺口提示。
+- 真实数据库中保留两条历史案例外键孤儿记录；发布验证确认迁移未新增外键异常，且不影响任务所有权隔离链路。
