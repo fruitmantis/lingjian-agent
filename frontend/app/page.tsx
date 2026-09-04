@@ -247,7 +247,6 @@ export default function HomePage() {
     "project-demand-profile",
     "project-opportunity-identification",
   ].includes(scene.id));
-  const quickCategories = ["智能匹配", "伙伴洞察", "能力发展", "项目机会", "运营分析"];
 
   return (
     <main className="page assistant-page">
@@ -280,22 +279,6 @@ export default function HomePage() {
           <span>试试这样问</span>
           {["帮我找适合制造行业知识库 Agent 项目的伙伴", "XX伙伴有哪些AI能力？", "找有金融AI案例的伙伴", "XX伙伴有哪些能力短板？"].map((example) => (
             <button key={example} type="button" onClick={() => { setRequirement(example); requirementInput.current?.focus(); }}>{example}</button>
-          ))}
-        </div>
-      </section>
-
-      <section className="assistant-section assistant-category-section" aria-labelledby="category-heading">
-        <div className="assistant-section-heading">
-          <div><p>从能力域开始</p><h2 id="category-heading">场景分类</h2></div>
-          <Link href="/scenes">浏览全部场景 <span aria-hidden="true">→</span></Link>
-        </div>
-        <div className="assistant-category-grid">
-          {quickCategories.map((category, index) => (
-            <Link key={category} href={`/scenes?category=${encodeURIComponent(category)}`} className="assistant-category-card">
-              <span className={`assistant-category-icon tone-${index + 1}`} aria-hidden="true">{["匹", "察", "能", "机", "析"][index]}</span>
-              <span><strong>{category}</strong><small>{ENABLED_SCENES.filter((scene) => scene.category === category).length} 个场景</small></span>
-              <span className="card-arrow" aria-hidden="true">→</span>
-            </Link>
           ))}
         </div>
       </section>
