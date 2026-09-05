@@ -7,7 +7,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 
 from .database import get_db
 
@@ -45,7 +45,9 @@ class ResourceMetadata(StrictModel):
     @classmethod
     def check_url(cls, value):
         try:
-            p = urlsplit(value)
+            # Normalize browser-style numeric host forms before rejecting local addresses.
+            normalized = HttpUrl(value)
+            p = urlsplit(str(normalized))
             host = p.hostname
             if p.scheme not in ('http', 'https') or not host or p.username or p.password:
                 raise ValueError()

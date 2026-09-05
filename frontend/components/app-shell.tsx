@@ -25,6 +25,7 @@ const adminNav: { group: string; items: NavItem[] }[] = [
     { label: "需求画像", href: "/admin/demands", icon: "file" },
     { label: "项目机会", href: "/admin/opportunities", icon: "spark" },
     { label: "运营报表", href: "/admin/reports", icon: "chart" },
+    { label: "课程与实验", href: "/admin/resources", icon: "file" },
     { label: "能力标签", href: "/admin/tags", icon: "tag" },
   ] },
   { group: "系统管理", items: [

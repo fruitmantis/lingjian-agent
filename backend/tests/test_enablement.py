@@ -148,7 +148,7 @@ def test_orphan_case_cannot_share(admin,metadata):
     with get_db() as conn: assert conn.execute('SELECT COUNT(*) FROM case_share_configs').fetchone()[0]==0
 
 
-@pytest.mark.parametrize('url',['javascript:alert(1)','https://secret:password@example.com','http://localhost:8000','http://127.0.0.1','http://192.168.1.1','https://example.com\\@evil.test','https://example.com:8100','http://[::1]'])
+@pytest.mark.parametrize('url',['javascript:alert(1)','https://secret:password@example.com','http://localhost:8000','http://127.0.0.1','http://192.168.1.1','https://example.com\\@evil.test','https://example.com:8100','http://[::1]','http://127.1','http://0x7f.0.0.1'])
 def test_reject_unsafe_urls(client,admin,metadata,url):
     metadata['source_url']=url
     assert client.post('/admin/enablement/resources',headers=auth_headers(admin),json={'base_revision':0,'metadata':metadata}).status_code==422

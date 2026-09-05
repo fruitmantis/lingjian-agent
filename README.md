@@ -1,5 +1,10 @@
 # 灵鉴 Agent
 
+> 本功能分支已完成“伙伴服务能力发展中心” Phase 0 + Phase A，仅提供管理员课程/实验资源与案例共享配置；前台中心和方案生成尚未实施。稳定 `main` 与旧服务保持独立。
+>
+> 本分支请使用 `bash enablement-dev.sh start|stop|status` 管理独立 3100/8100 环境；不要用原 `dev.sh` 启动此分支。隔离配置/数据准备与边界见 [开发启动记录](docs/enablement/STARTUP_AND_DESIGN.md)，验证见 [后端批次](docs/enablement/PHASE_A_BACKEND.md) 和 [后台界面批次](docs/enablement/PHASE_A_UI.md)。新环境模型外网访问被阻断，真实业务试点尚未验收。
+
+
 灵鉴 Agent 是面向公司内部人员的伙伴能力洞察与项目需求匹配平台。普通用户可以提交项目需求、获得有证据支撑的伙伴推荐并持续跟进自己的任务；管理员在独立后台维护伙伴、用户、需求运营数据、能力标签、模型配置和系统状态。
 
 当前版本为单机 MVP，运行于 WSL Ubuntu，采用 Next.js + FastAPI + SQLite，不包含面向外部伙伴的开放访问能力。
