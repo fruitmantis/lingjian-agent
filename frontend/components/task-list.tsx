@@ -10,7 +10,7 @@ type TaskStatus = "matching" | "enriching" | "ready" | "partial" | "failed";
 type Task = {
   id: string; requirement: string; topPartner: string; partnerCount: number; createdAt: string;
   archivedAt: string | null; ownerName: string | null; department: string | null; completenessScore: number | null;
-  taskStatus: TaskStatus; lastErrorStage: string | null;
+  task_type: string; taskStatus: TaskStatus; lastErrorStage: string | null;
 };
 type TaskPage = { items: Task[]; page: number; pageSize: number; total: number; totalPages: number };
 
@@ -32,6 +32,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
   const [archived, setArchived] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [owner, setOwner] = useState("");
+  const [taskType, setTaskType] = useState("");
   const [taskStatus, setTaskStatus] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -49,6 +50,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
         pageSize: "20",
       });
       if (keyword.trim()) params.set("keyword", keyword.trim());
+      if (taskType) params.set("task_type", taskType);
       if (taskStatus) params.set("taskStatus", taskStatus);
       if (admin && owner.trim()) params.set("owner", owner.trim());
       const response = await apiFetch(`${admin ? "/admin/tasks" : "/agent/tasks"}?${params}`, { cache: "no-store" });
@@ -103,6 +105,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
         <form onSubmit={event => { event.preventDefault(); void load(1); }} className="inline-search task-search">
           <input value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索需求内容" />
           {admin && <input value={owner} onChange={event => setOwner(event.target.value)} placeholder="创建人 / 部门" />}
+          <select value={taskType} onChange={event => setTaskType(event.target.value)} aria-label="任务类型"><option value="">全部类型</option><option value="partner_match">伙伴匹配</option><option value="development_plan">发展方案</option></select>
           <select value={taskStatus} onChange={event => setTaskStatus(event.target.value)} aria-label="任务状态">
             <option value="">全部状态</option>
             {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -112,10 +115,10 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
       </section>
       <section className="card">
         {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load(page)}>重试</button></div>}
-        {loading ? <p>加载中...</p> : items.length === 0 ? <div className="empty-state"><h2>{archived ? "暂无已归档任务" : "暂无任务"}</h2><p>{admin ? "当前筛选条件下没有任务。" : "前往开启新任务，完成第一次伙伴匹配。"}</p>{!admin && <Link href="/" className="btn-primary-lg">开启新任务</Link>}</div> : (
+        {loading ? <p>加载中...</p> : items.length === 0 ? <div className="empty-state"><h2>{archived ? "暂无已归档任务" : "暂无任务"}</h2><p>{taskType === "development_plan" ? "发展方案生成尚未开放，当前没有此类型任务。" : admin ? "当前筛选条件下没有任务。" : "前往开启新任务，完成第一次伙伴匹配。"}</p>{!admin && taskType !== "development_plan" && <Link href="/" className="btn-primary-lg">开启新任务</Link>}</div> : (
           <>
-            <div className="table-wrap"><table className="data-table"><thead><tr><th>需求摘要</th>{admin && <><th>创建人</th><th>部门</th></>}<th>状态</th><th>首选伙伴</th><th>推荐数</th><th>机会完整度</th><th>创建时间</th><th>操作</th></tr></thead><tbody>
-              {items.map(item => <tr key={item.id}><td className="task-requirement">{item.requirement}</td>{admin && <><td>{item.ownerName || "-"}</td><td>{item.department || "-"}</td></>}<td><span className={`status-badge task-${item.taskStatus}`} title={errorStageText(item.lastErrorStage)}>{statusLabels[item.taskStatus]}</span></td><td>{item.topPartner}</td><td>{item.partnerCount}</td><td>{item.completenessScore == null ? "-" : `${item.completenessScore}%`}</td><td>{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td><div className="table-actions"><Link href={`/tasks/${item.id}${admin ? "?from=admin" : ""}`} className="secondary-btn">详情</Link>{(item.taskStatus === "partial" || item.taskStatus === "failed") && <button className="secondary-btn" disabled={retryingId === item.id} onClick={() => void retry(item)}>{retryingId === item.id ? "重试中..." : "重试"}</button>}<button className="secondary-btn" onClick={() => void toggleArchive(item)}>{item.archivedAt ? "恢复" : "归档"}</button></div></td></tr>)}
+            <div className="table-wrap"><table className="data-table"><thead><tr><th>需求摘要</th><th>任务类型</th>{admin && <><th>创建人</th><th>部门</th></>}<th>状态</th><th>首选伙伴</th><th>推荐数</th><th>机会完整度</th><th>创建时间</th><th>操作</th></tr></thead><tbody>
+              {items.map(item => <tr key={item.id}><td className="task-requirement">{item.requirement}</td><td>{item.task_type === "development_plan" ? "发展方案" : "伙伴匹配"}</td>{admin && <><td>{item.ownerName || "-"}</td><td>{item.department || "-"}</td></>}<td><span className={`status-badge task-${item.taskStatus}`} title={errorStageText(item.lastErrorStage)}>{statusLabels[item.taskStatus]}</span></td><td>{item.topPartner}</td><td>{item.partnerCount}</td><td>{item.completenessScore == null ? "-" : `${item.completenessScore}%`}</td><td>{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td><div className="table-actions"><Link href={`/tasks/${item.id}${admin ? "?from=admin" : ""}`} className="secondary-btn">详情</Link>{(item.taskStatus === "partial" || item.taskStatus === "failed") && <button className="secondary-btn" disabled={retryingId === item.id} onClick={() => void retry(item)}>{retryingId === item.id ? "重试中..." : "重试"}</button>}<button className="secondary-btn" onClick={() => void toggleArchive(item)}>{item.archivedAt ? "恢复" : "归档"}</button></div></td></tr>)}
             </tbody></table></div>
             <div className="pagination"><span>共 {total} 条</span><button className="secondary-btn" disabled={page <= 1} onClick={() => void load(page - 1)}>上一页</button><span>第 {page} / {Math.max(1, totalPages)} 页</span><button className="secondary-btn" disabled={page >= totalPages} onClick={() => void load(page + 1)}>下一页</button></div>
           </>

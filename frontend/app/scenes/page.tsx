@@ -10,6 +10,7 @@ type CategoryFilter = (typeof SCENE_CATEGORIES)[number];
 
 const STATUS_TEXT = {
   ready: "可使用",
+  preparation: "可整理诉求",
   embedded: "随匹配生成",
   building: "能力建设中",
 } as const;

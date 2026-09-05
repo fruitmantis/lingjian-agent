@@ -975,3 +975,41 @@ button:hover:not(:disabled) { background: var(--primary-hover); }
   .workspace-layout .sidebar-task-list > :not(.pending-task) { display: none; }
   .workspace-layout .sidebar-all-tasks { margin: 0; }
 }
+
+/* Enablement remains inside the existing workspace shell and brand tokens. */
+.enablement-page { min-width: 0; }
+.enablement-page h1 { overflow-wrap: anywhere; }
+.enablement-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 1px solid var(--border, #e5e7eb); padding-bottom: 8px; }
+.enablement-tabs a, .enablement-tabs button { padding: 10px 18px; border-radius: 8px; background: transparent; color: var(--text-secondary, #667085); border: 0; font-size: 14px; }
+.enablement-tabs [aria-current="page"], .enablement-tabs .active { color: var(--primary, #2676ff); background: var(--brand-soft, #edf4ff); font-weight: 600; }
+.enablement-context-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 20px; }
+.enablement-context-grid > *, .enablement-resource-grid > * { min-width: 0; }
+.enablement-field { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text-secondary, #667085); min-width: 0; }
+.enablement-field input, .enablement-field select, .enablement-field textarea { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #dce2eb; border-radius: 8px; background: white; color: var(--text-primary, #344054); font: inherit; }
+.enablement-field textarea { resize: vertical; line-height: 1.7; }
+.enablement-filter-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin-top: 18px; }
+.enablement-search { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.enablement-search > label { flex: 1 1 240px; }
+.enablement-search button { min-height: 39px; }
+.enablement-resource-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
+.enablement-resource-card { display: flex; flex-direction: column; gap: 12px; justify-content: space-between; }
+.enablement-resource-card h2 { font-size: 18px; margin-top: 16px; }
+.enablement-resource-card p { overflow-wrap: anywhere; }
+.enablement-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.enablement-actions > .muted:first-child { margin-right: auto; }
+.enablement-badge { display: inline-block; padding: 5px 10px; background: var(--brand-soft, #edf4ff); color: var(--primary, #2676ff); border-radius: 6px; font-size: 12px; }
+.enablement-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.enablement-tags span { padding: 3px 8px; border-radius: 5px; background: #f0f4f8; color: #53647a; font-size: 12px; }
+.enablement-facts { display: grid; grid-template-columns: 130px minmax(0,1fr); gap: 12px 18px; font-size: 14px; line-height: 1.7; }
+.enablement-facts dt { color: var(--text-secondary, #667085); }
+.enablement-facts dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.enablement-fact { display: contents; }
+.enablement-profile { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow-y: auto; line-height: 1.8; padding: 14px; background: #f8fafc; border-radius: 8px; margin: 16px 0; font-size: 14px; }
+.enablement-prose { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
+.enablement-page .notice-neutral { margin-bottom: 20px; }
+.enablement-page .card h3 { margin-top: 20px; }
+@media (max-width: 1450px) { .enablement-resource-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 1000px) { .enablement-filter-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .enablement-context-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .enablement-resource-grid { grid-template-columns: 1fr; } .enablement-facts { grid-template-columns: 100px minmax(0,1fr); } }
+
+.enablement-actions a.secondary-btn { display: inline-flex; align-items: center; padding: 9px 14px; border: 1px solid #dce2eb; border-radius: 8px; background: white; font-size: 14px; color: var(--primary, #2676ff); text-decoration: none; }

@@ -10,7 +10,7 @@ export const SCENE_CATEGORIES = [
 ] as const;
 
 export type SceneCategory = Exclude<(typeof SCENE_CATEGORIES)[number], "全部">;
-export type SceneAvailability = "ready" | "embedded" | "building";
+export type SceneAvailability = "ready" | "embedded" | "building" | "preparation";
 
 export type SceneDefinition = {
   id: string;
@@ -31,6 +31,27 @@ export type SceneDefinition = {
  * 用户视角的场景注册表。Scene 只映射 Skill，不包含路由、意图识别或执行编排。
  */
 export const SCENE_REGISTRY: readonly SceneDefinition[] = [
+  {
+    id: "partner-enablement-prepare", name: "制定伙伴服务能力发展方案",
+    description: "选择伙伴、查看来源资料并整理发展诉求，方案生成尚未开放。",
+    category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["整理伙伴服务能力发展诉求"],
+    tags: ["伙伴发展", "诉求整理"], enabled: true, sortOrder: 61,
+    availability: "preparation", actionHref: "/enablement", actionLabel: "整理发展诉求",
+  },
+  {
+    id: "enablement-resource-search", name: "查找课程与实验",
+    description: "按能力、岗位和访问条件检索当前已发布的课程与实验资源。",
+    category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["查找数据库迁移课程与实验"],
+    tags: ["课程", "实验", "资源检索"], enabled: true, sortOrder: 62,
+    availability: "ready", actionHref: "/enablement?tab=resources&resource_type=course", actionLabel: "查找资源",
+  },
+  {
+    id: "enablement-shared-cases", name: "学习优秀伙伴案例",
+    description: "查看已核验的共享学习版本，了解贡献伙伴的实践方法与实际角色。",
+    category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["查找可学习的伙伴实践案例"],
+    tags: ["共享案例", "实践方法"], enabled: true, sortOrder: 63,
+    availability: "ready", actionHref: "/enablement?tab=resources&resource_type=case", actionLabel: "查看共享案例",
+  },
   {
     id: "ai-project-partner-recommendation",
     name: "AI项目伙伴推荐",

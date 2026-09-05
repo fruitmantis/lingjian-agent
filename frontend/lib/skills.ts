@@ -8,6 +8,7 @@ export const SKILL_CATEGORIES = [
 export type SkillCategory = (typeof SKILL_CATEGORIES)[number];
 
 export type SkillId =
+  | "enablement_workspace"
   | "partner_match"
   | "partner_profile"
   | "partner_capability_analysis"
@@ -33,6 +34,13 @@ export type SkillDefinition = {
  * enabled=false 表示当前没有可独立执行的底层能力。
  */
 export const SKILL_REGISTRY: readonly SkillDefinition[] = [
+  {
+    id: "enablement_workspace", name: "能力发展资料准备与资源检索", category: "能力发展",
+    description: "读取当前伙伴及来源上下文，检索获准查看的课程、实验和共享案例；不生成方案。",
+    tags: ["诉求整理", "资源检索"], enabled: true,
+    capabilityReference: "GET /enablement/context、GET /enablement/resources",
+    inputDefinition: "伙伴、来源任务或共享案例标识，以及资源筛选条件",
+  },
   {
     id: "partner_match",
     name: "伙伴智能匹配",

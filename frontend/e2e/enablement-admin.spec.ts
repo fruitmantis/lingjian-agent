@@ -92,7 +92,7 @@ test('SEC-03 user cannot access resource or sharing admin pages/API',async({page
 for(const width of [1366,1920]){
  test(`ACC-02/03 Phase A screenshots ${width}`,async({page,request})=>{
   await login(page,request);await page.setViewportSize({width,height:width===1366?768:1080});
-  const directory=path.resolve('../artifacts/enablement');await mkdir(directory,{recursive:true});
+  const directory=path.resolve('../.isolation/evidence/phase-a-regression');await mkdir(directory,{recursive:true});
   for(const [name,url] of [['resource-list','/admin/resources'],['case-sharing','/admin/partners/partner-1/cases/case-1/sharing']]){
     await page.goto(url);await expect(page.getByRole('heading',{level:1})).toBeVisible();
     await expect(page.getByText('加载配置中…')).toHaveCount(0);
