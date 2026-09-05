@@ -56,6 +56,7 @@ test('RES-02/03 search filters details and unknown metadata use current resource
   await expect(page.getByRole('heading',{level:1})).toHaveText('数据库迁移基础课程（合成验证）');
   await expect(page.locator('.enablement-fact').filter({hasText:'预计投入'})).toContainText('未知');
   await expect(page.getByRole('heading',{name:'来源与人工核验',exact:true})).toBeVisible();
+  await expect(page.locator('dt').filter({hasText:'核验人'}).locator('+ dd')).toHaveText('管理员一');
   await page.getByRole('link',{name:'返回资源中心',exact:true}).click();
   await page.getByRole('tab',{name:'实验',exact:true}).click();
   await expect(page.getByRole('link',{name:'数据库迁移演练实验（合成验证）',exact:true})).toBeVisible();

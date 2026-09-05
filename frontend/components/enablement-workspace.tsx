@@ -11,7 +11,7 @@ type Resource = {
   language?: string; site?: string; prerequisites?: string; duration_minutes?: number | null;
   cost?: string; account_requirement?: string; environment_requirement?: string; source_platform: string;
   source_url: string; capabilities: {id: string; name: string}[]; status: string; availability: string;
-  review: { reviewed_at: string; link_status: string; content_checked: number; authorization_checked: number } | null;
+  review: { reviewer_name: string; reviewed_at: string; link_status: string; content_checked: number; authorization_checked: number } | null;
   contributor_name?: string; contributor_id?: string; contributor_role?: string; methods?: string;
 };
 type Context = { partner: { id: string; name: string; intro: string | null; capabilities: string | null; industries: string | null; service_areas: string | null; ai_profile: string | null } | null;
@@ -127,7 +127,7 @@ export function ResourceDetail({type,id}:{type:string;id:string}) {
     <section className="card"><h2>资源信息</h2><div className="enablement-tags">{r.capabilities.map(c=><span key={c.id}>{c.name}</span>)}</div><dl className="enablement-facts">
     {[["适用对象",r.audience],["目标能力 / 用途",r.target_capability||r.methods],["产品 / 技术方向",r.product_direction],["难度",r.difficulty],["语言 / 站点",`${display(r.language)} / ${display(r.site)}`],["先修条件",r.prerequisites],["预计投入",r.duration_minutes?`${r.duration_minutes} 分钟`:null],["费用",r.cost],["账号条件",r.account_requirement],["环境条件",r.environment_requirement]].map(([label,value])=><div className="enablement-fact" key={label}><dt>{label}</dt><dd>{display(value)}</dd></div>)}
     </dl>{r.source_type==="case"&&<div className="notice-neutral"><h3>贡献伙伴及实际角色</h3><Link href={`/partners/${encodeURIComponent(r.contributor_id||"")}`}>{r.contributor_name}</Link><p>{r.contributor_role}</p><Link href={`/enablement?case_id=${encodeURIComponent(r.source_id)}&case_version=${r.source_version}`}>围绕此案例制定发展方案</Link><p className="muted">当前入口用于选择目标伙伴并整理诉求，尚不生成方案。</p></div>}</section>
-    <section className="card"><h2>来源与人工核验</h2><dl className="enablement-facts"><dt>来源平台</dt><dd>{r.source_platform}</dd><dt>外部来源</dt><dd className="enablement-url">{r.source_url}</dd><dt>共享 / 资源版本</dt><dd>{r.source_version}</dd><dt>人工核验时间</dt><dd>{r.review?new Date(r.review.reviewed_at).toLocaleString("zh-CN"):"未知"}</dd><dt>核验内容</dt><dd>{r.review?.content_checked&&r.review.authorization_checked?"内容、能力映射及用途授权已人工核验":"未知"}</dd></dl><p className="muted">可用状态来自人工核验，外部平台当前响应及访问权限仍以源站为准。</p><button disabled={jumping} onClick={()=>void redirect()}>{jumping?"正在发起跳转…":"发起跳转"}</button></section>
+    <section className="card"><h2>来源与人工核验</h2><dl className="enablement-facts"><dt>来源平台</dt><dd>{r.source_platform}</dd><dt>外部来源</dt><dd className="enablement-url">{r.source_url}</dd><dt>共享 / 资源版本</dt><dd>{r.source_version}</dd><dt>发布核验时间</dt><dd>{r.review?new Date(r.review.reviewed_at).toLocaleString("zh-CN"):"未知"}</dd><dt>核验人</dt><dd>{display(r.review?.reviewer_name)}</dd><dt>核验内容</dt><dd>{r.review?.content_checked&&r.review.authorization_checked?"内容、能力映射及用途授权已人工核验":"未知"}</dd></dl><p className="muted">可用状态来自人工核验，外部平台当前响应及访问权限仍以源站为准。</p><button disabled={jumping} onClick={()=>void redirect()}>{jumping?"正在发起跳转…":"发起跳转"}</button></section>
     </>}{event&&<p role="status">{event}</p>}</div>;
 }
 

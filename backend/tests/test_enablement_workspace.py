@@ -19,6 +19,8 @@ def test_catalog_auth_unknown_filters_and_published_snapshot(client,admin,metada
     item=r.json()['items'][0]
     assert item['audience']=='未知' and item['duration_minutes'] is None
     assert item['status']=='published' and item['review']['content_checked']==1
+    assert item['review']['reviewer_name']=='resource-admin'
+    assert 'reviewer_id' not in item['review']
     assert not {'draft_json','model_allowed','partner_allowed','reviewer_id'} & item.keys()
     for query,count in [('q=合成',1),('q=不存在',0),('source_type=lab',0),('audience=未知',1),('difficulty=unknown',1),('status=unpublished',0),('page=2',0),('capability_tag_id=missing',0)]:
         assert len(client.get('/enablement/resources?'+query,headers=h).json()['items'])==count
@@ -131,3 +133,49 @@ def test_v11_transaction_failure_recovery_and_idempotence(tmp_path,fail_at):
         assert conn.execute('SELECT value FROM app_metadata').fetchone()[0]=='11'
         assert conn.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
         assert conn.execute('PRAGMA foreign_key_check').fetchall()==[]
+
+
+def test_catalog_3000_published_resources_search_p95(client,admin,metadata):
+    from backend.app.enablement_catalog import catalog
+    resource=published(grant(create(admin,metadata),admin),admin)
+    case=published(grant(create(admin,metadata,'case'),admin,'case'),admin,'case')
+    with get_db() as conn:
+        for kind,row,count in [('resource',resource,1999),('case',case,999)]:
+            table,versions,key=service.TABLES[kind]
+            head=dict(conn.execute(f'SELECT * FROM {table} WHERE {key}=?',(row['source_id'],)).fetchone())
+            version=dict(conn.execute(f'SELECT * FROM {versions} WHERE source_id=?',(row['source_id'],)).fetchone())
+            for index in range(count):
+                source_id=f'performance-{kind}-{index}'
+                payload=json.loads(version['payload_json']);payload['title']=f'迁移资源 {index}'
+                if kind=='resource': payload['resource_type']='course' if index%2 else 'lab'
+                else: conn.execute('INSERT INTO cases VALUES (?,?,?,?,?)',(source_id,'partner-1','内部标题','不可共享正文','2026'))
+                cloned={**head,key:source_id};snapshot={**version,'source_id':source_id,'payload_json':json.dumps(payload,ensure_ascii=False)}
+                for target,values in [(table,cloned),(versions,snapshot)]:
+                    conn.execute(f"INSERT INTO {target} ({','.join(values)}) VALUES ({','.join('?' for _ in values)})",list(values.values()))
+    assert catalog()['total']==3000
+    elapsed=[]
+    for index in range(20):
+        started=time.perf_counter()
+        result=catalog(q='迁移',capability_tag_id=metadata['capability_tag_ids'][0],page=index%3+1)
+        elapsed.append(time.perf_counter()-started)
+        assert result['total']==2998 and len(result['items'])==12
+    p95=sorted(elapsed)[18]
+    print(f'\nNFR-02: 2000 course/lab + 1000 shared cases; 20 searches; P95={p95:.4f}s')
+    assert p95<2
+
+
+def test_real_v10_snapshot_v11_replay_preserves_all_existing_rows(tmp_path):
+    from backend.tests.test_enablement_migration import state
+    source=Path(__file__).resolve().parents[2]/'.isolation/snapshots/phase-b-pre-v11.db'
+    if not source.exists(): pytest.skip('Private v10 runtime snapshot not available in this checkout')
+    target=tmp_path/'v11-replay.db'
+    with sqlite3.connect(source.as_uri()+'?mode=ro',uri=True) as src,sqlite3.connect(target) as dst:src.backup(dst)
+    with sqlite3.connect(target) as conn:
+        before=state(conn);fk=conn.execute('PRAGMA foreign_key_check').fetchall()
+        migrate_to_v11(conn);migrate_to_v11(conn)
+        after=state(conn)
+        assert all(after[table]==digest for table,digest in before.items())
+        assert conn.execute('PRAGMA foreign_key_check').fetchall()==fk
+        assert conn.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+        assert conn.execute('SELECT count(*) FROM resource_redirect_events').fetchone()[0]==0
+        print(f'\nV10->V11 replay: {len(before)} original tables retained, existing FK anomalies={len(fk)}, new=0')

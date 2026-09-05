@@ -38,9 +38,11 @@ def public_detail(conn, source_type, source_id, version=None):
         raise HTTPException(404,'资源不存在或当前不可用，请重新选择') from error
     _, versions, _ = service.TABLES[kind]
     snapshot = conn.execute(f'SELECT * FROM {versions} WHERE source_id=? AND version=?',(source_id,current)).fetchone()
-    review = conn.execute('''SELECT reviewed_at,link_status,content_checked,authorization_checked
-        FROM enablement_reviews WHERE source_kind=? AND source_id=? AND revision=?
-        ORDER BY reviewed_at DESC,id DESC LIMIT 1''',(kind,source_id,snapshot['reviewed_revision'])).fetchone()
+    review = conn.execute('''SELECT r.reviewed_at,r.link_status,r.content_checked,r.authorization_checked,
+        COALESCE(NULLIF(u.display_name,''),'未记录') AS reviewer_name
+        FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id
+        WHERE r.source_kind=? AND r.source_id=? AND r.revision=?
+        ORDER BY r.reviewed_at DESC,r.id DESC LIMIT 1''',(kind,source_id,snapshot['reviewed_revision'])).fetchone()
     data.update(status='published',availability='available' if review and review['link_status']=='available' else 'unknown',
                 published_at=snapshot['published_at'],review=dict(review) if review else None)
     data['capabilities'] = [dict(conn.execute('SELECT id,name FROM capability_tags WHERE id=?',(tag,)).fetchone()) for tag in data['capability_tag_ids']]
