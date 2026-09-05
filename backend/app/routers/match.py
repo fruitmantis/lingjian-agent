@@ -4,6 +4,7 @@ import json
 import math
 import re
 import uuid
+from typing import Literal
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
@@ -68,6 +69,7 @@ class MatchResponse(BaseModel):
 
 
 class MatchRecordSummary(BaseModel):
+    task_type: Literal["partner_match"] = "partner_match"
     id: str
     requirement: str
     topPartner: str
@@ -90,6 +92,7 @@ class TaskListResponse(BaseModel):
 
 
 class MatchRecordDetail(BaseModel):
+    task_type: Literal["partner_match"] = "partner_match"
     id: str
     requirement: str
     recommendations: list[PartnerRecommendation]
@@ -136,8 +139,10 @@ def _query_tasks(
     *, owner_user_id: str | None, archived: bool, keyword: str | None,
     owner_keyword: str | None, task_status: str | None, page: int, page_size: int,
     before_created_at: str | None = None, before_id: str | None = None,
-    ids: list[str] | None = None,
+    ids: list[str] | None = None, task_type: str | None = None,
 ) -> TaskListResponse:
+    if task_type == "development_plan":
+        return TaskListResponse(items=[], page=page, pageSize=page_size, total=0, totalPages=0)
     recover_stale_tasks(owner_user_id=owner_user_id)
     conditions = ["mr.archived_at IS NOT NULL" if archived else "mr.archived_at IS NULL"]
     params: list[object] = []
@@ -189,7 +194,7 @@ def _query_tasks(
 
 @router.get("/tasks", response_model=TaskListResponse)
 def list_match_records(
-    archive_status: str = Query("active", alias="status", pattern="^(active|archived)$"),
+    task_type: Literal["partner_match", "development_plan"] | None = None,    archive_status: str = Query("active", alias="status", pattern="^(active|archived)$"),
     keyword: str | None = None,
     task_status: str | None = Query(None, alias="taskStatus", pattern="^(matching|enriching|ready|partial|failed)$"),
     page: int = Query(1, ge=1),
@@ -203,14 +208,14 @@ def list_match_records(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="任务查询参数无效")
     return _query_tasks(
         owner_user_id=user["id"], archived=archive_status == "archived", keyword=keyword,
-        owner_keyword=None, task_status=task_status, page=page, page_size=page_size,
+        owner_keyword=None, task_status=task_status, page=page, page_size=page_size, task_type=task_type,
         before_created_at=before_created_at, before_id=before_id, ids=ids,
     )
 
 
 @admin_router.get("/tasks", response_model=TaskListResponse)
 def list_admin_tasks(
-    archive_status: str = Query("active", alias="status", pattern="^(active|archived)$"),
+    task_type: Literal["partner_match", "development_plan"] | None = None,    archive_status: str = Query("active", alias="status", pattern="^(active|archived)$"),
     keyword: str | None = None,
     owner: str | None = None,
     task_status: str | None = Query(None, alias="taskStatus", pattern="^(matching|enriching|ready|partial|failed)$"),
@@ -220,7 +225,7 @@ def list_admin_tasks(
 ) -> TaskListResponse:
     return _query_tasks(
         owner_user_id=None, archived=archive_status == "archived", keyword=keyword,
-        owner_keyword=owner, task_status=task_status, page=page, page_size=page_size,
+        owner_keyword=owner, task_status=task_status, page=page, page_size=page_size, task_type=task_type,
     )
 
 

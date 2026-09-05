@@ -338,5 +338,6 @@ def initialize_storage() -> None:
         connection.execute("CREATE INDEX IF NOT EXISTS idx_demand_profiles_match ON demand_profiles(match_record_id)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_project_opportunities_match ON project_opportunities(match_record_id)")
         connection.commit()
-        from .enablement_schema import migrate_to_v10
+        from .enablement_schema import migrate_to_v10, migrate_to_v11
         migrate_to_v10(connection)
+        migrate_to_v11(connection)

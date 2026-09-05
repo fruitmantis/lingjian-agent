@@ -28,7 +28,7 @@ def maintenance(tmp_path, monkeypatch, client):
     # The maintenance command deliberately remains v9-only. Recreate that exact
     # legacy schema in this synthetic test DB; do not relax the production guard.
     with database.get_db() as conn:
-        for table in ("resource_capability_map", "enablement_resource_versions", "case_share_versions",
+        for table in ("resource_redirect_events", "resource_capability_map", "enablement_resource_versions", "case_share_versions",
                       "enablement_reviews", "enablement_audit_events", "enablement_resources", "case_share_configs"):
             assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
             conn.execute(f"DROP TABLE {table}")

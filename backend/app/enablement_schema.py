@@ -59,3 +59,26 @@ def migrate_to_v10(connection: sqlite3.Connection) -> None:
     except Exception:
         connection.rollback()
         raise
+
+
+def migrate_to_v11(connection: sqlite3.Connection) -> None:
+    """Only redirect initiation is recorded; no external learning state is inferred."""
+    version = int(connection.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0])
+    if version >= 11:
+        return
+    if version != 10:
+        raise RuntimeError('Catalog migration requires schema v10')
+    connection.commit()
+    try:
+        connection.execute('BEGIN IMMEDIATE')
+        connection.execute("""CREATE TABLE resource_redirect_events (
+            id TEXT PRIMARY KEY, actor_user_id TEXT NOT NULL REFERENCES users(id),
+            source_type TEXT NOT NULL CHECK(source_type IN ('course','lab','case')),
+            source_id TEXT NOT NULL, source_version INTEGER NOT NULL CHECK(source_version > 0),
+            event_type TEXT NOT NULL CHECK(event_type='redirect_initiated'), created_at TEXT NOT NULL)""")
+        connection.execute('CREATE INDEX idx_resource_redirect_actor ON resource_redirect_events(actor_user_id,created_at)')
+        connection.execute("UPDATE app_metadata SET value='11' WHERE key='schema_version'")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
