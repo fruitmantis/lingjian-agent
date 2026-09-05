@@ -30,7 +30,12 @@ def stop():
     for item in reversed(items):
         if owned(item) and os.getpgid(item['pid']) == item['pid']:
             os.killpg(item['pid'], signal.SIGTERM)
-    print('Stopped only verified isolated process groups; old services untouched')
+    for _ in range(50):
+        if not any(owned(item) for item in items):
+            print('Stopped only verified isolated process groups; old services untouched')
+            return
+        time.sleep(0.1)
+    raise SystemExit('Some isolated processes are still exiting; no unrelated process was signalled')
 
 def start():
     if STATE.exists() and any(owned(i) for i in json.loads(STATE.read_text())):

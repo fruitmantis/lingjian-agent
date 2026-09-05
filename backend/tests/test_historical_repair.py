@@ -25,6 +25,15 @@ def model_output(messages):
 
 @pytest.fixture
 def maintenance(tmp_path, monkeypatch, client):
+    # The maintenance command deliberately remains v9-only. Recreate that exact
+    # legacy schema in this synthetic test DB; do not relax the production guard.
+    with database.get_db() as conn:
+        for table in ("resource_capability_map", "enablement_resource_versions", "case_share_versions",
+                      "enablement_reviews", "enablement_audit_events", "enablement_resources", "case_share_configs"):
+            assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0
+            conn.execute(f"DROP TABLE {table}")
+        conn.execute("UPDATE app_metadata SET value='9' WHERE key='schema_version'")
+
     owner = make_user("repair_owner")
     other = make_user("repair_other")
     make_partner()

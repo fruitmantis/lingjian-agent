@@ -337,5 +337,6 @@ def initialize_storage() -> None:
         connection.execute("CREATE INDEX IF NOT EXISTS idx_match_records_archive_created ON match_records(archived_at, created_at DESC)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_demand_profiles_match ON demand_profiles(match_record_id)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_project_opportunities_match ON project_opportunities(match_record_id)")
-        connection.execute("UPDATE app_metadata SET value = '9' WHERE key = 'schema_version'")
         connection.commit()
+        from .enablement_schema import migrate_to_v10
+        migrate_to_v10(connection)
