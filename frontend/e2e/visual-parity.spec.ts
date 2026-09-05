@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Browser } from "@playwright/
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const API_BASE = "http://127.0.0.1:18000";
+const API_BASE = "http://127.0.0.1:8100";
 const DEFAULT_PASSWORD = "ValidationPass123";
 
 type LoginResult = { access_token: string; user: Record<string, unknown> };
@@ -14,7 +14,7 @@ async function apiLogin(request: APIRequestContext, username: string): Promise<L
 }
 
 test("capture cloudbao visual parity pages and validate browser health", async ({ browser, request }) => {
-  const screenshotRoot = path.resolve(process.cwd(), "../artifacts/visual-validation");
+  const screenshotRoot = path.resolve(process.cwd(), "../.isolation/evidence/visual-regression");
   await mkdir(screenshotRoot, { recursive: true });
   const sessions = new Map<string, LoginResult>();
   sessions.set("user_a", await apiLogin(request, "user_a"));

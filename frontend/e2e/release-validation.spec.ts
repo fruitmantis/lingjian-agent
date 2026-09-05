@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Browser, type Page } from "@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const API_BASE = "http://127.0.0.1:18000";
+const API_BASE = "http://127.0.0.1:8100";
 const DEFAULT_PASSWORD = "ValidationPass123";
 
 type LoginResult = { access_token: string; user: Record<string, unknown> };
@@ -195,7 +195,7 @@ test("E2E-009 workbench and key admin pages handle upstream and backend outages"
 
   const adminUsers = await loggedPage(browser, request, "admin1");
   adminUsers.page.on("pageerror", error => pageErrors.push(error.message));
-  await adminUsers.page.route(/^http:\/\/127\.0\.0\.1:18000\/admin\/users\?/, route => route.abort("connectionrefused"));
+  await adminUsers.page.route(/^http:\/\/127\.0\.0\.1:8100\/admin\/users\?/, route => route.abort("connectionrefused"));
   await adminUsers.page.goto("/admin/users");
   await expect(adminUsers.page.getByText(/用户加载失败|网络连接中断/)).toBeVisible();
   await expect(adminUsers.page.getByText("加载中...")).toHaveCount(0);
@@ -231,7 +231,7 @@ for (const viewport of [
   { width: 1366, height: 768 }, { width: 1024, height: 768 },
 ]) {
   test(`E2E-008-${viewport.width} key pages render without page-level overflow`, async ({ browser, request }) => {
-    const screenshotRoot = process.env.VALIDATION_SCREENSHOT_DIR || path.resolve(process.cwd(), "../artifacts/validation/screenshots");
+    const screenshotRoot = process.env.VALIDATION_SCREENSHOT_DIR || path.resolve(process.cwd(), "../.isolation/evidence/regression");
     await mkdir(screenshotRoot, { recursive: true });
     const routes = [
       { name: "login", url: "/login", user: null },

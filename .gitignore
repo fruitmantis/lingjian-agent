@@ -32,3 +32,6 @@ data/uploads/*
 .DS_Store
 Thumbs.db
 frontend/app/**/page.ts
+
+# Isolated development data, configuration, evidence and logs
+.isolation/

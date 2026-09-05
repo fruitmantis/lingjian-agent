@@ -1,7 +1,7 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { fetchWithTimeout, requestTimeoutMs, responseError } from "../lib/api-request";
 
-const API = "http://127.0.0.1:18000";
+const API = "http://127.0.0.1:8100";
 
 async function login(page: Page, request: APIRequestContext, username = "admin1") {
   const response = await request.post(`${API}/auth/login`, { data: { username, password: "ValidationPass123" } });
