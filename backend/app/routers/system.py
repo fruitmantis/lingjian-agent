@@ -1,16 +1,15 @@
 """System status monitoring router."""
 
-import os
-import time
+import math
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from ..database import get_db, DATABASE_PATH
-from ..ai_client import chat_completion
-from ..model_resolver import resolve_model_config, get_config_source_label
+from ..database import get_readonly_db
+from ..ai_client import model_error_message
+from ..model_resolver import ModelConfigurationError, resolve_model_config
 from ..auth import require_admin
 
 
@@ -53,103 +52,94 @@ class SystemStatusResponse(BaseModel):
 
 def _check_services() -> list[ServiceStatus]:
     return [
-        ServiceStatus(name="后端服务", status="normal", message="服务运行中"),
-        ServiceStatus(name="API 连通性", status="normal", message="API 接口可访问"),
-        ServiceStatus(name="前端访问", status="normal", message="前端页面可访问"),
-        ServiceStatus(name="健康检查", status="normal", message=f"最近检查: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"),
+        ServiceStatus(name="后端服务", status="normal", message="本次请求已响应"),
+        ServiceStatus(name="API 连通性", status="normal", message="管理状态接口可访问"),
+        ServiceStatus(name="前端访问", status="unknown", message="未执行独立可用性探测"),
+        ServiceStatus(name="健康检查", status="unknown", message="未执行独立健康探测"),
     ]
 
 
 def _check_database() -> tuple[list[ServiceStatus], bool]:
-    items = []
-    has_error = False
     try:
-        with get_db() as conn:
-            conn.execute("SELECT 1").fetchone()
-            items.append(ServiceStatus(name="数据库连接", status="normal", message="连接正常"))
-            conn.execute("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER)")
-            conn.execute("INSERT OR REPLACE INTO _health_check (id) VALUES (1)")
-            conn.execute("DELETE FROM _health_check WHERE id = 1")
-            items.append(ServiceStatus(name="数据库读写", status="normal", message="读写正常"))
-    except Exception as e:
-        has_error = True
-        items.append(ServiceStatus(name="数据库连接", status="error", message=f"连接异常: {e}"))
-        items.append(ServiceStatus(name="数据库读写", status="unknown", message="无法检测"))
-    return items, has_error
+        with get_readonly_db() as conn:
+            conn.execute("SELECT id FROM partners LIMIT 1").fetchone()
+        return [
+            ServiceStatus(name="数据库连接", status="normal", message="只读查询成功"),
+            ServiceStatus(name="数据库写入", status="unknown", message="本页不执行写入测试"),
+        ], False
+    except Exception:
+        return [
+            ServiceStatus(name="数据库连接", status="error", message="数据库读取失败，请检查存储与访问权限"),
+            ServiceStatus(name="数据库写入", status="unknown", message="本页不执行写入测试"),
+        ], True
+
+
+def _safe_endpoint(base_url: str) -> str | None:
+    try:
+        parsed = urlparse(base_url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return None
+        host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
+        return f"{parsed.scheme}://{host}" + (f":{parsed.port}" if parsed.port else "")
+    except (TypeError, ValueError):
+        return None
+
+
+def _inspect_configuration(scene: str):
+    try:
+        cfg = resolve_model_config(scene, read_only=True)
+    except ModelConfigurationError as exc:
+        return None, model_error_message(exc)
+    except Exception:
+        return None, "模型配置读取失败，请管理员检查存储与配置"
+    if not cfg.api_key:
+        return cfg, "模型 API Key 未配置，请管理员检查模型配置"
+    if not cfg.model or not _safe_endpoint(cfg.base_url):
+        return cfg, "模型名称或接口地址无效，请管理员检查模型配置"
+    try:
+        valid_parameters = (math.isfinite(cfg.temperature) and cfg.temperature >= 0
+                            and math.isfinite(cfg.top_p) and 0 <= cfg.top_p <= 1
+                            and isinstance(cfg.max_tokens, int) and cfg.max_tokens > 0
+                            and isinstance(cfg.timeout_seconds, int) and cfg.timeout_seconds > 0)
+    except (TypeError, ValueError, OverflowError):
+        valid_parameters = False
+    if not valid_parameters:
+        return cfg, "模型参数无效，请管理员检查模型配置"
+    return cfg, ""
 
 
 def _check_llm() -> tuple[list[ServiceStatus], bool, str]:
-    items = []
-    has_error = False
-    error_msg = ""
-
-    cfg = resolve_model_config()
-    api_key = cfg.api_key
-    api_base = cfg.base_url
-    model = cfg.model
-    config_source = get_config_source_label()
-
-    # API Key
-    if api_key:
-        items.append(ServiceStatus(name="API Key", status="normal", message="已配置"))
-    else:
-        items.append(ServiceStatus(name="API Key", status="error", message="未配置"))
-        has_error = True
-        error_msg = "LLM API Key 未配置"
-
-    # Model name
-    items.append(ServiceStatus(name="当前模型", status="normal", message=f"{model}（{config_source}）"))
-
-    # API base (masked)
-    if api_base:
-        try:
-            parsed = urlparse(api_base)
-            masked = f"{parsed.scheme}://{parsed.hostname}" if parsed.hostname else api_base
-            items.append(ServiceStatus(name="模型接口地址", status="normal", message=f"{masked}（{config_source}）"))
-        except Exception:
-            items.append(ServiceStatus(name="模型接口地址", status="warning", message="地址格式异常"))
-    else:
-        items.append(ServiceStatus(name="模型接口地址", status="warning", message="未配置"))
-
-    # Test LLM call
-    if api_key:
-        try:
-            start = time.time()
-            chat_completion([{"role": "user", "content": "你好"}], timeout=10)
-            elapsed = round(time.time() - start, 2)
-            items.append(ServiceStatus(name="模型调用状态", status="normal", message="调用成功"))
-            items.append(ServiceStatus(name="最近调用耗时", status="normal", message=f"{elapsed}秒"))
-            items.append(ServiceStatus(name="最近错误信息", status="normal", message="暂无异常"))
-        except Exception as e:
-            has_error = True
-            err_str = str(e)[:200]
-            items.append(ServiceStatus(name="模型调用状态", status="error", message="调用失败"))
-            items.append(ServiceStatus(name="最近调用耗时", status="unknown", message="未完成"))
-            items.append(ServiceStatus(name="最近错误信息", status="error", message=err_str))
-            error_msg = err_str
-    else:
-        items.append(ServiceStatus(name="模型调用状态", status="error", message="无法调用（Key未配置）"))
-        items.append(ServiceStatus(name="最近调用耗时", status="unknown", message="未检测"))
-        items.append(ServiceStatus(name="最近错误信息", status="error", message="API Key 未配置"))
-
-    return items, has_error, error_msg
+    cfg, error_msg = _inspect_configuration("default")
+    if cfg is None:
+        return [ServiceStatus(name="模型配置", status="error", message=error_msg)], True, error_msg
+    source = "数据库配置" if cfg.source == "db" else "环境变量配置"
+    items = [
+        ServiceStatus(name="API Key", status="normal" if cfg.api_key else "error", message="已配置" if cfg.api_key else "未配置"),
+        ServiceStatus(name="当前模型", status="normal" if cfg.model else "error", message=f"{cfg.model or '未配置'}（{source}）"),
+        ServiceStatus(name="模型接口地址", status="normal" if _safe_endpoint(cfg.base_url) else "error", message=_safe_endpoint(cfg.base_url) or "地址无效"),
+        ServiceStatus(name="模型配置", status="error" if error_msg else "normal", message=error_msg or "基础配置已具备，实际调用尚未验证"),
+        ServiceStatus(name="模型调用状态", status="unknown", message="本页不调用模型；可在模型配置页手动测试连接"),
+        ServiceStatus(name="最近调用耗时", status="unknown", message="未采集调用耗时"),
+        ServiceStatus(name="最近错误信息", status="unknown", message="未采集模型调用日志"),
+    ]
+    return items, bool(error_msg), error_msg
 
 
 def _check_business() -> tuple[list[ServiceStatus], list[AbnormalModule]]:
     items = []
     abnormals = []
-    api_key = os.getenv("LLM_API_KEY", "")
-    if api_key:
-        items.append(ServiceStatus(name="伙伴画像生成", status="normal", message="可用（LLM已配置）"))
-        items.append(ServiceStatus(name="智能匹配", status="normal", message="可用（LLM已配置）"))
-    else:
-        items.append(ServiceStatus(name="伙伴画像生成", status="error", message="不可用（LLM未配置）"))
-        items.append(ServiceStatus(name="智能匹配", status="error", message="不可用（LLM未配置）"))
-        abnormals.append(AbnormalModule(
-            module="LLM 模型", status="error", message="LLM API Key 未配置",
-            impact="可能影响 AI 画像生成和智能匹配",
-            suggestion="请检查模型 API Key 和模型接口配置"
+    for scene, name in (("partner_profile", "伙伴画像生成"), ("partner_match", "智能匹配"),
+                        ("demand_profile", "需求画像与项目机会"), ("tag_suggestion", "标签建议")):
+        _, error_msg = _inspect_configuration(scene)
+        items.append(ServiceStatus(
+            name=name, status="error" if error_msg else "unknown",
+            message=error_msg or "场景配置已具备，实际调用尚未验证",
         ))
+        if error_msg:
+            abnormals.append(AbnormalModule(
+                module=name, status="error", message=error_msg,
+                impact=f"可能影响{name}", suggestion="请在模型配置页检查该业务场景绑定及模型参数",
+            ))
     return items, abnormals
 
 
@@ -185,11 +175,11 @@ def get_system_status() -> SystemStatusResponse:
     unknown_count = sum(1 for i in all_items if i.status == "unknown")
 
     # Determine overall status
-    if db_error or (llm_error and not api_key_exists()):
+    if db_error:
         overall = "error"
-    elif all_abnormals:
+    elif error_count or warning_count:
         overall = "partial"
-    elif unknown_count > len(all_items) / 2:
+    elif unknown_count:
         overall = "unknown"
     else:
         overall = "normal"
@@ -210,7 +200,3 @@ def get_system_status() -> SystemStatusResponse:
         businessCapabilities=biz_items,
         recentErrors=[a.message for a in all_abnormals[:3]],
     )
-
-
-def api_key_exists() -> bool:
-    return bool(os.getenv("LLM_API_KEY", ""))

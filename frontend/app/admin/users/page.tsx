@@ -52,6 +52,7 @@ export default function AdminUsersPage() {
   const [createForm, setCreateForm] = useState({ username: "", display_name: "", department: "", role: "user" });
   const [temporaryPassword, setTemporaryPassword] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -113,16 +114,31 @@ export default function AdminUsersPage() {
     }).catch(reason => setError(reason instanceof Error ? reason.message : "日志加载失败")).finally(() => setLoading(false));
   }, [tab]);
 
+  async function runAction(action: () => Promise<void>) {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try {
+      await action();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "操作失败，请稍后重试");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createUser(event: FormEvent) {
     event.preventDefault(); setError(null); setMessage(null);
-    const response = await apiFetch("/admin/users", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(createForm),
+    await runAction(async () => {
+      setTemporaryPassword(null);
+      const response = await apiFetch("/admin/users", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(createForm),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(data.detail || "创建失败"); return; }
+      setTemporaryPassword(data.temporaryPassword);
+      setCreateForm({ username: "", display_name: "", department: "", role: "user" });
+      await loadUsers(1);
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(data.detail || "创建失败"); return; }
-    setTemporaryPassword(data.temporaryPassword);
-    setCreateForm({ username: "", display_name: "", department: "", role: "user" });
-    void loadUsers(1);
   }
 
   function startEdit(user: User) {
@@ -132,59 +148,72 @@ export default function AdminUsersPage() {
 
   async function saveEdit(event: FormEvent) {
     event.preventDefault(); if (!editing) return;
-    const response = await apiFetch(`/admin/users/${editing.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm),
+    await runAction(async () => {
+      const response = await apiFetch(`/admin/users/${editing.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(editForm),
+      });
+      if (response.ok) { setEditing(null); await loadUsers(); }
+      else setError((await response.json().catch(() => ({}))).detail || "保存失败");
     });
-    if (response.ok) { setEditing(null); void loadUsers(); }
-    else setError((await response.json().catch(() => ({}))).detail || "保存失败");
   }
 
   async function toggleStatus(user: User) {
     const next = user.status === "active" ? "disabled" : "active";
     if (next === "disabled" && !confirm(`确定停用账号“${user.username}”？`)) return;
-    const response = await apiFetch(`/admin/users/${user.id}/status`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: next }),
+    await runAction(async () => {
+      const response = await apiFetch(`/admin/users/${user.id}/status`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: next }),
+      });
+      if (response.ok) await loadUsers();
+      else setError((await response.json().catch(() => ({}))).detail || "状态修改失败");
     });
-    if (response.ok) void loadUsers();
-    else setError((await response.json().catch(() => ({}))).detail || "状态修改失败");
   }
 
   async function resetPassword(user: User) {
     if (!confirm(`确定重置“${user.username}”的密码？其现有登录状态将立即失效。`)) return;
-    const response = await apiFetch(`/admin/users/${user.id}/reset-password`, { method: "POST" });
-    const data = await response.json().catch(() => ({}));
-    if (response.ok) { setTemporaryPassword(data.temporaryPassword); void loadUsers(); }
-    else setError(data.detail || "重置失败");
+    await runAction(async () => {
+      setTemporaryPassword(null);
+      const response = await apiFetch(`/admin/users/${user.id}/reset-password`, { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) { setTemporaryPassword(data.temporaryPassword); await loadUsers(); }
+      else setError(data.detail || "重置失败");
+    });
   }
 
   async function unlock(user: User) {
-    const response = await apiFetch(`/admin/users/${user.id}/unlock`, { method: "POST" });
-    if (response.ok) void loadUsers(); else setError("解锁失败");
+    await runAction(async () => {
+      const response = await apiFetch(`/admin/users/${user.id}/unlock`, { method: "POST" });
+      if (response.ok) await loadUsers(); else setError("解锁失败");
+    });
   }
 
   async function approveApplication(item: UserApplication) {
     if (!confirm(`确认批准“${item.display_name}”的账号申请？批准后账号 ${item.username} 将立即启用。`)) return;
-    setError(null); setMessage(null);
-    const response = await apiFetch(`/admin/user-applications/${item.id}/approve`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: null }),
+    await runAction(async () => {
+      setError(null); setMessage(null);
+      const response = await apiFetch(`/admin/user-applications/${item.id}/approve`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: null }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(data.detail || "批准失败"); return; }
+      setMessage(`账号 ${item.username} 已开通，申请人首次登录后需按提示更新密码。`);
+      await Promise.all([loadApplications(applicationPage), loadPendingTotal(), loadUsers(1)]);
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(data.detail || "批准失败"); return; }
-    setMessage(`账号 ${item.username} 已开通，申请人首次登录后需按提示更新密码。`);
-    await Promise.all([loadApplications(applicationPage), loadPendingTotal(), loadUsers(1)]);
   }
 
   async function rejectApplication(item: UserApplication) {
     const note = window.prompt(`请输入驳回“${item.display_name}”申请的原因（可留空）：`, "");
     if (note === null) return;
-    setError(null); setMessage(null);
-    const response = await apiFetch(`/admin/user-applications/${item.id}/reject`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: note || null }),
+    await runAction(async () => {
+      setError(null); setMessage(null);
+      const response = await apiFetch(`/admin/user-applications/${item.id}/reject`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: note || null }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(data.detail || "驳回失败"); return; }
+      setMessage(`账号 ${item.username} 的申请已驳回。`);
+      await Promise.all([loadApplications(applicationPage), loadPendingTotal()]);
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) { setError(data.detail || "驳回失败"); return; }
-    setMessage(`账号 ${item.username} 的申请已驳回。`);
-    await Promise.all([loadApplications(applicationPage), loadPendingTotal()]);
   }
 
   return (
@@ -211,21 +240,21 @@ export default function AdminUsersPage() {
             <div className="form-row"><label>显示名称</label><input value={createForm.display_name} onChange={event => setCreateForm(current => ({ ...current, display_name: event.target.value }))} required /></div>
             <div className="form-row"><label>所属部门</label><input value={createForm.department} onChange={event => setCreateForm(current => ({ ...current, department: event.target.value }))} /></div>
             <div className="form-row"><label>角色</label><select value={createForm.role} onChange={event => setCreateForm(current => ({ ...current, role: event.target.value }))}><option value="user">普通用户</option><option value="admin">管理员</option></select></div>
-            <div className="form-span-two"><button>创建用户并生成临时密码</button></div>
+            <div className="form-span-two"><button disabled={busy}>创建用户并生成临时密码</button></div>
           </form>
         </section>
         <section className="card">
           <div className="user-filter-row"><form onSubmit={event => { event.preventDefault(); void loadUsers(1); }} className="inline-search"><input value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索用户名或姓名" /><select value={role} onChange={event => setRole(event.target.value)}><option value="">全部角色</option><option value="user">普通用户</option><option value="admin">管理员</option></select><select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">全部状态</option><option value="active">启用</option><option value="disabled">停用</option></select><button>筛选</button></form><span className="result-count">共 {total} 个账号</span></div>
-          {loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>用户</th><th>部门</th><th>角色</th><th>状态</th><th>首次改密</th><th>最近登录</th><th>操作</th></tr></thead><tbody>{users.map(user => { const locked = Boolean(user.locked_until && new Date(user.locked_until) > new Date()); return <tr key={user.id}><td><Link href={`/admin/users/${user.id}`}><strong>{user.display_name || user.username}</strong></Link><small>{user.username}</small></td><td>{user.department || "-"}</td><td>{user.role === "admin" ? "管理员" : "普通用户"}</td><td><span className={`status-badge ${locked ? "locked" : user.status}`}>{locked ? "已锁定" : user.status === "active" ? "启用" : "停用"}</span></td><td>{user.must_change_password ? "待修改" : "已完成"}</td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("zh-CN") : "未登录"}</td><td><div className="table-actions"><button className="secondary-btn" onClick={() => startEdit(user)}>编辑</button><button className="secondary-btn" onClick={() => toggleStatus(user)}>{user.status === "active" ? "停用" : "启用"}</button><button className="secondary-btn" onClick={() => resetPassword(user)}>重置密码</button>{locked && <button className="secondary-btn" onClick={() => unlock(user)}>解锁</button>}</div></td></tr>; })}</tbody></table></div>}
+          {loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>用户</th><th>部门</th><th>角色</th><th>状态</th><th>首次改密</th><th>最近登录</th><th>操作</th></tr></thead><tbody>{users.map(user => { const locked = Boolean(user.locked_until && new Date(user.locked_until) > new Date()); return <tr key={user.id}><td><Link href={`/admin/users/${user.id}`}><strong>{user.display_name || user.username}</strong></Link><small>{user.username}</small></td><td>{user.department || "-"}</td><td>{user.role === "admin" ? "管理员" : "普通用户"}</td><td><span className={`status-badge ${locked ? "locked" : user.status}`}>{locked ? "已锁定" : user.status === "active" ? "启用" : "停用"}</span></td><td>{user.must_change_password ? "待修改" : "已完成"}</td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("zh-CN") : "未登录"}</td><td><div className="table-actions"><button className="secondary-btn" onClick={() => startEdit(user)}>编辑</button><button disabled={busy} className="secondary-btn" onClick={() => toggleStatus(user)}>{user.status === "active" ? "停用" : "启用"}</button><button disabled={busy} className="secondary-btn" onClick={() => resetPassword(user)}>重置密码</button>{locked && <button disabled={busy} className="secondary-btn" onClick={() => unlock(user)}>解锁</button>}</div></td></tr>; })}</tbody></table></div>}
           <div className="pagination"><button className="secondary-btn" disabled={page <= 1} onClick={() => loadUsers(page - 1)}>上一页</button><span>第 {page} / {Math.max(1, Math.ceil(total / 20))} 页</span><button className="secondary-btn" disabled={page * 20 >= total} onClick={() => loadUsers(page + 1)}>下一页</button></div>
         </section>
-        {editing && <div className="modal-backdrop"><form onSubmit={saveEdit} className="card modal-card"><h2>编辑用户：{editing.username}</h2><div className="form-row"><label>显示名称</label><input value={editForm.display_name} onChange={event => setEditForm(current => ({ ...current, display_name: event.target.value }))} required /></div><div className="form-row"><label>所属部门</label><input value={editForm.department} onChange={event => setEditForm(current => ({ ...current, department: event.target.value }))} /></div><div className="form-row"><label>角色</label><select value={editForm.role} onChange={event => setEditForm(current => ({ ...current, role: event.target.value }))}><option value="user">普通用户</option><option value="admin">管理员</option></select></div><div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditing(null)}>取消</button><button>保存</button></div></form></div>}
+        {editing && <div className="modal-backdrop"><form onSubmit={saveEdit} className="card modal-card"><h2>编辑用户：{editing.username}</h2><div className="form-row"><label>显示名称</label><input value={editForm.display_name} onChange={event => setEditForm(current => ({ ...current, display_name: event.target.value }))} required /></div><div className="form-row"><label>所属部门</label><input value={editForm.department} onChange={event => setEditForm(current => ({ ...current, department: event.target.value }))} /></div><div className="form-row"><label>角色</label><select value={editForm.role} onChange={event => setEditForm(current => ({ ...current, role: event.target.value }))}><option value="user">普通用户</option><option value="admin">管理员</option></select></div><div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditing(null)}>取消</button><button disabled={busy}>保存</button></div></form></div>}
       </>}
 
       {tab === "applications" && <section className="card">
         <div className="section-heading-row"><div><h2>内部账号申请</h2><p>核验姓名、部门和企业身份后，一键批准即可开通普通用户账号。</p></div><span className="result-count">当前筛选共 {applicationTotal} 条</span></div>
         <form onSubmit={event => { event.preventDefault(); void loadApplications(1); }} className="inline-search application-filter"><input value={applicationKeyword} onChange={event => setApplicationKeyword(event.target.value)} placeholder="搜索姓名、用户名或部门" /><select value={applicationStatus} onChange={event => setApplicationStatus(event.target.value)}><option value="pending">待审批</option><option value="approved">已批准</option><option value="rejected">已驳回</option><option value="">全部状态</option></select><button>筛选</button></form>
-        {loading ? <p>加载中...</p> : applications.length === 0 ? <div className="empty-state"><h2>暂无账号申请</h2><p>当前筛选条件下没有记录。</p></div> : <div className="table-wrap"><table className="data-table"><thead><tr><th>申请人</th><th>部门</th><th>企业身份</th><th>申请说明</th><th>提交时间</th><th>状态</th><th>操作</th></tr></thead><tbody>{applications.map(item => <tr key={item.id}><td><strong>{item.display_name}</strong><small>{item.username}</small></td><td>{item.department || "-"}</td><td>{item.contact || "-"}</td><td className="application-reason">{item.reason || "-"}{item.review_note && <small>审批说明：{item.review_note}</small>}</td><td>{new Date(item.created_at).toLocaleString("zh-CN")}</td><td><span className={`status-badge ${item.status === "approved" ? "active" : item.status === "rejected" ? "disabled" : ""}`}>{applicationStatusLabels[item.status]}</span>{item.reviewed_by_name && <small>{item.reviewed_by_name}</small>}</td><td>{item.status === "pending" ? <div className="table-actions"><button onClick={() => approveApplication(item)}>批准</button><button className="secondary-btn danger-outline" onClick={() => rejectApplication(item)}>驳回</button></div> : item.user_id ? <Link href={`/admin/users/${item.user_id}`} className="secondary-btn">查看账号</Link> : "-"}</td></tr>)}</tbody></table></div>}
+        {loading ? <p>加载中...</p> : applications.length === 0 ? <div className="empty-state"><h2>暂无账号申请</h2><p>当前筛选条件下没有记录。</p></div> : <div className="table-wrap"><table className="data-table"><thead><tr><th>申请人</th><th>部门</th><th>企业身份</th><th>申请说明</th><th>提交时间</th><th>状态</th><th>操作</th></tr></thead><tbody>{applications.map(item => <tr key={item.id}><td><strong>{item.display_name}</strong><small>{item.username}</small></td><td>{item.department || "-"}</td><td>{item.contact || "-"}</td><td className="application-reason">{item.reason || "-"}{item.review_note && <small>审批说明：{item.review_note}</small>}</td><td>{new Date(item.created_at).toLocaleString("zh-CN")}</td><td><span className={`status-badge ${item.status === "approved" ? "active" : item.status === "rejected" ? "disabled" : ""}`}>{applicationStatusLabels[item.status]}</span>{item.reviewed_by_name && <small>{item.reviewed_by_name}</small>}</td><td>{item.status === "pending" ? <div className="table-actions"><button disabled={busy} onClick={() => approveApplication(item)}>批准</button><button disabled={busy} className="secondary-btn danger-outline" onClick={() => rejectApplication(item)}>驳回</button></div> : item.user_id ? <Link href={`/admin/users/${item.user_id}`} className="secondary-btn">查看账号</Link> : "-"}</td></tr>)}</tbody></table></div>}
         <div className="pagination"><button className="secondary-btn" disabled={applicationPage <= 1} onClick={() => loadApplications(applicationPage - 1)}>上一页</button><span>第 {applicationPage} / {Math.max(1, Math.ceil(applicationTotal / 20))} 页</span><button className="secondary-btn" disabled={applicationPage * 20 >= applicationTotal} onClick={() => loadApplications(applicationPage + 1)}>下一页</button></div>
       </section>}
 

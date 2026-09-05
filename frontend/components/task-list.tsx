@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch } from "./auth-provider";
 
+import { tasksChanged } from "./task-navigation";
+
 type TaskStatus = "matching" | "enriching" | "ready" | "partial" | "failed";
 type Task = {
   id: string; requirement: string; topPartner: string; partnerCount: number; createdAt: string;
@@ -63,12 +65,18 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
   useEffect(() => { void load(1); }, [archived]);
 
   async function toggleArchive(task: Task) {
-    const action = task.archivedAt ? "restore" : "archive";
-    const response = await apiFetch(`/agent/tasks/${task.id}/${action}`, { method: "PATCH" });
-    if (response.ok) {
-      void load(items.length === 1 && page > 1 ? page - 1 : page);
-    } else {
-      setError((await response.json().catch(() => ({}))).detail || "操作失败");
+    setError(null);
+    try {
+      const action = task.archivedAt ? "restore" : "archive";
+      const response = await apiFetch(`/agent/tasks/${task.id}/${action}`, { method: "PATCH" });
+      if (response.ok) {
+        tasksChanged();
+        void load(items.length === 1 && page > 1 ? page - 1 : page);
+      } else {
+        setError((await response.json().catch(() => ({}))).detail || "操作失败");
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "操作失败");
     }
   }
 
@@ -84,7 +92,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
       await load(page);
       setError(message);
     } finally {
-      setRetryingId(null);
+      setRetryingId(null); tasksChanged();
     }
   }
 

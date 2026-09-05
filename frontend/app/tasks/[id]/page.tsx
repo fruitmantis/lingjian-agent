@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, use, useEffect, useState } from "react";
+import { FormEvent, use, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "../../../components/auth-provider";
+
+import { tasksChanged } from "../../../components/task-navigation";
 
 type Recommendation = {
   partnerId: string; partnerName: string; matchScore: string; matchedCapabilities: string;
@@ -26,7 +28,7 @@ type TaskDetail = {
 };
 
 const taskStatusText = {
-  matching: "正在匹配伙伴，请稍后刷新。",
+  matching: "正在匹配伙伴，状态会自动更新。",
   enriching: "伙伴匹配已完成，正在生成需求画像和项目机会。",
   ready: "任务已完成。",
   partial: "伙伴匹配已保存，但需求画像或项目机会尚未完整生成。",
@@ -49,6 +51,26 @@ const editableFields: { key: keyof Opportunity; label: string; multiline?: boole
 
 function text(value: unknown): string { return value == null || value === "" ? "未识别" : String(value); }
 
+function supplyText(value: unknown): string {
+  const labels: Record<string, string> = { sufficient: "供给充足", partial: "部分满足", gap: "明显缺口" };
+  return typeof value === "string" ? labels[value] || "未识别" : "未识别";
+}
+
+function questionsText(value: string): string {
+  if (!value?.trim()) return "暂无待补充问题";
+  try {
+    const questions: unknown = JSON.parse(value);
+    if (Array.isArray(questions)) {
+      return questions.filter((question): question is string => typeof question === "string" && Boolean(question.trim()))
+        .map(question => question.trim()).join("；") || "暂无待补充问题";
+    }
+    return "待补充问题暂无法展示";
+  } catch {
+    return value.trim().startsWith("[") || value.trim().startsWith("{") || value.trim().startsWith("```")
+      ? "待补充问题暂无法展示" : value;
+  }
+}
+
 export default function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const searchParams = useSearchParams();
@@ -60,18 +82,40 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true); setError(null);
+  const loadVersion = useRef(0);
+  const pollBusy = useRef(false);
+  const formOpportunityId = useRef<string | null>(null);
+
+  async function load(quiet = false) {
+    const version = ++loadVersion.current;
+    if (!quiet) setLoading(true);
+    setError(null);
     try {
       const response = await apiFetch(`/agent/tasks/${id}`, { cache: "no-store" });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "任务加载失败");
       const data = await response.json() as TaskDetail;
+      if (version !== loadVersion.current) return;
       setTask(data);
-      if (data.opportunity) setForm(Object.fromEntries(editableFields.map(field => [field.key, data.opportunity?.[field.key] == null ? "" : String(data.opportunity[field.key])])));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "任务加载失败"); } finally { setLoading(false); }
+      if (data.opportunity && (!quiet || formOpportunityId.current !== data.opportunity.id)) setForm(Object.fromEntries(editableFields.map(field => [field.key, data.opportunity?.[field.key] == null ? "" : String(data.opportunity[field.key])])));
+      formOpportunityId.current = data.opportunity?.id || null;
+    } catch (reason) { if (version === loadVersion.current) setError(quiet ? "状态更新暂不可用，将自动重试查询。" : reason instanceof Error ? reason.message : "任务加载失败"); } finally { if (version === loadVersion.current) setLoading(false); }
   }
 
-  useEffect(() => { void load(); }, [id]);
+  useEffect(() => {
+    setTask(null); formOpportunityId.current = null;
+    void load();
+    return () => { loadVersion.current += 1; };
+  }, [id]);
+
+  useEffect(() => {
+    if (!task || (!retrying && !["matching", "enriching"].includes(task.taskStatus))) return;
+    const timer = window.setInterval(async () => {
+      if (document.hidden || pollBusy.current) return;
+      pollBusy.current = true;
+      try { await load(true); } finally { pollBusy.current = false; }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [id, task?.taskStatus, retrying]);
 
   async function saveOpportunity(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError(null);
@@ -96,7 +140,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "重试失败");
     } finally {
-      setRetrying(false);
+      setRetrying(false); tasksChanged();
     }
   }
 
@@ -120,7 +164,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
         "行业标签": task.demandProfile.industryTags, "能力标签": task.demandProfile.capabilityTags,
         "交付类型": task.demandProfile.deliveryTypeTags, "项目区域": task.demandProfile.regionTags,
         "复杂度": task.demandProfile.complexityLevel, "紧急程度": task.demandProfile.urgencyLevel,
-        "项目关键词": task.demandProfile.projectKeywords, "供给状态": task.demandProfile.supplyStatus,
+        "项目关键词": task.demandProfile.projectKeywords, "供给状态": supplyText(task.demandProfile.supplyStatus),
         "缺口分析": task.demandProfile.gapAnalysis,
       }).map(([label, value]) => <div key={label}><span>{label}</span><strong>{text(value)}</strong></div>)}</div></section>}
       {task.opportunity && <section className="card"><div className="section-heading-row"><div><h2>项目机会</h2><p>可补充业务字段，AI 抽取字段保持只读。</p></div><span className="score-chip">完整度 {task.opportunity.completenessScore}%</span></div>
@@ -130,8 +174,8 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           "资质要求": task.opportunity.qualificationRequirements, "案例要求": task.opportunity.caseRequirements,
           "驻场要求": task.opportunity.onsiteRequirement, "时间要求": task.opportunity.timelineRequirement,
           "云平台偏好": task.opportunity.cloudPlatformPreference, "能力标签": task.opportunity.matchedCapabilityTags,
-          "推荐伙伴": task.opportunity.recommendedPartnerNames, "供给状态": task.opportunity.supplyStatus,
-          "待补充问题": task.opportunity.followUpQuestions,
+          "推荐伙伴": task.opportunity.recommendedPartnerNames, "供给状态": supplyText(task.opportunity.supplyStatus),
+          "待补充问题": questionsText(task.opportunity.followUpQuestions),
         }).map(([label, value]) => <div key={label}><span>{label}</span><strong>{text(value)}</strong></div>)}</div>
       </section>}
     </main>

@@ -122,6 +122,17 @@ def _migrate_to_v9(connection: sqlite3.Connection) -> None:
 
 
 @contextmanager
+def get_readonly_db() -> Iterator[sqlite3.Connection]:
+    """Open existing storage without creating a database or allowing writes."""
+    connection = sqlite3.connect(f"{DATABASE_PATH.resolve().as_uri()}?mode=ro", uri=True, timeout=30)
+    connection.row_factory = sqlite3.Row
+    try:
+        yield connection
+    finally:
+        connection.close()
+
+
+@contextmanager
 def get_db() -> Iterator[sqlite3.Connection]:
     connection = sqlite3.connect(DATABASE_PATH, timeout=30)
     connection.row_factory = sqlite3.Row

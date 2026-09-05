@@ -936,3 +936,42 @@ button:hover:not(:disabled) { background: var(--primary-hover); }
   .task-search { justify-content: flex-start; }
   .admin-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Workspace task navigation: fixed controls with an independently scrolling list. */
+.workspace-layout .sidebar { height: 100dvh; overflow: hidden; }
+.workspace-layout .sidebar-header, .workspace-layout .sidebar-footer { flex: 0 0 auto; }
+.workspace-layout .sidebar-nav { display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding-bottom: 0; }
+.workspace-layout .primary-nav-group { flex: 0 0 auto; margin-bottom: 12px; }
+.workspace-layout .sidebar-new-task { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--primary); border-radius: 8px; background: var(--surface); color: var(--primary); font-size: 14px; font-weight: 500; }
+.workspace-layout .sidebar-new-task:hover { background: var(--brand-soft); }
+.workspace-layout .nav-item, .workspace-layout .sidebar-footer-link { gap: 12px; padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; }
+.workspace-layout .nav-item svg, .workspace-layout .sidebar-footer-link svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.workspace-layout .nav-item.active, .workspace-layout .sidebar-footer-link.active { background: var(--nav-active-bg); color: var(--primary); }
+.workspace-layout .sidebar-new-task:focus-visible, .workspace-layout .nav-item:focus-visible, .workspace-layout .sidebar-footer-link:focus-visible, .workspace-layout .sidebar-task-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.workspace-layout .sidebar-task-section { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 10px 0; border-bottom: 0; }
+.workspace-layout .sidebar-all-tasks { flex: 0 0 auto; min-height: 40px; padding: 8px 12px; font-size: 14px; font-weight: 500; }
+.workspace-layout .sidebar-task-list { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #c3cbd5 transparent; overflow-anchor: none; }
+.workspace-layout .sidebar-task-item { flex: 0 0 auto; padding: 8px 12px; border-radius: 8px; }
+.workspace-layout .sidebar-task-item strong { font-size: 13px; font-weight: 500; line-height: 1.5; }
+.workspace-layout .sidebar-task-item .task-matching::before, .workspace-layout .sidebar-task-item .task-enriching::before { content: ""; display: inline-block; width: 5px; height: 5px; margin-right: 5px; border-radius: 50%; background: currentColor; vertical-align: middle; }
+.workspace-layout .sidebar-footer { margin: 0 16px; padding: 10px 0 14px; }
+.workspace-layout .sidebar-footer-link { min-height: 40px; }
+.sidebar-task-item.active { background: var(--nav-active-bg); box-shadow: inset 3px 0 var(--primary); }
+.sidebar-task-item .task-matching, .sidebar-task-item .task-enriching { color: var(--primary); }
+.sidebar-task-item .task-failed { color: var(--danger); }
+.sidebar-task-item .task-partial { color: #996811; }
+.sidebar-load-more, .sidebar-check-task { border: 0; border-radius: 6px; background: transparent; color: var(--primary); font-size: 12px; cursor: pointer; }
+.sidebar-load-more { flex: 0 0 auto; width: 100%; padding: 12px 4px; color: var(--text-tertiary); }
+.sidebar-check-task { padding: 3px 6px; }
+.sidebar-load-more:hover:not(:disabled), .sidebar-check-task:hover:not(:disabled) { background: var(--surface-hover); color: var(--primary); }
+.sidebar-selected-task { border-bottom: 1px solid var(--divider); padding: 6px 0; }
+.sidebar-selected-task > small { padding-left: 10px; font-size: 11px; color: var(--text-tertiary); }
+.current-task-summary { font-size: 13px; }
+@media (max-width: 820px) {
+  .workspace-layout .sidebar { height: auto; overflow: visible; }
+  .workspace-layout .sidebar-nav { display: block; }
+  .workspace-layout .sidebar-task-section { display: block; padding: 0; border-bottom: 0; }
+  .workspace-layout .sidebar-task-list { max-height: 180px; }
+  .workspace-layout .sidebar-task-list > :not(.pending-task) { display: none; }
+  .workspace-layout .sidebar-all-tasks { margin: 0; }
+}

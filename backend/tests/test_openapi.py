@@ -20,7 +20,7 @@ def test_openapi_contains_only_three_public_operations():
             if not operation.get("security"):
                 public.add((method, path))
     assert len(schema["paths"]) == 60
-    assert len(operations) == 71
+    assert len(operations) == 72
     assert public == PUBLIC_OPERATIONS
 
 

@@ -60,6 +60,8 @@ def health():
 @app.post("/v1/chat/completions")
 async def completions(payload: dict):
     stage = _stage(payload.get("messages") or [])
+    if "SIDEBAR_SLOW" in json.dumps(payload.get("messages"), ensure_ascii=False) and stage in {"match", "demand"}:
+        await asyncio.sleep(5)
     delay_name = "FAKE_LLM_MATCH_DELAY_SECONDS" if stage == "match" else "FAKE_LLM_ENRICH_DELAY_SECONDS"
     delay = float(os.getenv(delay_name, "0"))
     if delay and stage not in _delayed_stages:

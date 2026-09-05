@@ -319,7 +319,8 @@ def list_suggestions(status: str | None = None, keyword: str | None = None, cate
 @router.post("/suggestions/scan")
 def scan_suggestions():
     """Manually scan match records for new tag suggestions."""
-    from ..ai_client import chat_completion
+    from ..ai_client import chat_completion, model_error_message
+    from ..model_resolver import ModelConfigurationError
     import json as _json
     with get_db() as conn:
         records = conn.execute("SELECT id, requirement, recommendations_json FROM match_records ORDER BY created_at DESC LIMIT 10").fetchall()
@@ -353,6 +354,8 @@ def scan_suggestions():
                     )
                 existing_sugs.add(name)
                 created += 1
+        except ModelConfigurationError as exc:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=model_error_message(exc)) from None
         except Exception:
             pass
     return {"status": "ok", "created": created}

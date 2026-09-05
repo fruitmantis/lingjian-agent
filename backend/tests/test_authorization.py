@@ -1,10 +1,12 @@
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+import pytest
 
 from backend.app.database import get_db
 from backend.app.routers import match as match_router
 
-from .conftest import auth_headers, make_partner, make_task, recommendation
+from .conftest import auth_headers, make_partner, make_task, make_user, recommendation
 
 
 def add_opportunity(task_id: str, suffix: str) -> str:
@@ -138,3 +140,61 @@ def test_every_admin_operation_rejects_ordinary_user(client, identity_set):
             assert response.status_code == 403, f"{method.upper()} {path} returned {response.status_code}"
             checked.append((method, path))
     assert len(checked) >= 30
+
+
+@pytest.mark.parametrize("task_status", ["matching", "enriching"])
+@pytest.mark.parametrize("action", ["detail", "retry"])
+def test_cross_owner_stale_task_request_does_not_write(client, monkeypatch, task_status, action):
+    owner = make_user("stale_owner")
+    other = make_user("stale_other")
+    task_id = make_task(
+        owner, "stale private task", task_status=task_status,
+        updated_at=(datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+    )
+    with get_db() as conn:
+        before = dict(conn.execute("SELECT * FROM match_records WHERE id = ?", (task_id,)).fetchone())
+
+    def unexpected_recovery(**_kwargs):
+        pytest.fail("An unauthorized request must not reach task recovery")
+
+    monkeypatch.setattr(match_router, "recover_stale_tasks", unexpected_recovery)
+    url = f"/agent/tasks/{task_id}"
+    response = client.get(url, headers=auth_headers(other)) if action == "detail" else client.post(f"{url}/retry", headers=auth_headers(other))
+    assert response.status_code == 404
+    with get_db() as conn:
+        after = dict(conn.execute("SELECT * FROM match_records WHERE id = ?", (task_id,)).fetchone())
+    assert after == before
+
+
+@pytest.mark.parametrize("reader_role", ["owner", "admin"])
+def test_authorized_detail_recovers_only_requested_task(client, reader_role):
+    owner = make_user("recovery_owner")
+    reader = owner if reader_role == "owner" else make_user("recovery_admin", role="admin")
+    old = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    task_id = make_task(owner, "requested stale task", task_status="matching", updated_at=old)
+    untouched_id = make_task(owner, "another stale task", task_status="enriching", updated_at=old)
+    response = client.get(f"/agent/tasks/{task_id}", headers=auth_headers(reader))
+    assert response.status_code == 200
+    assert response.json()["taskStatus"] == "failed"
+    assert response.json()["lastErrorStage"] == "interrupted"
+    with get_db() as conn:
+        untouched = conn.execute("SELECT task_status, updated_at FROM match_records WHERE id = ?", (untouched_id,)).fetchone()
+    assert tuple(untouched) == ("enriching", old)
+
+
+def test_owner_can_retry_stale_task(client, monkeypatch):
+    owner = make_user("stale_retry_owner")
+    task_id = make_task(
+        owner, "retry stale task", task_status="matching", recommendations=[],
+        updated_at=(datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+    )
+    monkeypatch.setattr(match_router, "_perform_partner_match", lambda _: [])
+
+    def finish(record_id, *_args, **_kwargs):
+        match_router._set_task_state(record_id, "ready")
+        return "ready"
+
+    monkeypatch.setattr(match_router, "_run_task_enrichment", finish)
+    response = client.post(f"/agent/tasks/{task_id}/retry", headers=auth_headers(owner))
+    assert response.status_code == 200
+    assert response.json()["taskStatus"] == "ready"

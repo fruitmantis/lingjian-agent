@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { fetchWithTimeout } from "../lib/api-request";
 
 type DemandProfile = {
   id: string; matchRecordId: string | null; requirementText: string;
@@ -27,7 +28,7 @@ function fetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Respon
   const headers = new Headers(init.headers);
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  return window.fetch(input, { ...init, headers, signal: init.signal ?? AbortSignal.timeout(30_000) }).then(response => {
+  return fetchWithTimeout(input, { ...init, headers }).then(response => {
     if (response.status === 401) {
       localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.assign("/login");
     }
@@ -420,6 +421,7 @@ function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIn
         ))}
       </div></section>
       <section className="card"><h2>供需缺口分析</h2>
+        <p className="placeholder-text">需求与推荐次数采用上方筛选范围；伙伴总量为全库数量，可推荐伙伴仅统计当前启用伙伴的能力覆盖。</p>
         {report.supplyGaps.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无数据。</p> : (
           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}><thead><tr style={{ borderBottom: "1px solid var(--line)" }}><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>能力</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>需求次数</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>可推荐伙伴</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>供给状态</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>缺口说明</th></tr></thead><tbody>
             {report.supplyGaps.map((g: any, i: number) => { const b = g.supplyStatus === "gap" ? { l: "明显缺口", c: "var(--danger)", bg: "#fef2f2", bd: "#fecaca" } : g.supplyStatus === "partial" ? { l: "部分满足", c: "#e8a317", bg: "#fffbeb", bd: "#fde68a" } : { l: "基本满足", c: "var(--success)", bg: "#f0fdf4", bd: "#bbf7d0" }; return (
@@ -429,10 +431,10 @@ function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIn
         )}
       </section>
       <section className="card"><h2>伙伴活跃度</h2><div style={{ marginTop: "12px" }}>
-        <p style={{ fontSize: "14px" }}>活跃伙伴：<strong>{report.activePartnerCount}</strong> / {report.overview.totalPartners}（{report.activePartnerRatio}%）</p>
+        <p style={{ fontSize: "14px" }}>筛选范围内被推荐伙伴：<strong>{report.activePartnerCount}</strong> / 全库 {report.overview.totalPartners} 家（{report.activePartnerRatio}%）</p>
         <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>
           <div style={{ flex: "1 1 300px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>被推荐次数 TOP 10</h3>{report.topRecommendedPartners.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.topRecommendedPartners.map((p: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{i+1}. {p.partnerName}</span><span style={{ fontSize: "13px", color: "var(--brand)", fontWeight: 600 }}>{p.recommendCount}次</span></div>))}</div>
-          <div style={{ flex: "1 1 300px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>长期未更新伙伴</h3>{report.inactivePartners.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.inactivePartners.map((p: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{p.partnerName}</span><span style={{ fontSize: "12px", color: "var(--muted)" }}>{p.lastUpdated}</span></div>))}</div>
+          <div style={{ flex: "1 1 300px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>筛选范围内未被推荐伙伴</h3>{report.inactivePartners.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.inactivePartners.map((p: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{p.partnerName}</span><span style={{ fontSize: "12px", color: "var(--muted)" }}>资料更新 {p.lastUpdated}</span></div>))}</div>
         </div>
       </div></section>
       <section className="card"><h2>标签运营</h2><div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>

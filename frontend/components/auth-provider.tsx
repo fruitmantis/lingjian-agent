@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { fetchWithTimeout, type ApiRequestInit } from "../lib/api-request";
 
 export type CurrentUser = {
   id: string;
@@ -38,14 +39,13 @@ export function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+export async function apiFetch(path: string, init: ApiRequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetchWithTimeout(`${apiBaseUrl}${path}`, {
     ...init,
     headers,
-    signal: init.signal ?? AbortSignal.timeout(30_000),
   });
   if (response.status === 401 && typeof window !== "undefined" && window.location.pathname !== "/login") {
     localStorage.removeItem("token");

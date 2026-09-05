@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { fetchWithTimeout, responseError } from "../lib/api-request";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -8,7 +9,7 @@ function fetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Respon
   const headers = new Headers(init.headers);
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  return window.fetch(input, { ...init, headers, signal: init.signal ?? AbortSignal.timeout(30_000) }).then(response => {
+  return fetchWithTimeout(input, { ...init, headers }).then(response => {
     if (response.status === 401) {
       localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.assign("/login");
     }
@@ -174,10 +175,10 @@ export function CapabilityTagsTab() {
     setScanning(true); setSugError(null);
     try {
       const r = await fetch(`${apiBaseUrl}/admin/capability-tags/suggestions/scan`, { method: "POST" });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!r.ok) throw await responseError(r, "扫描失败");
       const d = await r.json();
-      setSugError(d.created > 0 ? `扫描完成，新增 ${d.created} 条建议` : "扫描完成，未发现新建议");
       await loadSugList();
+      setSugError(d.created > 0 ? `扫描完成，新增 ${d.created} 条建议` : "扫描完成，未发现新建议");
     } catch (e) { setSugError(e instanceof Error ? e.message : "扫描失败"); } finally { setScanning(false); }
   }
 
@@ -440,16 +441,17 @@ export function SystemStatusTab() {
   if (!data) return <div><p className="placeholder-text">暂无状态数据。</p></div>;
 
   const overallMap: Record<string, { label: string; color: string }> = {
-    normal: { label: "全部核心能力运行正常", color: "var(--success)" },
+    normal: { label: "本次检查未发现异常", color: "var(--success)" },
     partial: { label: `系统部分异常：${data.summary.abnormalModules.slice(0, 3).map((m: any) => m.module).join("、")}${data.summary.abnormalModules.length > 3 ? `等 ${data.summary.abnormalModules.length} 项` : ""}`, color: "#e8a317" },
     error: { label: "系统异常", color: "var(--danger)" },
-    unknown: { label: "系统状态未知", color: "var(--muted)" },
+    unknown: { label: "部分运行状态尚未验证", color: "var(--muted)" },
   };
   const overall = overallMap[data.overallStatus] || overallMap.unknown;
 
   return (
     <div>
       {/* Overall status */}
+      <p className="placeholder-text" style={{ marginBottom: "16px" }}>本页仅执行只读查询和配置检查，不测试数据库写入，也不发送模型请求。需要验证模型连接时，请前往<a href="/admin/models">模型配置</a>手动测试。</p>
       <section className="card" style={{ borderColor: overall.color }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <div>
@@ -506,6 +508,7 @@ export function ModelConfigTab() {
   const [eTemp, setETemp] = useState(0.3); const [eMaxTokens, setEMaxTokens] = useState(131072);
   const [eTimeout, setETimeout] = useState(60); const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   async function loadData() {
     setLoading(true); setError(null);
@@ -525,50 +528,66 @@ export function ModelConfigTab() {
   function cancelEdit() { setEditingId(null); setIsNew(false); }
 
   async function saveEdit(id: string | null) {
-    setError(null);
+    if (saving) return;
+    setSaving(true); setError(null);
     try {
       const body = JSON.stringify({ name: eName, provider: eProvider, baseUrl: eUrl || undefined, apiKey: eKey || undefined, modelName: eModel || undefined, temperature: eTemp, maxTokens: eMaxTokens, timeoutSeconds: eTimeout });
       const url = id ? `${apiBaseUrl}/admin/model-configs/${id}` : `${apiBaseUrl}/admin/model-configs`;
       const method = id ? "PUT" : "POST";
       const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body });
-      if (!r.ok) { const ed = await r.json().catch(() => ({})); throw new Error(ed.detail || `HTTP ${r.status}`); }
+      if (!r.ok) throw await responseError(r, "保存失败");
       cancelEdit(); await loadData();
-    } catch (e) { setError(e instanceof Error ? e.message : "保存失败"); }
+    } catch (e) { setError(e instanceof Error ? e.message : "保存失败"); } finally { setSaving(false); }
   }
 
   async function toggleEnable(c: any) {
-    try { await fetch(`${apiBaseUrl}/admin/model-configs/${c.id}/enable?enabled=${!c.enabled}`, { method: "PATCH" }); await loadData(); } catch {}
+    await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/${c.id}/enable?enabled=${!c.enabled}`, { method: "PATCH" }));
   }
   async function setDefault(c: any) {
-    try { await fetch(`${apiBaseUrl}/admin/model-configs/${c.id}/default`, { method: "PATCH" }); await loadData(); } catch {}
+    await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/${c.id}/default`, { method: "PATCH" }));
   }
   async function testConn(c: any) {
     setTesting(c.id); setTestResult(null);
     try {
       const r = await fetch(`${apiBaseUrl}/admin/model-configs/${c.id}/test`, { method: "POST" });
+      if (!r.ok) throw await responseError(r, "连接测试失败");
       const d = await r.json();
       setTestResult(d.success ? `连接成功（${d.latencyMs}ms）` : `失败: ${d.message}`);
-    } catch (e) { setTestResult("测试失败"); } finally { setTesting(null); }
+    } catch (e) { setTestResult(e instanceof Error ? e.message : "测试失败"); } finally { setTesting(null); }
   }
   async function updateUsage(scene: string, configId: string) {
-    try { await fetch(`${apiBaseUrl}/admin/model-configs/usage/${scene}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelConfigId: configId || null }) }); await loadData(); } catch {}
+    await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/usage/${scene}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelConfigId: configId || null }) }));
+  }
+
+  async function saveConfigAction(action: () => Promise<Response>) {
+    if (saving) return;
+    setSaving(true); setError(null);
+    try {
+      const response = await action();
+      if (!response.ok) throw await responseError(response);
+      await loadData();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "配置保存失败");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const inp = { padding: "4px 8px", border: "1px solid var(--brand)", borderRadius: "4px", fontSize: "13px", width: "100%", boxSizing: "border-box" as const };
 
   if (loading) return <div><p>加载中...</p></div>;
-  if (error) return <div><p className="error-text">{error}</p><button onClick={loadData} className="secondary-btn">重试</button></div>;
 
   return (
     <div>
+      {error && <div className="inline-error-actions"><p className="error-text" role="alert">{error}</p><button onClick={loadData} className="secondary-btn">重试</button></div>}
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <h2>模型配置</h2>
-          <button onClick={startNew} disabled={Boolean(editingId) || isNew} style={{ fontSize: "13px", padding: "6px 16px", opacity: Boolean(editingId) || isNew ? 0.5 : 1 }}>新增配置</button>
+          <button onClick={startNew} disabled={saving || Boolean(editingId) || isNew} style={{ fontSize: "13px", padding: "6px 16px", opacity: Boolean(editingId) || isNew ? 0.5 : 1 }}>新增配置</button>
         </div>
         {testResult && <p style={{ fontSize: "13px", color: "var(--brand)", marginTop: "8px" }}>{testResult}</p>}
         {configs.length === 0 && !isNew ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无模型配置。</p> : (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+          <div className="table-wrap"><table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
             <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>名称</th>
               <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>供应商</th>
@@ -585,11 +604,11 @@ export function ModelConfigTab() {
                   <td style={{ padding: "8px" }}><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="配置名称" style={inp} autoFocus /></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} placeholder="模型名称" style={inp} /></td>
-                  <td style={{ padding: "8px" }}><input type="number" min={1} max={131072} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /></td>
+                  <td style={{ padding: "8px" }}><input type="number" min={1} step={1} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /></td>
                   <td style={{ padding: "8px" }}><input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /></td>
                   <td style={{ padding: "8px" }}><input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="输入新Key" style={inp} /></td>
                   <td style={{ padding: "8px" }}></td>
-                  <td style={{ padding: "8px", whiteSpace: "nowrap" }}><div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveEdit(null)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div></td>
+                  <td style={{ padding: "8px", whiteSpace: "nowrap" }}><div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(null)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button disabled={saving} onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div></td>
                 </tr>
               )}
               {configs.map((c) => {
@@ -599,19 +618,19 @@ export function ModelConfigTab() {
                     <td style={{ padding: "8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}{c.isDefault ? <span className="tag-red" style={{ marginLeft: "6px" }}>默认</span> : null}</span>}</td>
                     <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /> : c.provider}</td>
                     <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} style={inp} /> : c.modelName}</td>
-                    <td style={{ padding: "8px", fontSize: "13px", whiteSpace: "nowrap" }}>{ic ? <input type="number" min={1} max={131072} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /> : c.maxTokens.toLocaleString()}</td>
+                    <td style={{ padding: "8px", fontSize: "13px", whiteSpace: "nowrap" }}>{ic ? <input type="number" min={1} step={1} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /> : c.maxTokens.toLocaleString()}</td>
                     <td style={{ padding: "8px", fontSize: "12px", color: "var(--muted)" }}>{ic ? <input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /> : (c.baseUrl ? c.baseUrl.replace(/https?:\/\//, "").split("/")[0] : "-")}</td>
                     <td style={{ padding: "8px" }}>{ic ? <input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="留空保留原Key" style={inp} /> : <span style={{ fontSize: "12px", color: c.apiKeyConfigured ? "var(--success)" : "var(--danger)" }}>{c.apiKeyConfigured ? "已配置" : "未配置"}</span>}</td>
                     <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: !c.enabled ? "#fef2f2" : !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}`, whiteSpace: "nowrap" }}>{!c.enabled ? "停用" : !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>
                     <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
                       {ic ? (
-                        <div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveEdit(c.id)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div>
+                        <div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(c.id)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button disabled={saving} onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div>
                       ) : (
                         <div style={{ display: "flex", gap: "4px" }}>
                           <button onClick={() => startEdit(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>编辑</button>
                           <button onClick={() => testConn(c)} disabled={testing === c.id} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{testing === c.id ? "测试中" : "测试"}</button>
-                          <button onClick={() => toggleEnable(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{c.enabled ? "停用" : "启用"}</button>
-                          {!c.isDefault && c.enabled && <button onClick={() => setDefault(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>设默认</button>}
+                          <button disabled={saving} onClick={() => toggleEnable(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{c.enabled ? "停用" : "启用"}</button>
+                          {!c.isDefault && c.enabled && <button disabled={saving} onClick={() => setDefault(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>设默认</button>}
                         </div>
                       )}
                     </td>
@@ -619,18 +638,21 @@ export function ModelConfigTab() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </section>
 
       <section className="card">
         <h2>业务场景模型配置</h2>
+        <p className="placeholder-text">未绑定时依次使用默认场景、启用的默认模型、首个启用模型或环境变量配置。显式绑定的模型不可用时会报错。</p>
         <div style={{ marginTop: "12px" }}>
           {usages.map((u) => (
             <div key={u.sceneKey} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "8px" }}>
               <div><span style={{ fontSize: "14px", fontWeight: 600 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "使用默认配置"}</span></div>
-              <select value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} style={{ padding: "6px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}>
+              {u.sceneKey === "recommendation_summary" && <span className="placeholder-text">当前暂无独立调用，推荐理由随伙伴匹配生成。</span>}
+              <select aria-label={`${u.sceneName}模型`} disabled={saving} value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} style={{ padding: "6px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}>
                 <option value="">使用默认配置</option>
+                {u.modelConfigId && !configs.some(c => c.id === u.modelConfigId && c.enabled) && <option value={u.modelConfigId} disabled>{u.modelConfigName || "原绑定模型"}（不可用，请重新选择）</option>}
                 {configs.filter(c => c.enabled).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>

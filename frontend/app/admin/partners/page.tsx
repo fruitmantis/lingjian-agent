@@ -46,7 +46,10 @@ export default function AdminPartnersPage() {
     if (!confirm(`将为 ${partners.filter(item => item.status === "active").length} 家启用伙伴依次生成 AI 画像，可能产生模型调用费用。确定继续？`)) return;
     setBatchLoading(true); setMessage(null); setError(null);
     try {
-      const response = await apiFetch("/partners/batch-profile", { method: "POST" });
+      const response = await apiFetch("/partners/batch-profile", {
+        method: "POST",
+        timeoutMs: Math.max(1, partners.filter(item => item.status === "active").length) * 180_000 + 30_000,
+      });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || "批量生成失败");
       setMessage(`批量生成完成：成功 ${data.success}，失败 ${data.failed}`); await load();

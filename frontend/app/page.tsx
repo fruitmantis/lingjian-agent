@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { ENABLED_SCENES } from "@/lib/scenes";
 import { apiFetch } from "@/components/auth-provider";
+import { NEW_TASK, taskLabels, useTaskNavigation } from "@/components/task-navigation";
 import { LingjianMark, UiIcon, type IconName } from "@/components/ui-icons";
 
 type Recommendation = {
@@ -18,17 +19,6 @@ type Recommendation = {
   evidenceCases: string;
   evidenceDeliverables: string;
   riskNotes: string;
-};
-
-const LOADING_STAGES = [
-  "需求解析：正在分析项目需求的行业、区域与能力诉求……",
-  "伙伴画像匹配：正在从伙伴库中检索匹配的交付能力……",
-  "候选筛选：正在评估候选伙伴的案例与交付物证据……",
-  "推荐理由生成：正在生成推荐短名单与风险提示……",
-];
-
-const TASK_STATUS_LABELS: Record<string, string> = {
-  matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "失败",
 };
 
 const HOME_CATEGORIES = ["猜你想做", "智能匹配", "伙伴洞察", "能力发展", "项目机会", "运营分析"] as const;
@@ -108,27 +98,21 @@ function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; 
 
 export default function HomePage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { submit } = useTaskNavigation();
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [taskStatus, setTaskStatus] = useState("");
+  const generation = useRef(0);
   const [requirement, setRequirement] = useState("");
   const [submittedRequirement, setSubmittedRequirement] = useState("");
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loadingStage, setLoadingStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [copiedRank, setCopiedRank] = useState<number | null>(null);
-  const [matchRecords, setMatchRecords] = useState<{ id: string; requirement: string; topPartner: string; partnerCount: number; createdAt: string; taskStatus: string }[]>([]);
-  const [viewingHistory, setViewingHistory] = useState(false);
-  const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
-  const [historyDetail, setHistoryDetail] = useState<{ requirement: string; recommendations: Recommendation[] } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<HomeCategory>("猜你想做");
   const [sceneOffset, setSceneOffset] = useState(0);
-  const stageTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const requirementInput = useRef<HTMLTextAreaElement | null>(null);
-
-  useEffect(() => {
-    loadMatchRecords();
-    return () => { if (stageTimer.current) clearInterval(stageTimer.current); };
-  }, []);
 
   useEffect(() => {
     const prompt = searchParams.get("prompt");
@@ -136,120 +120,71 @@ export default function HomePage() {
       setRequirement(prompt);
       window.setTimeout(() => requirementInput.current?.focus(), 0);
     }
-    if (searchParams.get("view") === "history") {
-      window.setTimeout(() => document.getElementById("history")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-    }
-  }, [searchParams]);
+    setActiveTaskId(searchParams.get("task"));
+    if (searchParams.get("view") === "history") router.replace("/tasks");
+  }, [searchParams, router]);
 
-  async function loadMatchRecords() {
-    try {
-      const res = await apiFetch("/agent/tasks?status=active&page=1&pageSize=5", { cache: "no-store" });
-      if (res.ok) {
-        const records = await res.json();
-        setMatchRecords(records.items || []);
+  useEffect(() => {
+    const reset = () => {
+      generation.current += 1;
+      setActiveTaskId(null); setRequirement(""); setSubmittedRequirement("");
+      setRecommendations([]); setHasSearched(false); setLoading(false); setError(null); setTaskStatus("");
+      requirementInput.current?.focus();
+    };
+    window.addEventListener(NEW_TASK, reset);
+    return () => { generation.current += 1; window.removeEventListener(NEW_TASK, reset); };
+  }, []);
+
+  useEffect(() => {
+    if (!activeTaskId) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
+    async function poll() {
+      if (document.hidden) { timer = setTimeout(poll, 3000); return; }
+      let running = true;
+      try {
+        const response = await apiFetch(`/agent/tasks/${activeTaskId}`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]) });
+        if (!response.ok) {
+          if (response.status === 404) running = false;
+          throw new Error(response.status === 404 ? "任务不存在或无权访问。" : "暂未获取最新状态，将自动重试查询。");
+        }
+        const task = await response.json();
+        if (cancelled) return;
+        running = task.taskStatus === "matching" || task.taskStatus === "enriching";
+        setSubmittedRequirement(task.requirement); setRecommendations(task.recommendations || []);
+        setHasSearched(true); setTaskStatus(task.taskStatus); setLoading(running);
+        setError(task.taskStatus === "failed" ? "匹配未完成，需求已保存，可进入任务详情重试。" : null);
+      } catch (reason) {
+        if (!cancelled) { setError(reason instanceof Error ? reason.message : "状态更新暂不可用"); if (!running) setLoading(false); }
       }
-    } catch { /* ignore */ }
-  }
-
-  async function handleViewRecord(recordId: string) {
-    if (expandedRecordId === recordId) { setExpandedRecordId(null); setHistoryDetail(null); return; }
-    setExpandedRecordId(recordId);
-    setHistoryDetail(null);
-    try {
-      const res = await apiFetch(`/agent/tasks/${recordId}`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setHistoryDetail({ requirement: data.requirement, recommendations: data.recommendations || [] });
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "加载记录失败");
+      if (!cancelled && running) timer = setTimeout(poll, 3000);
     }
-  }
+    setLoading(true); setHasSearched(true);
+    void poll();
+    return () => { cancelled = true; controller.abort(); clearTimeout(timer); };
+  }, [activeTaskId]);
 
-  async function handleMatch(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setHasSearched(true);
-    setRecommendations([]);
-    setLoadingStage(0);
-    setCopiedRank(null);
-
-    stageTimer.current = setInterval(() => {
-      setLoadingStage(prev => Math.min(prev + 1, LOADING_STAGES.length - 1));
-    }, 4000);
-
-    try {
-      const res = await apiFetch("/agent/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requirement }),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      setRecommendations(data.recommendations || []);
-      setViewingHistory(false);
-      loadMatchRecords();
-      setSubmittedRequirement(requirement);
-      setRequirement("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "匹配失败");
-      void loadMatchRecords();
-    } finally {
-      if (stageTimer.current) { clearInterval(stageTimer.current); stageTimer.current = null; }
-      setLoading(false);
-    }
-  }
-
-  async function archiveMatchRecord(recordId: string) {
-    if (!confirm("确定归档该任务？归档后可在“我的任务”中恢复。")) return;
-    try {
-      const res = await apiFetch(`/agent/tasks/${recordId}/archive`, { method: "PATCH" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      if (expandedRecordId === recordId) { setExpandedRecordId(null); setHistoryDetail(null); }
-      loadMatchRecords();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "归档失败");
-    }
+  function handleMatch(event: React.FormEvent) {
+    event.preventDefault();
+    void handleMatchDirect(requirement);
   }
 
   async function handleMatchDirect(reqText: string) {
-    setRequirement(reqText);
-    setLoading(true);
-    setError(null);
-    setHasSearched(true);
-    setRecommendations([]);
-    setLoadingStage(0);
-    setCopiedRank(null);
-    stageTimer.current = setInterval(() => {
-      setLoadingStage(prev => Math.min(prev + 1, LOADING_STAGES.length - 1));
-    }, 4000);
+    if (!reqText.trim()) return;
+    const current = ++generation.current;
+    setActiveTaskId(null); setLoading(true); setError(null); setHasSearched(true);
+    setRecommendations([]); setCopiedRank(null); setTaskStatus("submitting");
+    setSubmittedRequirement(reqText);
     try {
-      const res = await apiFetch("/agent/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requirement: reqText }),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      setRecommendations(data.recommendations || []);
-      setViewingHistory(false);
-      loadMatchRecords();
-      setSubmittedRequirement(reqText);
-      setRequirement("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "匹配失败");
-      setRequirement(reqText);
-      void loadMatchRecords();
-    } finally {
-      if (stageTimer.current) { clearInterval(stageTimer.current); stageTimer.current = null; }
-      setLoading(false);
+      const id = await submit(reqText);
+      if (current !== generation.current) return;
+      setRequirement(""); setTaskStatus("matching"); setActiveTaskId(id);
+      router.replace(`/?task=${encodeURIComponent(id)}`, { scroll: false });
+    } catch (reason) {
+      if (current !== generation.current) return;
+      setError(reason instanceof Error ? reason.message : "任务提交失败");
+      setTaskStatus(""); setLoading(false);
     }
   }
 
@@ -330,13 +265,13 @@ export default function HomePage() {
       {error && <p className="error-text assistant-error">{error}</p>}
 
       {/* 本次项目需求卡片 - only show after submit */}
-      {!loading && submittedRequirement && !viewingHistory && (
+      {!loading && submittedRequirement && (
         <section className="card" style={{ borderColor: "var(--brand)", borderWidth: "1px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
             <h2 style={{ margin: 0 }}>本次项目需求</h2>
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => { const text = submittedRequirement; copyToClipboard(text); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>复制需求</button>
-              <button onClick={() => { setRequirement(submittedRequirement); setSubmittedRequirement(""); setRecommendations([]); setHasSearched(false); document.getElementById("requirement")?.focus(); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>重新编辑</button>
+              <button onClick={() => { setActiveTaskId(null); router.replace("/", { scroll: false }); setRequirement(submittedRequirement); setSubmittedRequirement(""); setRecommendations([]); setHasSearched(false); document.getElementById("requirement")?.focus(); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>重新编辑</button>
               <button onClick={() => { const req = submittedRequirement; handleMatchDirect(req); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px", color: "var(--brand)", borderColor: "var(--brand)" }}>再次寻源</button>
             </div>
           </div>
@@ -349,40 +284,18 @@ export default function HomePage() {
       {/* Loading state */}
       {loading && (
         <section className="card">
-          <h2>智能匹配进行中</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
-            {LOADING_STAGES.map((stage, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <span style={{
-                  width: "20px", height: "20px", borderRadius: "50%",
-                  border: "2px solid",
-                  borderColor: i < loadingStage ? "var(--success)" : i === loadingStage ? "var(--brand)" : "var(--line)",
-                  background: i < loadingStage ? "var(--success)" : "transparent",
-                  flexShrink: 0,
-                }} />
-                <span style={{
-                  fontSize: "14px",
-                  color: i <= loadingStage ? "var(--ink)" : "var(--muted)",
-                  fontWeight: i === loadingStage ? 600 : 400,
-                }}>{stage}</span>
-              </div>
-            ))}
-          </div>
+          <h2>{taskLabels[taskStatus] || "正在更新任务状态"}</h2>
+          <p role="status" style={{ marginTop: "16px", lineHeight: 1.8 }}>{taskStatus === "submitting" ? "正在保存项目需求…" : "任务会自动更新，您可以切换页面或开启新任务。"}{activeTaskId && <> <Link href={`/tasks/${activeTaskId}`}>查看任务详情</Link></>}</p>
         </section>
       )}
+
+      {!loading && activeTaskId && <p className="current-task-summary"><span className={`status-badge task-${taskStatus}`}>{taskLabels[taskStatus] || "状态待确认"}</span> <Link href={`/tasks/${activeTaskId}`}>查看任务详情</Link>{taskStatus === "partial" && " · 匹配结果已保存，后续处理可在详情页重试。"}</p>}
 
       {/* Empty state */}
       {!loading && hasSearched && !error && top3.length === 0 && (
         <section className="card">
           <h2>推荐结果</h2>
           <p className="placeholder-text" style={{ marginTop: "12px" }}>未找到匹配的伙伴，请尝试调整需求描述。</p>
-        </section>
-      )}
-
-      {/* History banner */}
-      {!loading && viewingHistory && top3.length > 0 && (
-        <section className="card" style={{ padding: "12px 24px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ fontSize: "13px", color: "var(--muted)" }}>📌 当前展示的是历史匹配记录，未重新调用大模型</span>
         </section>
       )}
 
@@ -477,61 +390,6 @@ export default function HomePage() {
           </section>
         </>
       )}
-
-      {/* Recent tasks */}
-      <section className="card history-card" id="history">
-        <div className="history-heading">
-          <div><span>任务</span><h2>历史任务</h2></div>
-          <small><Link href="/tasks">查看全部</Link></small>
-        </div>
-        {matchRecords.length === 0 ? (
-          <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无匹配记录，请输入项目需求后点击智能匹配。</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
-            {matchRecords.map((r) => (
-              <div key={r.id}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.requirement}</div>
-                    <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
-                      <span className={`status-badge task-${r.taskStatus}`}>{TASK_STATUS_LABELS[r.taskStatus] || r.taskStatus}</span> · Top1: {r.topPartner} · 推荐伙伴: {r.partnerCount}个 · {r.createdAt.slice(0, 19).replace("T", " ")}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: "6px", marginLeft: "12px", flexShrink: 0 }}><button onClick={() => handleViewRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px" }}>{expandedRecordId === r.id ? "收起" : "快速查看"}</button><Link href={`/tasks/${r.id}`} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px" }}>完整详情</Link><button onClick={() => archiveMatchRecord(r.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "6px 14px" }}>归档</button></div>
-                </div>
-                {expandedRecordId === r.id && historyDetail && (
-                  <div style={{ marginTop: "8px", padding: "14px 16px", background: "white", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                    <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>原始需求</div>
-                    <div style={{ fontSize: "14px", lineHeight: 1.7, marginBottom: "12px" }}>{historyDetail.requirement}</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                      {historyDetail.recommendations.slice(0, 3).map((rec, j) => {
-                        const level = getRecommendLevel(rec.matchScore);
-                        return (
-                          <div key={j} style={{ padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                <span style={{ fontSize: "13px", fontWeight: 600 }}>{j + 1}. {rec.partnerName}</span>
-                                <span style={{ padding: "2px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: level.bg, color: level.color, border: `1px solid ${level.color}40` }}>{level.label}</span>
-                              </div>
-                              <span style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 600 }}>匹配度: {rec.matchScore}</span>
-                            </div>
-                            <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px", lineHeight: 1.5 }}>{rec.recommendationReason || "暂无推荐理由"}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {expandedRecordId === r.id && !historyDetail && (
-                  <div style={{ marginTop: "8px", padding: "14px 16px", background: "white", borderRadius: "8px", border: "1px solid var(--line)", textAlign: "center" }}>
-                    <span style={{ fontSize: "13px", color: "var(--muted)" }}>加载中...</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
     </main>
   );

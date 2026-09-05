@@ -6,10 +6,12 @@ from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..database import get_db
 from ..auth import require_admin
+from ..model_resolver import _resolve_api_key
+from ..ai_client import _completion_content, model_error_message
 
 
 router = APIRouter(prefix="/admin/model-configs", tags=["model-configs"], dependencies=[Depends(require_admin)])
@@ -41,10 +43,10 @@ class ModelConfigCreate(BaseModel):
     baseUrl: str | None = None
     apiKey: str | None = None
     modelName: str | None = None
-    temperature: float = 0.3
-    topP: float = 1.0
-    maxTokens: int = 131072
-    timeoutSeconds: int = 60
+    temperature: float = Field(default=0.3, ge=0, allow_inf_nan=False)
+    topP: float = Field(default=1.0, ge=0, le=1, allow_inf_nan=False)
+    maxTokens: int = Field(default=131072, gt=0)
+    timeoutSeconds: int = Field(default=60, gt=0)
 
 
 class ModelConfigUpdate(BaseModel):
@@ -53,10 +55,10 @@ class ModelConfigUpdate(BaseModel):
     baseUrl: str | None = None
     apiKey: str | None = None
     modelName: str | None = None
-    temperature: float | None = None
-    topP: float | None = None
-    maxTokens: int | None = None
-    timeoutSeconds: int | None = None
+    temperature: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    topP: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    maxTokens: int | None = Field(default=None, gt=0)
+    timeoutSeconds: int | None = Field(default=None, gt=0)
 
 
 class UsageConfigOut(BaseModel):
@@ -80,7 +82,7 @@ class TestResult(BaseModel):
 def _to_out(r) -> ModelConfigOut:
     return ModelConfigOut(
         id=r["id"], name=r["name"], provider=r["provider"], baseUrl=r["base_url"],
-        apiKeyConfigured=bool(r["api_key"]),
+        apiKeyConfigured=bool(_resolve_api_key(r)),
         apiKeySource=r["api_key_source"], modelName=r["model_name"],
         temperature=r["temperature"], topP=r["top_p"], maxTokens=r["max_tokens"],
         timeoutSeconds=r["timeout_seconds"], enabled=bool(r["enabled"]), isDefault=bool(r["is_default"]),
@@ -178,7 +180,7 @@ def test_connection(mc_id: str) -> TestResult:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
 
     import os
-    api_key = row["api_key"] or os.getenv(row["api_key_env_name"] or "LLM_API_KEY", "")
+    api_key = _resolve_api_key(row)
     base_url = row["base_url"] or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
     model = row["model_name"] or os.getenv("LLM_MODEL", "gpt-4o")
 
@@ -193,13 +195,11 @@ def test_connection(mc_id: str) -> TestResult:
         with httpx.Client(timeout=30) as client:
             resp = client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
+            _completion_content(resp.json())
         elapsed = int((time.time() - start) * 1000)
         return TestResult(success=True, message="连接成功", latencyMs=elapsed)
-    except httpx.HTTPStatusError as e:
-        return TestResult(success=False, message=f"HTTP {e.response.status_code}: {e.response.text[:100]}")
     except Exception as e:
-        err = str(e).replace(api_key, "***") if api_key else str(e)
-        return TestResult(success=False, message=f"连接失败: {err[:200]}")
+        return TestResult(success=False, message=model_error_message(e))
 
 
 # ============ Usage Configs ============
@@ -228,6 +228,12 @@ def update_usage_config(scene_key: str, payload: UsageConfigUpdate) -> UsageConf
         row = conn.execute("SELECT * FROM model_usage_configs WHERE scene_key = ?", (scene_key,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="场景不存在")
+        if payload.modelConfigId is not None:
+            config = conn.execute(
+                "SELECT id FROM model_configs WHERE id = ? AND enabled = 1", (payload.modelConfigId,),
+            ).fetchone()
+            if config is None:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="绑定失败：模型配置不存在或已停用")
         conn.execute("UPDATE model_usage_configs SET model_config_id = ?, updated_at = ? WHERE scene_key = ?",
                      (payload.modelConfigId, now, scene_key))
         row = conn.execute("""

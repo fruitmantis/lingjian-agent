@@ -149,7 +149,7 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
     from datetime import datetime, timezone, timedelta
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat() if days > 0 else "1970-01-01"
     with get_db() as conn:
-        q = """SELECT dp.* FROM demand_profiles dp
+        q = """SELECT dp.*, mr.recommendations_json AS task_recommendations FROM demand_profiles dp
                LEFT JOIN match_records mr ON mr.id = dp.match_record_id
                WHERE dp.created_at >= ? AND (dp.match_record_id IS NULL OR mr.archived_at IS NULL)"""
         params = [cutoff]
@@ -171,45 +171,67 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
         no_partner = sum(1 for r in rows if r["supply_status"] == "gap")
         partial = sum(1 for r in rows if r["supply_status"] == "partial")
 
-        partners = conn.execute("SELECT id, name, ai_profile, created_at FROM partners").fetchall()
+        partners = conn.execute("SELECT id, name, ai_profile, created_at, updated_at FROM partners").fetchall()
         total_partners = len(partners)
         with_profile = sum(1 for p in partners if p["ai_profile"])
 
-        # Active partners: appeared in match recommendations
-        active_set = set()
-        rec_counts = {}
-        recs_rows = conn.execute("SELECT recommendations_json, created_at FROM match_records").fetchall()
-        for rr in recs_rows:
-            import json as _j
+        # Activity uses the same filtered, unarchived demand population as the charts.
+        # Keep inventory totals global; count each partner at most once per task.
+        import json as _j
+        partners_by_id = {p["id"]: p for p in partners}
+        ids_by_name: dict[str, list[str]] = {}
+        for partner in partners:
+            ids_by_name.setdefault(partner["name"], []).append(partner["id"])
+        rec_counts: dict[str, int] = {}
+        last_recommended: dict[str, str] = {}
+        seen_tasks = set()
+        for rr in rows:
+            task_id = rr["match_record_id"]
+            if not task_id or task_id in seen_tasks:
+                continue
+            seen_tasks.add(task_id)
             try:
-                recs = _j.loads(rr["recommendations_json"])
-                for rec in recs:
-                    name = rec.get("partnerName", "")
-                    active_set.add(name)
-                    rec_counts[name] = rec_counts.get(name, 0) + 1
-            except Exception:
-                pass
+                recs = _j.loads(rr["task_recommendations"] or "[]")
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(recs, list):
+                continue
+            task_partners = set()
+            for rec in recs:
+                if not isinstance(rec, dict):
+                    continue
+                partner_id = rec.get("partnerId")
+                if not isinstance(partner_id, str) or partner_id not in partners_by_id:
+                    # Older records may contain only a name; use it only if unambiguous.
+                    name = rec.get("partnerName")
+                    candidates = ids_by_name.get(name, []) if isinstance(name, str) else []
+                    if len(candidates) != 1:
+                        continue
+                    partner_id = candidates[0]
+                task_partners.add(partner_id)
+            for partner_id in task_partners:
+                rec_counts[partner_id] = rec_counts.get(partner_id, 0) + 1
+                last_recommended[partner_id] = max(last_recommended.get(partner_id, ""), rr["created_at"])
 
-        active_count = len(active_set)
+        active_count = len(rec_counts)
         active_ratio = round(active_count / total_partners * 100, 1) if total_partners else 0
 
         # Top recommended partners
         top_recs = sorted(rec_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-        top_rec_list = [PartnerActivity(partnerName=n, recommendCount=c, lastUpdated="-") for n, c in top_recs]
+        top_rec_list = [PartnerActivity(partnerName=partners_by_id[pid]["name"], recommendCount=c, lastUpdated=last_recommended[pid][:10]) for pid, c in top_recs]
 
         # Inactive partners (not in active_set)
-        inactive = [PartnerActivity(partnerName=p["name"], recommendCount=0, lastUpdated=p["created_at"][:10]) for p in partners if p["name"] not in active_set][:10]
+        inactive = [PartnerActivity(partnerName=p["name"], recommendCount=0, lastUpdated=(p["updated_at"] or p["created_at"])[:10]) for p in partners if p["id"] not in rec_counts][:10]
 
         # Pending suggestions
         pending = conn.execute("SELECT COUNT(*) as cnt FROM capability_tag_suggestions WHERE status = 'pending'").fetchone()["cnt"]
         total_sugs = conn.execute("SELECT COUNT(*) as cnt FROM capability_tag_suggestions").fetchone()["cnt"]
 
         # Formal tags distribution from partners
-        partner_rows = conn.execute("SELECT capabilities FROM partners WHERE capabilities IS NOT NULL AND capabilities != ''").fetchall()
+        partner_rows = conn.execute("SELECT id, capabilities, status FROM partners WHERE capabilities IS NOT NULL AND capabilities != ''").fetchall()
         formal_counts = {}
         for pr in partner_rows:
-            for tag in (pr["capabilities"] or "").split(","):
-                tag = tag.strip()
+            for tag in {value.strip() for value in (pr["capabilities"] or "").split(",")}:
                 if tag:
                     formal_counts[tag] = formal_counts.get(tag, 0) + 1
         top_formal = sorted([ReportDist(label=k, count=v) for k, v in formal_counts.items()], key=lambda x: x.count, reverse=True)[:10]
@@ -224,12 +246,14 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
                         cap_demand[tag] = {"demand": 0, "partners": set()}
                     cap_demand[tag]["demand"] += 1
 
-        # Count partners per capability
+        # Available supply includes only enabled partners, distinct by their real ID.
         for pr in partner_rows:
+            if pr["status"] != "active":
+                continue
             for tag in (pr["capabilities"] or "").split(","):
                 tag = tag.strip()
                 if tag in cap_demand:
-                    cap_demand[tag]["partners"].add(pr["rowid"] if "rowid" in pr.keys() else 1)
+                    cap_demand[tag]["partners"].add(pr["id"])
 
         supply_gaps = []
         for cap, data in cap_demand.items():
@@ -314,6 +338,40 @@ class OpportunityUpdate(BaseModel):
     businessNeeds: str | None = None
 
 
+_OPPORTUNITY_FIELDS = (
+    ("customerName", "customer_name"), ("projectName", "project_name"),
+    ("industry", "industry"), ("region", "region"),
+    ("projectStage", "project_stage"), ("businessNeeds", "business_needs"),
+)
+
+
+def calculate_opportunity_completeness(values: dict) -> tuple[int, list[str]]:
+    """Use the same six business fields for model extraction and manual updates."""
+    missing = []
+    for field, _ in _OPPORTUNITY_FIELDS:
+        value = values.get(field)
+        if not isinstance(value, str) or not value.strip() or value.strip() == "未识别":
+            missing.append(field)
+    return round((len(_OPPORTUNITY_FIELDS) - len(missing)) / len(_OPPORTUNITY_FIELDS) * 100), missing
+
+
+def _save_opportunity_fields(conn, row, payload: OpportunityUpdate, now: str) -> None:
+    values = {field: row[column] for field, column in _OPPORTUNITY_FIELDS}
+    updates = []
+    params = []
+    for field, column in _OPPORTUNITY_FIELDS:
+        value = getattr(payload, field)
+        if value is not None:
+            updates.append(f"{column} = ?")
+            params.append(value)
+            values[field] = value
+    if updates:
+        completeness, missing = calculate_opportunity_completeness(values)
+        updates.extend(["completeness_score = ?", "missing_fields = ?", "updated_at = ?"])
+        params.extend([completeness, ",".join(missing), now, row["id"]])
+        conn.execute(f"UPDATE project_opportunities SET {', '.join(updates)} WHERE id = ?", params)
+
+
 _OPP_COLS = "id, match_record_id, requirement_text, customer_name, project_name, industry, region, project_stage, business_needs, technical_needs, delivery_needs, qualification_requirements, case_requirements, onsite_requirement, timeline_requirement, cloud_platform_preference, matched_capability_tags, unmatched_capability_signals, recommended_partner_names, supply_status, completeness_score, missing_fields, follow_up_questions, created_at, updated_at"
 
 
@@ -372,19 +430,12 @@ def update_opportunity(opp_id: str, payload: OpportunityUpdate) -> OpportunityOu
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
         if row is None:
             from fastapi import HTTPException, status as _st
             raise HTTPException(_st.HTTP_404_NOT_FOUND, detail="项目机会不存在")
-        updates = []
-        params = []
-        for field, col in [("customerName","customer_name"),("projectName","project_name"),("industry","industry"),("region","region"),("projectStage","project_stage"),("businessNeeds","business_needs")]:
-            val = getattr(payload, field)
-            if val is not None:
-                updates.append(f"{col} = ?"); params.append(val)
-        if updates:
-            updates.append("updated_at = ?"); params.append(now); params.append(opp_id)
-            conn.execute(f"UPDATE project_opportunities SET {', '.join(updates)} WHERE id = ?", params)
+        _save_opportunity_fields(conn, row, payload, now)
         row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
     return _opp_to_out(row)
 
@@ -393,20 +444,13 @@ def update_opportunity(opp_id: str, payload: OpportunityUpdate) -> OpportunityOu
 def update_own_opportunity(record_id: str, payload: OpportunityUpdate, user: dict = Depends(require_active_user)) -> OpportunityOut:
     now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         task = conn.execute("SELECT owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
         if task is None or (task["owner_user_id"] != user["id"] and user["role"] != "admin"):
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="任务不存在")
         row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE match_record_id = ? ORDER BY created_at DESC LIMIT 1", (record_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="项目机会不存在")
-        updates = []
-        params = []
-        for field, col in [("customerName","customer_name"),("projectName","project_name"),("industry","industry"),("region","region"),("projectStage","project_stage"),("businessNeeds","business_needs")]:
-            val = getattr(payload, field)
-            if val is not None:
-                updates.append(f"{col} = ?"); params.append(val)
-        if updates:
-            updates.append("updated_at = ?"); params.append(now); params.append(row["id"])
-            conn.execute(f"UPDATE project_opportunities SET {', '.join(updates)} WHERE id = ?", params)
+        _save_opportunity_fields(conn, row, payload, now)
         fresh = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (row["id"],)).fetchone()
     return _opp_to_out(fresh)

@@ -175,7 +175,7 @@ test("E2E-007 API failures, not-found, forbidden, and network timeout are contro
   admin.page.on("pageerror", error => pageErrors.push(error.message));
   await admin.page.route("**/partners?include_disabled=true", route => route.abort("timedout"));
   await admin.page.goto("/admin/partners");
-  await expect(admin.page.getByText(/伙伴加载失败|Failed to fetch/)).toBeVisible();
+  await expect(admin.page.getByText(/伙伴加载失败|网络连接中断/)).toBeVisible();
   await expect(admin.page.getByText("加载中...")).toHaveCount(0);
   await admin.context.close();
   expect(pageErrors).toEqual([]);
@@ -185,11 +185,11 @@ test("E2E-009 workbench and key admin pages handle upstream and backend outages"
   const pageErrors: string[] = [];
   const user = await loggedPage(browser, request, "user_a");
   user.page.on("pageerror", error => pageErrors.push(error.message));
-  await user.page.route("**/agent/match", route => route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ detail: "上游模型服务不可用" }) }));
+  await user.page.route("**/agent/tasks", route => route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ detail: "上游模型服务不可用" }) }));
   await user.page.goto("/");
   await user.page.locator("#requirement").fill("验证 502 错误处理");
   await user.page.getByRole("button", { name: /开始任务/ }).click();
-  await expect(user.page.getByText("上游模型服务不可用")).toBeVisible();
+  await expect(user.page.locator(".assistant-error")).toContainText("提交结果暂未确认");
   await expect(user.page.getByRole("button", { name: /开始任务/ })).toBeEnabled();
   await user.context.close();
 
@@ -197,7 +197,7 @@ test("E2E-009 workbench and key admin pages handle upstream and backend outages"
   adminUsers.page.on("pageerror", error => pageErrors.push(error.message));
   await adminUsers.page.route(/^http:\/\/127\.0\.0\.1:18000\/admin\/users\?/, route => route.abort("connectionrefused"));
   await adminUsers.page.goto("/admin/users");
-  await expect(adminUsers.page.getByText(/用户加载失败|Failed to fetch/)).toBeVisible();
+  await expect(adminUsers.page.getByText(/用户加载失败|网络连接中断/)).toBeVisible();
   await expect(adminUsers.page.getByText("加载中...")).toHaveCount(0);
   await adminUsers.context.close();
 
@@ -220,7 +220,7 @@ test("E2E-009 workbench and key admin pages handle upstream and backend outages"
   opportunities.page.on("pageerror", error => pageErrors.push(error.message));
   await opportunities.page.route("**/admin/demand-profiles", route => route.abort("failed"));
   await opportunities.page.goto("/admin/opportunities");
-  await expect(opportunities.page.getByText(/Failed to fetch|需求画像加载失败/)).toBeVisible();
+  await expect(opportunities.page.getByText(/网络连接中断|需求画像加载失败/)).toBeVisible();
   await expect(opportunities.page.getByText("加载中...")).toHaveCount(0);
   await opportunities.context.close();
   expect(pageErrors).toEqual([]);
@@ -231,7 +231,7 @@ for (const viewport of [
   { width: 1366, height: 768 }, { width: 1024, height: 768 },
 ]) {
   test(`E2E-008-${viewport.width} key pages render without page-level overflow`, async ({ browser, request }) => {
-    const screenshotRoot = path.resolve(process.cwd(), "../artifacts/validation/screenshots");
+    const screenshotRoot = process.env.VALIDATION_SCREENSHOT_DIR || path.resolve(process.cwd(), "../artifacts/validation/screenshots");
     await mkdir(screenshotRoot, { recursive: true });
     const routes = [
       { name: "login", url: "/login", user: null },
