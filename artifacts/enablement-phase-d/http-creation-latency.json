@@ -1,0 +1,8 @@
+{
+  "sample_count": 20,
+  "p50_ms": 15.814949989318848,
+  "p95_ms": 18.650413006544113,
+  "max_ms": 19.951312005519867,
+  "environment": "HTTP 8100, SQLite /tmp, loopback OpenAI-compatible mock, serial submissions",
+  "real_model_calls": 0
+}

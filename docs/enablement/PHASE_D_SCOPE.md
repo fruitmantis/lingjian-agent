@@ -16,13 +16,13 @@ Phase C accepted：`351489c3d3c89899837930bd7aab01fe61f4a52a`，开始前分支 
 - 真实模型 **BLOCKED - USER AUTHORIZATION REQUIRED / NOT RUN / 0 CALLS**。不沿用历史 DeepSeek 批量任务授权；不修改稳定模型场景绑定。
 - 真实业务数据 **DATA-01 / DATA-02 = BLOCKED - BUSINESS DATA REQUIRED**；合成 fixture 不进入正式 seed。
 
-## 唯一产品代码修正：NFR-04 时限边界
+## 产品代码修正范围：NFR-04 时限边界
 
 新增回归先复现：开始时间超过 601 秒的 running Run，无读取/重启时，保存未拒绝（1 failed，私有日志 `phase-d-deadline-before.log`）。
 
-修正使用现有 SQLite 执行权与线程机制：默认模型 180 秒 / Run 600 秒，显式测试配置只允许缩短；Run 看门定时器主动标记 interrupted 并释放执行权；模型适配器设置请求超时及关闭客户端的总时限；进入后续模型阶段以及保存事务前后均检查 Run 执行权/时限。迟到结果不能创建版本；已有 current/confirmed 保留。未变更 schema、接口或外发字段。
+修正使用现有 SQLite 执行权与线程机制：默认模型 180 秒 / Run 600 秒，显式测试配置只允许缩短；Run 看门定时器主动标记 interrupted 并释放执行权；模型适配器设置请求超时，并使用 asyncio.timeout 对整次请求进行到期取消；进入后续模型阶段以及保存事务前后均检查 Run 执行权/时限。迟到结果不能创建版本；已有 current/confirmed 保留。未变更 schema、接口或外发字段。
 
-测试默认值、非法/超大配置回落、短 slow mock、无读取的 Run 超时、重试、旧确认版本、四处事务故障。180 秒和 10 分钟采用同一路径的短时限注入，不声称实际等待完整时长。
+后续分段慢回包也复现总耗时超过配置上限，已改为整次调用到期取消。测试默认值、非法/超大配置回落、短 slow mock、分段回包、无读取的 Run 超时、重试、旧确认版本、四处事务故障。180 秒和 10 分钟采用同一路径的短时限注入，不声称实际等待完整时长。
 
 ## 明确不做
 

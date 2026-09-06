@@ -1,0 +1,3178 @@
+{
+  "runs": [
+    {
+      "label": "full suite excluding owned port 8100 process test",
+      "evidence": ".isolation/logs/phase-d-backend-final.xml",
+      "sha256": "8073a1ced1b81b740b3a38bd8d0b4d93cc8a8d4c798a3e85d1d3db436ca580b9",
+      "counts": {
+        "PASS": 389,
+        "FAIL": 0,
+        "NOT RUN": 0,
+        "BLOCKED": 0
+      },
+      "total": 389
+    },
+    {
+      "label": "owned port 8100 process test selected from adapter batch",
+      "evidence": ".isolation/logs/phase-d-adapter-final.xml",
+      "sha256": "012f627c269a5dbb6904add13f9a6ec773dd0c9e1c91dc3e69128a047952296d",
+      "counts": {
+        "PASS": 1,
+        "FAIL": 0,
+        "NOT RUN": 0,
+        "BLOCKED": 0
+      },
+      "total": 1
+    }
+  ],
+  "tests": [
+    {
+      "file": "backend/tests/test_applications.py",
+      "test": "test_application_001_public_application_hashes_password",
+      "line": 23,
+      "status": "PASS",
+      "seconds": 0.682,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_applications.py",
+      "test": "test_application_002_duplicate_username_is_rejected",
+      "line": 35,
+      "status": "PASS",
+      "seconds": 0.485,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_applications.py",
+      "test": "test_application_003_duplicate_contact_is_rejected",
+      "line": 41,
+      "status": "PASS",
+      "seconds": 0.505,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_applications.py",
+      "test": "test_application_004_admin_approval_creates_first_login_user",
+      "line": 47,
+      "status": "PASS",
+      "seconds": 0.74,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_applications.py",
+      "test": "test_application_005_rejection_clears_hash_and_creates_no_user",
+      "line": 65,
+      "status": "PASS",
+      "seconds": 0.773,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_applications.py",
+      "test": "test_application_006_concurrent_approval_creates_one_user",
+      "line": 81,
+      "status": "PASS",
+      "seconds": 0.922,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_applications.py",
+      "test": "test_application_007_rapid_requests_are_rate_limited",
+      "line": 99,
+      "status": "PASS",
+      "seconds": 0.645,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_applications.py",
+      "test": "test_application_pending_capacity_is_rate_limited",
+      "line": 110,
+      "status": "PASS",
+      "seconds": 0.51,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_001_secret_rotation_invalidates_old_token",
+      "line": 14,
+      "status": "PASS",
+      "seconds": 0.033,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_002_historical_secret_cannot_forge_admin",
+      "line": 23,
+      "status": "PASS",
+      "seconds": 0.495,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_003_missing_or_weak_secret_fails_startup",
+      "line": 37,
+      "status": "PASS",
+      "seconds": 0.034,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_004_005_bootstrap_requires_config_and_forces_password_change",
+      "line": 46,
+      "status": "PASS",
+      "seconds": 0.481,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_005_empty_database_without_bootstrap_password_fails",
+      "line": 59,
+      "status": "PASS",
+      "seconds": 0.035,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_010_login_success",
+      "line": 67,
+      "status": "PASS",
+      "seconds": 0.631,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_011_012_five_failures_lock_account",
+      "line": 74,
+      "status": "PASS",
+      "seconds": 1.614,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_013_admin_unlock_restores_login",
+      "line": 82,
+      "status": "PASS",
+      "seconds": 1.078,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_014_first_login_cannot_use_business_routes",
+      "line": 91,
+      "status": "PASS",
+      "seconds": 0.772,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_015_password_change_invalidates_old_token",
+      "line": 100,
+      "status": "PASS",
+      "seconds": 1.293,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_016_reset_password_invalidates_old_token",
+      "line": 113,
+      "status": "PASS",
+      "seconds": 1.055,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_017_disable_invalidates_old_token",
+      "line": 122,
+      "status": "PASS",
+      "seconds": 0.802,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_018_role_change_invalidates_old_token",
+      "line": 133,
+      "status": "PASS",
+      "seconds": 0.688,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_019_020_admin_cannot_disable_or_demote_self",
+      "line": 144,
+      "status": "PASS",
+      "seconds": 0.463,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_auth.py",
+      "test": "test_auth_021_last_active_admin_is_preserved",
+      "line": 151,
+      "status": "PASS",
+      "seconds": 0.703,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_ab_task_lists_are_isolated",
+      "line": 48,
+      "status": "PASS",
+      "seconds": 1.789,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_ab_detail_and_related_data_are_isolated",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 1.822,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_ab_archive_restore_are_isolated",
+      "line": 77,
+      "status": "PASS",
+      "seconds": 1.812,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_ab_retry_is_isolated",
+      "line": 87,
+      "status": "PASS",
+      "seconds": 1.806,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_ab_opportunity_edit_is_isolated",
+      "line": 105,
+      "status": "PASS",
+      "seconds": 1.763,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_every_admin_operation_rejects_ordinary_user",
+      "line": 125,
+      "status": "PASS",
+      "seconds": 2.093,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_cross_owner_stale_task_request_does_not_write[detail-matching]",
+      "line": 147,
+      "status": "PASS",
+      "seconds": 0.703,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_cross_owner_stale_task_request_does_not_write[detail-enriching]",
+      "line": 147,
+      "status": "PASS",
+      "seconds": 0.699,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_cross_owner_stale_task_request_does_not_write[retry-matching]",
+      "line": 147,
+      "status": "PASS",
+      "seconds": 0.675,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_cross_owner_stale_task_request_does_not_write[retry-enriching]",
+      "line": 147,
+      "status": "PASS",
+      "seconds": 0.715,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_authorized_detail_recovers_only_requested_task[owner]",
+      "line": 170,
+      "status": "PASS",
+      "seconds": 0.493,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_authorized_detail_recovers_only_requested_task[admin]",
+      "line": 170,
+      "status": "PASS",
+      "seconds": 0.683,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_authorization.py",
+      "test": "test_owner_can_retry_stale_task",
+      "line": 185,
+      "status": "PASS",
+      "seconds": 0.476,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_counts_distinct_enabled_supply[0-gap]",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 0.516,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_counts_distinct_enabled_supply[1-partial]",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 0.505,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_counts_distinct_enabled_supply[3-sufficient]",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 0.496,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_activity_uses_filtered_unarchived_demands[days=7]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.514,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_activity_uses_filtered_unarchived_demands[industry=\\u5236\\u9020]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.516,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_activity_uses_filtered_unarchived_demands[region=\\u534e\\u4e1c]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.533,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_activity_uses_filtered_unarchived_demands[capability=\\u6570\\u636e\\u5e93]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.514,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_activity_uses_filtered_unarchived_demands[days=7&industry=\\u5236\\u9020&region=\\u534e\\u4e1c&capability=\\u6570\\u636e\\u5e93]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.513,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_report_handles_same_names_and_legacy_recommendations",
+      "line": 86,
+      "status": "PASS",
+      "seconds": 0.478,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_opportunity_edits_recalculate_completeness_and_missing_fields[owner]",
+      "line": 120,
+      "status": "PASS",
+      "seconds": 0.697,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_opportunity_edits_recalculate_completeness_and_missing_fields[admin]",
+      "line": 120,
+      "status": "PASS",
+      "seconds": 0.711,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_new_opportunity_extraction_uses_same_completeness_rules",
+      "line": 149,
+      "status": "PASS",
+      "seconds": 0.504,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_demand.py",
+      "test": "test_concurrent_opportunity_edits_keep_metrics_consistent",
+      "line": 160,
+      "status": "PASS",
+      "seconds": 0.491,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_api_quick_accept_unified_tasks_ownership_and_idempotency",
+      "line": 13,
+      "status": "PASS",
+      "seconds": 1.055,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_edit_confirm_transfer_and_cas",
+      "line": 43,
+      "status": "PASS",
+      "seconds": 0.972,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_same_plan_concurrent_revise_edit_and_failed_adjustment",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.973,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_resource_revocation_filters_historical_text[ordinary_course]",
+      "line": 79,
+      "status": "PASS",
+      "seconds": 0.944,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_resource_revocation_filters_historical_text[sensitive_course]",
+      "line": 79,
+      "status": "PASS",
+      "seconds": 0.97,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_resource_revocation_filters_historical_text[partner_permission]",
+      "line": 79,
+      "status": "PASS",
+      "seconds": 0.948,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_resource_revocation_filters_historical_text[model_permission]",
+      "line": 79,
+      "status": "PASS",
+      "seconds": 0.944,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_resource_revocation_filters_historical_text[system_permission]",
+      "line": 79,
+      "status": "PASS",
+      "seconds": 0.955,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_business_correction_has_provenance",
+      "line": 96,
+      "status": "PASS",
+      "seconds": 0.915,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_case_stop_or_sensitive_revoke_hides_inline_text_and_preserves_snapshot[False]",
+      "line": 103,
+      "status": "PASS",
+      "seconds": 1.031,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_case_stop_or_sensitive_revoke_hides_inline_text_and_preserves_snapshot[True]",
+      "line": 103,
+      "status": "PASS",
+      "seconds": 1.156,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_model_plan_free_text_cannot_assert_confirmed_gap",
+      "line": 123,
+      "status": "PASS",
+      "seconds": 1.091,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_task_creation_p95_under_one_second_without_waiting_model",
+      "line": 134,
+      "status": "PASS",
+      "seconds": 1.469,
+      "properties": {
+        "development_create_p95_seconds": "0.02245"
+      }
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_conversational_revision_applies_typed_changes_without_silent_external_permission",
+      "line": 147,
+      "status": "PASS",
+      "seconds": 1.217,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_three_parallel_plans_keep_owner_and_goal_snapshots",
+      "line": 163,
+      "status": "PASS",
+      "seconds": 1.204,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_api.py",
+      "test": "test_ordinary_course_new_publication_keeps_historical_name_without_url",
+      "line": 177,
+      "status": "PASS",
+      "seconds": 1.16,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_model_safe_context_and_strong_judgment_boundary",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 1.213,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[partner]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.116,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[resource]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.216,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[case]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.427,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[version]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.268,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[url]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.157,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[enum]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.292,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[extra]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.37,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[secret]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.302,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[internal_note]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.327,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_malicious_outputs_never_create_versions[unconfirmed_text]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 0.996,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_non_training_results_are_ready_without_resources[evidence_gap-missing]",
+      "line": 82,
+      "status": "PASS",
+      "seconds": 1.085,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_non_training_results_are_ready_without_resources[non_training_constraint-sufficient]",
+      "line": 82,
+      "status": "PASS",
+      "seconds": 1.519,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_non_training_results_are_ready_without_resources[needs_clarification-partial]",
+      "line": 82,
+      "status": "PASS",
+      "seconds": 1.261,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_user_confirmation_is_attributed_to_actual_actor",
+      "line": 92,
+      "status": "PASS",
+      "seconds": 1.216,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_candidate_permissions_and_constraint_three_states[unpublished]",
+      "line": 101,
+      "status": "PASS",
+      "seconds": 1.231,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_candidate_permissions_and_constraint_three_states[not_model_allowed]",
+      "line": 101,
+      "status": "PASS",
+      "seconds": 1.268,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_candidate_permissions_and_constraint_three_states[unknown]",
+      "line": 101,
+      "status": "PASS",
+      "seconds": 1.276,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_candidate_permissions_and_constraint_three_states[conflict]",
+      "line": 101,
+      "status": "PASS",
+      "seconds": 1.259,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_revocation_during_model_call_prevents_save",
+      "line": 114,
+      "status": "PASS",
+      "seconds": 1.143,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_engine.py",
+      "test": "test_explicit_model_selection_and_real_network_guard",
+      "line": 125,
+      "status": "PASS",
+      "seconds": 1.607,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_lifecycle.py",
+      "test": "test_clarification_requires_explicit_assumptions",
+      "line": 37,
+      "status": "PASS",
+      "seconds": 1.549,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_lifecycle.py",
+      "test": "test_submission_idempotency_and_single_execution",
+      "line": 50,
+      "status": "PASS",
+      "seconds": 1.598,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_lifecycle.py",
+      "test": "test_pointer_lifecycle_conflicts_owner_archive_and_failure",
+      "line": 62,
+      "status": "PASS",
+      "seconds": 1.063,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_lifecycle.py",
+      "test": "test_atomic_save_faults_do_not_leave_half_versions[version]",
+      "line": 91,
+      "status": "PASS",
+      "seconds": 0.996,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_lifecycle.py",
+      "test": "test_atomic_save_faults_do_not_leave_half_versions[item]",
+      "line": 91,
+      "status": "PASS",
+      "seconds": 0.923,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_lifecycle.py",
+      "test": "test_atomic_save_faults_do_not_leave_half_versions[diagnosis]",
+      "line": 91,
+      "status": "PASS",
+      "seconds": 0.91,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_lifecycle.py",
+      "test": "test_atomic_save_faults_do_not_leave_half_versions[pointer]",
+      "line": 91,
+      "status": "PASS",
+      "seconds": 0.928,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_lifecycle.py",
+      "test": "test_startup_recovery_rejects_late_results",
+      "line": 104,
+      "status": "PASS",
+      "seconds": 0.966,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[1]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.057,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[2]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.053,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[3]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.078,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[4]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.082,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[5]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.056,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[6]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.055,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[7]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.077,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[8]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.138,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[9]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.172,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[10]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.146,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[11]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.113,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[12]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.105,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[13]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.069,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[14]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.076,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_development_migration.py",
+      "test": "test_v12_failure_atomic_replay_and_old_data[None]",
+      "line": 7,
+      "status": "PASS",
+      "seconds": 0.056,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags0-resource]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.595,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags0-case]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.693,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags1-resource]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.477,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags1-case]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.496,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags2-resource]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.53,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags2-case]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.487,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags3-resource]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.505,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags3-case]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.506,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags4-resource]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.467,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags4-case]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.481,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags5-resource]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.46,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags5-case]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.485,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags6-resource]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.47,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags6-case]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.477,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags7-resource]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.547,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_permissions_are_independent_and_whitelisted[flags7-case]",
+      "line": 61,
+      "status": "PASS",
+      "seconds": 0.596,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_resource_lifecycle_review_and_conflicts[course]",
+      "line": 77,
+      "status": "PASS",
+      "seconds": 0.765,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_resource_lifecycle_review_and_conflicts[lab]",
+      "line": 77,
+      "status": "PASS",
+      "seconds": 0.651,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_revocation_and_regrant_do_not_resurrect_old_content[resource]",
+      "line": 105,
+      "status": "PASS",
+      "seconds": 0.681,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_revocation_and_regrant_do_not_resurrect_old_content[case]",
+      "line": 105,
+      "status": "PASS",
+      "seconds": 0.657,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_grant_needs_new_publication",
+      "line": 118,
+      "status": "PASS",
+      "seconds": 0.66,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_case_independent_version_ownership_and_deletion",
+      "line": 126,
+      "status": "PASS",
+      "seconds": 0.789,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_orphan_case_cannot_share",
+      "line": 141,
+      "status": "PASS",
+      "seconds": 0.722,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[javascript:alert(1)]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.705,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[https://secret:password@example.com]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.461,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[http://localhost:8000]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.489,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[http://127.0.0.1]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.497,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[http://192.168.1.1]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.519,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[https://example.com\\\\@evil.test]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.48,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[https://example.com:8100]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.491,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[http://[::1]]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.463,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[http://127.1]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.544,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_reject_unsafe_urls[http://0x7f.0.0.1]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 0.718,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_tags_missing_disabled_and_invalid_reference",
+      "line": 157,
+      "status": "PASS",
+      "seconds": 0.742,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_publish_requires_latest_complete_review[unknown-True-True]",
+      "line": 170,
+      "status": "PASS",
+      "seconds": 0.75,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_publish_requires_latest_complete_review[unavailable-True-True]",
+      "line": 170,
+      "status": "PASS",
+      "seconds": 0.641,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_publish_requires_latest_complete_review[available-False-True]",
+      "line": 170,
+      "status": "PASS",
+      "seconds": 0.646,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_publish_requires_latest_complete_review[available-True-False]",
+      "line": 170,
+      "status": "PASS",
+      "seconds": 0.646,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_concurrent_publish_only_one_version",
+      "line": 176,
+      "status": "PASS",
+      "seconds": 0.687,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_publication_fault_rolls_back_version_and_pointer",
+      "line": 189,
+      "status": "PASS",
+      "seconds": 0.72,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_all_new_api_operations_require_admin[anonymous]",
+      "line": 202,
+      "status": "PASS",
+      "seconds": 0.664,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_all_new_api_operations_require_admin[user]",
+      "line": 202,
+      "status": "PASS",
+      "seconds": 0.753,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement.py",
+      "test": "test_case_delete_and_initial_share_are_serialized",
+      "line": 218,
+      "status": "PASS",
+      "seconds": 0.495,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_migration.py",
+      "test": "test_additive_v10_preserves_every_old_row_and_is_idempotent",
+      "line": 41,
+      "status": "PASS",
+      "seconds": 0.062,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_migration.py",
+      "test": "test_migration_failure_is_atomic_and_retry_recovers[1]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 0.057,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_migration.py",
+      "test": "test_migration_failure_is_atomic_and_retry_recovers[3]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 0.064,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_migration.py",
+      "test": "test_migration_failure_is_atomic_and_retry_recovers[7]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 0.056,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_migration.py",
+      "test": "test_migration_failure_is_atomic_and_retry_recovers[10]",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 0.055,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_migration.py",
+      "test": "test_recovery_snapshot_can_create_fresh_independent_database",
+      "line": 75,
+      "status": "PASS",
+      "seconds": 0.051,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_migration.py",
+      "test": "test_legacy_repair_stays_closed_on_v10",
+      "line": 86,
+      "status": "PASS",
+      "seconds": 0.283,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_catalog_auth_unknown_filters_and_published_snapshot",
+      "line": 13,
+      "status": "PASS",
+      "seconds": 0.76,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_workspace_revocation_shared_projection_and_redirect[user-resource]",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 0.751,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_workspace_revocation_shared_projection_and_redirect[user-case]",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 0.808,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_workspace_revocation_shared_projection_and_redirect[admin-resource]",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 0.738,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_workspace_revocation_shared_projection_and_redirect[admin-case]",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 0.783,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[audience-\\u5de5\\u7a0b\\u5e08]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.586,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[product_direction-\\u6570\\u636e\\u5e93]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.574,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[difficulty-advanced]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.775,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[language-\\u4e2d\\u6587]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.614,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[site-\\u4e2d\\u56fd\\u7ad9]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.699,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[cost-free]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.55,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[account_requirement-\\u4f01\\u4e1a\\u8d26\\u53f7]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.475,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[environment_requirement-\\u81ea\\u5907\\u73af\\u5883]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.465,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_all_metadata_filters[prerequisites-SQL\\u57fa\\u7840]",
+      "line": 63,
+      "status": "PASS",
+      "seconds": 0.525,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_context_owner_selection_and_no_inferred_training",
+      "line": 71,
+      "status": "PASS",
+      "seconds": 0.913,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_shared_context_is_current_shared_version_not_internal_evidence",
+      "line": 86,
+      "status": "PASS",
+      "seconds": 0.709,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_task_type_retains_owner_and_admin_semantics",
+      "line": 100,
+      "status": "PASS",
+      "seconds": 0.921,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_v11_transaction_failure_recovery_and_idempotence[1]",
+      "line": 113,
+      "status": "PASS",
+      "seconds": 0.069,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_v11_transaction_failure_recovery_and_idempotence[2]",
+      "line": 113,
+      "status": "PASS",
+      "seconds": 0.073,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_v11_transaction_failure_recovery_and_idempotence[3]",
+      "line": 113,
+      "status": "PASS",
+      "seconds": 0.063,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_v11_transaction_failure_recovery_and_idempotence[None]",
+      "line": 113,
+      "status": "PASS",
+      "seconds": 0.065,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_catalog_3000_published_resources_search_p95",
+      "line": 138,
+      "status": "PASS",
+      "seconds": 3.267,
+      "properties": {
+        "catalog_performance": "{\"course_lab_count\": 2000, \"case_count\": 1000, \"samples\": 60, \"p50_seconds\": 0.03247501500300132, \"p95_seconds\": 0.04922113800421357, \"max_seconds\": 0.06223188998410478, \"scope\": \"catalog Python service: SQL search/count + permission projection + 12 details; no HTTP/browser/external source time\"}",
+        "candidate_performance": "{\"course_lab_count\": 2000, \"case_count\": 1000, \"samples\": 30, \"p50_seconds\": 0.01746202100184746, \"p95_seconds\": 0.020846853993134573, \"max_seconds\": 0.02227396800299175, \"scope\": \"model-safe candidate SQL, permission and constraints filtering; 100 candidate cap; no model/network/browser\"}"
+      }
+    },
+    {
+      "file": "backend/tests/test_enablement_workspace.py",
+      "test": "test_real_v10_snapshot_v11_replay_preserves_all_existing_rows",
+      "line": 183,
+      "status": "PASS",
+      "seconds": 0.066,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_files.py",
+      "test": "test_file_001_normal_document_upload",
+      "line": 42,
+      "status": "PASS",
+      "seconds": 0.592,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_files.py",
+      "test": "test_file_002_upload_size_boundary",
+      "line": 56,
+      "status": "PASS",
+      "seconds": 0.623,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_files.py",
+      "test": "test_file_003_forged_office_extension_is_rejected",
+      "line": 75,
+      "status": "PASS",
+      "seconds": 0.698,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_files.py",
+      "test": "test_file_004_missing_disk_file_returns_controlled_responses",
+      "line": 88,
+      "status": "PASS",
+      "seconds": 0.656,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_files.py",
+      "test": "test_file_005_database_delete_failure_keeps_disk_file",
+      "line": 107,
+      "status": "PASS",
+      "seconds": 0.659,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_files.py",
+      "test": "test_file_006_pptx_preview_escapes_html",
+      "line": 136,
+      "status": "PASS",
+      "seconds": 0.727,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_prepare_readonly_private_and_no_implicit_model_calls",
+      "line": 85,
+      "status": "PASS",
+      "seconds": 1.083,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_roundtrip_preserves_original_rows_and_is_idempotent",
+      "line": 101,
+      "status": "PASS",
+      "seconds": 0.882,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_budget_check_makes_zero_calls",
+      "line": 131,
+      "status": "PASS",
+      "seconds": 0.719,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_invalid_demand_output_is_not_replaced_by_fallback[industryTags-value0]",
+      "line": 138,
+      "status": "PASS",
+      "seconds": 0.755,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_invalid_demand_output_is_not_replaced_by_fallback[supplyStatus-invented]",
+      "line": 138,
+      "status": "PASS",
+      "seconds": 0.772,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_invalid_demand_output_is_not_replaced_by_fallback[urgencyLevel-None]",
+      "line": 138,
+      "status": "PASS",
+      "seconds": 0.737,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_invalid_opportunity_stops_then_resumes_only_missing[{}]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 1.074,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_invalid_opportunity_stops_then_resumes_only_missing[[]]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 1.204,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_invalid_opportunity_stops_then_resumes_only_missing[not-json]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 1.01,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_invalid_opportunity_stops_then_resumes_only_missing[{\"followUpQuestions\":\"bad\"}]",
+      "line": 152,
+      "status": "PASS",
+      "seconds": 1.0,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_empty_dictionary_cannot_accept_model_invented_tags",
+      "line": 164,
+      "status": "PASS",
+      "seconds": 0.915,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_stale_tasks_block_atomic_apply[owner_user_id-other]",
+      "line": 173,
+      "status": "PASS",
+      "seconds": 0.938,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_stale_tasks_block_atomic_apply[requirement-changed]",
+      "line": 173,
+      "status": "PASS",
+      "seconds": 0.941,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_stale_tasks_block_atomic_apply[archived_at-2026-09-05]",
+      "line": 173,
+      "status": "PASS",
+      "seconds": 0.968,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_stale_tasks_block_atomic_apply[task_status-enriching]",
+      "line": 173,
+      "status": "PASS",
+      "seconds": 1.177,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_concurrent_derivative_wins_without_being_overwritten",
+      "line": 185,
+      "status": "PASS",
+      "seconds": 0.96,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_edited_existing_derivative_blocks_apply",
+      "line": 195,
+      "status": "PASS",
+      "seconds": 1.19,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_edited_backfill_blocks_atomic_rollback",
+      "line": 205,
+      "status": "PASS",
+      "seconds": 1.092,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_failure_after_inserts_rolls_back_entire_transaction",
+      "line": 216,
+      "status": "PASS",
+      "seconds": 0.974,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_staging_cannot_modify_existing_or_unrelated_data[UPDATE match_records SET recommendations_json='[]']",
+      "line": 234,
+      "status": "PASS",
+      "seconds": 1.026,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_staging_cannot_modify_existing_or_unrelated_data[DELETE FROM cases]",
+      "line": 234,
+      "status": "PASS",
+      "seconds": 1.06,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_staging_cannot_modify_existing_or_unrelated_data[UPDATE project_opportunities SET project_name='overwrite']",
+      "line": 234,
+      "status": "PASS",
+      "seconds": 1.029,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_staging_cannot_modify_existing_or_unrelated_data[CREATE TABLE unexpected(id TEXT)]",
+      "line": 234,
+      "status": "PASS",
+      "seconds": 1.155,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_changed_configuration_blocks_calls",
+      "line": 241,
+      "status": "PASS",
+      "seconds": 1.024,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_historical_repair.py",
+      "test": "test_work_lock_and_backup_protection",
+      "line": 249,
+      "status": "PASS",
+      "seconds": 1.099,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_migration.py",
+      "test": "test_v8_backup_migrates_to_current_schema_idempotently_without_new_violations",
+      "line": 50,
+      "status": "PASS",
+      "seconds": 0.236,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_unbound_priority_is_preserved",
+      "line": 38,
+      "status": "PASS",
+      "seconds": 0.449,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_explicit_unavailable_binding_never_falls_back[False-partner_match]",
+      "line": 58,
+      "status": "PASS",
+      "seconds": 0.42,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_explicit_unavailable_binding_never_falls_back[False-default]",
+      "line": 58,
+      "status": "PASS",
+      "seconds": 0.401,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_explicit_unavailable_binding_never_falls_back[True-partner_match]",
+      "line": 58,
+      "status": "PASS",
+      "seconds": 0.299,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_explicit_unavailable_binding_never_falls_back[True-default]",
+      "line": 58,
+      "status": "PASS",
+      "seconds": 0.346,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_database_failure_does_not_select_environment_model",
+      "line": 67,
+      "status": "PASS",
+      "seconds": 0.303,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_system_status_reports_unavailable_binding_without_model_call",
+      "line": 77,
+      "status": "PASS",
+      "seconds": 0.548,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_zero_parameters_and_large_token_budget_are_preserved",
+      "line": 86,
+      "status": "PASS",
+      "seconds": 0.418,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_api_key_status_agrees_with_resolver_without_exposing_key[env-synthetic-custom-True]",
+      "line": 95,
+      "status": "PASS",
+      "seconds": 0.668,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_api_key_status_agrees_with_resolver_without_exposing_key[env--False]",
+      "line": 95,
+      "status": "PASS",
+      "seconds": 0.47,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_api_key_status_agrees_with_resolver_without_exposing_key[db--True]",
+      "line": 95,
+      "status": "PASS",
+      "seconds": 0.795,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[temperature--1-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.548,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[temperature--1-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.556,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[temperature-NaN-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.725,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[temperature-NaN-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.557,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[temperature-Infinity-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.607,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[temperature-Infinity-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.542,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[topP--1-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.521,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[topP--1-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.545,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[topP-1.1-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.613,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[topP-1.1-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.564,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[topP-NaN-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.582,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[topP-NaN-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.741,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[maxTokens-0-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.539,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[maxTokens-0-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.652,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[maxTokens-1.5-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.542,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[maxTokens-1.5-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.582,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[timeoutSeconds--1-post]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.539,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_rejects_invalid_numeric_parameters[timeoutSeconds--1-put]",
+      "line": 116,
+      "status": "PASS",
+      "seconds": 0.625,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_binding_api_validates_enabled_target_and_allows_unbind",
+      "line": 125,
+      "status": "PASS",
+      "seconds": 0.994,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_client_honors_explicit_timeout_and_sends_zero[None-123]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 0.455,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_client_honors_explicit_timeout_and_sends_zero[60-60]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 0.432,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_client_honors_explicit_timeout_and_sends_zero[180-180]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 0.388,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_each_business_call_uses_its_own_scene",
+      "line": 157,
+      "status": "PASS",
+      "seconds": 0.689,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_invalid_binding_returns_actionable_error_without_calling_model[partner_match-/agent/match]",
+      "line": 187,
+      "status": "PASS",
+      "seconds": 0.677,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_invalid_binding_returns_actionable_error_without_calling_model[partner_profile-/partners/partner-1/profile]",
+      "line": 187,
+      "status": "PASS",
+      "seconds": 0.574,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_config.py",
+      "test": "test_invalid_binding_returns_actionable_error_without_calling_model[tag_suggestion-/admin/capability-tags/suggestions/scan]",
+      "line": 187,
+      "status": "PASS",
+      "seconds": 0.608,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[None]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.061,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data1]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.04,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data2]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.061,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data3]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.073,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data4]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.057,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data5]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.049,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data6]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.079,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data7]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.089,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data8]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.058,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_incomplete_or_malformed_completion_is_rejected[data9]",
+      "line": 18,
+      "status": "PASS",
+      "seconds": 0.07,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_text_content_parts_remain_supported",
+      "line": 23,
+      "status": "PASS",
+      "seconds": 0.08,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[timeout]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.919,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[http401]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.664,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[http429]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.671,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[http500]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.748,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[exception]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.561,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[empty]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.756,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[truncated]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.691,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[missing]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.646,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_manual_connection_test_validates_content_and_sanitizes_errors[success]",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 0.623,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_profile_failure_preserves_data_without_exposing_exception",
+      "line": 52,
+      "status": "PASS",
+      "seconds": 0.573,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_batch_profile_does_not_copy_nested_exception",
+      "line": 69,
+      "status": "PASS",
+      "seconds": 0.675,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_reasoning_parts_are_not_returned_as_public_text",
+      "line": 81,
+      "status": "PASS",
+      "seconds": 0.089,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_inline_reasoning_tags_are_rejected",
+      "line": 89,
+      "status": "PASS",
+      "seconds": 0.085,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_profile_does_not_persist_raw_structured_output[]",
+      "line": 95,
+      "status": "PASS",
+      "seconds": 0.677,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_profile_does_not_persist_raw_structured_output[{\"internal\":\"synthetic-secret\"}]",
+      "line": 95,
+      "status": "PASS",
+      "seconds": 0.74,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_model_errors.py",
+      "test": "test_profile_does_not_persist_raw_structured_output[```json\\n{\"raw\":\"synthetic-secret\"}\\n```]",
+      "line": 95,
+      "status": "PASS",
+      "seconds": 0.786,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_openapi.py",
+      "test": "test_openapi_contains_only_three_public_operations",
+      "line": 11,
+      "status": "PASS",
+      "seconds": 0.144,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_openapi.py",
+      "test": "test_openapi_admin_operations_all_declare_security",
+      "line": 27,
+      "status": "PASS",
+      "seconds": 0.111,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_openapi.py",
+      "test": "test_enablement_workspace_operations_remain_authenticated",
+      "line": 38,
+      "status": "PASS",
+      "seconds": 0.133,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_business_samples.py",
+      "test": "test_insufficient_evidence_stays_needs_assessment[missing]",
+      "line": 13,
+      "status": "PASS",
+      "seconds": 1.5,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_business_samples.py",
+      "test": "test_insufficient_evidence_stays_needs_assessment[partial]",
+      "line": 13,
+      "status": "PASS",
+      "seconds": 1.291,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_business_samples.py",
+      "test": "test_explicit_assumption_survives_request_model_context_and_version",
+      "line": 28,
+      "status": "PASS",
+      "seconds": 1.305,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_business_samples.py",
+      "test": "test_model_cannot_force_training_to_solve_non_training_constraint",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 1.183,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_fixed_same_partner_different_goals_have_disjoint_capabilities_and_candidates",
+      "line": 40,
+      "status": "PASS",
+      "seconds": 1.509,
+      "properties": {
+        "fixed_samples": "[{\"goal\": \"数据库迁移\", \"capability\": \"ebbe849f-c38a-442c-ae5d-ff506bf2538c\", \"resource_ids\": [\"synthetic-goal-0\"], \"plan_id\": \"fb7d57b0-e5ba-4c37-bee8-124c54f1b255\"}, {\"goal\": \"Agent 应用交付\", \"capability\": \"3004059b-f960-4897-ad57-ae2e2d91d751\", \"resource_ids\": [\"synthetic-goal-1\"], \"plan_id\": \"27f2842c-994f-4b08-b704-48b454802671\"}]"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_three_parallel_plans_keep_distinct_partner_owner_and_resources",
+      "line": 68,
+      "status": "PASS",
+      "seconds": 1.729,
+      "properties": {
+        "parallel_plans": "3 owners / 3 partners / 3 courses / 3 cases; diagnostic barrier reached simultaneously; one version each"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_loopback_supplier_schema_error_timeout_and_retry[normal]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 1.843,
+      "properties": {
+        "loopback_supplier": "{\"mode\": \"normal\", \"status\": \"ready\", \"seconds\": 0.06663551300880499, \"real_provider_calls\": 0}"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_loopback_supplier_schema_error_timeout_and_retry[markdown]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 2.162,
+      "properties": {
+        "loopback_supplier": "{\"mode\": \"markdown\", \"status\": \"failed\", \"seconds\": 0.05522112699691206, \"real_provider_calls\": 0}"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_loopback_supplier_schema_error_timeout_and_retry[empty]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 2.019,
+      "properties": {
+        "loopback_supplier": "{\"mode\": \"empty\", \"status\": \"failed\", \"seconds\": 0.04201194099732675, \"real_provider_calls\": 0}"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_loopback_supplier_schema_error_timeout_and_retry[invalid]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 1.887,
+      "properties": {
+        "loopback_supplier": "{\"mode\": \"invalid\", \"status\": \"failed\", \"seconds\": 0.03147100599016994, \"real_provider_calls\": 0}"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_loopback_supplier_schema_error_timeout_and_retry[enum]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 1.915,
+      "properties": {
+        "loopback_supplier": "{\"mode\": \"enum\", \"status\": \"failed\", \"seconds\": 0.04479629299021326, \"real_provider_calls\": 0}"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_loopback_supplier_schema_error_timeout_and_retry[http_error]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 1.788,
+      "properties": {
+        "loopback_supplier": "{\"mode\": \"http_error\", \"status\": \"failed\", \"seconds\": 0.036171533982269466, \"real_provider_calls\": 0}"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_loopback_supplier_schema_error_timeout_and_retry[slow]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 1.956,
+      "properties": {
+        "loopback_supplier": "{\"mode\": \"slow\", \"status\": \"failed\", \"seconds\": 0.10081744799390435, \"real_provider_calls\": 0}"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_model_and_samples.py",
+      "test": "test_loopback_supplier_schema_error_timeout_and_retry[dribble]",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 2.182,
+      "properties": {
+        "loopback_supplier": "{\"mode\": \"dribble\", \"status\": \"failed\", \"seconds\": 0.266272184002446, \"real_provider_calls\": 0}"
+      }
+    },
+    {
+      "file": "backend/tests/test_phase_d_reliability.py",
+      "test": "test_expired_run_cannot_save_without_a_read_or_restart",
+      "line": 11,
+      "status": "PASS",
+      "seconds": 1.265,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_reliability.py",
+      "test": "test_default_deadlines_and_bounded_test_overrides",
+      "line": 35,
+      "status": "PASS",
+      "seconds": 0.064,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_reliability.py",
+      "test": "test_run_watchdog_without_polling_preserves_confirmed_and_retries",
+      "line": 48,
+      "status": "PASS",
+      "seconds": 2.018,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_reliability.py",
+      "test": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[version]",
+      "line": 83,
+      "status": "PASS",
+      "seconds": 1.395,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_reliability.py",
+      "test": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[item]",
+      "line": 83,
+      "status": "PASS",
+      "seconds": 1.402,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_reliability.py",
+      "test": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[diagnosis]",
+      "line": 83,
+      "status": "PASS",
+      "seconds": 1.334,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_reliability.py",
+      "test": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[pointer]",
+      "line": 83,
+      "status": "PASS",
+      "seconds": 1.641,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_reliability.py",
+      "test": "test_all_owner_mutations_and_canary_boundaries",
+      "line": 113,
+      "status": "PASS",
+      "seconds": 1.38,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_plan_candidate_and_transfer_dimensions[flags0]",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 1.233,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_plan_candidate_and_transfer_dimensions[flags1]",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 1.352,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_plan_candidate_and_transfer_dimensions[flags2]",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 1.425,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_plan_candidate_and_transfer_dimensions[flags3]",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 1.315,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_plan_candidate_and_transfer_dimensions[flags4]",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 1.213,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_plan_candidate_and_transfer_dimensions[flags5]",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 1.279,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_plan_candidate_and_transfer_dimensions[flags6]",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 1.176,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_plan_candidate_and_transfer_dimensions[flags7]",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 1.283,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_case_stop_regrant_does_not_restore_old_plan_and_revision_uses_new_pool[False]",
+      "line": 29,
+      "status": "PASS",
+      "seconds": 1.359,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_case_stop_regrant_does_not_restore_old_plan_and_revision_uses_new_pool[True]",
+      "line": 29,
+      "status": "PASS",
+      "seconds": 1.577,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_revocation.py",
+      "test": "test_ordinary_course_unpublish_retains_name_but_disables_redirect_and_future_pool",
+      "line": 57,
+      "status": "PASS",
+      "seconds": 1.496,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_process_recovery.py",
+      "test": "test_real_process_crash_recovers_task_and_allows_retry[matching]",
+      "line": 74,
+      "status": "PASS",
+      "seconds": 7.938,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_process_recovery.py",
+      "test": "test_real_process_crash_recovers_task_and_allows_retry[enriching]",
+      "line": 74,
+      "status": "PASS",
+      "seconds": 12.167,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_preserves_existing_fields_when_extraction_is_unusable[structured0]",
+      "line": 33,
+      "status": "PASS",
+      "seconds": 0.557,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_preserves_existing_fields_when_extraction_is_unusable[not json]",
+      "line": 33,
+      "status": "PASS",
+      "seconds": 0.589,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_preserves_existing_fields_when_extraction_is_unusable[[]]",
+      "line": 33,
+      "status": "PASS",
+      "seconds": 0.582,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_preserves_existing_fields_when_extraction_is_unusable[{}]",
+      "line": 33,
+      "status": "PASS",
+      "seconds": 0.586,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_preserves_existing_fields_when_extraction_is_unusable[{\"capabilities\":null,\"service_areas\":\" \",\"industries\":[]}]",
+      "line": 33,
+      "status": "PASS",
+      "seconds": 0.696,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_preserves_existing_fields_when_extraction_is_unusable[{\"capabilities\":\"\\u4e0d\\u5728\\u6b63\\u5f0f\\u5b57\\u5178\\u4e2d\\u7684\\u80fd\\u529b\"}]",
+      "line": 33,
+      "status": "PASS",
+      "seconds": 0.617,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_updates_only_valid_supplied_fields",
+      "line": 47,
+      "status": "PASS",
+      "seconds": 0.576,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_preserves_capabilities_when_no_formal_tags_are_enabled",
+      "line": 62,
+      "status": "PASS",
+      "seconds": 0.723,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_does_not_write_if_narrative_fails[{\"capabilities\":\"\\u6570\\u636e\\u5e93\"}]",
+      "line": 74,
+      "status": "PASS",
+      "seconds": 0.578,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_profile.py",
+      "test": "test_profile_does_not_write_if_narrative_fails[structured1]",
+      "line": 74,
+      "status": "PASS",
+      "seconds": 0.706,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_scores_sorted_unique_limited_and_best_duplicate_kept",
+      "line": 29,
+      "status": "PASS",
+      "seconds": 0.102,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[NaN]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.055,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[Infinity]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.073,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[-Infinity]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.06,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.045,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[92\\u5206]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.044,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[-1]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.043,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[101]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.042,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[True]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.043,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[None]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.041,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[score9]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.04,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_invalid_score_cannot_be_a_recommendation[score10]",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 0.082,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_boundary_and_decimal_scores_remain_valid[0-0]",
+      "line": 54,
+      "status": "PASS",
+      "seconds": 0.082,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_boundary_and_decimal_scores_remain_valid[100-100]",
+      "line": 54,
+      "status": "PASS",
+      "seconds": 0.08,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_boundary_and_decimal_scores_remain_valid[ 83.5 -83.5]",
+      "line": 54,
+      "status": "PASS",
+      "seconds": 0.095,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_active_identity_is_required_and_ambiguous_names_cannot_fallback",
+      "line": 60,
+      "status": "PASS",
+      "seconds": 0.098,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_only_owned_references_are_displayed_as_canonical_labels",
+      "line": 79,
+      "status": "PASS",
+      "seconds": 0.074,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_exact_legacy_names_work_but_fabricated_narratives_do_not",
+      "line": 98,
+      "status": "PASS",
+      "seconds": 0.055,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_ambiguous_evidence_names_need_ids",
+      "line": 113,
+      "status": "PASS",
+      "seconds": 0.055,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_unsupported_match_attributes_and_empty_risks_are_replaced",
+      "line": 123,
+      "status": "PASS",
+      "seconds": 0.045,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_missing_or_nontext_reasons_are_rejected[None]",
+      "line": 135,
+      "status": "PASS",
+      "seconds": 0.041,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_missing_or_nontext_reasons_are_rejected[ ]",
+      "line": 135,
+      "status": "PASS",
+      "seconds": 0.041,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_missing_or_nontext_reasons_are_rejected[reason2]",
+      "line": 135,
+      "status": "PASS",
+      "seconds": 0.039,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_missing_or_nontext_reasons_are_rejected[reason3]",
+      "line": 135,
+      "status": "PASS",
+      "seconds": 0.038,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_snake_case_and_wrapped_legacy_results_still_work",
+      "line": 142,
+      "status": "PASS",
+      "seconds": 0.038,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_recommendations.py",
+      "test": "test_new_task_persists_only_validated_results_without_rewriting_history",
+      "line": 150,
+      "status": "PASS",
+      "seconds": 0.633,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_repeated_status_does_not_write_database_or_call_model",
+      "line": 26,
+      "status": "PASS",
+      "seconds": 0.589,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_readonly_connection_refuses_writes",
+      "line": 47,
+      "status": "PASS",
+      "seconds": 0.291,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_missing_database_is_not_created",
+      "line": 53,
+      "status": "PASS",
+      "seconds": 0.401,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_status_does_not_change_existing_health_table",
+      "line": 62,
+      "status": "PASS",
+      "seconds": 0.722,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_business_status_uses_scene_binding_not_environment",
+      "line": 72,
+      "status": "PASS",
+      "seconds": 0.629,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_default_binding_error_and_database_error_are_sanitized",
+      "line": 84,
+      "status": "PASS",
+      "seconds": 0.708,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_connection_address_omits_credentials_path_and_query",
+      "line": 96,
+      "status": "PASS",
+      "seconds": 0.6,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_invalid_url_is_reported_without_echoing_configuration[malformed-synthetic-secret]",
+      "line": 108,
+      "status": "PASS",
+      "seconds": 0.65,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_invalid_url_is_reported_without_echoing_configuration[https://model.invalid:bad/private-key]",
+      "line": 108,
+      "status": "PASS",
+      "seconds": 0.778,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_invalid_url_is_reported_without_echoing_configuration[file:///private/secret]",
+      "line": 108,
+      "status": "PASS",
+      "seconds": 0.674,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_status_remains_admin_only",
+      "line": 118,
+      "status": "PASS",
+      "seconds": 0.59,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_legacy_invalid_numeric_configuration_does_not_break_status[temperature-bad-value]",
+      "line": 125,
+      "status": "PASS",
+      "seconds": 0.548,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_legacy_invalid_numeric_configuration_does_not_break_status[top_p-2]",
+      "line": 125,
+      "status": "PASS",
+      "seconds": 0.602,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_legacy_invalid_numeric_configuration_does_not_break_status[max_tokens-1.5]",
+      "line": 125,
+      "status": "PASS",
+      "seconds": 0.576,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_system_status.py",
+      "test": "test_legacy_invalid_numeric_configuration_does_not_break_status[timeout_seconds--1]",
+      "line": 125,
+      "status": "PASS",
+      "seconds": 0.696,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_acceptance_persists_before_model_and_duplicate_schedules_once",
+      "line": 26,
+      "status": "PASS",
+      "seconds": 0.631,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_concurrent_duplicate_creation_schedules_one_job",
+      "line": 47,
+      "status": "PASS",
+      "seconds": 0.693,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_create_conflicts_preserve_ownership_and_content",
+      "line": 58,
+      "status": "PASS",
+      "seconds": 1.05,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_invalid_creations_do_not_leave_empty_tasks[body0]",
+      "line": 70,
+      "status": "PASS",
+      "seconds": 0.608,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_invalid_creations_do_not_leave_empty_tasks[body1]",
+      "line": 70,
+      "status": "PASS",
+      "seconds": 0.667,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_invalid_creations_do_not_leave_empty_tasks[body2]",
+      "line": 70,
+      "status": "PASS",
+      "seconds": 0.715,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_invalid_creations_do_not_leave_empty_tasks[body3]",
+      "line": 70,
+      "status": "PASS",
+      "seconds": 0.617,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_creation_requires_authentication",
+      "line": 78,
+      "status": "PASS",
+      "seconds": 0.326,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_background_failure_has_real_persisted_status[match-failed]",
+      "line": 84,
+      "status": "PASS",
+      "seconds": 0.652,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_background_failure_has_real_persisted_status[enrich-partial]",
+      "line": 84,
+      "status": "PASS",
+      "seconds": 0.711,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_cursor_survives_new_head_and_archived_boundary_without_duplicates",
+      "line": 97,
+      "status": "PASS",
+      "seconds": 0.816,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_task_creation.py",
+      "test": "test_cursor_breaks_same_timestamp_ties_and_ids_are_owner_scoped",
+      "line": 119,
+      "status": "PASS",
+      "seconds": 0.977,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_task_001_match_failure_keeps_retryable_task",
+      "line": 29,
+      "status": "PASS",
+      "seconds": 0.601,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_task_002_enrichment_failure_keeps_recommendations_and_partial_state",
+      "line": 46,
+      "status": "PASS",
+      "seconds": 0.524,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_task_003_failed_retry_can_complete",
+      "line": 59,
+      "status": "PASS",
+      "seconds": 0.627,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_task_004_partial_retry_reuses_valid_recommendations",
+      "line": 74,
+      "status": "PASS",
+      "seconds": 0.637,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_task_005_retry_does_not_duplicate_derivative_records",
+      "line": 84,
+      "status": "PASS",
+      "seconds": 0.628,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_task_006_only_one_of_ten_concurrent_retries_executes",
+      "line": 117,
+      "status": "PASS",
+      "seconds": 0.937,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_task_007_archive_during_retry_has_consistent_final_state",
+      "line": 140,
+      "status": "PASS",
+      "seconds": 0.842,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_stale_matching_and_enriching_tasks_become_retryable",
+      "line": 166,
+      "status": "PASS",
+      "seconds": 0.613,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_empty_partial_recommendations_force_rematch",
+      "line": 182,
+      "status": "PASS",
+      "seconds": 0.729,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_tasks.py",
+      "test": "test_persist_failure_then_retry_rematches_instead_of_reusing_empty",
+      "line": 199,
+      "status": "PASS",
+      "seconds": 0.74,
+      "properties": {}
+    },
+    {
+      "file": "backend/tests/test_phase_d_process.py",
+      "test": "test_development_kill_restart_retry_and_http_creation",
+      "line": 15,
+      "status": "PASS",
+      "seconds": 5.342,
+      "properties": {
+        "http_creation": "{\"sample_count\": 50, \"p50_seconds\": 0.00719237100565806, \"p95_seconds\": 0.011249971023062244, \"max_seconds\": 0.01723141100956127, \"scope\": \"HTTP loopback 8100 + bearer validation + SQLite commit + executor enqueue; excludes model completion/browser/source site\", \"slow_model_seconds_per_call\": 3, \"real_model_calls\": 0}",
+        "kill_restart": "{\"port\": 8100, \"recovery_seconds\": 0.40407196700107306, \"status\": \"interrupted\", \"retry\": \"ready\", \"versions\": 2, \"confirmed_preserved\": true}"
+      }
+    }
+  ]
+}

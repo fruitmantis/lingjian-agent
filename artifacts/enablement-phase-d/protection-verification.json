@@ -1,0 +1,23 @@
+{
+  "stable_branch": "main",
+  "stable_head": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+  "stable_git_clean": true,
+  "protected_file_count": 167,
+  "changed_protected_files": 0,
+  "stable_database_check": "file SHA-256 only; no SQLite connection or authentication",
+  "stable_health": "ok",
+  "stable_processes": {
+    "227786": "/home/yuan/project/lingjian-agent",
+    "236033": "/home/yuan/project/lingjian-agent/frontend"
+  },
+  "new_ports_stopped": [
+    3100,
+    8100,
+    18180
+  ],
+  "runtime_regular_file_count": 9,
+  "runtime_links_to_old_data": 0,
+  "stable_logins": 0,
+  "real_model_calls": 0,
+  "remote_verified": false
+}
