@@ -58,7 +58,7 @@ def test_v8_backup_migrates_to_current_schema_idempotently_without_new_violation
 
     run_migration(migrated, tmp_path / "uploads")
     first = snapshot(migrated)
-    assert first["version"] == "11"
+    assert first["version"] == "12"
     assert first["integrity"] == "ok"
     assert first["counts"] == before["counts"]
     assert first["unowned"] == 0

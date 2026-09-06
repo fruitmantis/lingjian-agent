@@ -1013,3 +1013,15 @@ button:hover:not(:disabled) { background: var(--primary-hover); }
 @media (max-width: 700px) { .enablement-resource-grid { grid-template-columns: 1fr; } .enablement-facts { grid-template-columns: 100px minmax(0,1fr); } }
 
 .enablement-actions a.secondary-btn { display: inline-flex; align-items: center; padding: 9px 14px; border: 1px solid #dce2eb; border-radius: 8px; background: white; font-size: 14px; color: var(--primary, #2676ff); text-decoration: none; }
+
+/* Development assistant extends the existing shell and card rhythm. */
+.development-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;}
+.development-form,.development-detail{min-width:0;overflow-wrap:anywhere;}
+.development-detail>.card,.development-detail>section,.development-detail>.enablement-actions{margin-top:20px;}
+.development-check{display:flex;align-items:flex-start;gap:10px;margin:18px 0;line-height:1.7;}
+.development-check input{width:16px;min-width:16px;height:16px;margin-top:5px;}
+.development-target{padding:20px 0;border-top:1px solid var(--border,#e4e9f0);margin-top:16px;}
+.development-resource{padding:16px;background:#f6f8fc;border-radius:12px;margin:12px 0;}
+.development-text{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;}
+.development-detail select,.development-form select{max-width:100%;}
+@media(max-width:900px){.development-grid{grid-template-columns:1fr;}}

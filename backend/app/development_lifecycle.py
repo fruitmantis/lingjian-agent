@@ -188,11 +188,11 @@ def archive(plan_id,user,restore=False):
         audit(conn,plan_id,user['id'],'restored' if restore else 'archived')
 
 
-def recover(startup=False):
+def recover(startup=False,owner_user_id=None,plan_id=None):
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         threshold=(datetime.now(timezone.utc)-timedelta(minutes=10)).isoformat()
-        rows=conn.execute("SELECT id,plan_id FROM development_runs WHERE status IN ('pending','running') AND (? OR COALESCE(started_at,created_at)<?)",(int(startup),threshold)).fetchall()
+        rows=conn.execute("SELECT id,plan_id FROM development_runs WHERE status IN ('pending','running') AND (? OR COALESCE(started_at,created_at)<?) AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(int(startup),threshold,owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
         for row in rows:
             conn.execute("UPDATE development_runs SET status='interrupted',ended_at=?,safe_error_message='执行已中断，旧版本保持不变',error_stage='interrupted' WHERE id=?",(now(),row['id']))
             conn.execute('UPDATE development_plans SET active_run_id=NULL WHERE id=? AND active_run_id=?',(row['plan_id'],row['id']))

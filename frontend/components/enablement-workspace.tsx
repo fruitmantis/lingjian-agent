@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {DevelopmentRequestForm} from "./development-assistant";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "./auth-provider";
@@ -61,14 +62,13 @@ export function EnablementCenter() {
   for(const key of ["partner_id","task_id","case_id","case_version"]) { const value=search.get(key);if(value)contextParams.set(key,value); }
   const context=useAuthorizedData<Context>(`/enablement/context?${contextParams}`);
   const partners=useAuthorizedData<{id:string;name:string}[]>("/partners");
-  const [demand,setDemand]=useState("");
   function tabHref(tab:string){const next=new URLSearchParams(params);next.set("tab",tab);return `/enablement?${next}`;}
   function selectPartner(id:string){const next=new URLSearchParams(params);if(id)next.set("partner_id",id);else next.delete("partner_id");router.replace(`/enablement?${next}`);}
   return <div className="page enablement-page">
     <div className="page-heading-row"><div><p className="eyebrow">Partner Enablement</p><h1>伙伴服务能力发展中心</h1><p className="lead">从伙伴现状出发，整理发展诉求，查找可用资源。</p></div></div>
     <nav className="enablement-tabs" aria-label="发展中心栏目"><Link href={tabHref("assistant")} aria-current={!resourceTab?"page":undefined}>能力发展助手</Link><Link href={tabHref("resources")} aria-current={resourceTab?"page":undefined}>资源中心</Link></nav>
     {resourceTab ? <ResourceCatalog/> : <>
-      <div className="notice-neutral">当前可查看伙伴资料、整理发展诉求和查找资源。方案生成尚未开放；本页输入暂不保存。</div>
+      <div className="notice-neutral">填写发展诉求后可生成结构化方案。模型建议需业务复核，确认版本后才可预览伙伴可传递内容。</div>
       <section className="card"><h2>目标伙伴</h2><label className="enablement-field">选择目标伙伴<select aria-label="选择目标伙伴" value={search.get("partner_id")||""} disabled={!!search.get("task_id")} onChange={e=>selectPartner(e.target.value)}><option value="">请选择伙伴</option>{partners.data?.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>{search.get("task_id")&&<p className="muted">目标伙伴来自所选项目推荐。切换伙伴请返回匹配结果，选择对应入口。</p>}{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}</section>
       {context.error ? <ReadError message={context.error} retry={context.retry}/> : !context.data ? <p role="status">正在核验来源上下文…</p> : <div className="enablement-context-grid">
         <section className="card"><h2>当前伙伴画像摘要</h2>{context.data.partner ? <><h3>{context.data.partner.name}</h3><p>{context.data.partner.intro||"暂无伙伴简介"}</p><dl className="enablement-facts"><dt>能力</dt><dd>{display(context.data.partner.capabilities)}</dd><dt>行业</dt><dd>{display(context.data.partner.industries)}</dd><dt>服务区域</dt><dd>{display(context.data.partner.service_areas)}</dd></dl><div className="enablement-profile">{context.data.partner.ai_profile || "暂无已维护的 AI 画像，本阶段不会自动生成。"}</div><Link href={`/partners/${encodeURIComponent(context.data.partner.id)}`}>查看伙伴详情</Link><h3>当前可访问的证据引用</h3>{context.data.evidence.length ? <ul>{context.data.evidence.map(e=><li key={e.source_type+e.source_id}>{e.title} <small>（{e.source_type==="internal_case"?"内部案例":"交付物"}）</small></li>)}</ul> : <p className="muted">暂无可引用证据。</p>}<p className="muted">内部资料可见不代表获准发送模型或对伙伴外发。</p></> : <p className="placeholder-text">选择伙伴后查看当前画像与证据引用。</p>}</section>
@@ -76,7 +76,8 @@ export function EnablementCenter() {
         {context.data.shared_case && <><h3>共享学习案例</h3><Link href={resourcePath(context.data.shared_case)}>{context.data.shared_case.title}</Link><p>{context.data.shared_case.summary}</p><p>贡献伙伴：{context.data.shared_case.contributor_name}</p><p>实际角色：{context.data.shared_case.contributor_role}</p></>}
         {!context.data.project&&!context.data.shared_case&&<p className="placeholder-text">{context.data.partner?"来自伙伴资料入口，可结合当前画像整理诉求。":"从伙伴、匹配结果或共享案例进入时，在此显示获准查看的来源信息。"}</p>}</section>
       </div>}
-      <section className="card"><h2>发展诉求</h2><label className="enablement-field">希望达成的目标<textarea rows={5} maxLength={4000} value={demand} onChange={e=>setDemand(e.target.value)} placeholder="描述希望提升的服务能力、目标岗位、项目背景与时间安排。"/></label><div className="enablement-actions"><span className="muted">{demand.length} / 4000 · 仅在当前页面暂存</span><button className="secondary-btn" disabled={!demand} onClick={()=>setDemand("")}>清空输入</button><Link className="secondary-btn" href={tabHref("resources")}>查找可用资源</Link></div></section>
+      <DevelopmentRequestForm partnerId={search.get("partner_id")||""} sourceTask={search.get("task_id")} sourceCase={search.get("case_id")} sourceVersion={search.get("case_version")?Number(search.get("case_version")):null}/>
+
     </>}
   </div>;
 }

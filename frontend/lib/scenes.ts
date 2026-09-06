@@ -33,10 +33,10 @@ export type SceneDefinition = {
 export const SCENE_REGISTRY: readonly SceneDefinition[] = [
   {
     id: "partner-enablement-prepare", name: "制定伙伴服务能力发展方案",
-    description: "选择伙伴、查看来源资料并整理发展诉求，方案生成尚未开放。",
+    description: "填写目标、人员基础与约束，生成结构化发展方案并调整、编辑和确认。",
     category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["整理伙伴服务能力发展诉求"],
     tags: ["伙伴发展", "诉求整理"], enabled: true, sortOrder: 61,
-    availability: "preparation", actionHref: "/enablement", actionLabel: "整理发展诉求",
+    availability: "ready", actionHref: "/enablement", actionLabel: "制定发展方案",
   },
   {
     id: "enablement-resource-search", name: "查找课程与实验",

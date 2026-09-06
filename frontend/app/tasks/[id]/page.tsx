@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {DevelopmentPlanDetail} from "../../../components/development-assistant";
 import { FormEvent, use, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "../../../components/auth-provider";
@@ -145,6 +146,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     }
   }
 
+  if (task?.task_type === "development_plan") return <DevelopmentPlanDetail key={id} id={id}/>;
   if (loading) return <main className="page"><p>任务加载中...</p></main>;
   if (!task) return <main className="page"><div className="card empty-state"><h1>无法查看任务</h1><p className="error-text">{error || "任务不存在"}</p><div className="table-actions"><button className="secondary-btn" onClick={() => void load()}>重试</button><Link href={returnHref} className="btn-primary-lg">返回任务列表</Link></div></div></main>;
 

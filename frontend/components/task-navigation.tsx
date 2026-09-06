@@ -11,7 +11,7 @@ export const taskLabels: Record<string, string> = {
   matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "失败",
   submitting: "提交中", unconfirmed: "提交未确认",
 };
-export type NavigationTask = { id: string; requirement: string; createdAt: string; taskStatus: string; archivedAt?: string | null };
+export type NavigationTask = { task_type?: string; id: string; requirement: string; createdAt: string; taskStatus: string; archivedAt?: string | null };
 type PendingTask = NavigationTask & { taskStatus: "submitting" | "unconfirmed" };
 export function tasksChanged(task?: NavigationTask) {
   window.dispatchEvent(new CustomEvent(TASKS_CHANGED, { detail: task }));
@@ -234,7 +234,7 @@ function UserTaskSidebar({ pathname, selectedId }: { pathname: string; selectedI
 
   function row(task: NavigationTask) {
     return <Link key={task.id} href={`/tasks/${task.id}`} data-task-id={task.id} className={`sidebar-task-item ${selectedId === task.id ? "active" : ""}`} aria-current={selectedId === task.id ? "page" : undefined} title={task.requirement}>
-      <strong>{task.requirement}</strong><span><em className={`task-state task-${task.taskStatus}`}>{taskLabels[task.taskStatus] || "状态待确认"}</em><time>{new Date(task.createdAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" })}</time></span>
+      <strong>{task.requirement}</strong><span><em className={`task-state task-${task.taskStatus}`}>{task.task_type === "development_plan" && ["matching","enriching"].includes(task.taskStatus) ? "生成中" : taskLabels[task.taskStatus] || "状态待确认"}</em><time>{new Date(task.createdAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" })}</time></span>
     </Link>;
   }
   return <div className="sidebar-task-section">

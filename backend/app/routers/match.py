@@ -69,7 +69,7 @@ class MatchResponse(BaseModel):
 
 
 class MatchRecordSummary(BaseModel):
-    task_type: Literal["partner_match"] = "partner_match"
+    task_type: Literal["partner_match", "development_plan"] = "partner_match"
     id: str
     requirement: str
     topPartner: str
@@ -92,7 +92,7 @@ class TaskListResponse(BaseModel):
 
 
 class MatchRecordDetail(BaseModel):
-    task_type: Literal["partner_match"] = "partner_match"
+    task_type: Literal["partner_match", "development_plan"] = "partner_match"
     id: str
     requirement: str
     recommendations: list[PartnerRecommendation]
@@ -141,11 +141,21 @@ def _query_tasks(
     before_created_at: str | None = None, before_id: str | None = None,
     ids: list[str] | None = None, task_type: str | None = None,
 ) -> TaskListResponse:
-    if task_type == "development_plan":
-        return TaskListResponse(items=[], page=page, pageSize=page_size, total=0, totalPages=0)
     recover_stale_tasks(owner_user_id=owner_user_id)
+    from ..development_lifecycle import recover
+    recover(owner_user_id=owner_user_id)
+    cte = """WITH unified AS (
+        SELECT id, owner_user_id, requirement, recommendations_json, created_at, archived_at, task_status, last_error_stage, 'partner_match' AS task_type FROM match_records
+        UNION ALL
+        SELECT p.id,p.owner_user_id,json_extract(q.payload_json,'$.development_goal'),json_array(json_object('partnerName',t.name)),p.created_at,p.archived_at,
+        CASE r.status WHEN 'pending' THEN 'matching' WHEN 'running' THEN 'enriching' WHEN 'interrupted' THEN 'failed' ELSE COALESCE(r.status,'failed') END,r.error_stage,'development_plan'
+        FROM development_plans p JOIN development_requests q ON q.id=p.request_id JOIN partners t ON t.id=p.target_partner_id
+        LEFT JOIN development_runs r ON r.id=COALESCE(p.active_run_id,(SELECT id FROM development_runs WHERE plan_id=p.id ORDER BY created_at DESC,id DESC LIMIT 1))
+    ) """
     conditions = ["mr.archived_at IS NOT NULL" if archived else "mr.archived_at IS NULL"]
     params: list[object] = []
+    if task_type:
+        conditions.append("mr.task_type = ?"); params.append(task_type)
     if owner_user_id:
         conditions.append("mr.owner_user_id = ?"); params.append(owner_user_id)
     if keyword:
@@ -164,24 +174,30 @@ def _query_tasks(
     where = " WHERE " + " AND ".join(conditions)
     with get_db() as conn:
         total = conn.execute(
-            f"SELECT COUNT(*) FROM match_records mr LEFT JOIN users u ON u.id = mr.owner_user_id{where}", params,
+            cte + f"SELECT COUNT(*) FROM unified mr LEFT JOIN users u ON u.id = mr.owner_user_id{where}", params,
         ).fetchone()[0]
         rows = conn.execute(
-            f"""SELECT mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
+            cte + f"""SELECT mr.task_type, mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
                        mr.task_status, mr.last_error_stage, u.display_name AS owner_name, u.department,
                        (SELECT po.completeness_score FROM project_opportunities po
                         WHERE po.match_record_id = mr.id ORDER BY po.created_at DESC LIMIT 1) AS completeness_score
-                FROM match_records mr
+                FROM unified mr
                 LEFT JOIN users u ON u.id = mr.owner_user_id
                 {where} ORDER BY mr.created_at DESC, mr.id DESC LIMIT ? OFFSET ?""",
             [*params, page_size, (page - 1) * page_size],
         ).fetchall()
     items = []
     for row in rows:
+        requirement=row['requirement']
+        if row['task_type']=='development_plan':
+            from ..development_views import protected
+            with get_db() as conn:
+                version=conn.execute('SELECT v.* FROM development_versions v JOIN development_plans p ON p.current_version_id=v.id WHERE p.id=?',(row['id'],)).fetchone()
+                if version and protected(conn,version):requirement='发展方案（来源授权已变化）'
         recs = json.loads(row["recommendations_json"])
         top = recs[0]["partnerName"] if recs else "无"
         items.append(MatchRecordSummary(
-            id=row["id"], requirement=row["requirement"], topPartner=top, partnerCount=len(recs),
+            task_type=row["task_type"], id=row["id"], requirement=requirement, topPartner=top, partnerCount=len(recs),
             createdAt=row["created_at"], archivedAt=row["archived_at"], ownerName=row["owner_name"],
             department=row["department"], completenessScore=row["completeness_score"],
             taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],
@@ -260,6 +276,15 @@ def _recover_accessible_task(record_id: str, user: dict) -> None:
 
 @router.get("/tasks/{record_id}", response_model=MatchRecordDetail)
 def get_match_record(record_id: str, user: dict = Depends(require_active_user)) -> MatchRecordDetail:
+    from .. import development_lifecycle as life
+    with get_db() as conn:
+        exists = conn.execute('SELECT id FROM development_plans WHERE id=?',(record_id,)).fetchone()
+        if exists:
+            plan=life.authorize(conn,record_id,user)
+            owner=plan['owner_user_id']
+    if exists:
+        summary=_query_tasks(owner_user_id=owner,archived=bool(plan['archived_at']),keyword=None,owner_keyword=None,task_status=None,page=1,page_size=1,ids=[record_id]).items[0]
+        return MatchRecordDetail(task_type='development_plan',id=record_id,requirement=summary.requirement,recommendations=[],createdAt=summary.createdAt,createdBy=summary.ownerName,archivedAt=summary.archivedAt,demandProfile=None,opportunity=None,taskStatus=summary.taskStatus,lastErrorStage=summary.lastErrorStage)
     _recover_accessible_task(record_id, user)
     with get_db() as conn:
         row = conn.execute("""SELECT mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
@@ -892,6 +917,12 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
 
 @router.patch("/tasks/{record_id}/archive", status_code=status.HTTP_204_NO_CONTENT)
 def archive_match_record(record_id: str, user: dict = Depends(require_active_user)):
+    from .. import development_lifecycle as life
+    with get_db() as conn:
+        exists=conn.execute('SELECT id FROM development_plans WHERE id=?',(record_id,)).fetchone()
+    if exists:
+        life.archive(record_id,user,restore=False)
+        return
     with get_db() as conn:
         row = conn.execute("SELECT id, owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
         if row is None or (row["owner_user_id"] != user["id"] and user["role"] != "admin"):
@@ -902,6 +933,12 @@ def archive_match_record(record_id: str, user: dict = Depends(require_active_use
 
 @router.patch("/tasks/{record_id}/restore", status_code=status.HTTP_204_NO_CONTENT)
 def restore_match_record(record_id: str, user: dict = Depends(require_active_user)):
+    from .. import development_lifecycle as life
+    with get_db() as conn:
+        exists=conn.execute('SELECT id FROM development_plans WHERE id=?',(record_id,)).fetchone()
+    if exists:
+        life.archive(record_id,user,restore=True)
+        return
     with get_db() as conn:
         row = conn.execute("SELECT id, owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
         if row is None or (row["owner_user_id"] != user["id"] and user["role"] != "admin"):

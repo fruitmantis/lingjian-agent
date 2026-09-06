@@ -34,7 +34,7 @@ test.beforeAll(async({request})=>{
 test('NAV-01/SCN-01 center preserves navigation and offers truthful scene entries',async({page,request})=>{
   await login(request,'admin1',page);await page.goto('/enablement');
   for(const name of ['开启新任务','场景广场','伙伴洞察','全部任务','个人中心','管理后台','伙伴服务能力发展中心'])await expect(page.locator('aside').getByRole('link',{name,exact:true})).toBeVisible();
-  await expect(page.getByText('方案生成尚未开放',{exact:false})).toBeVisible();
+  await expect(page.getByText('填写发展诉求后可生成结构化方案。',{exact:false})).toBeVisible();
   await page.getByLabel('选择目标伙伴').selectOption('partner-1');
   await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'生成方案',exact:true})).toHaveCount(0);
@@ -103,16 +103,16 @@ test('MAT-01/NAV-02 project risks are context, old tasks and type filters remain
   await expect(page.getByText('待能力发展流程复核',{exact:true})).toBeVisible();
   await expect(page.locator('main').getByText('A-ready',{exact:true})).toBeVisible();
   await expect(page.getByText('资料需复核',{exact:true})).toBeVisible();
-  await expect(page.getByLabel('希望达成的目标')).toHaveValue('');
+  await expect(page.getByLabel('发展目标',{exact:true})).toHaveValue('');
   await expect(page.getByLabel('选择目标伙伴')).toHaveValue('partner-1');
-  await page.getByLabel('希望达成的目标').fill('人工整理诉求，不应创建任务');
+  await page.getByLabel('发展目标',{exact:true}).fill('人工整理诉求，不应创建任务');
   const after=await checked(await request.get(API+'/agent/tasks',{headers}));expect(after.total).toBe(before.total);
   await page.goto('/?task=task-a-ready');await expect(page.getByRole('link',{name:'针对该项目制定发展方案',exact:true})).toBeVisible();
   await page.goto('/tasks');await page.getByLabel('任务类型').selectOption('partner_match');await page.getByRole('button',{name:'搜索',exact:true}).click();
   await expect(page.locator('tbody').getByText('A-ready',{exact:true})).toBeVisible();
   await expect(page.locator('tbody')).not.toContainText('B-ready');
   await page.getByLabel('任务类型').selectOption('development_plan');await page.getByRole('button',{name:'搜索',exact:true}).click();
-  await expect(page.getByText('发展方案生成尚未开放，当前没有此类型任务。')).toBeVisible();
+  await expect(page.locator('main')).not.toContainText('A-ready');
 });
 
 test('SEC user B cannot load user A context; source data clears after revocation',async({page,request})=>{
@@ -134,7 +134,7 @@ test('SEC user B cannot load user A context; source data clears after revocation
 for(const width of [1366,1920])test(`Phase B screenshots and layout ${width}`,async({page,request})=>{
   await login(request,'user_a',page);await page.setViewportSize({width,height:width===1366?768:1080});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  const directory=path.resolve('../artifacts/enablement-phase-b');await mkdir(directory,{recursive:true});
+  const directory=path.resolve('../artifacts/enablement-phase-c-regression');await mkdir(directory,{recursive:true});
   for(const [name,url,heading] of [
     ['center','/enablement','伙伴服务能力发展中心'],
     ['resources','/enablement?tab=resources','伙伴服务能力发展中心'],

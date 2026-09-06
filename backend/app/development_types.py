@@ -63,7 +63,14 @@ class Stage(StrictModel):
     title: str=Field(min_length=1,max_length=200)
     items: list[Item]=Field(default_factory=list,max_length=50)
 
+class RequestAdjustment(StrictModel):
+    development_goal: str | None=Field(default=None,min_length=1,max_length=2000)
+    duration_weeks: int | None=Field(default=None,ge=1,le=104)
+    hours_per_week: float | None=Field(default=None,gt=0,le=80)
+    constraints: dict[str,str] | None=Field(default=None,max_length=8)
+
 class DiagnosisOutput(StrictModel):
+    request_adjustment: RequestAdjustment | None=None
     target_partner_id: str
     diagnoses: list[Diagnosis]=Field(min_length=1,max_length=20)
 
