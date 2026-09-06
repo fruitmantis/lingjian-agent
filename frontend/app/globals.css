@@ -1025,3 +1025,15 @@ button:hover:not(:disabled) { background: var(--primary-hover); }
 .development-text{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;}
 .development-detail select,.development-form select{max-width:100%;}
 @media(max-width:900px){.development-grid{grid-template-columns:1fr;}}
+
+/* Plan availability and latest execution remain independent in every task surface. */
+.plan-status { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; font-size: 12px; line-height: 1.5; }
+.plan-primary { display: inline-block; border-radius: 5px; padding: 2px 7px; color: var(--primary); background: #eef5ff; font-weight: 600; }
+.plan-available { color: #078276; background: #e9f8f4; }
+.plan-archived, .plan-restricted { color: #667085; background: #f0f2f5; }
+.plan-generation_failed { color: var(--danger); background: #fff2f1; }
+.plan-version, .plan-run { color: #667085; white-space: normal; overflow-wrap: anywhere; }
+.plan-run-error { color: var(--danger); }
+.workspace-layout .sidebar-task-item .plan-status { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.workspace-layout .sidebar-task-item .plan-status > span { display: block; margin: 0; }
+.development-detail .page-heading-row .plan-status { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; }

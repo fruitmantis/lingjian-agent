@@ -1,3 +1,4 @@
+import {evidenceRoot} from "./evidence-path";
 import {test,expect} from '@playwright/test';
 import path from 'node:path';
 const API='http://127.0.0.1:8100';
@@ -24,7 +25,7 @@ for(const width of [1366,1920])test(`Phase D explicit assumption is accepted and
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.addStyleTag({content:'nextjs-portal {display:none}'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-  await page.screenshot({path:path.resolve(`../artifacts/enablement-phase-d/16-assumption-accepted-${width}.png`),fullPage:true});
+  await page.screenshot({path:path.resolve(`${evidenceRoot}/16-assumption-accepted-${width}.png`),fullPage:true});
   const accepted=page.waitForResponse(r=>r.url()===API+'/development/plans'&&r.request().method()==='POST');
   await page.getByRole('button',{name:'生成发展方案',exact:true}).click();const id=(await (await accepted).json()).plan_id;
   await expect(page).toHaveURL(`/tasks/${id}`);await expect(page.getByTestId('gaps')).toContainText(assumption);
@@ -35,5 +36,5 @@ for(const width of [1366,1920])test(`Phase D explicit assumption is accepted and
   await page.evaluate(()=>window.scrollTo(0,0));
   await page.addStyleTag({content:'nextjs-portal {display:none}'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-  await page.screenshot({path:path.resolve(`../artifacts/enablement-phase-d/17-assumption-persisted-${width}.png`),fullPage:true});
+  await page.screenshot({path:path.resolve(`${evidenceRoot}/17-assumption-persisted-${width}.png`),fullPage:true});
 });

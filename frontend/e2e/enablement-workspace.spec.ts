@@ -1,3 +1,4 @@
+import {evidenceRoot} from "./evidence-path";
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
@@ -134,7 +135,7 @@ test('SEC user B cannot load user A context; source data clears after revocation
 for(const width of [1366,1920])test(`Phase B screenshots and layout ${width}`,async({page,request})=>{
   await login(request,'user_a',page);await page.setViewportSize({width,height:width===1366?768:1080});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  const directory=path.resolve('../artifacts/enablement-phase-d/regression');await mkdir(directory,{recursive:true});
+  const directory=path.resolve(`${evidenceRoot}/regression`);await mkdir(directory,{recursive:true});
   for(const [name,url,heading] of [
     ['center','/enablement','伙伴服务能力发展中心'],
     ['resources','/enablement?tab=resources','伙伴服务能力发展中心'],
