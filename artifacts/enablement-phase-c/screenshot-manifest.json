@@ -1,0 +1,578 @@
+[
+  {
+    "file": "artifacts/enablement-phase-c/01-request-form-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 3694
+    },
+    "sha256": "4e554eb7687b1c89c89337c59df0297a81c83e70ab050de9c01c110e7792849d"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/01-request-form-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 3694
+    },
+    "sha256": "218368b06f383024ba12897f1c59d2e62204c2192cc8d912dfa5f2d3def0ca68"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/02-clarification-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 3446
+    },
+    "sha256": "7a79478f6dafc29e7358c2d6900e0dc489e87ea6721713d1b4a2fab6a6b36c76"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/02-clarification-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 3446
+    },
+    "sha256": "3a48e7da22bad85376d38fb924de474ba8fb88b3522ff2c5845de04db560d04e"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/03-generating-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 896
+    },
+    "sha256": "d9cef858eda5ae107bbfeed08b4c20d802d7e3ce061ed162968602b903e15ce8"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/03-generating-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha256": "278d423536fe167b8f43050fb6300ff275743363d2e775f8bce91be0d729b1bf"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/04-v1-draft-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2072
+    },
+    "sha256": "3f098dc06e11aedf65f1da9f20927b24717b6e14f222eb5bb4dbf019ec7471dc"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/04-v1-draft-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2072
+    },
+    "sha256": "b66ac722b88de52b94864184f9dd30d11a12607e9215e3f49da9c1739a59415c"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/05-v1-confirmed-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2072
+    },
+    "sha256": "7b5a456808ab6eec04b20e2b0967c8c6e6bdc2b5ba728e3d4231b5196ffd0295"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/05-v1-confirmed-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2072
+    },
+    "sha256": "98c87003688b6740ca554d6130607f6c02375e66deb9eab85457c5613a089dbc"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/06-v2-draft-v1-confirmed-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2096
+    },
+    "sha256": "c818cc9ed0f6eb7628ccb09bfe6c9df81db877336f076458385ec50776cfcdd5"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/06-v2-draft-v1-confirmed-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2096
+    },
+    "sha256": "1a4afdceab8fa275d53f558e06fb6823d211d058a176fd2b8123e7ecec72780e"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/07-diagnosis-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2096
+    },
+    "sha256": "d62b9ec660a8333ab984bdbe39a6cef1abc7b2c25c6c0db3de61c8bbd3fe00c5"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/07-diagnosis-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2096
+    },
+    "sha256": "1a4afdceab8fa275d53f558e06fb6823d211d058a176fd2b8123e7ecec72780e"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/08-stages-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2096
+    },
+    "sha256": "3277f4477f719e8a6b333de603ace2ffcc4cd66493430970725524779a181f29"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/08-stages-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2096
+    },
+    "sha256": "e513e1f424ca26f483ad52516ef7931ca50380a1b0184d9ac386d1b71c4c522d"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/09-resource-gap-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 1512
+    },
+    "sha256": "f1ef6e41166eb8b768e7e3b59821f3f79637de14e40e7381f79ef9df119bf4c8"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/09-resource-gap-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1512
+    },
+    "sha256": "d9576d1db513071c0b982e790ae39f6e62f88055952d1c7c9dd6fbd80350cad0"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/10-structured-edit-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 3335
+    },
+    "sha256": "a617b02964f317c864416d075bc702d9a7ac37a2826a78233db0b2015e950005"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/10-structured-edit-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 3335
+    },
+    "sha256": "83400802168060e09867e30da26d52319f247cdb399ba35fdea6b75bf5ba056a"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/11-transferable-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2947
+    },
+    "sha256": "be530b8d4e4dc2ce8f2152c6cb97f5101c47d7258d6581dca500fe186ccb0acf"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/11-transferable-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2947
+    },
+    "sha256": "ed51bda4977794e17c60e8edb71011356b4c1eb37a91768ce9ef716096c56f35"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/12-unified-tasks-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 768
+    },
+    "sha256": "ef0235618f17c4f64d3b4801e687066fd33f2846b33dfe209bf48d5ef09bc11f"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/12-unified-tasks-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha256": "56c0c8d402565c69748c2063dc7ab5cc3cc12c41e3f85b4ce80f467018d57f65"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/13-revoked-history-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 918
+    },
+    "sha256": "75d15741eb5c029d0bef035f91331f3f1fd263279c1938230491cb406850629c"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/13-revoked-history-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha256": "d974f7b636c4aa03ae5b9e07b60fb1bcf69f9b6b8b3e756381cec8f675a90081"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/14-conflict-old-version-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 3410
+    },
+    "sha256": "028b3da3caa4745c3a4c16a3994d5b5004c10aee091cc07a5acadb6868af3457"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/14-conflict-old-version-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 3410
+    },
+    "sha256": "aaa9019cb12f6564915a6f495a15c2afb439450ac798c95e26bb97d711d60808"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/15-failed-revision-old-version-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2195
+    },
+    "sha256": "bd7c4c2bffee9d033bc75cf4b12d525987dfece051359087277cf8783b30f738"
+  },
+  {
+    "file": "artifacts/enablement-phase-c/15-failed-revision-old-version-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2195
+    },
+    "sha256": "89134c9580e8a964c629bf4646da64d92c1415e30cac4c9b9827525e3f1a9825"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/center-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 1970
+    },
+    "sha256": "c2e50ce3fb73ef0ee1078cd7efc18cddac9fbf0eb215d1b0fc37c3a2c7f346fa"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/center-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1946
+    },
+    "sha256": "61f066da2818322889cf936a06c7d1cb27a00632af67cd5479885e28fb447d93"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/course-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 1229
+    },
+    "sha256": "fb12b7fb02455fbd27bdda6d5179b0a0db71eb70b474d83e065271a002380d7d"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/course-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1229
+    },
+    "sha256": "4ed1b8491838b3731e8891b96299679f452fec07b8210cbcf0f6a836ad7986ab"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/match-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2706
+    },
+    "sha256": "2787190acece93fa9afb8129ed74c5a503155056520fa8d0f15b5f178771c75d"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/match-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2706
+    },
+    "sha256": "3faebf5188d66570af44284048b8c5c161d973822dc1bf2121bb903bc86e1a51"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/partner-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 1568
+    },
+    "sha256": "4e1505d724cf9eeec9abee6476e20d44b3afdb07bda9c72071bc3150126e72ae"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/partner-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1568
+    },
+    "sha256": "8db928295490b9744ac1c7d51cafccff8ecb428e6cd78d9f1c2de930c26300c5"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/project-context-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 2385
+    },
+    "sha256": "3ff4a766775cbb07b4f0dab62e5da5bd0f4d342ee3e9f48762b0268cda5ce42a"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/project-context-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 2385
+    },
+    "sha256": "4d2df3935c1566e061da5ddc55bd1189e39ef94742b3f0b581ce339da60c26c8"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/resources-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 1279
+    },
+    "sha256": "6f7e9a01581cb2bf8337960736d88c6f626ba3b7dda74f56867d22761527ee0c"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/resources-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1279
+    },
+    "sha256": "e1549294fc63c43aa8e4f0214b89d151e76aa685326c336682ee4f4d15bb8a42"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/scenes-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 1010
+    },
+    "sha256": "853a2df33bd3c47dccc5d1fcd9c578ebb69bdc374c03efe59edc717d8e40aa7b"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/scenes-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha256": "7d68277fa0880c2a380da70c54c0abf295083806f783b0cc29f95115a230b615"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/shared-case-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 1420
+    },
+    "sha256": "d672ed04d6c61c0faa518f22deb6974e8ca59766e2475ddfd220c9c057d46785"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/shared-case-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1420
+    },
+    "sha256": "e7c3e6ed4c35487129ada7e07896ed1baaac044495240609a95010708697e09a"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/tasks-1366.png",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "image": {
+      "width": 1366,
+      "height": 1022
+    },
+    "sha256": "bddde7785dc4b53b0c24db5bbffe2ca3adff476240308464b1d82689b458fde7"
+  },
+  {
+    "file": "artifacts/enablement-phase-c-regression/tasks-1920.png",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "image": {
+      "width": 1920,
+      "height": 1080
+    },
+    "sha256": "5ccf7555c7201c36e3c9b50e98285af3179a3cdc7b103e0251b1e44bffd7c3ef"
+  }
+]

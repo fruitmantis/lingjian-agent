@@ -1,5 +1,5 @@
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 const API='http://127.0.0.1:8100',CANARY='INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE';
@@ -47,4 +47,16 @@ for(const width of [1366,1920])test(`DEV lifecycle browser and fourteen evidence
  const url=API+`/admin/cases/${caseId}/sharing`;let row=await ok(await r.get(url,{headers:admin}));await ok(await r.post(url+'/unpublish',{headers:admin,data:{base_revision:row.revision,reason:'合成敏感撤权验证',sensitive:true}}));
  await page.goto('/tasks/'+id);await expect(page.locator('main').getByText('来源授权已变化',{exact:false})).toBeVisible();await expect(page.getByTestId('stages')).toHaveCount(0);expect((await r.post(API+`/development/plans/${id}/copy`,{headers:user,data:{version_id:v1}})).status()).toBe(409);await snap(page,'13-revoked-history',width);
  row=await ok(await r.get(url,{headers:admin}));await publish(r,url,row);expect(errors).toEqual([]);
+});
+
+
+test('NFR-01 real HTTP creation P95 returns before mock generation',async({request:r})=>{
+ test.setTimeout(90000);const owner=await login(r,'admin2');const durations:number[]=[];
+ for(let n=0;n<20;n++){
+  const started=performance.now();const accepted=await ok(await r.post(API+'/development/plans',{headers:owner,data:{submission_id:randomUUID(),request:demand(`接口时延合成验证 ${n}`)}}));durations.push(performance.now()-started);
+  await expect.poll(async()=> (await ok(await r.get(API+'/development/plans/'+accepted.plan_id,{headers:owner}))).runs[0].status).toBe('ready');
+  await ok(await r.patch(API+'/agent/tasks/'+accepted.plan_id+'/archive',{headers:owner}));
+ }
+ const p95=[...durations].sort((a,b)=>a-b)[18];expect(p95).toBeLessThan(1000);
+ await writeFile(path.resolve('../artifacts/enablement-phase-c/http-creation-latency.json'),JSON.stringify({sample_count:20,p95_ms:p95,max_ms:Math.max(...durations),environment:'HTTP 8100, SQLite /tmp, loopback OpenAI-compatible mock, serial submissions',real_model_calls:0},null,2));
 });

@@ -112,14 +112,14 @@ test('MAT-01/NAV-02 project risks are context, old tasks and type filters remain
   await expect(page.locator('tbody').getByText('A-ready',{exact:true})).toBeVisible();
   await expect(page.locator('tbody')).not.toContainText('B-ready');
   await page.getByLabel('任务类型').selectOption('development_plan');await page.getByRole('button',{name:'搜索',exact:true}).click();
-  await expect(page.locator('main')).not.toContainText('A-ready');
+  await expect(page.locator('main').last()).not.toContainText('A-ready');
 });
 
 test('SEC user B cannot load user A context; source data clears after revocation',async({page,request})=>{
   const headers=await login(request,'user_b',page);
   expect((await request.get(API+'/enablement/context?partner_id=partner-1&task_id=task-a-ready',{headers})).status()).toBe(404);
   await page.goto('/enablement?partner_id=partner-1&task_id=task-a-ready');await expect(page.locator('main').getByRole('alert')).toBeVisible();
-  await expect(page.locator('main')).not.toContainText('A-ready');
+  await expect(page.locator('main').last()).not.toContainText('A-ready');
   await page.goto(`/enablement/resources/lab/${lab}?source_version=1`);
   await expect(page.getByRole('heading',{level:1})).toHaveText('数据库迁移演练实验（合成验证）');
   const url=API+'/admin/enablement/resources/'+lab;

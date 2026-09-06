@@ -60,7 +60,7 @@ for(const resourceType of ['course','lab']){
 test('CASE-01/02 sharing is configured from existing case and separately versioned',async({page,request})=>{
   await login(page,request);
   await page.goto('/admin/partners/partner-1');
-  await page.getByRole('link',{name:'共享设置',exact:true}).click();
+  await page.locator('a[href="/admin/partners/partner-1/cases/case-1/sharing"]').click();
   await expect(page.getByRole('heading',{name:'案例共享配置',exact:true})).toBeVisible();
   await expect(page.getByLabel('共享标题',{exact:true})).toHaveValue('');
   await page.getByLabel('共享标题',{exact:true}).fill('合成共享学习版本');
