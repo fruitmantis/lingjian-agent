@@ -35,3 +35,6 @@ frontend/app/**/page.ts
 
 # Isolated development data, configuration, evidence and logs
 .isolation/
+
+# Generated delivery report embeds final HEAD; versioned source lives in docs/enablement.
+/PHASE_B_DELIVERY_REPORT.md
