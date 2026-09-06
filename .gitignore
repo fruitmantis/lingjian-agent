@@ -44,3 +44,6 @@ frontend/app/**/page.ts
 
 # Generated after final RC commit; versioned body and renderer are retained.
 /RC_PREPARATION_REPORT.md
+
+# Generated after the intake commit; source and renderer remain versioned.
+/PILOT_DATA_INTAKE_REPORT.md

@@ -1,0 +1,24 @@
+{
+  "stable_head": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+  "stable_clean": true,
+  "protected_files_checked": 167,
+  "protected_files_changed": 0,
+  "stable_sqlite_connections": 0,
+  "stable_logins": 0,
+  "stable_process_cwds": {
+    "227786": "/home/yuan/project/lingjian-agent",
+    "236033": "/home/yuan/project/lingjian-agent/frontend"
+  },
+  "new_ports_stopped": [
+    3100,
+    8100,
+    18180
+  ],
+  "rc_archive_commit": "1a0b4b4f081de63c617b366788e19d0090d19093",
+  "rc_accepted_tag": "rc-preparation-accepted-20260906-1a0b4b4",
+  "product_code_changed": false,
+  "schema_changed": false,
+  "real_model_calls": 0,
+  "push_merge_deploy": false,
+  "remote_verified": false
+}

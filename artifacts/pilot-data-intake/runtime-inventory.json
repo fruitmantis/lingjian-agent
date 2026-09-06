@@ -1,0 +1,23 @@
+{
+  "database": ".isolation/runtime/app.db",
+  "schema_version": "12",
+  "counts": {
+    "partners": 33,
+    "cases": 3,
+    "enablement_resources": 0,
+    "case_share_configs": 0,
+    "development_plans": 0
+  },
+  "integrity_check": [
+    "ok"
+  ],
+  "foreign_key_violation_count": 2,
+  "orphan_case_count": 2,
+  "database_hash_unchanged": true,
+  "approved_business_package_received": false,
+  "partner_development_explicit_enabled_binding": false,
+  "real_model_calls": 0,
+  "DATA_01_MACHINE_CHECK": "BLOCKED - BUSINESS DATA REQUIRED",
+  "DATA_01_business_signoff": "NOT RUN",
+  "DATA_02": "BLOCKED - BUSINESS DATA REQUIRED"
+}
