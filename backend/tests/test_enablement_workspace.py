@@ -135,7 +135,7 @@ def test_v11_transaction_failure_recovery_and_idempotence(tmp_path,fail_at):
         assert conn.execute('PRAGMA foreign_key_check').fetchall()==[]
 
 
-def test_catalog_3000_published_resources_search_p95(client,admin,metadata):
+def test_catalog_3000_published_resources_search_p95(client,admin,metadata,record_property):
     from backend.app.enablement_catalog import catalog
     resource=published(grant(create(admin,metadata),admin),admin)
     case=published(grant(create(admin,metadata,'case'),admin,'case'),admin,'case')
@@ -154,14 +154,30 @@ def test_catalog_3000_published_resources_search_p95(client,admin,metadata):
                     conn.execute(f"INSERT INTO {target} ({','.join(values)}) VALUES ({','.join('?' for _ in values)})",list(values.values()))
     assert catalog()['total']==3000
     elapsed=[]
-    for index in range(20):
+    for index in range(60):
         started=time.perf_counter()
         result=catalog(q='迁移',capability_tag_id=metadata['capability_tag_ids'][0],page=index%3+1)
         elapsed.append(time.perf_counter()-started)
         assert result['total']==2998 and len(result['items'])==12
-    p95=sorted(elapsed)[18]
-    print(f'\nNFR-02: 2000 course/lab + 1000 shared cases; 20 searches; P95={p95:.4f}s')
+    ordered=sorted(elapsed);p95=ordered[56]
+    record_property('catalog_performance',json.dumps({'course_lab_count':2000,'case_count':1000,'samples':60,
+        'p50_seconds':ordered[29],'p95_seconds':p95,'max_seconds':max(elapsed),
+        'scope':'catalog Python service: SQL search/count + permission projection + 12 details; no HTTP/browser/external source time'}))
     assert p95<2
+    from backend.app import development_engine as engine
+    request={'constraints':dict.fromkeys(['language','site','account','network','environment','cost','budget'],'无要求'),'trainee_role':'工程师'}
+    diagnosis=[{'problem_type':'trainable_gap','capability_tag_id':metadata['capability_tag_ids'][0]}]
+    timings=[]
+    for _ in range(30):
+        started=time.perf_counter()
+        with get_db() as conn:pool=engine.candidates(conn,request,diagnosis)
+        timings.append(time.perf_counter()-started)
+        assert len(pool)==100
+    ordered=sorted(timings)
+    record_property('candidate_performance',json.dumps({'course_lab_count':2000,'case_count':1000,'samples':30,
+        'p50_seconds':ordered[14],'p95_seconds':ordered[28],'max_seconds':max(timings),
+        'scope':'model-safe candidate SQL, permission and constraints filtering; 100 candidate cap; no model/network/browser'}))
+    assert ordered[28]<2
 
 
 def test_real_v10_snapshot_v11_replay_preserves_all_existing_rows(tmp_path):
