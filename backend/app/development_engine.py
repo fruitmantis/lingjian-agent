@@ -1,5 +1,7 @@
 """Minimal-context diagnosis and candidate-constrained plan assembly."""
 import copy,json,re
+from threading import Timer
+from .development_deadlines import run_timeout
 from fastapi import HTTPException
 from . import development_lifecycle as life,development_model as model,enablement as resources
 from .database import get_db
@@ -136,6 +138,9 @@ def assemble(output,request,diagnoses,pool,actor):
 def execute(run_id):
     run=life.claim(run_id)
     if not run:return
+    watchdog=Timer(run_timeout(),life.finish_failure,args=(run_id,run['execution_token'],'run_timeout','interrupted'))
+    watchdog.daemon=True
+    watchdog.start()
     stage='configuration'
     try:
         config=model.configuration()
@@ -144,6 +149,7 @@ def execute(run_id):
         with get_db() as conn:blocked=blocked_fragments(conn)
         minimal=request_projection(request);minimal['adjustment']=snapshot['instruction']
         stage='diagnosis'
+        life.ensure_execution(run_id,run['execution_token'])
         output=call(config,'diagnose',minimal,DiagnosisOutput,blocked)
         changes={k:v for k,v in (output.get('request_adjustment') or {}).items() if v is not None}
         if changes:
@@ -161,6 +167,7 @@ def execute(run_id):
         with get_db() as conn:
             conn.execute('BEGIN');pool=candidates(conn,request,diagnoses);deps=dependencies(conn,pool)
         stage='generation'
+        life.ensure_execution(run_id,run['execution_token'])
         output=call(config,'plan',{'request':minimal,'diagnoses':[{k:v for k,v in d.items() if k!='confirmation'} for d in diagnoses],'candidates':pool},PlanOutput,blocked)
         payload=assemble(output,request,diagnoses,pool,run['owner_user_id'])
         payload['adjustment_applied']=changes
@@ -169,3 +176,5 @@ def execute(run_id):
     except Exception:
         # Never persist model output, exception text, request body or stack trace.
         life.finish_failure(run_id,run['execution_token'],stage)
+    finally:
+        watchdog.cancel()

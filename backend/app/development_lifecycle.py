@@ -6,6 +6,7 @@ from datetime import datetime,timezone,timedelta
 from fastapi import HTTPException
 from .database import get_db
 from . import enablement_catalog
+from .development_deadlines import run_timeout
 from .development_types import DevelopmentRequest
 
 
@@ -129,8 +130,20 @@ def claim(run_id):
         conn.execute('BEGIN IMMEDIATE')
         row=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
         if not row or row['status']!='pending':return None
-        token=uid();conn.execute("UPDATE development_runs SET status='running',execution_token=?,started_at=? WHERE id=?",(token,now(),run_id))
-        return {**dict(row),'execution_token':token}
+        token=uid();stamp=now();conn.execute("UPDATE development_runs SET status='running',execution_token=?,started_at=? WHERE id=?",(token,stamp,run_id))
+        return {**dict(row),'execution_token':token,'started_at':stamp}
+
+
+def expired(run):
+    started = datetime.fromisoformat(run['started_at'] or run['created_at'])
+    return (datetime.now(timezone.utc) - started).total_seconds() >= run_timeout()
+
+
+def ensure_execution(run_id, token):
+    with get_db() as conn:
+        run = conn.execute('SELECT * FROM development_runs WHERE id=?', (run_id,)).fetchone()
+        if not run or run['status'] != 'running' or run['execution_token'] != token or expired(run):
+            fail(409, '运行已失效或超时')
 
 
 def finish_failure(run_id,token,stage,status='failed'):
@@ -162,11 +175,13 @@ def complete(run_id,token,payload,dependencies,validate):
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         run=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
-        if not run or run['status']!='running' or run['execution_token']!=token:fail(409,'运行已失效')
+        if not run or run['status']!='running' or run['execution_token']!=token or expired(run):fail(409,'运行已失效或超时')
         plan=dict(conn.execute('SELECT * FROM development_plans WHERE id=?',(run['plan_id'],)).fetchone())
         if plan['status']!='active' or plan['active_run_id']!=run_id:fail(409,'运行不再拥有保存权限')
         validate(conn,payload,dependencies)
+        if expired(run):fail(409,'运行已超时')
         version_id=save_version(conn,plan,run['based_on_version_id'],payload,dependencies,run['owner_user_id'],run_id)
+        if expired(run):fail(409,'运行已超时')
         conn.execute("UPDATE development_runs SET status='ready',ended_at=? WHERE id=?",(now(),run_id))
         conn.execute('UPDATE development_plans SET active_run_id=NULL WHERE id=?',(plan['id'],))
         return version_id
@@ -191,7 +206,7 @@ def archive(plan_id,user,restore=False):
 def recover(startup=False,owner_user_id=None,plan_id=None):
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
-        threshold=(datetime.now(timezone.utc)-timedelta(minutes=10)).isoformat()
+        threshold=(datetime.now(timezone.utc)-timedelta(seconds=run_timeout())).isoformat()
         rows=conn.execute("SELECT id,plan_id FROM development_runs WHERE status IN ('pending','running') AND (? OR COALESCE(started_at,created_at)<?) AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(int(startup),threshold,owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
         for row in rows:
             conn.execute("UPDATE development_runs SET status='interrupted',ended_at=?,safe_error_message='执行已中断，旧版本保持不变',error_stage='interrupted' WHERE id=?",(now(),row['id']))
