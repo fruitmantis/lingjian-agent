@@ -1,0 +1,27 @@
+{
+  "intake_tag": "pilot-data-intake-ready-20260906-dda1af4",
+  "intake_commit": "dda1af4914aec68f96cd0ae481caae732eea655d",
+  "stable_head": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+  "stable_clean": true,
+  "protected_files": 167,
+  "protected_files_changed": 0,
+  "runtime_sha256_unchanged": true,
+  "stable_sqlite_connections": 0,
+  "runtime_sqlite_connections_this_stage": 0,
+  "stable_logins": 0,
+  "business_runtime_writes": 0,
+  "process_cwds": {
+    "227786": "/home/yuan/project/lingjian-agent",
+    "236033": "/home/yuan/project/lingjian-agent/frontend"
+  },
+  "new_ports_stopped": [
+    3100,
+    8100,
+    18180
+  ],
+  "schema_changed": false,
+  "product_code_changed": false,
+  "real_model_calls": 0,
+  "push_merge_deploy": false,
+  "remote_verified": false
+}

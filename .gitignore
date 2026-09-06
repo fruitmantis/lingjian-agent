@@ -47,3 +47,6 @@ frontend/app/**/page.ts
 
 # Generated after the intake commit; source and renderer remain versioned.
 /PILOT_DATA_INTAKE_REPORT.md
+
+# Final import readiness report; versioned body and renderer are retained.
+/PILOT_IMPORT_READINESS_REPORT.md

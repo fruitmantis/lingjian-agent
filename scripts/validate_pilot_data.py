@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 from fastapi import HTTPException
 from pydantic import Field, ValidationError
 from backend.app.enablement import (StrictModel, ResourceMetadata, ShareMetadata,
-    Permissions, Review, check_case, check_tags, resolve_reference)
+    Permissions, Review, check_case, check_tags, resolve_reference, row_for)
 from backend.app.development_types import DevelopmentRequest
 from backend.app.development_lifecycle import clarify
 from backend.app.development_engine import request_projection, guard, blocked_fragments, constraint_state, candidates
@@ -223,7 +223,18 @@ def inspect_package(conn, manifest, records, imported=False):
                 error('IMPORTED_REFERENCE_REQUIRED', loc)
             else:
                 try:
-                    resolve_reference(conn, rec.source_type, rec.source_id, rec.source_version, 'system')
+                    try:
+                        resolve_reference(conn, rec.source_type, rec.source_id, rec.source_version, 'system')
+                    except HTTPException as exc:
+                        # Admin import evidence can include hidden resources. The product
+                        # resolver has already checked publication, version, owner and epoch
+                        # before denying system visibility; never grant public access here.
+                        if exc.status_code != 403 or flags['system_visible']: raise
+                    if kind == 'resource':
+                        mapped = {r[0] for r in conn.execute('SELECT capability_tag_id FROM resource_capability_map WHERE resource_id=?',(rec.source_id,))}
+                        if mapped != set(rec.metadata['capability_tag_ids']): error('IMPORTED_CAPABILITY_MAP_MISMATCH',loc)
+                    head = row_for(conn, kind, rec.source_id)
+                    if any(bool(head[f]) != flags[f] for f in FLAGS): error('IMPORTED_CURRENT_PERMISSIONS_MISMATCH', loc)
                     stored = conn.execute(f'SELECT * FROM {table} WHERE source_id=? AND version=?', (rec.source_id, rec.source_version)).fetchone()
                     payload = json.loads(stored['payload_json'])
                     if {k: payload.get(k) for k in rec.metadata} != rec.metadata or payload.get('_permissions') != flags:
@@ -287,12 +298,20 @@ def inspect_package(conn, manifest, records, imported=False):
         'authenticity': 'Machine checks do not establish real provenance or business suitability'}
 
 
-def validate(manifest_path, database, imported=False):
+def validate(manifest_path, database, imported=False, *, import_ledger=None, import_transaction=None):
     try:
         manifest, records, fingerprint = load_package(manifest_path)
         with readonly_database(database) as conn:
+            if import_ledger is not None:
+                ledger_path = safe_path(import_ledger, Path(database).absolute().parent / 'imports')
+                import_transaction = read_json(ledger_path)['transaction']
+            if import_transaction is not None:
+                if not imported: raise ValueError('IMPORTED_MODE_REQUIRED')
+                from scripts.pilot_import_contract import bound_records
+                records = bound_records(conn, manifest_path, records, import_transaction)
             result = inspect_package(conn, manifest, records, imported)
-        result['package_sha256'] = fingerprint
+        result['package_sha256'] = import_transaction['package_sha256'] if import_transaction is not None else fingerprint
+        if import_transaction is not None: result['input_manifest_files_sha256'] = fingerprint
         return result
     except ValidationError as exc:
         known = set(Manifest.model_fields) | set(Record.model_fields) | set(ResourceMetadata.model_fields) | set(ShareMetadata.model_fields) | set(DevelopmentRequest.model_fields) | set(Permissions.model_fields) | set(Review.model_fields)
@@ -304,7 +323,8 @@ def validate(manifest_path, database, imported=False):
         allowed = {'DUPLICATE_JSON_KEY','PATH_OUTSIDE_PACKAGE','SYMLINK_REJECTED','REGULAR_PRIVATE_FILE_REQUIRED',
             'STABLE_DATABASE_FORBIDDEN','INDEPENDENT_DATABASE_REQUIRED','EXPECTED_SCHEMA_12',
             'EXPLICIT_PRODUCT_FIELDS_REQUIRED','REVIEW_TIMESTAMP_REQUIRED','RECORD_TYPE_MISMATCH',
-            'DUPLICATE_OR_INVALID_RECORD_FILE','INPUT_TOO_LARGE'}
+            'DUPLICATE_OR_INVALID_RECORD_FILE','INPUT_TOO_LARGE','IMPORTED_MODE_REQUIRED','UNTRUSTED_IMPORT_LEDGER',
+            'INPUT_PACKAGE_CHANGED','LEDGER_RECORD_COUNT_MISMATCH','LEDGER_RECORD_MISMATCH','LEDGER_CASE_MISMATCH'}
         code = str(exc) if type(exc) is ValueError and str(exc) in allowed else 'INPUT_OR_DATABASE_INVALID'
         return {'machine_status':'FAIL','mode':'imported' if imported else 'intake','errors':[{'code':code,'location':'input'}],
             'DATA_01_business_signoff':'NOT RUN','DATA_02':'BLOCKED','real_model_calls':0}
@@ -367,10 +387,11 @@ def main():
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--database', required=True, type=Path)
     parser.add_argument('--imported', action='store_true')
+    parser.add_argument('--import-ledger', type=Path, help='Bind immutable input to actual IDs and audit from the trusted DB import ledger')
     parser.add_argument('--real-model-precheck', action='store_true')
     parser.add_argument('--authorization-receipt', type=Path)
     args = parser.parse_args()
-    result = validate(args.manifest, args.database, args.imported)
+    result = validate(args.manifest, args.database, args.imported, import_ledger=args.import_ledger)
     if args.real_model_precheck:
         result['real_model_precheck'] = real_model_precheck(result, args.database, args.authorization_receipt)
     print(json.dumps(result, ensure_ascii=False, indent=2))

@@ -44,13 +44,13 @@ pilot-data/
 | permissions.partner_allowed | Permissions.partner_allowed | 对应业务用语 partner_share_allowed；与模型授权无推导关系 |
 | permissions.reason | 既有权限变更审计 reason | 内容授权范围与依据；不得放凭据 |
 | review.link_status/content_checked/authorization_checked/note | Review → enablement_reviews | 来源可用、内容核验、授权核验须明确通过；note 仅内部审核，绝不进模型投影 |
-| reviewer_id / reviewed_at | enablement_reviews.reviewer_id / reviewed_at | 有效管理员 ID、带时区 ISO 时间；后台核验时由登录身份/服务器时间产生，导入后使用实际审计记录 |
-| permissions.base_revision / review.base_revision | 既有乐观锁 revision / reviewed_revision | 管理员从后台实际记录取得，业务方不要猜测；两者必须对应同一待发布修订 |
+| reviewer_id / reviewed_at | enablement_reviews.reviewer_id / reviewed_at | 有效管理员 ID、带时区 ISO 时间；原包保留来源核验；导入后实际管理员与系统时间通过 import-ledger 关联，不覆盖原 JSON |
+| permissions.base_revision / review.base_revision | 既有乐观锁 revision / reviewed_revision | 包中两者对应同一来源核验修订，由接收管理员据审核记录填写；不能当作新目标库的锁版本，实际目标 revision 由保存返回并记入 ledger |
 | resource_gaps、package_kind、文件引用、签审材料 | 接收清单/验收证据，不新增业务表 | 用于门禁与审计，不宣称已落为 Plan/Version；package_kind=real 不能代替真实性签审 |
 
 JSON 内不增加 model_send_allowed/partner_share_allowed 别名，避免两个字段互相冲突。所有产品字段必须显式出现；权限 null/省略/字符串 "false" 均拒绝。不知道的条件显式填“未知”或枚举 unknown，duration_minutes=null；程序保留 unknown，不能当符合。来源 URL、名称、正式标签和人工核验不能用“未知”绕过必填。
 
-case 的 source_id 从一开始就必须是既有案例 ID；新课程/实验导入前 source_id/source_version 可以为 null，管理员创建后回填实际 ID/版本。共享版本首次创建前 source_version 可为 null，但这只能通过导入前检查，绝不能通过模型前置门禁。
+case 的 source_id 从一开始就必须是既有案例 ID；新课程/实验导入前 source_id/source_version 可以为 null，成功导入后实际 ID/版本只写入 import-ledger.json，不回填签过字的原包。共享版本首次创建前 source_version 可为 null；导入后通过 --imported --import-ledger 校验真正发布版本，不能仅凭导入前检查通过模型门禁。
 
 ## 执行预检
 
@@ -61,23 +61,24 @@ case 的 source_id 从一开始就必须是既有案例 ID；新课程/实验导
   .isolation/pilot-intake/<package>/manifest.json \
   --database .isolation/runtime/app.db
 
-# 未来完成隔离导入并回填实际 ID/版本/核验审计后：
+# 完成原子导入后，原包不变，通过账本关联实际 ID/版本/核验审计：
 .venv/bin/python scripts/validate_pilot_data.py \
   .isolation/pilot-intake/<package>/manifest.json \
-  --database .isolation/pilot/<package>/app.db --imported --real-model-precheck
+  --database .isolation/pilot/<package>/app.db --imported \
+  --import-ledger .isolation/pilot/<package>/imports/<package-id>/import-ledger.json \
+  --real-model-precheck
 ```
 
 成功退出 0，任何数据错误或模型门禁未满足退出 2。输出 `eligible_record_indexes` 对应 resources 后接 shared_cases 的零基序号。三类集合独立计算：模型无授权排除模型集合，外发无授权排除外发集合。模型集合还复用现有 constraint_state 排除 conflicts，unknown 明确警示。案例字段在系统 schema 没有独立难度/岗位等列，不新增字段；实际资源约束不足仍显示 unknown。
 
 `DATA-01-MACHINE-CHECK=PASS` 仅表示所选模式的结构/引用检查通过。模型前检必须用 imported 模式。机器无法证明资源真实性、课程适合度、实验难度、案例学习价值、业务路径合理性、签署人身份；业务负责人必须签审。已知 synthetic/fixture/example.com/验证伙伴/A-ready/金丝雀会被拒绝，去掉标记并不能使合成资源变成真实数据。
 
-## 未来导入流程（本轮不实施导入器、不执行导入）
+## 原子导入流程
 
-1. 仅独立 RC/试点库；路径解析、单链接文件检查、schema=12，禁止稳定目录与 v9 库。停写目标试点环境，记录 db/wal 状态及原计数。用 SQLite `Connection.backup()` 生成一致性私有快照，禁止直接复制运行中的单个 app.db。
-2. 在快照和目标隔离库检查 integrity_check、foreign_key_check、逐类计数。已有异常须按行标识在私有证据记录，不能只比较总数。当前历史孤儿案例不得作为共享输入，不在原库修复。
-3. 管理员完成真实来源/内容/授权核验。导入器未来必须在同一 SQLite 连接、一个显式事务中录入完整包，复用现有模型校验、发布核验、标签与授权规则。任何异常执行 rollback，再核对原计数及引用；不吞异常后继续提交。
-4. **现有后台 API 按操作提交，连续调用多次 API 不等于整包事务。** 本轮不把它包装成原子导入器。收到真实数据后，需要先完成受控导入执行器/回滚验证，才能做整包导入；不通过改产品权限或重建业务库实现。录入本地新库也不能把提供的时间/核验身份直接冒充后台审计。
-5. 提交事务前做逐类计数、ID/标签/归属/当前版本、权限、人工核验以及相对基线新增 FK 异常检查；任何新增异常 rollback。提交后再用只读连接运行同样检查和本脚本 `--imported`，保存快照/包哈希/实际引用版本。提交后发现问题先停止试点写入并回到已验证的独立快照；不触碰稳定库。
-6. 业务负责人签 DATA-01 适用性；DATA-02 单独确认工程通过与真实数据可用。真实模型仍需新一轮明确授权、批准测试配置、预算和调用审计。参见 `REAL_MODEL_PRECHECK.md`。
+现在使用 `scripts/import_pilot_data.py` 的 prepare / dry-run / apply；详细命令、边界和恢复规则见根目录 `PILOT_IMPORT_EXECUTOR.md`。先从 runtime 用 SQLite backup 建独立 `.isolation/pilot/<pilot>/app.db`；禁止 apply 到 runtime。importer 在单连接事务中复用原服务规则，失败整包 rollback。当前仍未收到或导入真实包。
 
-业务材料、快照、导入账本、签名原件与运行凭据只保存于被忽略的 `.isolation`，不进 Git。本轮只有模板与工具，未建立正式 seed、未导入任何真实或合成业务记录。
+原始 JSON、业务签审和整个包哈希保持不变；不回填系统 ID/时间。实际 actor 使用 --actor-user-id 指定的当前有效管理员，来源 reviewer/time 仅留业务证据。事务内账本保存于既有 app_metadata，提交后生成私有 import-ledger.json；导入后校验加 --imported --import-ledger，不修改产品 schema。
+
+现有后台 API 仍按操作提交；整包原子性只由本地导入执行器提供，不是把多次 API 调用冒充一个事务。首版仅创建，任何已有资源/共享配置更新都拒绝。
+
+独立库 integrity/FK/计数在前后复核，既有异常保持、不产生新异常。来源包若标记 synthetic，公开工具始终拒绝；不会将 pytest fixture 作为正式数据。业务签审、真实模型授权、调用预算和批准测试配置仍是独立门禁。所有业务材料、ledger、snapshot 只在被忽略的 .isolation 保存，不进 Git。

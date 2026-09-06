@@ -39,3 +39,9 @@
 测试场景、每次字段白名单、最多 16 次 HTTP 调用建议、JSON/ID/URL/enum/权限/强结论不可放宽等沿用 `REAL_MODEL_VALIDATION_PLAN.md`。其中旧 RC 文档提到的候选配置 ID 仅是当时建议，不构成执行选择；本轮以新批准测试配置机制为准。
 
 金丝雀只放隔离自动化库的内部资料，不作为 prompt 中的提示发送。每次调用前验证最终 payload，返回、持久化外发字段、copy、错误和日志边界继续检查；发现泄漏必须阻断。调用审计白名单：provider、model、timestamp、scenario、success/failure、usage（缺失为 null）、latency、各程序校验结果、请求序号和摘要 hash，不保留完整 payload/响应/凭据。
+
+## 原子导入后的不可变输入绑定
+
+Pilot Import Executor 现在通过事务内账本生成实际 ID/版本与系统审核身份；原始签审包不回写。对已导入包运行上述命令时增加 `--import-ledger .isolation/pilot/<pilot>/imports/<package-id>/import-ledger.json`。validator 先核对文件中的事务账本与当前 DB app_metadata 中的权威记录，再校验完整原包 hash 与当前发布内容。完整 package hash 包含包内 signoff 等来源证据；新一轮模型授权收据应存放包外，避免改变原始签审包。
+
+导入器自动化通过不改变本文件的当前 BLOCKED 状态；本轮仍无真实业务包、调用授权、批准测试模型配置或已验收的真实调用预算/审计运行器，真实调用仍为 0。
