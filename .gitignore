@@ -41,3 +41,6 @@ frontend/app/**/page.ts
 /PHASE_C_DELIVERY_REPORT.md
 
 /PHASE_D_DELIVERY_REPORT.md
+
+# Generated after final RC commit; versioned body and renderer are retained.
+/RC_PREPARATION_REPORT.md

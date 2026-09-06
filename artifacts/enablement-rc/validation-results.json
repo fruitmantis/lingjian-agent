@@ -1,0 +1,111 @@
+{
+  "backend": {
+    "PASS": 399,
+    "FAIL": 0,
+    "NOT RUN": 0
+  },
+  "browser": {
+    "PASS": 58,
+    "FAIL": 0,
+    "NOT RUN": 0
+  },
+  "browser_execution": {
+    "exit_code": 0,
+    "seconds": 395.17495465278625,
+    "record_sha256": "6dd6e6b21ecce175866acd89d2065ac400aa07f86deae8c5da9c910610e41163"
+  },
+  "rc_state_backend_tests": [
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_plan_availability_separate_from_run[first_failed-generation_failed-None-None-failed]",
+      "status": "PASS",
+      "seconds": 0.934
+    },
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_plan_availability_separate_from_run[generating-generating-None-None-running]",
+      "status": "PASS",
+      "seconds": 0.917
+    },
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_plan_availability_separate_from_run[draft-draft-1-None-ready]",
+      "status": "PASS",
+      "seconds": 0.918
+    },
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_plan_availability_separate_from_run[confirmed-available-1-1-ready]",
+      "status": "PASS",
+      "seconds": 0.91
+    },
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_plan_availability_separate_from_run[v2_draft-available-2-1-ready]",
+      "status": "PASS",
+      "seconds": 0.923
+    },
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_plan_availability_separate_from_run[failed_revise-available-1-1-failed]",
+      "status": "PASS",
+      "seconds": 0.93
+    },
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_plan_availability_separate_from_run[interrupted_revise-available-1-1-interrupted]",
+      "status": "PASS",
+      "seconds": 0.938
+    },
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_plan_availability_separate_from_run[archived-archived-1-1-ready]",
+      "status": "PASS",
+      "seconds": 0.924
+    },
+    {
+      "file": "backend/tests/test_rc_presentation.py",
+      "test": "test_revoked_version_not_presented_as_available",
+      "status": "PASS",
+      "seconds": 0.899
+    }
+  ],
+  "rc_state_browser_tests": [
+    {
+      "file": "frontend/e2e/rc-plan-status.spec.ts",
+      "test": "RC plan availability, list, sidebar and detail 1366",
+      "line": 9,
+      "status": "PASS",
+      "seconds": 17.651
+    },
+    {
+      "file": "frontend/e2e/rc-plan-status.spec.ts",
+      "test": "RC plan availability, list, sidebar and detail 1920",
+      "line": 9,
+      "status": "PASS",
+      "seconds": 21.693
+    }
+  ],
+  "typecheck": "PASS",
+  "production_build": "PASS",
+  "screenshots": 76,
+  "canary_private_log_scan": "PASS",
+  "schema_version": "12 (unchanged)",
+  "real_model": {
+    "authorization": "NOT AUTHORIZED",
+    "status": "NOT RUN",
+    "calls": 0
+  },
+  "business_data": "BLOCKED",
+  "DATA-01": "BLOCKED - BUSINESS DATA REQUIRED",
+  "DATA-02": "BLOCKED - BUSINESS DATA REQUIRED",
+  "business_acceptance": "NOT RUN",
+  "engineering": "READY",
+  "overall": "CONDITIONAL GO",
+  "test_databases": "pytest /tmp; Playwright /tmp/lingjian-enablement-e2e/app.db",
+  "test_ports": [
+    3100,
+    8100,
+    18180
+  ]
+}
