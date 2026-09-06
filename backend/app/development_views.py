@@ -38,6 +38,26 @@ def readable_payload(conn,row):
             except HTTPException:item['availability']='unavailable'
     return payload
 
+def presentation(conn,plan):
+    """Read-time Plan availability, independent of the latest Run's execution result."""
+    current=conn.execute('SELECT * FROM development_versions WHERE plan_id=? AND id=?',(plan['id'],plan['current_version_id'])).fetchone()
+    confirmed=conn.execute('SELECT * FROM development_versions WHERE plan_id=? AND id=?',(plan['id'],plan['confirmed_version_id'])).fetchone()
+    current_available=current is not None and not protected(conn,current)
+    confirmed_available=confirmed is not None and not protected(conn,confirmed)
+    latest=conn.execute('SELECT status,run_type FROM development_runs WHERE plan_id=? ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,created_at DESC,id DESC LIMIT 1',(plan['id'],plan['active_run_id'])).fetchone()
+    if plan['status']=='archived':state='archived'
+    elif confirmed_available:state='available'
+    elif current_available:state='draft'
+    elif current or confirmed:state='restricted'
+    elif latest and latest['status'] in ('pending','running'):state='generating'
+    else:state='generation_failed'
+    return {'state':state,'current_version':current['version_no'] if current else None,
+            'confirmed_version':confirmed['version_no'] if confirmed else None,
+            'current_is_confirmed':bool(current and confirmed and current['id']==confirmed['id']),
+            'current_available':current_available,'confirmed_available':confirmed_available,
+            'latest_run_status':latest['status'] if latest else None,
+            'latest_run_type':latest['run_type'] if latest else None}
+
 def detail(plan_id,user,version_id=None):
     with get_db() as conn:life.authorize(conn,plan_id,user)
     life.recover(plan_id=plan_id)
@@ -53,7 +73,7 @@ def detail(plan_id,user,version_id=None):
         partner=conn.execute('SELECT name FROM partners WHERE id=?',(plan['target_partner_id'],)).fetchone()
         # Source-sensitive user text is also withheld after revocation, including original demand.
         if hidden:request={k:v for k,v in request.items() if k in ('target_partner_id','request_source','targets')};request['targets']=[]
-        return {'plan':plan,'partner_name':partner[0] if partner else '不可用伙伴','request':request,'versions':versions,'runs':runs,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
+        return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'versions':versions,'runs':runs,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
 
 def confirm(plan_id,version_id,user):
     with get_db() as conn:

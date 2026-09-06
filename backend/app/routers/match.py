@@ -69,6 +69,7 @@ class MatchResponse(BaseModel):
 
 
 class MatchRecordSummary(BaseModel):
+    planPresentation: dict | None = None
     task_type: Literal["partner_match", "development_plan"] = "partner_match"
     id: str
     requirement: str
@@ -92,6 +93,7 @@ class TaskListResponse(BaseModel):
 
 
 class MatchRecordDetail(BaseModel):
+    planPresentation: dict | None = None
     task_type: Literal["partner_match", "development_plan"] = "partner_match"
     id: str
     requirement: str
@@ -189,15 +191,19 @@ def _query_tasks(
     items = []
     for row in rows:
         requirement=row['requirement']
+        plan_presentation=None
         if row['task_type']=='development_plan':
-            from ..development_views import protected
+            from ..development_views import protected,presentation
             with get_db() as conn:
+                conn.execute('BEGIN')
+                plan=conn.execute('SELECT * FROM development_plans WHERE id=?',(row['id'],)).fetchone()
+                plan_presentation=presentation(conn,plan)
                 version=conn.execute('SELECT v.* FROM development_versions v JOIN development_plans p ON p.current_version_id=v.id WHERE p.id=?',(row['id'],)).fetchone()
                 if version and protected(conn,version):requirement='发展方案（来源授权已变化）'
         recs = json.loads(row["recommendations_json"])
         top = recs[0]["partnerName"] if recs else "无"
         items.append(MatchRecordSummary(
-            task_type=row["task_type"], id=row["id"], requirement=requirement, topPartner=top, partnerCount=len(recs),
+            planPresentation=plan_presentation, task_type=row["task_type"], id=row["id"], requirement=requirement, topPartner=top, partnerCount=len(recs),
             createdAt=row["created_at"], archivedAt=row["archived_at"], ownerName=row["owner_name"],
             department=row["department"], completenessScore=row["completeness_score"],
             taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],
@@ -284,7 +290,7 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
             owner=plan['owner_user_id']
     if exists:
         summary=_query_tasks(owner_user_id=owner,archived=bool(plan['archived_at']),keyword=None,owner_keyword=None,task_status=None,page=1,page_size=1,ids=[record_id]).items[0]
-        return MatchRecordDetail(task_type='development_plan',id=record_id,requirement=summary.requirement,recommendations=[],createdAt=summary.createdAt,createdBy=summary.ownerName,archivedAt=summary.archivedAt,demandProfile=None,opportunity=None,taskStatus=summary.taskStatus,lastErrorStage=summary.lastErrorStage)
+        return MatchRecordDetail(planPresentation=summary.planPresentation,task_type='development_plan',id=record_id,requirement=summary.requirement,recommendations=[],createdAt=summary.createdAt,createdBy=summary.ownerName,archivedAt=summary.archivedAt,demandProfile=None,opportunity=None,taskStatus=summary.taskStatus,lastErrorStage=summary.lastErrorStage)
     _recover_accessible_task(record_id, user)
     with get_db() as conn:
         row = conn.execute("""SELECT mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
