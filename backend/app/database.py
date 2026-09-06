@@ -341,3 +341,5 @@ def initialize_storage() -> None:
         from .enablement_schema import migrate_to_v10, migrate_to_v11
         migrate_to_v10(connection)
         migrate_to_v11(connection)
+        from .development_schema import migrate_to_v12
+        migrate_to_v12(connection)
