@@ -1,7 +1,6 @@
 """Strict scene selection and guarded OpenAI-compatible adapter for Phase C."""
 import os
-import time
-from threading import Timer
+import asyncio
 from .development_deadlines import model_timeout
 from urllib.parse import urlsplit
 import httpx
@@ -33,17 +32,14 @@ def completion(config,messages,schema):
     if parsed.hostname not in ('127.0.0.1','localhost','::1') and os.getenv('LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL')!='1':
         raise ModelConfigurationError('Real development model calls are disabled')
     limit=model_timeout()
-    started=time.monotonic()
-    with httpx.Client(timeout=limit,follow_redirects=False,trust_env=False) as client:
-        deadline=Timer(limit,client.close)
-        deadline.daemon=True
-        deadline.start()
-        try:
-            response=client.post(config['base_url'].rstrip('/')+'/chat/completions',headers={'Authorization':'Bearer '+_resolve_api_key(config)},json={
-            'model':config['model_name'],'temperature':0.2,'max_tokens':min(config.get('max_tokens') or 8192,16384),
-            'messages':messages,'response_format':{'type':'json_schema','json_schema':{'name':'development_output','strict':True,'schema':schema}}})
-            if time.monotonic()-started >= limit:raise TimeoutError('Model deadline exceeded')
-            response.raise_for_status()
-            return _completion_content(response.json())
-        finally:
-            deadline.cancel()
+    async def send():
+        # Wall-clock cancellation also bounds slow/chunked responses that keep resetting read timeouts.
+        async with asyncio.timeout(limit):
+            async with httpx.AsyncClient(timeout=limit,follow_redirects=False,trust_env=False) as client:
+                response=await client.post(config['base_url'].rstrip('/')+'/chat/completions',headers={'Authorization':'Bearer '+_resolve_api_key(config)},json={
+                    'model':config['model_name'],'temperature':0.2,'max_tokens':min(config.get('max_tokens') or 8192,16384),
+                    'messages':messages,'response_format':{'type':'json_schema','json_schema':{'name':'development_output','strict':True,'schema':schema}}})
+                response.raise_for_status()
+                return _completion_content(response.json())
+    # Development execution already runs in the existing worker threads, outside the API event loop.
+    return asyncio.run(send())

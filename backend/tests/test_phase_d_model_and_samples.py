@@ -116,7 +116,12 @@ def supplier(scenario,monkeypatch):
             elif mode=='enum':content=json.dumps({'target_partner_id':'partner-1','diagnoses':[{'evidence_status':'illegal'}]})
             body=json.dumps({'choices':[{'message':{'content':content}}]}).encode()
             self.send_response(503 if mode=='http_error' else 200);self.send_header('Content-Length',str(len(body)));self.end_headers()
-            try:self.wfile.write(body)
+            try:
+                if mode=='dribble':
+                    self.wfile.write(body[:1]);self.wfile.flush();time.sleep(.2)
+                    self.wfile.write(body[1:2]);self.wfile.flush();time.sleep(.4)
+                    self.wfile.write(body[2:])
+                else:self.wfile.write(body)
             except (BrokenPipeError,ConnectionResetError):pass
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler);server.daemon_threads=True
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
@@ -131,12 +136,13 @@ def supplier(scenario,monkeypatch):
 REAL_COMPLETION=model.completion
 
 
-@pytest.mark.parametrize('mode',['normal','markdown','empty','invalid','enum','http_error','slow'])
+@pytest.mark.parametrize('mode',['normal','markdown','empty','invalid','enum','http_error','slow','dribble'])
 def test_loopback_supplier_schema_error_timeout_and_retry(scenario,supplier,monkeypatch,mode,caplog,record_property):
     accepted,_,_=execute(scenario);user,_,_,request=scenario[0];pid=accepted['plan_id']
     v1=plan(pid)['current_version_id'];assert v1;views.confirm(pid,v1,user)
     supplier['mode']=mode
     if mode=='slow':monkeypatch.setenv('DEVELOPMENT_MODEL_TIMEOUT_SECONDS','.08')
+    if mode=='dribble':monkeypatch.setenv('DEVELOPMENT_MODEL_TIMEOUT_SECONDS','.25')
     second=life.revise(pid,Revise(submission_id='supplier-revise-'+mode,based_on_version_id=v1,instruction='缩短周期',request=request),user)
     started=time.perf_counter();engine.execute(second['run_id']);elapsed=time.perf_counter()-started
     with get_db() as conn:status=conn.execute('SELECT status FROM development_runs WHERE id=?',(second['run_id'],)).fetchone()[0]
@@ -148,6 +154,7 @@ def test_loopback_supplier_schema_error_timeout_and_retry(scenario,supplier,monk
         retry=life.revise(pid,Revise(submission_id='supplier-retry-'+mode,based_on_version_id=v1,instruction='重试',request=request),user)
         engine.execute(retry['run_id']);assert plan(pid)['current_version_id']!=v1
     if mode=='slow':assert elapsed<2
+    if mode=='dribble':assert elapsed<.38
     assert all(r['response_format']['json_schema']['strict'] is True for r in supplier['requests'])
     for boundary in [json.dumps(supplier['requests']),caplog.text,json.dumps(views.transferable(pid,user))]:assert CANARY not in boundary
     record_property('loopback_supplier',json.dumps({'mode':mode,'status':status,'seconds':elapsed,'real_provider_calls':0}))
