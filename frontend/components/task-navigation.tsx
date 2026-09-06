@@ -215,23 +215,30 @@ function UserTaskSidebar({ pathname, selectedId }: { pathname: string; selectedI
   }, []);
   useEffect(() => {
     let cancelled = false;
+    let sequence = 0;
     let timer: ReturnType<typeof setTimeout>;
     setSelected(null);
     async function readSelected() {
       if (!selectedId) return;
+      const requestSequence = ++sequence;
+      clearTimeout(timer);
       try {
         const response = await apiFetch(`/agent/tasks/${selectedId}`, { cache: "no-store" });
+        if (cancelled || requestSequence !== sequence) return;
         if (response.ok) {
           const data = await response.json();
-          if (!cancelled) {
-            setSelected(data);
-            if (["matching", "enriching"].includes(data.taskStatus)) timer = setTimeout(readSelected, 4000);
-          }
-        }
-      } catch { if (!cancelled) timer = setTimeout(readSelected, 4000); }
+          if (cancelled || requestSequence !== sequence) return;
+          setSelected(data);
+          if (data.task_type === "development_plan" || ["matching", "enriching"].includes(data.taskStatus)) timer = setTimeout(readSelected, 4000);
+        } else if ([401, 403, 404].includes(response.status)) {
+          setSelected(null);
+        } else timer = setTimeout(readSelected, 4000);
+      } catch { if (!cancelled && requestSequence === sequence) timer = setTimeout(readSelected, 4000); }
     }
+    const changed = () => { void readSelected(); };
+    window.addEventListener(TASKS_CHANGED, changed);
     void readSelected();
-    return () => { cancelled = true; clearTimeout(timer); };
+    return () => { cancelled = true; clearTimeout(timer); window.removeEventListener(TASKS_CHANGED, changed); };
   }, [selectedId]);
 
   function row(task: NavigationTask) {
