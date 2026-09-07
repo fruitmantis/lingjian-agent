@@ -1,5 +1,6 @@
 "use client";
 
+import { LingjianMark } from "../../components/ui-icons";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CurrentUser, useAuth } from "../../components/auth-provider";
@@ -86,9 +87,7 @@ export default function LoginPage() {
     <main className="login-page">
       <section className="login-brand-panel">
         <div className="login-brand-content">
-          <span className="login-brand-mark" aria-hidden="true" />
-          <p className="eyebrow">Lingjian Assistant</p>
-          <h1>灵鉴助手</h1>
+          <div className="login-brand-lockup"><LingjianMark/><h1>灵鉴 Agent</h1></div>
           <p>面向公司内部人员的伙伴能力洞察与项目需求匹配助手。</p>
           <div className="login-feature-list">
             <span>伙伴能力与案例查询</span>
@@ -99,24 +98,24 @@ export default function LoginPage() {
       </section>
       <section className="login-form-panel">
         <div className={`login-card ${mode === "apply" ? "application-card" : ""}`}>
-          <div className="login-tabs" role="tablist" aria-label="登录与账号申请">
+          <div className="login-tabs" role="tablist" aria-label="登录与注册">
             <button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>账号登录</button>
-            <button type="button" role="tab" aria-selected={mode === "apply"} className={mode === "apply" ? "active" : ""} onClick={() => switchMode("apply")}>申请账号</button>
+            <button type="button" role="tab" aria-selected={mode === "apply"} className={mode === "apply" ? "active" : ""} onClick={() => switchMode("apply")}>注册</button>
           </div>
 
           {mode === "login" ? (
             <>
-              <div className="login-heading"><h2>欢迎回来</h2><p>使用公司内部账号登录灵鉴助手</p></div>
+              <div className="login-heading"><h2>欢迎回来</h2><p>使用公司内部账号登录灵鉴 Agent</p></div>
               <form onSubmit={handleLogin} className="partner-form">
                 <div className="form-row"><label htmlFor="username">用户名</label><input id="username" autoComplete="username" value={username} onChange={event => setUsername(event.target.value)} required placeholder="请输入用户名" /></div>
                 <div className="form-row"><label htmlFor="password">密码</label><input id="password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required placeholder="请输入密码" /></div>
                 <button type="submit" className="login-submit" disabled={loading}>{loading ? "登录中..." : "登录"}</button>
               </form>
-              <p className="login-help">还没有账号？<button type="button" onClick={() => switchMode("apply")}>提交内部账号申请</button></p>
+              <p className="login-help">还没有账号？<button type="button" onClick={() => switchMode("apply")}>注册</button></p>
             </>
           ) : (
             <>
-              <div className="login-heading"><h2>申请内部账号</h2><p>填写基本信息并设置首次登录密码，审批通过后需更新密码</p></div>
+              <div className="login-heading"><h2>注册</h2><p>填写基本信息并设置首次登录密码，审批通过后需更新密码</p></div>
               <form onSubmit={submitApplication} className="form-grid application-form">
                 <div className="form-row"><label htmlFor="applyName">姓名</label><input id="applyName" value={application.display_name} onChange={event => setApplication(current => ({ ...current, display_name: event.target.value }))} required maxLength={100} placeholder="请输入真实姓名" /></div>
                 <div className="form-row"><label htmlFor="applyUsername">期望用户名</label><input id="applyUsername" value={application.username} onChange={event => setApplication(current => ({ ...current, username: event.target.value }))} required maxLength={50} pattern="[A-Za-z0-9._-]+" placeholder="字母、数字、点、横线" /></div>
@@ -125,7 +124,7 @@ export default function LoginPage() {
                 <div className="form-row"><label htmlFor="applyPassword">设置密码</label><input id="applyPassword" type="password" autoComplete="new-password" value={application.password} onChange={event => setApplication(current => ({ ...current, password: event.target.value }))} required minLength={8} maxLength={64} placeholder="8～64 位，含字母和数字" /></div>
                 <div className="form-row"><label htmlFor="applyConfirmPassword">确认密码</label><input id="applyConfirmPassword" type="password" autoComplete="new-password" value={application.confirmPassword} onChange={event => setApplication(current => ({ ...current, confirmPassword: event.target.value }))} required minLength={8} maxLength={64} placeholder="再次输入密码" /></div>
                 <div className="form-row form-span-two"><label htmlFor="applyReason">申请说明（选填）</label><textarea id="applyReason" rows={3} value={application.reason} onChange={event => setApplication(current => ({ ...current, reason: event.target.value }))} maxLength={500} placeholder="可填写使用场景或所属项目" /></div>
-                <div className="form-span-two"><button type="submit" className="login-submit" disabled={loading}>{loading ? "提交中..." : "提交账号申请"}</button></div>
+                <div className="form-span-two"><button type="submit" className="login-submit" disabled={loading}>{loading ? "提交中..." : "提交"}</button></div>
               </form>
               <p className="application-note">申请仅面向公司内部人员。密码只会以不可逆哈希保存，管理员无法查看。</p>
             </>

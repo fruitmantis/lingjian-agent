@@ -44,7 +44,7 @@ function supplyBadge(status: string | null) {
 
 function MetricCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
-    <div style={{ flex: "1 1 160px", padding: "20px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)", textAlign: "center" }}>
+    <div style={{ flex: "1 1 160px", padding: "20px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)", textAlign: "center" }}>
       <div style={{ fontSize: "28px", fontWeight: 700, color: color || "var(--brand)" }}>{value}</div>
       <div style={{ fontSize: "13px", color: "var(--muted)", marginTop: "6px" }}>{label}</div>
     </div>
@@ -218,7 +218,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                     </div>
                     {isExpanded && (
                       <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--line)" }}>
-                        <div style={{ padding: "14px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "12px" }}>
+                        <div style={{ padding: "14px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "12px" }}>
                           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>原始需求</div>
                           <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{p.requirementText}</div>
                         </div>
@@ -408,7 +408,7 @@ function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIn
       </section>
       <section className="card"><h2>运营总览</h2><div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "16px" }}>
         {[{v:report.overview.totalDemands,l:"累计需求"},{v:report.overview.thisMonthDemands,l:"本月新增"},{v:report.overview.totalPartners,l:"伙伴总数"},{v:report.overview.partnersWithProfile,l:"已生成画像"},{v:report.overview.activePartners,l:"活跃伙伴"},{v:report.overview.noPartnerDemands,l:"无合适伙伴"},{v:report.overview.partialDemands,l:"部分满足"},{v:report.overview.pendingSuggestions,l:"待采纳建议"}].map((m,i) => (
-          <div key={i} style={{ flex: "1 1 120px", padding: "16px", background: "#f8f9fa", borderRadius: "8px", textAlign: "center" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "var(--brand)" }}>{m.v}</div><div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>{m.l}</div></div>
+          <div key={i} style={{ flex: "1 1 120px", padding: "16px", background: "var(--bg-hover)", borderRadius: "8px", textAlign: "center" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "var(--brand)" }}>{m.v}</div><div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>{m.l}</div></div>
         ))}
       </div></section>
       <section className="card"><h2>需求分布 TOP 10</h2><div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>

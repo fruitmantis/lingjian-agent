@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { ENABLED_SCENES } from "@/lib/scenes";
 import { apiFetch } from "@/components/auth-provider";
 import { NEW_TASK, taskLabels, useTaskNavigation } from "@/components/task-navigation";
-import { LingjianMark, UiIcon, type IconName } from "@/components/ui-icons";
+import { UiIcon, type IconName } from "@/components/ui-icons";
 
 type Recommendation = {
   partnerId: string;
@@ -45,7 +45,7 @@ function getRecommendLevel(score: string): { label: string; color: string; bg: s
   const num = parseInt(score) || 0;
   if (num >= 80) return { label: "强推荐", color: "var(--brand-dark)", bg: "var(--brand-soft)" };
   if (num >= 50) return { label: "可考虑", color: "#e8a317", bg: "#fffbeb" };
-  if (num >= 20) return { label: "备选", color: "var(--muted)", bg: "#f8f9fa" };
+  if (num >= 20) return { label: "备选", color: "var(--muted)", bg: "var(--bg-hover)" };
   return { label: "不推荐", color: "var(--danger)", bg: "#fef2f2" };
 }
 
@@ -283,7 +283,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
               <button onClick={() => { const req = submittedRequirement; handleMatchDirect(req); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px", color: "var(--brand)", borderColor: "var(--brand)" }}>再次寻源</button>
             </div>
           </div>
-          <div style={{ padding: "14px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+          <div style={{ padding: "14px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
             <p style={{ fontSize: "14px", lineHeight: 1.8, margin: 0, whiteSpace: "pre-wrap" }}>{submittedRequirement}</p>
           </div>
         </section>
@@ -330,7 +330,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
                       background: i === 0 ? "var(--brand)" : i === 1 ? "#e8a317" : "var(--muted)",
                       color: "white", fontSize: "16px", fontWeight: 700,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                      boxShadow: "none",
                     }}>{rank}</div>
 
                     <div style={{ marginTop: "12px" }}>
@@ -354,7 +354,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
                       {activeTaskId && <div className="enablement-actions"><Link className="secondary-btn" href={`/?mode=development&partner_id=${encodeURIComponent(r.partnerId)}&task_id=${encodeURIComponent(activeTaskId)}`}>针对该伙伴制定发展建议</Link></div>}
 
                       {/* Recommendation reason */}
-                      <div style={{ marginTop: "12px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                      <div style={{ marginTop: "12px", padding: "12px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
                         <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>推荐理由</div>
                         <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{r.recommendationReason || "暂无推荐理由"}</div>
                       </div>
@@ -377,11 +377,11 @@ function ProjectMatchTask({active}:{active:boolean}) {
 
                       {/* Evidence */}
                       <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
-                        <div style={{ flex: "1 1 200px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                        <div style={{ flex: "1 1 200px", padding: "12px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
                           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>支撑案例</div>
                           <div style={{ fontSize: "13px", lineHeight: 1.6 }}>{r.evidenceCases || "暂无支撑案例"}</div>
                         </div>
-                        <div style={{ flex: "1 1 200px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                        <div style={{ flex: "1 1 200px", padding: "12px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
                           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>支撑交付物</div>
                           <div style={{ fontSize: "13px", lineHeight: 1.6 }}>{r.evidenceDeliverables || "暂无交付物证据"}</div>
                         </div>
@@ -409,7 +409,7 @@ export default function HomePage() {
   const search=useSearchParams();
   const development=search.get("mode")==="development";
   return <div className="page assistant-page unified-task-page">
-    <header className="unified-task-heading"><div className="assistant-title"><LingjianMark size={40}/><h1>开启新任务</h1></div>
+    <header className="unified-task-heading"><div className="assistant-title"><h1>开启新任务</h1></div>
       <nav className="enablement-tabs task-mode-tabs" role="tablist" aria-label="任务模式">
         <Link id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" href="/" className={!development?"active":""}>项目找伙伴</Link>
         <Link id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" href="/?mode=development" className={development?"active":""}>能力发展</Link>

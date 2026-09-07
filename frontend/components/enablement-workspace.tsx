@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {UiIcon} from "./ui-icons";
 import {DevelopmentRequestForm} from "./development-assistant";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -93,7 +94,7 @@ export function ResourceCatalog() {
       <label className="enablement-field">发布状态<select aria-label="发布状态" value={filters.status||"published"} onChange={e=>setFilters({...filters,status:e.target.value})}><option value="published">已发布</option><option value="unpublished">已下架</option></select></label></div>
       <p className="muted">仅展示当前已发布且获准在系统内查看的版本。已下架、撤权内容不可查看。</p>
     </form>
-    {result.error ? <ReadError message={result.error} retry={result.retry}/> : !result.data ? <p role="status">正在读取资源…</p> : <><p className="muted" role="status">共 {result.data.total} 条资源</p><div className="enablement-resource-grid">{result.data.items.map(r=><article className="card enablement-resource-card" key={r.source_type+r.source_id}><div><span className="enablement-badge">{typeLabels[r.source_type]} · 已发布</span><h2><Link href={resourcePath(r)}>{r.title}</Link></h2><p>{r.summary}</p></div><div className="enablement-tags">{r.capabilities.map(c=><span key={c.id}>{c.name}</span>)}</div><p className="muted">{r.source_platform} · {display(r.difficulty)} · {display(r.language)}</p><div className="enablement-actions"><span className="muted">人工核验{r.review?"已记录":"未知"}</span><Link href={resourcePath(r)}>查看详情</Link></div></article>)}</div>{result.data.items.length===0&&<div className="card empty-state"><h2>暂无符合条件的资源</h2><p>可调整筛选，或等待管理员核验并发布资源。</p></div>}
+    {result.error ? <ReadError message={result.error} retry={result.retry}/> : !result.data ? <p role="status">正在读取资源…</p> : <><p className="muted" role="status">共 {result.data.total} 条资源</p><div className="enablement-resource-grid">{result.data.items.map(r=><article className="card enablement-resource-card" key={r.source_type+r.source_id}><div><span className="enablement-badge">{typeLabels[r.source_type]} · 已发布</span><h2><UiIcon name={r.source_type==="lab"?"settings":r.source_type==="case"?"users":"file"} size={18}/><Link href={resourcePath(r)}>{r.title}</Link></h2><p>{r.summary}</p></div><div className="enablement-tags">{r.capabilities.map(c=><span key={c.id}>{c.name}</span>)}</div><p className="muted">{r.source_platform} · {display(r.difficulty)} · {display(r.language)}</p><div className="enablement-actions"><span className="muted">人工核验{r.review?"已记录":"未知"}</span><Link href={resourcePath(r)}>查看详情</Link></div></article>)}</div>{result.data.items.length===0&&<div className="card empty-state"><h2>暂无符合条件的资源</h2><p>可调整筛选，或等待管理员核验并发布资源。</p></div>}
     <div className="enablement-actions"><button className="secondary-btn" disabled={page===1} onClick={()=>setPage(p=>p-1)}>上一页</button><span>第 {page} 页</span><button className="secondary-btn" disabled={page*12>=result.data.total} onClick={()=>setPage(p=>p+1)}>下一页</button></div></>}
   </section>;
 }

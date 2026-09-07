@@ -51,11 +51,7 @@ export function UiIcon({ name, size = 20, className }: { name: IconName; size?: 
   );
 }
 
-export function LingjianMark({ size = 34 }: { size?: number }) {
-  return (
-    <svg className="lingjian-mark" width={size} height={size} viewBox="0 0 36 36" aria-hidden="true">
-      <rect width="36" height="36" rx="10" fill="currentColor" />
-      <path d="M10 12.5h7.2L14.4 18H8.8L10 12.5Zm9.7 0H26l1.2 5.5h-4.7l-2.8-5.5ZM8.8 20h5.6l2.8 5.5H10L8.8 20Zm13.7 0h4.7L26 25.5h-6.3l2.8-5.5Z" fill="white" />
-    </svg>
-  );
+/** Original mark from 5a20d5b: 28px square, 4px corner, 14x12 skew(-18deg) inset. */
+export function LingjianMark({ size = 32 }: { size?: number }) {
+  return <span className="lingjian-mark" style={{width:size,height:size}} aria-hidden="true"/>;
 }

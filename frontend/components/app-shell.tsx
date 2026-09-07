@@ -65,7 +65,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-header">
           <Link href={isAdmin ? "/admin" : "/"} className="sidebar-brand">
             <LingjianMark />
-            <span><span className="brand-text">{isAdmin ? "灵鉴管理后台" : "灵鉴助手"}</span><small>{isAdmin ? "平台运营与系统管理" : "伙伴能力智能助手"}</small></span>
+            <span><span className="brand-text">灵鉴 Agent</span><small>{isAdmin ? "平台运营与系统管理" : "伙伴能力智能助手"}</small></span>
           </Link>
         </div>
         <nav className="sidebar-nav" aria-label={isAdmin ? "后台导航" : "工作台导航"}>
@@ -86,7 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="sidebar-footer">
           <Link href="/account" className={`sidebar-footer-link ${!isAdmin && pathname === "/account" ? "active" : ""}`} aria-current={pathname === "/account" ? "page" : undefined}><UiIcon name="user" size={18} /><span>个人中心</span></Link>
-          {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回灵鉴助手</span></Link> : user?.role === "admin" ? <Link href="/admin" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link> : null}
+          {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回灵鉴 Agent</span></Link> : user?.role === "admin" ? <Link href="/admin" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link> : null}
           <button type="button" onClick={logout} className="sidebar-footer-link sidebar-logout"><UiIcon name="logout" size={18} /><span>退出登录</span></button>
         </div>
       </aside>

@@ -1,6 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
+import {evidenceRoot} from './evidence-path';
 const API='http://127.0.0.1:8100';
 for(const width of [1366,1920])test(`Unified task modes, source links and shared history ${width}`,async({page,request})=>{
  test.setTimeout(90000);
@@ -9,7 +10,7 @@ for(const width of [1366,1920])test(`Unified task modes, source links and shared
  const headers={Authorization:`Bearer ${session.access_token}`};
  await page.setViewportSize({width,height:width===1366?768:1080});
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- const dir=path.resolve('../artifacts/v12/unified-entry');await mkdir(dir,{recursive:true});
+ const dir=path.resolve(`${evidenceRoot}/unified-entry`);await mkdir(dir,{recursive:true});
  async function shot(name:string){await page.evaluate(()=>window.scrollTo(0,0));await page.addStyleTag({content:'nextjs-portal{display:none}'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();const nav=page.locator('aside').getByRole('link',{name:'资源中心',exact:true});await expect(nav).toBeInViewport();await page.screenshot({path:path.join(dir,`${name}-${width}.png`),fullPage:true});}
  async function development(){await expect(page.getByRole('heading',{name:'开启新任务',exact:true})).toBeVisible();await expect(page.getByRole('tablist',{name:'任务模式',exact:true}).getByRole('tab',{name:'能力发展',exact:true})).toHaveAttribute('aria-selected','true');expect(new URL(page.url()).pathname).toBe('/');await expect(page.locator('main')).not.toContainText('伙伴服务能力发展中心');}
  await page.goto('/');

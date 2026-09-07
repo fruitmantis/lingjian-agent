@@ -5,7 +5,7 @@ import { AuthProvider } from "../components/auth-provider";
 import { TaskNavigationProvider } from "../components/task-navigation";
 import "./globals.css";
 
-export const metadata: Metadata = { title: "灵鉴助手", description: "伙伴能力发展与项目匹配智能助手" };
+export const metadata: Metadata = { title: "灵鉴 Agent", description: "伙伴能力发展与项目匹配智能助手" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

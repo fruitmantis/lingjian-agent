@@ -1,6 +1,7 @@
 """Create a clean, synthetic E2E database in the dedicated /tmp directory."""
 
 import os
+import json
 import shutil
 from pathlib import Path
 
@@ -14,6 +15,14 @@ def main() -> None:
     validation_root.mkdir(parents=True)
     from backend.tests.support.seed_validation_db import seed
     seed()
+    # Private, ephemeral browser credential: never stored in the repository.
+    from backend.app.auth import create_token
+    from backend.app.database import get_db
+    with get_db() as conn:
+        user = dict(conn.execute("SELECT id, username, display_name, department, role, status, must_change_password, token_version FROM users WHERE username = 'admin1'").fetchone())
+    session = {"database": str(database), "access_token": create_token(user["id"], user["username"], user["role"], user["token_version"]), "user": user}
+    with os.fdopen(os.open(validation_root / "visual-session.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:
+        json.dump(session, stream)
 
 
 if __name__ == "__main__":

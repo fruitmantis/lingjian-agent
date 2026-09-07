@@ -411,7 +411,7 @@ export function SystemStatusTab() {
       normal: { label: "正常", color: "var(--success)", bg: "#f0fdf4", border: "#bbf7d0" },
       warning: { label: "警告", color: "#e8a317", bg: "#fffbeb", border: "#fde68a" },
       error: { label: "异常", color: "var(--danger)", bg: "#fef2f2", border: "#fecaca" },
-      unknown: { label: "未知", color: "var(--muted)", bg: "#f8f9fa", border: "var(--line)" },
+      unknown: { label: "未知", color: "var(--muted)", bg: "var(--bg-hover)", border: "var(--line)" },
     };
     const s = map[status] || map.unknown;
     return <span style={{ padding: "3px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{s.label}</span>;
@@ -423,7 +423,7 @@ export function SystemStatusTab() {
         <h2>{title}</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px" }}>
           {items.map((item, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
               <div>
                 <span style={{ fontSize: "14px", fontWeight: 600 }}>{item.name}</span>
                 <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "8px" }}>{item.message}</span>
@@ -465,7 +465,7 @@ export function SystemStatusTab() {
           <div style={{ padding: "8px 16px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--success)" }}>{data.summary.normalCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>正常</span></div>
           <div style={{ padding: "8px 16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "#e8a317" }}>{data.summary.warningCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>警告</span></div>
           <div style={{ padding: "8px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--danger)" }}>{data.summary.errorCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>异常</span></div>
-          <div style={{ padding: "8px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--muted)" }}>{data.summary.unknownCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>未知</span></div>
+          <div style={{ padding: "8px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--muted)" }}>{data.summary.unknownCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>未知</span></div>
         </div>
         {/* Abnormal modules */}
         {data.summary.abnormalModules.length > 0 && (
@@ -647,7 +647,7 @@ export function ModelConfigTab() {
         <p className="placeholder-text">未绑定时依次使用默认场景、启用的默认模型、首个启用模型或环境变量配置。显式绑定的模型不可用时会报错。</p>
         <div style={{ marginTop: "12px" }}>
           {usages.map((u) => (
-            <div key={u.sceneKey} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "8px" }}>
+            <div key={u.sceneKey} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "8px" }}>
               <div><span style={{ fontSize: "14px", fontWeight: 600 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "使用默认配置"}</span></div>
               {u.sceneKey === "recommendation_summary" && <span className="placeholder-text">当前暂无独立调用，推荐理由随伙伴匹配生成。</span>}
               <select aria-label={`${u.sceneName}模型`} disabled={saving} value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} style={{ padding: "6px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}>

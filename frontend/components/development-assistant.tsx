@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {UiIcon} from "./ui-icons";
 import {PlanStatus,type PlanPresentation} from "./plan-status";
 import {useEffect,useState,useRef} from "react";
 import {useRouter} from "next/navigation";
@@ -15,7 +16,7 @@ const names:Record<string,string>={course:"课程",lab:"实验",case:"共享案�
 const display=(v?:string|number)=>names[String(v)]||v||"未知";
 function ResourceAdvice({item:i}:{item:Item}){
  const duration=Number(i.conditions?.duration_minutes);
- return <article className="advisor-resource" data-testid="resource-advice"><div className="advisor-resource-title"><span className="enablement-badge">{names[i.source_type]}</span><h4>{i.title}</h4></div><p>{i.reason}</p><dl className="advisor-conditions"><div><dt>时长</dt><dd>{Number.isFinite(duration)&&duration>0?`${duration/60} 小时`:"未知"}</dd></div><div><dt>费用</dt><dd>{display(i.conditions?.cost)}</dd></div><div><dt>账号</dt><dd>{display(i.conditions?.account_requirement)}</dd></div><div><dt>环境</dt><dd>{display(i.conditions?.environment_requirement)}</dd></div><div><dt>语言 / 站点</dt><dd>{display(i.conditions?.language)} / {display(i.conditions?.site)}</dd></div><div><dt>先修</dt><dd>{i.prerequisites||"未知"}</dd></div></dl>{i.availability==="available"?<Link href={`/resources/${i.source_type}/${i.source_id}?source_version=${i.source_version}`}>查看来源与发起跳转 →</Link>:<p className="muted">当前资源不可用，历史引用保留。</p>}</article>;
+ return <article className="advisor-resource" data-testid="resource-advice"><div className="advisor-resource-title"><UiIcon name={i.source_type==="lab"?"settings":i.source_type==="case"?"users":"file"} size={18}/><span className="advisor-resource-type">{names[i.source_type]}</span><h4>{i.title}</h4></div><p>{i.reason}</p><dl className="advisor-conditions"><div><dt>时长</dt><dd>{Number.isFinite(duration)&&duration>0?`${duration/60} 小时`:"未知"}</dd></div><div><dt>费用</dt><dd>{display(i.conditions?.cost)}</dd></div><div><dt>账号</dt><dd>{display(i.conditions?.account_requirement)}</dd></div><div><dt>环境</dt><dd>{display(i.conditions?.environment_requirement)}</dd></div><div><dt>语言 / 站点</dt><dd>{display(i.conditions?.language)} / {display(i.conditions?.site)}</dd></div><div><dt>先修</dt><dd>{i.prerequisites||"未知"}</dd></div></dl>{i.availability==="available"?<Link href={`/resources/${i.source_type}/${i.source_id}?source_version=${i.source_version}`}>查看来源与发起跳转 →</Link>:<p className="muted">当前资源不可用，历史引用保留。</p>}</article>;
 }
 async function request<T>(url:string,body?:unknown,method?:string):Promise<T>{const res=await apiFetch(url,{method:method||(body?"POST":"GET"),headers:{"Content-Type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});if(!res.ok){const data=await res.json().catch(()=>({}));throw new Error(typeof data.detail==="string"?data.detail:"暂时无法完成操作，请刷新后重试");}return res.status===204?undefined as T:res.json();}
 
