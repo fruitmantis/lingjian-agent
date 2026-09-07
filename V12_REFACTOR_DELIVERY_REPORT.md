@@ -6,11 +6,11 @@
 
 - 工作目录：`/home/yuan/project/lingjian-agent-enablement`
 - 分支：`feature/partner-enablement-v1.1`
-- 功能代码 HEAD：`2f84b619c7ae065a58cc781b6094410ee92e9122`；本轮后续交付提交仅包含本报告和非敏感证据。
-- 首轮功能提交：`4089bea`（V1.2 主流程与测试）、`f00c67f`（资源检索相关性修正）；本轮 Advisor UX 提交：`2f84b61`（顾问界面、输出组织、对话与测试）。交付归档 HEAD 为本报告所在提交，可用 `git log -1 -- V12_REFACTOR_DELIVERY_REPORT.md` 查询。
+- 功能代码 HEAD：`bb9ec7b760137c937b3157fce4cb19e01107741f`；本轮后续交付提交仅包含本报告和非敏感证据。
+- 首轮功能提交：`4089bea`（V1.2 主流程与测试）、`f00c67f`（资源检索相关性修正）；前一轮 Advisor UX 提交：`2f84b61`（顾问界面、输出组织、对话与测试）。交付归档 HEAD 为本报告所在提交，可用 `git log -1 -- V12_REFACTOR_DELIVERY_REPORT.md` 查询。
 - 唯一需求基线：已评审的《灵鉴Agent全局需求与架构设计说明书 V1.2 评审修订稿》。未新建分支或 worktree，未 merge、push 或部署。
 
-首页只保留“目标伙伴”和自然语言“发展方向”，按钮为“生成能力发展建议”。人数、岗位、基础、周期、投入、预算、硬约束、目标能力手选、确认能力不足等旧表单已移除，没有折叠或高级设置入口。数据库旧字段保留，但不再构成生成门槛；schema 仍为 12，无破坏性迁移。
+开启新任务的“能力发展”模式只保留“目标伙伴”和自然语言“发展方向”，按钮为“生成能力发展建议”。人数、岗位、基础、周期、投入、预算、硬约束、目标能力手选、确认能力不足等旧表单已移除，没有折叠或高级设置入口。数据库旧字段保留，但不再构成生成门槛；schema 仍为 12，无破坏性迁移。
 
 ## 当前 Agent 流程
 
@@ -39,16 +39,39 @@ local mock 支持稳定重复体验明确方向、探索、只要实验、解释
 
 本轮统一验证：**后端 501 passed / 0 failed / 0 skipped；浏览器 57 passed / 0 failed / 0 skipped；typecheck PASS；production build PASS**。新截图为 `artifacts/v12/advisor/` 下 8 类场景 × 2 个视口（1366×768、1920×1080），覆盖完整建议、探索、短资源、解释、比较、自然语言修改、失败保留建议、统一任务列表。
 
-新版继续使用 [http://localhost:3100/enablement](http://localhost:3100/enablement)，后端 8100、本地 mock 18180；数据库仍为 `/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db`。旧版 3000/8000 和 main 保持不变。**REAL MODEL CALLS = 0**。
+新版继续使用 [http://localhost:3100/](http://localhost:3100/)，后端 8100、本地 mock 18180；数据库仍为 `/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db`。旧版 3000/8000 和 main 保持不变。**REAL MODEL CALLS = 0**。
 
 浏览器第一次全量执行收到终止信号（143），未计为通过；已重新完整执行，最终 57 项全部通过。实际开发环境也已完成登录、资源中心、顾问详情、解释/修改及失败保留已采用建议检查，页面脚本错误为 0。现有 API 路径与 SQLite schema 未改变；分析 JSON 增加兼容的顾问摘要和可复用基础字段，仍经过原严格校验。
+
+## 统一入口与信息架构收口
+
+本轮功能提交：`bb9ec7b`（统一任务模式、独立资源导航、兼容路由与回归测试）。
+
+前台取消独立“伙伴服务能力发展中心”及其内部两级 Tab。左侧辅助导航依次为场景广场、伙伴洞察、资源中心，统一任务历史与账户入口保持原位。
+
+- **统一创建**：`/` 显式提供“项目找伙伴 / 能力发展”两个任务模式；能力发展使用 `/?mode=development`。共享 App Shell、标题和交互风格，不增加自动任务意图识别。项目匹配沿用原提交、状态和结果逻辑；能力发展仅需伙伴与自然语言方向。
+- **独立资源**：`/resources` 直接浏览课程、实验、共享案例；`/resources/[type]/[id]` 展示详情与发起跳转。无需选择伙伴或先选资源，既有筛选、核验、授权与后端解析 URL 全部保留。
+- **上下文入口**：伙伴详情带入 `partner_id`；匹配结果带入 `partner_id / task_id`，由现有授权 API 加载项目需求和风险，并继续明确“待能力发展流程复核”；共享案例带入 `case_id / case_version`。三者均进入同一能力发展模式。
+- **发现与历史**：场景广场的制定建议入口进入能力发展模式，课程/实验及共享案例入口进入资源中心。生成结果仍进入 `/tasks/{id}`，全部任务类型文案统一为“项目找伙伴 / 能力发展”，未增加历史或方案工作台。
+- **旧路由兼容**：`/enablement` 根据原参数重定向到统一新任务或资源中心；旧资源详情重定向到 `/resources/...` 并保留版本参数。用户正常导航不再进入旧中心页面。
+- **保留底座**：本轮未改后端 API、数据库 schema、模型配置或 Plan/Run/Version、current/confirmed、幂等、事务、并发、权限、撤权、外发白名单。Advisor 主页面和 explain/discuss/revise 保留。匹配提交未返回时切换模式，不允许迟到响应抢回页面，任务仍保留在统一历史。
+
+最终验证：**backend 501 passed / 0 failed / 0 skipped；Playwright 60 passed / 0 failed / 0 skipped；typecheck PASS；production build PASS**。第一轮浏览器 41 passed / 4 failed / 15 not run，已修复重复 main 容器、误改的登录标题断言及未等待导航的断言后完整重跑；未将首轮跳过项计为通过。后端仅有 2 条既有 Starlette 弃用提示。
+
+新增 `frontend/e2e/unified-entry.spec.ts` 覆盖显式模式、最小输入创建真实任务、伙伴/匹配来源、场景跳转、独立资源、统一历史、旧路由，以及提交中切换模式。原匹配、用户权限、资源后台、共享案例、Advisor 和失败恢复均已重新回归。
+
+重点截图只保留 `artifacts/v12/unified-entry/` 下 **7 类 × 2 视口（1366×768 / 1920×1080）**：`01-project-match`、`02-development`、`03-resources`、`04-partner-context`、`05-project-context`、`06-advisor-detail`、`07-unified-tasks`。检查无横向溢出、导航错位或关键内容遮挡；来源与长建议使用正常页面滚动。机器结果及截图 hash 见 `artifacts/v12/unified-entry-validation.json`。
+
+当前入口：[http://localhost:3100/](http://localhost:3100/)；独立资源：[http://localhost:3100/resources](http://localhost:3100/resources)。3100 / 8100 / 18180 保持运行。实际数据库仍为 `/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db`，与旧库不是同一文件；旧 main、167 个受保护文件和新版 runtime 源库 hash 均未变。已在实际开发环境验证登录、模式切换、伙伴上下文、三类资源、兼容跳转和失败后既有 Advisor 建议仍可用。
+
+**REAL MODEL CALLS = 0**；沿用本地 mock，未调用真实供应商。真实业务与真实模型验收边界不变。本轮仅本地提交前端、测试和交付证据，未新建分支/worktree、merge、push 或部署。
 
 ## 验证
 
 | 检查 | 最终结果 |
 |---|---|
 | `.venv/bin/python -m pytest backend/tests -q --tb=short` | 501 passed，0 failed，0 skipped；2 条既有 Starlette 弃用提示 |
-| `cd frontend && npm run test:e2e` | 57 passed，0 failed，0 skipped |
+| `cd frontend && npm run test:e2e` | 60 passed，0 failed，0 skipped |
 | `cd frontend && npm run typecheck` | PASS |
 | `cd frontend && npm run build` | PASS |
 | V1.2 关键截图 | 1366×768、1920×1080；无横向溢出，侧栏与任务详情状态均可辨识 |
@@ -56,11 +79,11 @@ local mock 支持稳定重复体验明确方向、探索、只要实验、解释
 
 已重跑原伙伴匹配、任务、需求画像、项目机会、伙伴洞察、场景广场、管理后台、用户、模型配置、系统状态、资源中心、共享案例，以及版本、权限、撤权和失败恢复测试。旧人员/周期/强制诊断等测试已按 V1.2 改写，没有为旧测试保留门槛。
 
-本轮关键截图共 16 张，位于 [artifacts/v12/advisor](artifacts/v12/advisor/)：`01-full-advice` 完整建议、`02-exploratory` 探索、`03-short-resources` 简短资源、`04-explanation` 解释、`05-comparison` 比较、`06-natural-revise` 修改、`07-failed-revise` 失败保留、`08-task-list` 任务列表；各覆盖 1366×768 与 1920×1080。首轮截图保留为历史证据。
+Advisor UX 阶段历史截图共 16 张，位于 [artifacts/v12/advisor](artifacts/v12/advisor/)：`01-full-advice` 完整建议、`02-exploratory` 探索、`03-short-resources` 简短资源、`04-explanation` 解释、`05-comparison` 比较、`06-natural-revise` 修改、`07-failed-revise` 失败保留、`08-task-list` 任务列表；各覆盖 1366×768 与 1920×1080。首轮截图保留为历史证据。
 
 ## 打开新版体验
 
-- 页面：[http://localhost:3100/enablement](http://localhost:3100/enablement)
+- 页面：[http://localhost:3100/](http://localhost:3100/)
 - 后端：[http://localhost:8100/health](http://localhost:8100/health)
 - 管理员：`dev_admin`，沿用当前新版开发账号密码。密码只保存在本机私有文件 `.isolation/runtime/dev/login.json`，本报告不打印凭据。
 - 实际数据库：`/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db`
