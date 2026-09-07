@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { mkdir, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { createFontVerification } from './font-verification';
+import { writeFile } from 'node:fs/promises';
 
 const API = 'http://127.0.0.1:8100';
 const temporaryDatabase = '/tmp/lingjian-enablement-e2e/app.db';
@@ -55,6 +57,7 @@ test.beforeAll(async ({ request }) => {
 for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}`, async ({ page, request, browser }) => {
   test.setTimeout(120_000);
   const session = await isolatedSession();
+  const typography = process.env.HUAWEI_FONT_VERIFICATION === '1' ? await createFontVerification(page) : null;
   await page.addInitScript(value => {
     localStorage.setItem('token', value.access_token);
     localStorage.setItem('user', JSON.stringify(value.user));
@@ -62,9 +65,10 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
   await page.setViewportSize({ width, height: width === 1366 ? 768 : 1080 });
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  const directory = path.resolve('../artifacts/huawei-visual');
+  const directory = path.resolve(process.env.HUAWEI_VISUAL_EVIDENCE_DIR || '../artifacts/huawei-visual');
   await mkdir(directory, { recursive: true });
   async function capture(name: string) {
+    if (typography) await typography.inspect(name);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.addStyleTag({ content: 'nextjs-portal { display:none }' });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
@@ -129,5 +133,6 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
   await expect(login.getByRole('heading', { name: '灵鉴 Agent', exact: true })).toBeVisible();
   await publicContext.close();
   expect((await request.get('http://127.0.0.1:3100/icon.svg')).status()).toBe(200);
+  if (typography) await writeFile(path.join(directory, `font-validation-${width}.json`), JSON.stringify(typography.evidence(), null, 2));
   expect(errors).toEqual([]);
 });

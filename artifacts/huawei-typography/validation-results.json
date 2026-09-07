@@ -1,0 +1,76 @@
+{
+  "verified_at_utc": "2026-09-07T14:59:55.902757+00:00",
+  "baseline_commit": "d331941814476357050e31066d7944dc999dd1e9",
+  "source_sha256": {
+    "frontend/app/globals.css": "1a980885f912a5959c4a829db97702a1eb5568da092f2a19b2816fb4618c8b3d",
+    "frontend/e2e/font-verification.ts": "031490b680e0e613dfc0a1752db5cb5e010413dd3ecea4ab75fd8bb43789ca26",
+    "frontend/e2e/huawei-visual.spec.ts": "ffc38a92e2a13217bcf6216757662b7f29221594b20b6644f4103424d49104a6",
+    "scripts/fetch_huawei_cloud_fonts.py": "c669c0e9a654438a5f6851e416cf977aae294d0aca68cc9e776877b23a2847d6",
+    "scripts/tests/test_fetch_huawei_cloud_fonts.py": "a83c8f5dfa065c0bb46872f1260ddabd6e946dbcfa1f8b45d8e9d1c518431b3b"
+  },
+  "commands": [
+    {
+      "name": "typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "seconds": 2.06
+    },
+    {
+      "name": "build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit_code": 0,
+      "seconds": 18.88
+    },
+    {
+      "name": "font_visual",
+      "command": [
+        "npm",
+        "run",
+        "test:e2e",
+        "--",
+        "huawei-visual.spec.ts"
+      ],
+      "exit_code": 0,
+      "seconds": 44.81
+    },
+    {
+      "name": "browser",
+      "command": [
+        "npm",
+        "run",
+        "test:e2e"
+      ],
+      "exit_code": 0,
+      "seconds": 453.62
+    }
+  ],
+  "passed": {
+    "fetcher_unittest": 5,
+    "font_visual": 2,
+    "full_playwright": 62
+  },
+  "failed": 0,
+  "skipped": 0,
+  "backend_pytest": "NOT RUN: no backend or API contract changes",
+  "real_model_calls": 0,
+  "font_files_tracked": false,
+  "character_coverage": {
+    "latin": 52,
+    "digits": 10,
+    "chinese_system_fallback": 20,
+    "weights": [
+      400,
+      700
+    ]
+  },
+  "external_font_cdn_blocked": true,
+  "conclusion": "READY FOR TYPOGRAPHY REVIEW"
+}

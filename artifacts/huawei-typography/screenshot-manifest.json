@@ -1,0 +1,162 @@
+[
+  {
+    "path": "artifacts/huawei-typography/01-project-match-1366.png",
+    "sha256": "f2b5618e03d6c7eac28d9c4415f5f24bf1937766783ef828849555902a58e028",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/01-project-match-1920.png",
+    "sha256": "66c7618c9f9938b3d9db4bc716a5fbf5903fedf132abb8f713a02a79b7cdf43d",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/02-development-1366.png",
+    "sha256": "4bca65f4ae33c872087de99ffb72e2b73f702737317f1809d023b5a9443b2f06",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/02-development-1920.png",
+    "sha256": "f57ea7ac141ea3abd271fdb4dc04b503daa4eea5723ffe1eec1205b7a66cf849",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/03-advisor-1366.png",
+    "sha256": "5d070b856028ab93a3f38ed12168bdea4ab0defbe00da7a0d3b648c812a0da0d",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/03-advisor-1920.png",
+    "sha256": "ec5f62e7717aa4b42a19646f034587293d0e94e1cfb229786d0d775863068e91",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/04-resources-1366.png",
+    "sha256": "bde51579d2f3d51dcf6f2a6a43b8ee79660d6630bc6ad7edf3fbde4dd1d7cd0c",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/04-resources-1920.png",
+    "sha256": "4be97d60c4f7f261ffbc8342a77b5a532fffce39bc1e6cf03f6dacbb233656a1",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/05-scenes-1366.png",
+    "sha256": "b5e855025be174cf4016e9ebdddd61e48b9d995781f0d972140d5edcdebf0587",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/05-scenes-1920.png",
+    "sha256": "1f8fb846ed6ab69ac01c0cb462f8c56d68d5ec388626c2ca292def707e022325",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/06-partners-1366.png",
+    "sha256": "abfe38c5755a07921a89d7207aa1e86f3499ac5365a55b6699d3befedcaa5286",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/06-partners-1920.png",
+    "sha256": "148b151022149b4acfb2eec7f6239f9fd086b1b64bc1cf8c42829e9ef038c8a0",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/07-tasks-1366.png",
+    "sha256": "2c2b1be91683ccd675ef02a0f49311e0c239c22880c9e6f8e9a046d541c6d328",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/07-tasks-1920.png",
+    "sha256": "c81a2da6dd985d9dd2311ed7a9313b9789e7fcdf528835949f9fd7fcb549e858",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/08-admin-1366.png",
+    "sha256": "086d4b64caab8ee2ec14b5da6db686ec67e71619831155f78214f6d03e9eda85",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  },
+  {
+    "path": "artifacts/huawei-typography/08-admin-1920.png",
+    "sha256": "c9604fc7639d7fa259274991f3a470f81257305a432fec93bf000e3af69067c1",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "full_page": true,
+    "data": "synthetic temporary E2E fixtures"
+  }
+]

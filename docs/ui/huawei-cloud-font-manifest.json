@@ -1,0 +1,39 @@
+{
+  "page": "https://www.huaweicloud.com/",
+  "css": "https://portal.hc-cdn.com/cnpm-baseui/3.0.18/theme-token.css",
+  "fonts": [
+    {
+      "url": "https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Regular.woff2",
+      "filename": "HuaweiSans-Regular.woff2",
+      "size": 35452,
+      "sha256": "6b93fc7b7bf4ebfc6fe2474c049d40a0c435a30d9b36c31a59f4b9af9d687b72",
+      "content_type": "binary/octet-stream",
+      "weight": 400,
+      "style": "normal",
+      "unicode_range": null,
+      "format": "woff2",
+      "family": "Huawei Sans",
+      "css_family": "HuaweiSans",
+      "local_family": "HuaweiCloudUI",
+      "local_filename": "huawei-sans-regular.woff2",
+      "downloaded_at_utc": "2026-09-07T14:37:15.238227+00:00"
+    },
+    {
+      "url": "https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Bold.woff2",
+      "filename": "HuaweiSans-Bold.woff2",
+      "size": 35404,
+      "sha256": "3b821b178c999c9e8ca255e87a321751f30789c84de77a233a2935dd5854f47d",
+      "content_type": "binary/octet-stream",
+      "weight": 700,
+      "style": "normal",
+      "unicode_range": null,
+      "format": "woff2",
+      "family": "Huawei Sans",
+      "css_family": "HuaweiSans",
+      "local_family": "HuaweiCloudUI",
+      "local_filename": "huawei-sans-bold.woff2",
+      "downloaded_at_utc": "2026-09-07T14:37:15.238444+00:00"
+    }
+  ],
+  "chinese_webfont_available": false
+}
