@@ -62,19 +62,9 @@ async def completions(payload: dict):
     messages=payload.get('messages') or []
     system=' '.join(m.get('content','') for m in messages if m.get('role')=='system')
     if 'partner_development:' in system:
-        data=json.loads(messages[-1]['content'])
-        request=data.get('request',data)
-        if 'C_SLOW' in request.get('development_goal',''):await asyncio.sleep(3)
-        if 'C_FAIL' in request.get('adjustment',''):content='{"invented_url":"https://example.com/invalid"}'
-        elif 'diagnose' in system:
-            content=json.dumps({'target_partner_id':request['target_partner_id'],'diagnoses':[{'capability_tag_id':t['capability_tag_id'],'target_requirement':t['requirement'],'target_satisfaction':'not_satisfied','evidence_status':'partial','judgment_source':'model_inference','evidence_refs':[],'pending_verifications':['请由发展经理核验人员基础'],'problem_type':'trainable_gap'} for t in request['targets']]},ensure_ascii=False)
-        else:
-            items=[]
-            if 'C_GAP' not in request.get('development_goal',''):
-                for candidate in data['candidates'][:6]:
-                    tag=next((d['capability_tag_id'] for d in data['diagnoses'] if d['problem_type']=='trainable_gap' and d['capability_tag_id'] in candidate['capability_tag_ids']),None)
-                    if tag:items.append({k:candidate[k] for k in ('source_type','source_id','source_version')}|{'capability_tag_id':tag,'reason':'基于目标能力与当前可用资源进行安排','estimated_hours':2,'note':''})
-            content=json.dumps({'target_partner_id':request['target_partner_id'],'stages':[{'title':'基础准备与实践验证','items':items}],'limitations':['实施前需核实人员基础和访问条件'],'resource_gaps':[]},ensure_ascii=False)
+        from backend.tests.support.development_mock import response
+        if 'C_SLOW' in json.dumps(messages,ensure_ascii=False):await asyncio.sleep(3)
+        content=json.dumps(response(messages),ensure_ascii=False)
         return {'choices':[{'message':{'content':content},'finish_reason':'stop'}],'usage':{'completion_tokens':20}}
     stage = _stage(messages)
     if "SIDEBAR_SLOW" in json.dumps(payload.get("messages"), ensure_ascii=False) and stage in {"match", "demand"}:

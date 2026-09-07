@@ -20,30 +20,14 @@ ASSUMPTIONS={'development_goal','trainee_role','known_baseline','duration_weeks'
 
 
 def clarify(payload: DevelopmentRequest):
-    data=payload.model_dump();missing=[]
-    if set(data['constraints'])-set(CONSTRAINTS) or set(data['accepted_assumptions'])-ASSUMPTIONS:
-        fail(422,'存在不支持的约束或假设字段')
-    for key in ['target_partner_id','raw_demand','development_goal','trainee_role','known_baseline','duration_weeks','hours_per_week','trainee_count']:
-        if data[key] is None or not str(data[key]).strip():
-            assumption=data['accepted_assumptions'].get(key,'').strip()
-            if assumption:
-                try:
-                    data[key]=int(assumption) if key in ('duration_weeks','trainee_count') else float(assumption) if key=='hours_per_week' else assumption
-                except ValueError:fail(422,'周期、人数或投入假设必须填写有效数值')
-            else:missing.append(key)
-    for key in CONSTRAINTS:
-        if not data['constraints'].get(key,'').strip():
-            value=data['accepted_assumptions'].get(key,'').strip()
-            if value:data['constraints'][key]=value
-            else:missing.append(key)
-    if not data['targets']:missing.append('targets')
-    if not data['model_input_allowed']:missing.append('model_input_allowed')
-    for target in data['targets']:
-        if target['confirmed_gap'] and not target['confirmation_note'].strip():missing.append('confirmation_note')
-    if missing:return {'missing_fields':missing,'request':data}
-    try:data=DevelopmentRequest.model_validate(data).model_dump()
-    except Exception:fail(422,'显式假设不满足字段范围，请重新填写')
-    return {'missing_fields':[],'request':data}
+    data=payload.model_dump()
+    direction=(data['development_direction'] or data['development_goal'] or data['raw_demand']).strip()
+    # Optional legacy fields remain stored, but never control V1.2 creation/retrieval.
+    data['development_direction']=direction
+    data['development_goal']=direction
+    if not data['raw_demand']:data['raw_demand']=direction
+    missing=[k for k,v in [('target_partner_id',data['target_partner_id']),('development_direction',direction)] if not v.strip()]
+    return {'missing_fields':missing,'request':data}
 
 
 def authorize(conn,plan_id,user):
@@ -58,14 +42,10 @@ def audit(conn,plan_id,actor,action,version_id=None):
 
 def checked_request(payload,user):
     result=clarify(payload)
-    if result['missing_fields']:fail(422,{'message':'请先补全关键字段或明确接受假设','missing_fields':result['missing_fields']})
+    if result['missing_fields']:fail(422,{'message':'请选择伙伴并描述发展方向','missing_fields':result['missing_fields']})
     data=result['request']
     context=enablement_catalog.context(user,data['target_partner_id'],data['source_task_id'],data['source_case_id'],data['source_case_version'])
     if context['shared_case']:data['source_case_version']=context['shared_case']['source_version']
-    with get_db() as conn:
-        tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1')}
-    ids=[t['capability_tag_id'] for t in data['targets']]
-    if len(ids)!=len(set(ids)) or not set(ids)<=tags:fail(422,'目标能力必须使用启用的正式标签且不能重复')
     return data
 
 
@@ -115,7 +95,16 @@ def revise(plan_id,payload,user):
         authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)
         if replay:return replay
-    data=checked_request(payload.request,user)
+    if payload.request is None:
+        with get_db() as conn:
+            plan=authorize(conn,plan_id,user)
+            data=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
+            if plan['current_version_id']:
+                saved=json.loads(conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(plan['current_version_id'],)).fetchone()[0])
+                data.update(saved.get('effective_request',{}))
+            data={k:v for k,v in data.items() if k in DevelopmentRequest.model_fields}
+        data=checked_request(DevelopmentRequest.model_validate(data),user)
+    else:data=checked_request(payload.request,user)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)

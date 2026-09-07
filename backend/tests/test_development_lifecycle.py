@@ -11,8 +11,8 @@ from backend.tests.conftest import make_user,make_partner
 @pytest.fixture
 def prepared(client):
     user=make_user('developer-a');other=make_user('developer-b');admin=make_user('developer-admin',role='admin');make_partner()
-    with get_db() as conn:tag=conn.execute('SELECT id FROM capability_tags WHERE enabled=1 LIMIT 1').fetchone()[0]
-    request=DevelopmentRequest(target_partner_id='partner-1',raw_demand='原始诉求须保留',development_goal='提升交付能力',trainee_role='工程师',trainee_count=3,known_baseline='基础未知，已接受入门假设',duration_weeks=4,hours_per_week=3,constraints=dict.fromkeys(life.CONSTRAINTS,'无要求'),model_input_allowed=True,partner_goal_allowed=True,targets=[{'capability_tag_id':tag,'requirement':'独立交付'}])
+    with get_db() as conn:tag=conn.execute("SELECT id FROM capability_tags WHERE name='数据库' AND enabled=1 LIMIT 1").fetchone()[0]
+    request=DevelopmentRequest(target_partner_id='partner-1',raw_demand='原始诉求须保留',development_goal='数据库迁移',trainee_role='工程师',trainee_count=3,known_baseline='基础未知，已接受入门假设',duration_weeks=4,hours_per_week=3,constraints=dict.fromkeys(life.CONSTRAINTS,'无要求'),model_input_allowed=True,partner_goal_allowed=True,targets=[{'capability_tag_id':tag,'requirement':'独立交付'}])
     return user,other,admin,request
 
 
@@ -34,17 +34,15 @@ def plan(plan_id):
     with get_db() as conn:return dict(conn.execute('SELECT * FROM development_plans WHERE id=?',(plan_id,)).fetchone())
 
 
-def test_clarification_requires_explicit_assumptions(prepared):
-    request=prepared[3].model_copy(update={'known_baseline':'','duration_weeks':None})
-    assert set(life.clarify(request)['missing_fields'])=={'known_baseline','duration_weeks'}
-    with pytest.raises(HTTPException):life.create(Submit(submission_id='missing-input',request=request),prepared[0])
-    with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_plans').fetchone()[0]==0
-    request.accepted_assumptions={'known_baseline':'假设入门，需后续评估','duration_weeks':'4'}
-    accepted=life.create(Submit(submission_id='explicit-assumptions',request=request),prepared[0])
+def test_only_partner_and_direction_are_required(prepared):
+    minimal=DevelopmentRequest(target_partner_id='partner-1',development_direction='Agent 应用交付')
+    assert life.clarify(minimal)['missing_fields']==[]
+    accepted=life.create(Submit(submission_id='minimal-direction',request=minimal),prepared[0])
     with get_db() as conn:
         payload=json.loads(conn.execute('SELECT payload_json FROM development_requests').fetchone()[0])
-        assert payload['accepted_assumptions']==request.accepted_assumptions
-        assert payload['raw_demand']=='原始诉求须保留'
+        assert payload['raw_demand']=='Agent 应用交付'
+        assert payload['trainee_count'] is None and payload['targets']==[]
+    assert accepted['plan_id']
 
 
 def test_submission_idempotency_and_single_execution(prepared):

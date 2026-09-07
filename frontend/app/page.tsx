@@ -343,7 +343,7 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {activeTaskId && <div className="enablement-actions"><Link className="secondary-btn" href={`/enablement?partner_id=${encodeURIComponent(r.partnerId)}&task_id=${encodeURIComponent(activeTaskId)}`}>针对该项目制定发展方案</Link></div>}
+                      {activeTaskId && <div className="enablement-actions"><Link className="secondary-btn" href={`/enablement?partner_id=${encodeURIComponent(r.partnerId)}&task_id=${encodeURIComponent(activeTaskId)}`}>针对该项目制定发展建议</Link></div>}
 
                       {/* Recommendation reason */}
                       <div style={{ marginTop: "12px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>

@@ -162,7 +162,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           <div className="recommendation-title"><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><Link href={`/partners/${item.partnerId}`} className="secondary-btn">查看伙伴</Link></div>
           <div className="evidence-grid"><div><strong>匹配能力</strong><p>{text(item.matchedCapabilities)}</p></div><div><strong>行业经验</strong><p>{text(item.matchedIndustries)}</p></div><div><strong>覆盖区域</strong><p>{text(item.matchedRegions)}</p></div><div><strong>推荐理由</strong><p>{text(item.recommendationReason)}</p></div><div><strong>支撑案例</strong><p>{text(item.evidenceCases)}</p></div><div><strong>支撑交付物</strong><p>{text(item.evidenceDeliverables)}</p></div></div>
           <div className="risk-note"><strong>风险或缺口</strong><p>{text(item.riskNotes)}</p></div>
-          <div className="enablement-actions"><Link className="secondary-btn" href={`/enablement?partner_id=${encodeURIComponent(item.partnerId)}&task_id=${encodeURIComponent(task.id)}`}>针对该项目制定发展方案</Link></div>
+          <div className="enablement-actions"><Link className="secondary-btn" href={`/enablement?partner_id=${encodeURIComponent(item.partnerId)}&task_id=${encodeURIComponent(task.id)}`}>针对该项目制定发展建议</Link></div>
         </article>
       ))}</div>}</section>
       {task.demandProfile && <section className="card"><h2>需求画像</h2><div className="detail-grid">{Object.entries({

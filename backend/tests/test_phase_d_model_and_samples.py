@@ -16,18 +16,8 @@ from backend.tests.test_enablement import grant, published
 
 
 def structured(messages):
-    data=json.loads(messages[-1]['content']);request=data.get('request',data)
-    if 'diagnose' in messages[0]['content']:
-        return {'target_partner_id':request['target_partner_id'],'diagnoses':[
-            {'capability_tag_id':t['capability_tag_id'],'target_requirement':t['requirement'],
-             'target_satisfaction':'needs_assessment','evidence_status':'partial','judgment_source':'model_inference',
-             'evidence_refs':[],'pending_verifications':['人员基础待核验'],'problem_type':'trainable_gap'} for t in request['targets']]}
-    items=[]
-    for resource in data['candidates']:
-        tag=next(d['capability_tag_id'] for d in data['diagnoses'] if d['capability_tag_id'] in resource['capability_tag_ids'])
-        items.append({k:resource[k] for k in ('source_type','source_id','source_version')}|{'capability_tag_id':tag,'reason':'匹配合成目标能力','estimated_hours':2,'note':''})
-    return {'target_partner_id':request['target_partner_id'],'stages':[{'title':'分阶段实践','items':items}],
-            'limitations':[],'resource_gaps':[] if any(i['source_type']=='lab' for i in items) else ['当前资源库未找到匹配实验']}
+    from backend.tests.support.development_mock import response
+    return response(messages)
 
 
 def add_resource(admin, tag, name):
@@ -37,67 +27,8 @@ def add_resource(admin, tag, name):
     return published(grant(row,admin),admin)
 
 
-def test_fixed_same_partner_different_goals_have_disjoint_capabilities_and_candidates(prepared,monkeypatch,record_property):
-    user,_,admin,base=prepared
-    with get_db() as conn:tags=[r[0] for r in conn.execute("SELECT id FROM capability_tags WHERE enabled=1 AND name IN ('数据库','盘古大模型') ORDER BY name")]
-    assert len(tags)==2
-    captured=[]
-    def mock(config,messages,schema):
-        captured.append(copy.deepcopy(messages));return json.dumps(structured(messages))
-    with get_db() as conn:config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
-    monkeypatch.setattr(model,'configuration',lambda:config);monkeypatch.setattr(model,'completion',mock)
-    results=[]
-    for number,(tag,goal) in enumerate(zip(tags,['数据库迁移','Agent 应用交付'])):
-        add_resource(admin,tag,f'synthetic-goal-{number}')
-        request=base.model_copy(deep=True);request.development_goal=goal
-        request.targets=[base.targets[0].model_copy(update={'capability_tag_id':tag,'requirement':goal})]
-        accepted=life.create(Submit(submission_id=f'fixed-goal-{number}',request=request),user);engine.execute(accepted['run_id'])
-        detail=views.detail(accepted['plan_id'],user);assert detail['runs'][0]['status']=='ready'
-        payload=detail['payload'];diagnosis=payload['diagnoses'][0]
-        assert diagnosis['problem_type']=='trainable_gap' and diagnosis['capability_tag_id']==tag
-        assert payload['resource_gaps']==['当前资源库未找到匹配实验']
-        ids={i['source_id'] for s in payload['stages'] for i in s['items']}
-        assert ids=={f'synthetic-goal-{number}'}
-        results.append({'goal':goal,'capability':tag,'resource_ids':sorted(ids),'plan_id':accepted['plan_id']})
-    assert results[0]['capability']!=results[1]['capability']
-    assert not set(results[0]['resource_ids']) & set(results[1]['resource_ids'])
-    assert CANARY not in json.dumps(captured)
-    record_property('fixed_samples',json.dumps(results,ensure_ascii=False))
-
-
-def test_three_parallel_plans_keep_distinct_partner_owner_and_resources(prepared,monkeypatch,record_property):
-    user,other,admin,base=prepared
-    owners=[user,other,make_user('parallel-third')]
-    with get_db() as conn:
-        tags=[r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1 ORDER BY id LIMIT 3')]
-        config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
-    barrier=threading.Barrier(3);captured=[];jobs=[]
-    def mock(c,m,s):
-        if 'diagnose' in m[0]['content']:barrier.wait(timeout=10)
-        captured.append(copy.deepcopy(m));return json.dumps(structured(m))
-    monkeypatch.setattr(model,'configuration',lambda:config);monkeypatch.setattr(model,'completion',mock)
-    for n,owner in enumerate(owners):
-        partner=f'parallel-partner-{n}';make_partner(partner)
-        add_resource(admin,tags[n],f'parallel-course-{n}')
-        # A distinct shared case in each capability pool also exercises case IDs.
-        case=f'parallel-case-{n}'
-        with get_db() as conn:conn.execute('INSERT INTO cases VALUES (?,?,?,?,?)',(case,partner,'合成案例',CANARY,'2026'))
-        metadata=enablement.ShareMetadata(title=f'共享案例 {n}',summary='批准的合成摘要',methods='核验与实施',contributor_role='实施',source_platform='合成',source_url='https://example.com/shared',capability_tag_ids=[tags[n]])
-        row=enablement.save('case',case,enablement.ShareSave(base_revision=0,metadata=metadata),admin['id']);published(grant(row,admin,'case'),admin,'case')
-        request=base.model_copy(deep=True);request.target_partner_id=partner
-        request.targets=[base.targets[0].model_copy(update={'capability_tag_id':tags[n]})]
-        accepted=life.create(Submit(submission_id=f'parallel-distinct-{n}',request=request),owner);jobs.append(accepted)
-    with ThreadPoolExecutor(max_workers=3) as pool:list(pool.map(lambda a:engine.execute(a['run_id']),jobs))
-    for n,(owner,accepted) in enumerate(zip(owners,jobs)):
-        detail=views.detail(accepted['plan_id'],owner)
-        assert detail['runs'][0]['status']=='ready' and len(detail['versions'])==1
-        assert detail['payload']['target_partner_id']==f'parallel-partner-{n}'
-        ids={i['source_id'] for s in detail['payload']['stages'] for i in s['items']}
-        assert ids=={f'parallel-course-{n}',f'parallel-case-{n}'}
-        assert detail['plan']['owner_user_id']==owner['id'] and detail['plan']['confirmed_version_id'] is None
-    assert CANARY not in json.dumps(captured)
-    record_property('parallel_plans', '3 owners / 3 partners / 3 courses / 3 cases; diagnostic barrier reached simultaneously; one version each')
-
+# V1.2 semantic and three-owner sample assertions live in test_v12_agent.py.
+# Keep all supplier transport/schema/timeout and version-preservation regression below.
 
 @pytest.fixture
 def supplier(scenario,monkeypatch):

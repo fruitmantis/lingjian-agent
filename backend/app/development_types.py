@@ -11,6 +11,7 @@ class Target(StrictModel):
 
 class DevelopmentRequest(StrictModel):
     target_partner_id: str=''
+    development_direction: str=Field(default='',max_length=4000)
     request_source: Literal['partner','partner_manager','jointly_confirmed']='partner_manager'
     raw_demand: str=Field(default='',max_length=4000)
     development_goal: str=Field(default='',max_length=2000)
@@ -36,7 +37,7 @@ class Revise(StrictModel):
     submission_id: str=Field(min_length=8,max_length=128)
     based_on_version_id: str | None
     instruction: str=Field(min_length=1,max_length=2000)
-    request: DevelopmentRequest
+    request: DevelopmentRequest | None=None
 
 class Ref(StrictModel):
     source_type: Literal['course','lab','case']
@@ -54,7 +55,8 @@ class Diagnosis(StrictModel):
     problem_type: Literal['trainable_gap','evidence_gap','non_training_constraint','needs_clarification']
 
 class Item(Ref):
-    capability_tag_id: str
+    capability_tag_id: str=''
+    focus: str=Field(default='',max_length=200)
     reason: str=Field(min_length=1,max_length=2000)
     estimated_hours: float=Field(gt=0,le=10000)
     note: str=Field(default='',max_length=2000)
@@ -87,3 +89,36 @@ class Edit(StrictModel):
 
 class VersionAction(StrictModel):
     version_id: str
+
+# V1.2 analysis is advice, never a certification or a prerequisite diagnosis.
+class Focus(StrictModel):
+    name: str=Field(min_length=1,max_length=200)
+    reason: str=Field(min_length=1,max_length=1500)
+    capability_tag_id: str | None=None
+    search_terms: list[str]=Field(default_factory=list,max_length=12)
+
+class DirectionAnalysis(StrictModel):
+    target_partner_id: str
+    intent: Literal['development','explore','resources']
+    interpretation: str=Field(min_length=1,max_length=2000)
+    reusable_basis: list[str]=Field(default_factory=list,max_length=12)
+    priorities: list[Focus]=Field(default_factory=list,max_length=12)
+    basis_limitations: list[str]=Field(default_factory=list,max_length=10)
+    resource_types: list[Literal['course','lab','case']]=Field(default_factory=list,max_length=3)
+    excluded_difficulties: list[Literal['beginner','intermediate','advanced']]=Field(default_factory=list,max_length=3)
+
+class AdviceOutput(PlanOutput):
+    stages: list[Stage]=Field(default_factory=list,max_length=20)
+    answer: str=Field(default='',max_length=5000)
+    next_steps: list[str]=Field(default_factory=list,max_length=10)
+
+class Conversation(StrictModel):
+    submission_id: str=Field(min_length=8,max_length=128)
+    based_on_version_id: str
+    message: str=Field(min_length=1,max_length=2000)
+
+class ConversationOutput(StrictModel):
+    target_partner_id: str
+    kind: Literal['explain','revise']
+    answer: str=Field(default='',max_length=5000)
+    references: list[Ref]=Field(default_factory=list,max_length=30)

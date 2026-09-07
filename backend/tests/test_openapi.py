@@ -19,8 +19,8 @@ def test_openapi_contains_only_three_public_operations():
             operations.append((method, path))
             if not operation.get("security"):
                 public.add((method, path))
-    assert len(schema["paths"]) == 86
-    assert len(operations) == 101
+    assert len(schema["paths"]) == 87
+    assert len(operations) == 102
     assert public == PUBLIC_OPERATIONS
 
 
@@ -43,3 +43,8 @@ def test_enablement_workspace_operations_remain_authenticated():
     assert len(operations) == 5
     assert all(operation.get('security') for _,_,operation in operations)
     assert {method for method,_,_ in operations} == {'get','post'}
+
+
+def test_development_conversation_requires_authentication():
+    operation=app.openapi()['paths']['/development/plans/{plan_id}/conversation']['post']
+    assert operation['security']

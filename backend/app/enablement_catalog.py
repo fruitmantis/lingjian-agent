@@ -55,7 +55,10 @@ def catalog(source_type=None, q=None, capability_tag_id=None, contributor_id=Non
     conditions=[]; params=[]
     if status != 'published': conditions.append('0')
     if source_type: conditions.append('source_type=?');params.append(source_type)
-    if q: conditions.append("instr(lower(json_extract(payload_json,'$.title')),lower(?))>0");params.append(q.strip())
+    if q:
+        fields=('title','summary','target_capability','methods','product_direction','audience')
+        conditions.append('('+' OR '.join("instr(lower(COALESCE(json_extract(payload_json,'$."+field+"'),'')),lower(?))>0" for field in fields)+')')
+        params.extend([q.strip()]*len(fields))
     if capability_tag_id:
         conditions.append("EXISTS (SELECT 1 FROM json_each(payload_json,'$.capability_tag_ids') WHERE value=?)");params.append(capability_tag_id)
     if contributor_id: conditions.append("json_extract(payload_json,'$.contributor_id')=?");params.append(contributor_id)

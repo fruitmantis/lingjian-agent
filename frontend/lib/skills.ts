@@ -36,10 +36,10 @@ export type SkillDefinition = {
 export const SKILL_REGISTRY: readonly SkillDefinition[] = [
   {
     id: "enablement_workspace", name: "伙伴能力发展助手", category: "能力发展",
-    description: "结构化收集诉求，诊断目标并检索获准资源，生成、调整、编辑和确认版本。",
+    description: "理解自然语言方向与当前伙伴画像，检索真实资源，解释建议并按实际修改保存新版本。",
     tags: ["诉求整理", "资源检索"], enabled: true,
     capabilityReference: "POST /development/plans、GET /enablement/resources",
-    inputDefinition: "伙伴、来源任务或共享案例标识，以及资源筛选条件",
+    inputDefinition: "目标伙伴 + 自然语言发展方向；独立资源检索不需要伙伴",
   },
   {
     id: "partner_match",

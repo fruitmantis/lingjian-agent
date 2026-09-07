@@ -35,12 +35,12 @@ test.beforeAll(async({request})=>{
 test('NAV-01/SCN-01 center preserves navigation and offers truthful scene entries',async({page,request})=>{
   await login(request,'admin1',page);await page.goto('/enablement');
   for(const name of ['开启新任务','场景广场','伙伴洞察','全部任务','个人中心','管理后台','伙伴服务能力发展中心'])await expect(page.locator('aside').getByRole('link',{name,exact:true})).toBeVisible();
-  await expect(page.getByText('填写发展诉求后可生成结构化方案。',{exact:false})).toBeVisible();
+  await expect(page.getByRole('button',{name:'生成能力发展建议',exact:true})).toBeVisible();
   await page.getByLabel('选择目标伙伴').selectOption('partner-1');
   await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'生成方案',exact:true})).toHaveCount(0);
   await page.goto('/scenes?category='+encodeURIComponent('能力发展'));
-  for(const name of ['制定伙伴服务能力发展方案','查找课程与实验','学习优秀伙伴案例'])await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
+  for(const name of ['制定伙伴能力发展建议','查找课程与实验','学习优秀伙伴案例'])await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
   await page.getByRole('link',{name:'查看共享案例',exact:true}).click();
   await expect(page.getByRole('tab',{name:'案例',exact:true})).toHaveAttribute('aria-selected','true');
 });
@@ -81,7 +81,7 @@ test('RES-08 redirect is recorded as initiation and URL is server resolved',asyn
 
 test('PRT-01/CASE-05 partner shared case and center exchange authorized identifiers',async({page,request})=>{
   await login(request,'user_a',page);await page.goto('/partners/partner-1');
-  await page.getByRole('link',{name:'制定发展方案',exact:true}).click();
+  await page.getByRole('link',{name:'制定发展建议',exact:true}).click();
   await expect(page).toHaveURL(/partner_id=partner-1/);
   await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'当前可访问的证据引用',exact:true})).toBeVisible();
@@ -90,7 +90,7 @@ test('PRT-01/CASE-05 partner shared case and center exchange authorized identifi
   await expect(page.locator('main')).not.toContainText('INTERNAL_SECRET_PHASE_B');
   await page.getByRole('link',{name:'验证伙伴',exact:true}).click();await expect(page).toHaveURL('/partners/partner-1');
   await page.getByRole('link',{name:'伙伴迁移实践共享案例（合成验证）',exact:true}).click();
-  await page.getByRole('link',{name:'围绕此案例制定发展方案',exact:true}).click();
+  await page.getByRole('link',{name:'围绕此案例制定发展建议',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`case_id=${sharedCase}&case_version=1`));
   await expect(page.getByLabel('选择目标伙伴')).toHaveValue('');
   await expect(page.getByRole('link',{name:'伙伴迁移实践共享案例（合成验证）',exact:true})).toBeVisible();
@@ -100,15 +100,15 @@ test('PRT-01/CASE-05 partner shared case and center exchange authorized identifi
 test('MAT-01/NAV-02 project risks are context, old tasks and type filters remain real',async({page,request})=>{
   const headers=await login(request,'user_a',page);
   const before=await checked(await request.get(API+'/agent/tasks',{headers}));
-  await page.goto('/tasks/task-a-ready');await page.getByRole('link',{name:'针对该项目制定发展方案',exact:true}).click();
+  await page.goto('/tasks/task-a-ready');await page.getByRole('link',{name:'针对该项目制定发展建议',exact:true}).click();
   await expect(page.getByText('待能力发展流程复核',{exact:true})).toBeVisible();
   await expect(page.locator('main').getByText('A-ready',{exact:true})).toBeVisible();
   await expect(page.getByText('资料需复核',{exact:true})).toBeVisible();
-  await expect(page.getByLabel('发展目标',{exact:true})).toHaveValue('');
+  await expect(page.getByLabel('发展方向',{exact:true})).toHaveValue('');
   await expect(page.getByLabel('选择目标伙伴')).toHaveValue('partner-1');
-  await page.getByLabel('发展目标',{exact:true}).fill('人工整理诉求，不应创建任务');
+  await page.getByLabel('发展方向',{exact:true}).fill('人工整理诉求，不应创建任务');
   const after=await checked(await request.get(API+'/agent/tasks',{headers}));expect(after.total).toBe(before.total);
-  await page.goto('/?task=task-a-ready');await expect(page.getByRole('link',{name:'针对该项目制定发展方案',exact:true})).toBeVisible();
+  await page.goto('/?task=task-a-ready');await expect(page.getByRole('link',{name:'针对该项目制定发展建议',exact:true})).toBeVisible();
   await page.goto('/tasks');await page.getByLabel('任务类型').selectOption('partner_match');await page.getByRole('button',{name:'搜索',exact:true}).click();
   await expect(page.locator('tbody').getByText('A-ready',{exact:true})).toBeVisible();
   await expect(page.locator('tbody')).not.toContainText('B-ready');

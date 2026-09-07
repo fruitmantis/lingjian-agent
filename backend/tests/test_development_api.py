@@ -93,11 +93,10 @@ def test_resource_revocation_filters_historical_text(scenario,kind):
     with get_db() as conn:assert conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(v1,)).fetchone()[0]==stored
 
 
-def test_business_correction_has_provenance(scenario):
-    accepted,_,payload=execute(scenario);id=accepted['plan_id'];user=scenario[0][0];tag=scenario[0][3].targets[0].capability_tag_id
-    views.edit(id,Edit(based_on_version_id=plan(id)['current_version_id'],stages=stages(payload),corrections={tag:'经理已核验人员评估'}),user)
-    diagnosis=views.detail(id,user)['payload']['diagnoses'][0]
-    assert diagnosis['judgment_source']=='business_correction' and diagnosis['confirmation']['actor_user_id']==user['id']
+def test_old_diagnostic_correction_is_not_a_hidden_ui_backdoor(scenario):
+    accepted,_,payload=execute(scenario);pid=accepted['plan_id'];user=scenario[0][0]
+    with pytest.raises(HTTPException):
+        views.edit(pid,Edit(based_on_version_id=plan(pid)['current_version_id'],stages=stages(payload),corrections={'old':'确认不足'}),user)
 
 @pytest.mark.parametrize('sensitive',[False,True])
 def test_case_stop_or_sensitive_revoke_hides_inline_text_and_preserves_snapshot(scenario,sensitive,client):
@@ -144,20 +143,13 @@ def test_task_creation_p95_under_one_second_without_waiting_model(scenario,clien
     with get_db() as conn:assert conn.execute('SELECT COUNT(*) FROM development_versions').fetchone()[0]==0
 
 
-def test_conversational_revision_applies_typed_changes_without_silent_external_permission(scenario,monkeypatch):
-    from backend.app import development_model
-    accepted,_,_=execute(scenario);user,_,_,req=scenario[0];id=accepted['plan_id'];v1=plan(id)['current_version_id'];views.confirm(id,v1,user)
-    original=scenario[2]
-    def mock(*args):
-        output=json.loads(original(*args))
-        if 'diagnoses' in output:output['request_adjustment']={'duration_weeks':2,'development_goal':'调整后的目标','constraints':{'language':'无要求'}}
-        return json.dumps(output)
-    monkeypatch.setattr(development_model,'completion',mock)
-    accepted=life.revise(id,Revise(submission_id='conversational-revision',based_on_version_id=v1,instruction='缩短周期并改变目标',request=req),user);engine.execute(accepted['run_id'])
-    data=views.detail(id,user)
-    assert data['payload']['overview']['duration_weeks']==2
-    assert data['request']['development_goal']=='调整后的目标' and data['request']['partner_goal_allowed'] is False
-    assert data['plan']['confirmed_version_id']==v1
+def test_natural_revision_without_legacy_fields_preserves_confirmed(scenario):
+    accepted,_,_=execute(scenario);user=scenario[0][0];pid=accepted['plan_id'];v1=plan(pid)['current_version_id'];views.confirm(pid,v1,user)
+    accepted=life.revise(pid,Revise(submission_id='natural-revision',based_on_version_id=v1,instruction='再加上 Agent 应用交付方向'),user)
+    engine.execute(accepted['run_id']);data=views.detail(pid,user)
+    assert data['runs'][0]['status']=='ready'
+    assert 'Agent' in data['request']['development_direction']
+    assert data['plan']['confirmed_version_id']==v1 and data['plan']['current_version_id']!=v1
 
 
 def test_three_parallel_plans_keep_owner_and_goal_snapshots(scenario):

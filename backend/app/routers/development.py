@@ -4,7 +4,7 @@ from fastapi import APIRouter,Depends,Response
 from ..auth import require_active_user
 from ..database import get_db
 from .. import development_lifecycle as life,development_engine as engine,development_views as views
-from ..development_types import DevelopmentRequest,Submit,Revise,Edit,VersionAction
+from ..development_types import DevelopmentRequest,Submit,Revise,Edit,VersionAction,Conversation
 
 router=APIRouter(prefix='/development',tags=['development'])
 # In-process execution; SQLite owns concurrency/idempotency. Restart recovery interrupts unfinished runs.
@@ -49,3 +49,10 @@ def preview(plan_id:str,user:dict=Depends(require_active_user)):return views.tra
 
 @router.post('/plans/{plan_id}/copy')
 def copy(plan_id:str,body:VersionAction,user:dict=Depends(require_active_user)):return views.transferable(plan_id,user,body.version_id,True)
+
+
+@router.post('/plans/{plan_id}/conversation')
+def conversation(plan_id:str,body:Conversation,user:dict=Depends(require_active_user)):
+    result=views.converse(plan_id,body,user)
+    if result['kind']=='revise' and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
+    return result

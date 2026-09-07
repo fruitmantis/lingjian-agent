@@ -158,7 +158,8 @@ def test_catalog_3000_published_resources_search_p95(client,admin,metadata,recor
         started=time.perf_counter()
         result=catalog(q='迁移',capability_tag_id=metadata['capability_tag_ids'][0],page=index%3+1)
         elapsed.append(time.perf_counter()-started)
-        assert result['total']==2998 and len(result['items'])==12
+        # V1.2 also matches the original shared case's migration summary.
+        assert result['total']==2999 and len(result['items'])==12
     ordered=sorted(elapsed);p95=ordered[56]
     record_property('catalog_performance',json.dumps({'course_lab_count':2000,'case_count':1000,'samples':60,
         'p50_seconds':ordered[29],'p95_seconds':p95,'max_seconds':max(elapsed),

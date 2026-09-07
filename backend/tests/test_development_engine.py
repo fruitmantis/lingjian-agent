@@ -23,12 +23,8 @@ def scenario(prepared,monkeypatch):
     captures=[]
     def mock(config,messages,schema):
         captures.append(copy.deepcopy(messages));data=json.loads(messages[-1]['content'])
-        if 'diagnose' in messages[0]['content']:
-            return json.dumps({'target_partner_id':'partner-1','diagnoses':[{'capability_tag_id':tag,'target_requirement':'交付','target_satisfaction':'not_satisfied','evidence_status':'partial','judgment_source':'model_inference','evidence_refs':[],'pending_verifications':['需评估人员基础'],'problem_type':'trainable_gap'}]})
-        candidates=data['candidates'];items=[]
-        if candidates:
-            r=candidates[0];items=[{k:r[k] for k in ('source_type','source_id','source_version')}|{'capability_tag_id':tag,'reason':'匹配目标能力','estimated_hours':2,'note':''}]
-        return json.dumps({'target_partner_id':'partner-1','stages':[{'title':'阶段一', 'items':items}],'limitations':[],'resource_gaps':[]})
+        from backend.tests.support.development_mock import response
+        return json.dumps(response(messages))
     monkeypatch.setattr(model,'completion',mock)
     return prepared,captures,mock
 
@@ -47,23 +43,23 @@ def test_model_safe_context_and_strong_judgment_boundary(scenario,caplog):
     assert version['diagnoses'][0]['target_satisfaction']=='needs_assessment'
     assert version['diagnoses'][0]['evidence_status']=='partial'
     assert version['diagnoses'][0]['judgment_source']=='model_inference'
-    assert version['stages'][0]['items'][0]['constraint']['state']=='meets'
+    assert version['stages'][0]['items'][0]['constraint']['state']=='unknown'
     for boundary in [scenario[1],version,caplog.text,run['safe_error_message']]:assert CANARY not in json.dumps(boundary)
     for messages in scenario[1]:
-        text=json.dumps(messages);assert 'source_url' not in text and 'raw_demand' not in text and 'ai_profile' not in text
+        text=json.dumps(messages);assert 'source_url' not in text and 'raw_demand' not in text
 
 
 @pytest.mark.parametrize('malice',['partner','resource','case','version','url','enum','extra','secret','internal_note','unconfirmed_text'])
 def test_malicious_outputs_never_create_versions(scenario,monkeypatch,malice,caplog):
     original=scenario[2]
     def corrupted(config,messages,schema):
-        result=json.loads(original(config,messages,schema));diagnose='diagnose' in messages[0]['content']
+        result=json.loads(original(config,messages,schema));diagnose='analyze' in messages[0]['content']
         if malice=='partner':result['target_partner_id']='invented'
-        elif malice=='enum' and diagnose:result['diagnoses'][0]['evidence_status']='certainly_incapable'
+        elif malice=='enum' and diagnose:result['intent']='illegal'
         elif malice=='extra':result['internal_debug']='forbidden'
         elif malice=='secret':result['extra']=CANARY
         elif malice=='internal_note':result['internal_note']='不得外发的备注'
-        elif malice=='unconfirmed_text' and diagnose:result['diagnoses'][0]['pending_verifications']=['该伙伴确认不具备技术能力']
+        elif malice=='unconfirmed_text' and diagnose:result['basis_limitations']=['该伙伴确认不具备技术能力']
         elif not diagnose:
             item=result['stages'][0]['items'][0]
             if malice=='resource':item['source_id']='invented-resource'
@@ -78,23 +74,18 @@ def test_malicious_outputs_never_create_versions(scenario,monkeypatch,malice,cap
     assert CANARY not in str(run['safe_error_message'])+caplog.text
 
 
-@pytest.mark.parametrize('problem,evidence',[('evidence_gap','missing'),('non_training_constraint','sufficient'),('needs_clarification','partial')])
-def test_non_training_results_are_ready_without_resources(scenario,monkeypatch,problem,evidence):
-    original=scenario[2]
-    def adjusted(c,m,s):
-        out=json.loads(original(c,m,s))
-        if 'diagnose' in m[0]['content']:out['diagnoses'][0].update(problem_type=problem,evidence_status=evidence)
-        return json.dumps(out)
-    monkeypatch.setattr(model,'completion',adjusted)
-    _,run,version=execute(scenario);assert run['status']=='ready' and version['stages'][0]['items']==[]
+def test_missing_profile_does_not_gate_recommendations(scenario):
+    _,run,version=execute(scenario)
+    assert run['status']=='ready' and version['stages'][0]['items']
+    assert version['analysis']['basis_limited']
+    assert version['diagnoses'][0]['target_satisfaction']=='needs_assessment'
 
 
-def test_user_confirmation_is_attributed_to_actual_actor(scenario):
-    prepared=scenario[0];prepared[3].targets[0].confirmed_gap=True;prepared[3].targets[0].confirmation_note='已与参训人员核实，缺少交付实践'
-    _,run,version=execute(scenario);assert run['status']=='ready'
-    diagnosis=version['diagnoses'][0]
-    assert diagnosis['target_satisfaction']=='not_satisfied' and diagnosis['judgment_source']=='user_confirmed'
-    assert diagnosis['confirmation']['actor_user_id']==prepared[0]['id']
+def test_legacy_human_gap_field_no_longer_controls_advice(scenario):
+    scenario[0][3].targets[0].confirmed_gap=True
+    _,run,version=execute(scenario)
+    assert run['status']=='ready'
+    assert version['diagnoses'][0]['judgment_source']=='model_inference'
 
 
 @pytest.mark.parametrize('change',['unpublished','not_model_allowed','unknown','conflict'])
@@ -106,8 +97,8 @@ def test_candidate_permissions_and_constraint_three_states(scenario,change):
         elif change=='unknown':request.constraints['language']='中文'
         else:request.trainee_role='商务经理'
     _,run,version=execute(scenario);assert run['status']=='ready'
-    items=version['stages'][0]['items']
-    if change=='unknown':assert items[0]['constraint']['state']=='unknown'
+    items=[i for stage in version['stages'] for i in stage['items']]
+    if change in ('unknown','conflict'):assert items and items[0]['constraint']['state']=='unknown'
     else:assert items==[] and version['resource_gaps']
 
 

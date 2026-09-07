@@ -18,7 +18,7 @@ def test_plan_candidate_and_transfer_dimensions(scenario,flags):
     row=enablement.detail('resource','test-course')
     row=published(grant(row,admin,flags=flags),admin)
     accepted,run,payload=execute(scenario);assert run['status']=='ready'
-    items=payload['stages'][0]['items'];assert bool(items)==(flags[0] and flags[1])
+    items=[i for s in payload['stages'] for i in s['items']];assert bool(items)==(flags[0] and flags[1])
     v1=plan(accepted['plan_id'])['current_version_id'];views.confirm(accepted['plan_id'],v1,user)
     external=views.transferable(accepted['plan_id'],user)['text']
     assert ('数据库课程' in external)==all(flags)

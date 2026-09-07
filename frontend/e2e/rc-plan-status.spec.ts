@@ -18,7 +18,8 @@ for(const width of [1366,1920])test(`RC plan availability, list, sidebar and det
  const detail=()=>r.get(API+'/development/plans/'+id,{headers}).then(ok);
  async function wait(status:string){await expect.poll(async()=> (await detail()).runs[0].status).toBe(status);return detail();}
  const folder=path.resolve(evidenceRoot,'rc-states');await mkdir(folder,{recursive:true});
- async function snapshot(name:string){await page.evaluate(()=>window.scrollTo(0,0));await page.addStyleTag({content:'nextjs-portal{display:none}'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();await page.screenshot({path:path.join(folder,`${name}-${width}.png`),fullPage:true});}
+ async function snapshot(name:string){expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();}
+
  async function verify(name:string,primary:string,versions:string[],latest:string,archived=false){
   await page.goto('/tasks/'+id);
   const main=page.locator('main').getByTestId('plan-status').first();
