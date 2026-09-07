@@ -118,6 +118,7 @@ def candidates(conn,request,analysis):
     focuses=analysis.get('priorities',[])
     tag_ids={f.get('capability_tag_id') for f in focuses if f.get('capability_tag_id')}
     query=terms(' '.join([request.get('development_direction') or request.get('development_goal','')]+[f.get('name','')+' '+' '.join(f.get('search_terms',[])) for f in focuses]))
+    keywords={word.lower() for f in focuses for word in f.get('search_terms',[]) if word.strip()}
     allowed_types=set(analysis.get('resource_types',[]));excluded=set(analysis.get('excluded_difficulties',[]))
     found=[];blocked=blocked_fragments(conn)
     for row in conn.execute(POOL+'SELECT source_type,source_id,source_version FROM visible ORDER BY published_at DESC,source_id'):
@@ -128,7 +129,12 @@ def candidates(conn,request,analysis):
         if data.get('difficulty') in excluded:continue
         haystack=' '.join(str(data.get(k,'')) for k in ('title','summary','methods','target_capability','product_direction','audience')).lower()
         lexical=sum(1 for word in query if word in haystack)
-        score=5*len(tag_ids.intersection(data['capability_tag_ids']))+lexical
+        mapped=tag_ids.intersection(data['capability_tag_ids'])
+        # A generic audience word such as delivery must not pull an unrelated direction
+        # into the candidate pool. Model-derived topic keywords remain a second path.
+        topical=sum(1 for word in keywords if word in haystack)
+        if keywords and not mapped and not topical:continue
+        score=5*len(mapped)+3*topical+lexical
         if not score:continue
         found.append((score,{**data,'constraint':constraint_state(data)}))
     return [d for _,d in sorted(found,key=lambda v:-v[0])[:100]]

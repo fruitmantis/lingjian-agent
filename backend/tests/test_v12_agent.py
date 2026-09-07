@@ -43,6 +43,7 @@ def test_directions_profiles_unmapped_focus_and_latest_profile(scenario):
     assert 'Agent 系统集成与 POC 调优' in focuses(agent)
     assert '应用集成与云服务基础' not in focuses(agent) and '应用集成与云服务基础' in focuses(other)
     assert any('Agent' in i['title'] for i in items(agent)) # metadata search, not tag equality
+    assert all(i['source_id']!='test-course' for i in items(agent)) # generic delivery audience is not relevance
     assert other['payload']['analysis']['basis_limited']
     assert items(agent)[0]['conditions']['account_requirement']=='需测试账号'
     with get_db() as conn:
