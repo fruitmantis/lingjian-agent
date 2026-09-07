@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { DevelopmentEntry } from "@/components/enablement-workspace";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { ENABLED_SCENES } from "@/lib/scenes";
@@ -96,7 +97,7 @@ function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; 
   );
 }
 
-export default function HomePage() {
+function ProjectMatchTask({active}:{active:boolean}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { submit } = useTaskNavigation();
@@ -115,6 +116,14 @@ export default function HomePage() {
   const requirementInput = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
+    if (searchParams.get("mode") === "development") {
+      // The shared task provider retains pending work; a late match response
+      // must not navigate away from the explicitly selected development mode.
+      generation.current += 1;
+      setActiveTaskId(null); setLoading(false); setTaskStatus("");
+      setHasSearched(false); setSubmittedRequirement(""); setRecommendations([]); setError(null);
+      return;
+    }
     const prompt = searchParams.get("prompt");
     if (prompt) {
       setRequirement(prompt);
@@ -210,10 +219,9 @@ export default function HomePage() {
     : Array.from({ length: 4 }, (_, index) => scenePool[(sceneOffset + index) % scenePool.length]);
 
   return (
-    <main className="page assistant-page">
+    <div hidden={!active} role="tabpanel" id="match-panel" aria-labelledby="match-tab">
       <section className="assistant-hero">
-        <div className="assistant-title"><LingjianMark size={48} /><h1>灵鉴助手</h1></div>
-        <p className="assistant-subtitle">懂伙伴、懂能力、懂项目，智能匹配好伙伴</p>
+        <p className="assistant-subtitle">告诉灵鉴你的项目需要什么样的伙伴</p>
 
         <form onSubmit={handleMatch} className="assistant-composer">
           <label htmlFor="requirement" className="sr-only">输入项目需求</label>
@@ -225,12 +233,12 @@ export default function HomePage() {
             required
             rows={4}
             maxLength={2000}
-            placeholder="输入项目需求，或告诉我您想完成什么…"
+            placeholder="例如：寻找有金融行业数据库迁移经验、能够完成实施交付的伙伴…"
           />
           <div className="assistant-composer-footer">
             <span className="assistant-counter">{requirement.length}/2000</span>
-            <button type="submit" disabled={loading || !requirement.trim()} className="assistant-submit" aria-label={loading ? "分析中" : "开始任务"}>
-              {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={20} />}
+            <button type="submit" disabled={loading || !requirement.trim()} className="assistant-submit" aria-label={loading ? "分析中" : "开始匹配"}>
+              {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={18} />}<span>{loading ? "分析中" : "开始匹配"}</span>
             </button>
           </div>
         </form>
@@ -343,7 +351,7 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      {activeTaskId && <div className="enablement-actions"><Link className="secondary-btn" href={`/enablement?partner_id=${encodeURIComponent(r.partnerId)}&task_id=${encodeURIComponent(activeTaskId)}`}>针对该项目制定发展建议</Link></div>}
+                      {activeTaskId && <div className="enablement-actions"><Link className="secondary-btn" href={`/?mode=development&partner_id=${encodeURIComponent(r.partnerId)}&task_id=${encodeURIComponent(activeTaskId)}`}>针对该伙伴制定发展建议</Link></div>}
 
                       {/* Recommendation reason */}
                       <div style={{ marginTop: "12px", padding: "12px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
@@ -393,6 +401,21 @@ export default function HomePage() {
         </>
       )}
 
-    </main>
+    </div>
   );
+}
+
+export default function HomePage() {
+  const search=useSearchParams();
+  const development=search.get("mode")==="development";
+  return <div className="page assistant-page unified-task-page">
+    <header className="unified-task-heading"><div className="assistant-title"><LingjianMark size={40}/><h1>开启新任务</h1></div>
+      <nav className="enablement-tabs task-mode-tabs" role="tablist" aria-label="任务模式">
+        <Link id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" href="/" className={!development?"active":""}>项目找伙伴</Link>
+        <Link id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" href="/?mode=development" className={development?"active":""}>能力发展</Link>
+      </nav>
+    </header>
+    <ProjectMatchTask active={!development}/>
+    {development&&<div role="tabpanel" id="development-panel" aria-labelledby="development-tab"><DevelopmentEntry/></div>}
+  </div>;
 }

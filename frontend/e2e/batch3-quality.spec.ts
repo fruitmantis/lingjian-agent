@@ -40,7 +40,7 @@ test("new match and task details display verified evidence and explicit gaps", a
   await page.goto("/");
   await page.locator("#requirement").fill("第三批验证：寻找制造业知识库项目伙伴");
   const result = page.waitForResponse(response => response.url() === `${API}/agent/tasks` && response.request().method() === "POST");
-  await page.getByRole("button", { name: "开始任务", exact: true }).click();
+  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
   const response = await result;
   expect(response.ok()).toBeTruthy();
   const accepted = await response.json();

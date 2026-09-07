@@ -1,4 +1,5 @@
-"use client";
-import { use } from "react";
-import { ResourceDetail } from "@/components/enablement-workspace";
-export default function Page({params}:{params:Promise<{type:string;id:string}>}){const {type,id}=use(params);return <ResourceDetail key={`${type}:${id}`} type={type} id={id}/>;}
+import {redirect} from "next/navigation";
+export default async function Page({params,searchParams}:{params:Promise<{type:string;id:string}>;searchParams:Promise<{source_version?:string}>}){
+ const {type,id}=await params,{source_version}=await searchParams;
+ redirect(`/resources/${encodeURIComponent(type)}/${encodeURIComponent(id)}${source_version?`?source_version=${encodeURIComponent(source_version)}`:""}`);
+}

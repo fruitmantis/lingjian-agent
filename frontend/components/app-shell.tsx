@@ -11,9 +11,9 @@ import { NEW_TASK, TaskSidebar } from "./task-navigation";
 type NavItem = { label: string; href: string; icon: IconName };
 
 const workspaceNav: NavItem[] = [
-  { label: "伙伴服务能力发展中心", href: "/enablement", icon: "chart" },
   { label: "场景广场", href: "/scenes", icon: "apps" },
   { label: "伙伴洞察", href: "/partners", icon: "users" },
+  { label: "资源中心", href: "/resources", icon: "grid" },
 ];
 
 const adminNav: { group: string; items: NavItem[] }[] = [

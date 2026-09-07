@@ -21,7 +21,7 @@ type Context = { partner: { id: string; name: string; intro: string | null; capa
 const typeLabels: Record<string,string> = {course:"课程",lab:"实验",case:"案例"};
 const values: Record<string,string> = {unknown:"未知",beginner:"入门",intermediate:"进阶",advanced:"高级",free:"免费",paid:"付费"};
 const display = (value?: string | number | null) => value === null || value === undefined || value === "" ? "未知" : values[String(value)] || String(value);
-const resourcePath = (r: Resource) => `/enablement/resources/${r.source_type}/${encodeURIComponent(r.source_id)}?source_version=${r.source_version}`;
+const resourcePath = (r: Resource) => `/resources/${r.source_type}/${encodeURIComponent(r.source_id)}?source_version=${r.source_version}`;
 
 /** Reauthorize on focus and periodically. Never retain another URL's data or failed reads. */
 function useAuthorizedData<T>(url: string | null) {
@@ -54,32 +54,23 @@ function ReadError({message,retry}:{message:string;retry:()=>void}) {
   return <div className="notice-neutral" role="alert">{message} <button className="secondary-btn" onClick={retry}>重新读取</button></div>;
 }
 
-export function EnablementCenter() {
-  const search=useSearchParams();const router=useRouter();
-  const resourceTab=search.get("tab")==="resources";
-  const params=new URLSearchParams(search.toString());
+/** Shared new-task mode; all context still comes from the authorized backend API. */
+export function DevelopmentEntry() {
+  const search=useSearchParams(),router=useRouter();
   const contextParams=new URLSearchParams();
-  for(const key of ["partner_id","task_id","case_id","case_version"]) { const value=search.get(key);if(value)contextParams.set(key,value); }
+  for(const key of ["partner_id","task_id","case_id","case_version"]) {const value=search.get(key);if(value)contextParams.set(key,value);}
   const context=useAuthorizedData<Context>(`/enablement/context?${contextParams}`);
   const partners=useAuthorizedData<{id:string;name:string}[]>("/partners");
-  function tabHref(tab:string){const next=new URLSearchParams(params);next.set("tab",tab);return `/enablement?${next}`;}
-  function selectPartner(id:string){const next=new URLSearchParams(params);if(id)next.set("partner_id",id);else next.delete("partner_id");router.replace(`/enablement?${next}`);}
-  return <div className="page enablement-page">
-    <div className="page-heading-row"><div><p className="eyebrow">Partner Enablement</p><h1>伙伴服务能力发展中心</h1><p className="lead">选择伙伴，说说发展方向。灵鉴结合当前画像，帮你寻找值得发展的能力和可用资源。</p></div></div>
-    <nav className="enablement-tabs" aria-label="发展中心栏目"><Link href={tabHref("assistant")} aria-current={!resourceTab?"page":undefined}>能力发展助手</Link><Link href={tabHref("resources")} aria-current={resourceTab?"page":undefined}>资源中心</Link></nav>
-    {resourceTab ? <ResourceCatalog/> : <>
-
-      <section className="card"><h2>目标伙伴</h2><label className="enablement-field">选择目标伙伴<select aria-label="选择目标伙伴" value={search.get("partner_id")||""} disabled={!!search.get("task_id")} onChange={e=>selectPartner(e.target.value)}><option value="">请选择伙伴</option>{partners.data?.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>{search.get("task_id")&&<p className="muted">目标伙伴来自所选项目推荐。切换伙伴请返回匹配结果，选择对应入口。</p>}{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}</section>
-      <DevelopmentRequestForm partnerId={search.get("partner_id")||""} sourceTask={search.get("task_id")} sourceCase={search.get("case_id")} sourceVersion={search.get("case_version")?Number(search.get("case_version")):null}/>
-      {context.error ? <ReadError message={context.error} retry={context.retry}/> : !context.data ? <p role="status">正在核验来源上下文…</p> : <div className="enablement-context-grid">
-        <section className="card"><h2>当前伙伴画像摘要</h2>{context.data.partner ? <><h3>{context.data.partner.name}</h3><p>{context.data.partner.intro||"暂无伙伴简介"}</p><dl className="enablement-facts"><dt>能力</dt><dd>{display(context.data.partner.capabilities)}</dd><dt>行业</dt><dd>{display(context.data.partner.industries)}</dd><dt>服务区域</dt><dd>{display(context.data.partner.service_areas)}</dd></dl><div className="enablement-profile">{context.data.partner.ai_profile || "暂无已维护的 AI 画像，本阶段不会自动生成。"}</div><Link href={`/partners/${encodeURIComponent(context.data.partner.id)}`}>查看伙伴详情</Link><h3>当前可访问的证据引用</h3>{context.data.evidence.length ? <ul>{context.data.evidence.map(e=><li key={e.source_type+e.source_id}>{e.title} <small>（{e.source_type==="internal_case"?"内部案例":"交付物"}）</small></li>)}</ul> : <p className="muted">暂无可引用证据。</p>}<p className="muted">内部资料可见不代表获准发送模型或对伙伴外发。</p></> : <p className="placeholder-text">选择伙伴后查看当前画像与证据引用。</p>}</section>
-        {(context.data.project||context.data.shared_case)&&<section className="card"><h2>来源上下文</h2>{context.data.project ? <><Link href={`/tasks/${encodeURIComponent(context.data.project.task_id)}`}>返回来源项目任务</Link><h3>项目需求</h3><p className="enablement-prose">{context.data.project.requirement}</p><h3>原匹配风险 / 缺口</h3><span className="enablement-badge">{context.data.project.risk_status}</span><p className="enablement-prose">{context.data.project.risk_notes||"原匹配未提供风险信息"}</p><p className="muted">这是原匹配提示，尚未确认能力短板，也未转化为培训需求。</p></> : null}
-        {context.data.shared_case && <><h3>共享学习案例</h3><Link href={resourcePath(context.data.shared_case)}>{context.data.shared_case.title}</Link><p>{context.data.shared_case.summary}</p><p>贡献伙伴：{context.data.shared_case.contributor_name}</p><p>实际角色：{context.data.shared_case.contributor_role}</p></>}
-        {!context.data.project&&!context.data.shared_case&&<p className="placeholder-text">{context.data.partner?"来自伙伴资料入口，可结合当前画像整理诉求。":"从伙伴、匹配结果或共享案例进入时，在此显示获准查看的来源信息。"}</p>}</section>}
-      </div>}
-
-
-    </>}
+  function selectPartner(id:string){const next=new URLSearchParams(search);next.set("mode","development");if(id)next.set("partner_id",id);else next.delete("partner_id");router.replace(`/?${next}`,{scroll:false});}
+  const partner=context.data?.partner,project=context.data?.project,shared=context.data?.shared_case;
+  return <div className="development-entry">
+    <p className="assistant-subtitle">选择伙伴，说说你希望发展的方向</p>
+    <section className="card development-partner"><label className="enablement-field">目标伙伴<select aria-label="选择目标伙伴" value={search.get("partner_id")||""} disabled={!!search.get("task_id")} onChange={e=>selectPartner(e.target.value)}><option value="">请选择伙伴</option>{partners.data?.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}
+    {search.get("task_id")&&<p className="muted">目标伙伴来自所选匹配结果。切换伙伴请返回匹配结果选择。</p>}
+    {context.error?<ReadError message={context.error} retry={context.retry}/>:!context.data?<p role="status">正在核验来源上下文…</p>:partner&&<div className="development-profile"><h2>当前伙伴画像摘要</h2><p>{[partner.capabilities,partner.industries,partner.service_areas].filter(Boolean).join(" · ")||"暂无已维护的能力与行业摘要"}</p><p className="profile-preview">{partner.ai_profile||partner.intro||"当前画像依据有限，可继续描述发展方向。"}</p><Link href={`/partners/${encodeURIComponent(partner.id)}`}>查看完整伙伴画像</Link><details><summary>查看获准引用的依据</summary><h3>当前可访问的证据引用</h3>{context.data.evidence.length?<ul>{context.data.evidence.map(e=><li key={e.source_type+e.source_id}>{e.title}</li>)}</ul>:<p className="muted">暂无可引用证据。</p>}<p className="muted">内部资料可见不代表获准发送模型或对伙伴外发。</p></details></div>}
+    </section>
+    {(project||shared)&&<section className="card development-source" data-testid="source-context"><h2>来源上下文</h2>{project&&<><Link href={`/tasks/${encodeURIComponent(project.task_id)}`}>返回来源项目任务</Link><h3>项目需求</h3><p className="enablement-prose">{project.requirement}</p><h3>原匹配风险 / 缺口</h3><span className="enablement-badge">{project.risk_status}</span><p className="enablement-prose">{project.risk_notes||"原匹配未提供风险信息"}</p><p className="muted">这是原匹配提示，尚未确认能力短板，也未转化为培训需求。</p></>}{shared&&<><Link href={resourcePath(shared)}>{shared.title}</Link><p>{shared.summary}</p><p className="muted">贡献伙伴：{shared.contributor_name} · {shared.contributor_role}</p></>}</section>}
+    <DevelopmentRequestForm partnerId={search.get("partner_id")||""} sourceTask={search.get("task_id")} sourceCase={search.get("case_id")} sourceVersion={search.get("case_version")?Number(search.get("case_version")):null}/>
   </div>;
 }
 
@@ -92,7 +83,7 @@ export function ResourceCatalog() {
   const options=useAuthorizedData<Filters>("/enablement/resource-filters");
   const request=new URLSearchParams({source_type:source,page:String(page),page_size:"12",...applied});
   const result=useAuthorizedData<{items:Resource[];total:number}>(`/enablement/resources?${request}`);
-  function tab(type:string){const next=new URLSearchParams(search);next.set("tab","resources");next.set("resource_type",type);setPage(1);router.replace(`/enablement?${next}`);}
+  function tab(type:string){const next=new URLSearchParams(search);next.delete("tab");next.set("resource_type",type);setPage(1);router.replace(`/resources?${next}`,{scroll:false});}
   return <section aria-label="资源中心">
     <div className="enablement-tabs" role="tablist" aria-label="资源类型">{Object.entries(typeLabels).map(([key,label])=><button role="tab" aria-selected={source===key} className={source===key?"active":""} key={key} onClick={()=>tab(key)}>{label}</button>)}</div>
     <form className="card" onSubmit={e=>{e.preventDefault();setApplied({q:query,...filters});setPage(1);}}>
@@ -124,11 +115,11 @@ export function ResourceDetail({type,id}:{type:string;id:string}) {
     } catch {popup?.close();resource.clear();setEvent("无法发起跳转，请重新核验资源。");}finally{setJumping(false);}
   }
   const r=resource.data;
-  return <div className="page enablement-page"><Link href={`/enablement?tab=resources&resource_type=${encodeURIComponent(type)}`}>返回资源中心</Link>{resource.error?<ReadError message={resource.error} retry={resource.retry}/>:!r?<p role="status">正在核验资源…</p>:<>
+  return <div className="page enablement-page"><Link href={`/resources?resource_type=${encodeURIComponent(type)}`}>返回资源中心</Link>{resource.error?<ReadError message={resource.error} retry={resource.retry}/>:!r?<p role="status">正在核验资源…</p>:<>
     <div className="page-heading-row"><div><p className="eyebrow">{typeLabels[r.source_type]}资源</p><h1>{r.title}</h1><p className="lead">{r.summary}</p></div><span className="enablement-badge">已发布 · {r.availability==="available"?"人工核验可用":"可用性未知"}</span></div>
     <section className="card"><h2>资源信息</h2><div className="enablement-tags">{r.capabilities.map(c=><span key={c.id}>{c.name}</span>)}</div><dl className="enablement-facts">
     {[["适用对象",r.audience],["目标能力 / 用途",r.target_capability||r.methods],["产品 / 技术方向",r.product_direction],["难度",r.difficulty],["语言 / 站点",`${display(r.language)} / ${display(r.site)}`],["先修条件",r.prerequisites],["预计投入",r.duration_minutes?`${r.duration_minutes} 分钟`:null],["费用",r.cost],["账号条件",r.account_requirement],["环境条件",r.environment_requirement]].map(([label,value])=><div className="enablement-fact" key={label}><dt>{label}</dt><dd>{display(value)}</dd></div>)}
-    </dl>{r.source_type==="case"&&<div className="notice-neutral"><h3>贡献伙伴及实际角色</h3><Link href={`/partners/${encodeURIComponent(r.contributor_id||"")}`}>{r.contributor_name}</Link><p>{r.contributor_role}</p><Link href={`/enablement?case_id=${encodeURIComponent(r.source_id)}&case_version=${r.source_version}`}>围绕此案例制定发展建议</Link><p className="muted">带入共享实践上下文，结合伙伴画像生成发展建议。</p></div>}</section>
+    </dl>{r.source_type==="case"&&<div className="notice-neutral"><h3>贡献伙伴及实际角色</h3><Link href={`/partners/${encodeURIComponent(r.contributor_id||"")}`}>{r.contributor_name}</Link><p>{r.contributor_role}</p><Link href={`/?mode=development&case_id=${encodeURIComponent(r.source_id)}&case_version=${r.source_version}`}>围绕此案例制定发展建议</Link><p className="muted">带入共享实践上下文，结合伙伴画像生成发展建议。</p></div>}</section>
     <section className="card"><h2>来源与人工核验</h2><dl className="enablement-facts"><dt>来源平台</dt><dd>{r.source_platform}</dd><dt>外部来源</dt><dd className="enablement-url">{r.source_url}</dd><dt>共享 / 资源版本</dt><dd>{r.source_version}</dd><dt>发布核验时间</dt><dd>{r.review?new Date(r.review.reviewed_at).toLocaleString("zh-CN"):"未知"}</dd><dt>核验人</dt><dd>{display(r.review?.reviewer_name)}</dd><dt>核验内容</dt><dd>{r.review?.content_checked&&r.review.authorization_checked?"内容、能力映射及用途授权已人工核验":"未知"}</dd></dl><p className="muted">可用状态来自人工核验，外部平台当前响应及访问权限仍以源站为准。</p><button disabled={jumping} onClick={()=>void redirect()}>{jumping?"正在发起跳转…":"发起跳转"}</button></section>
     </>}{event&&<p role="status">{event}</p>}</div>;
 }

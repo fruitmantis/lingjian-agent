@@ -1,6 +1,7 @@
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
+import {evidenceRoot} from './evidence-path';
 import {randomUUID} from 'node:crypto';
 const API='http://127.0.0.1:8100';
 let admin:Record<string,string>,user:Record<string,string>,tag:string;
@@ -15,8 +16,8 @@ test.beforeAll(async({request:r})=>{
 });
 for(const width of [1366,1920])test(`Advisor UX content, discuss and revision ${width}`,async({page,request:r})=>{
  test.setTimeout(150000);await login(r,'user_a',page);await page.setViewportSize({width,height:width===1366?768:1080});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- const dir=path.resolve('../artifacts/v12/advisor');await mkdir(dir,{recursive:true});
- async function snap(name:string){await page.evaluate(()=>window.scrollTo(0,0));await page.addStyleTag({content:'nextjs-portal{display:none}'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();await expect(page.locator('aside').getByRole('link',{name:'伙伴服务能力发展中心',exact:true})).toBeInViewport();await page.screenshot({path:path.join(dir,`${name}-${width}.png`),fullPage:true});}
+ const dir=path.resolve(`${evidenceRoot}/advisor`);await mkdir(dir,{recursive:true});
+ async function snap(name:string){await page.evaluate(()=>window.scrollTo(0,0));await page.addStyleTag({content:'nextjs-portal{display:none}'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();await expect(page.locator('aside').getByRole('link',{name:'资源中心',exact:true})).toBeInViewport();await page.screenshot({path:path.join(dir,`${name}-${width}.png`),fullPage:true});}
  async function menu(name:string){await page.getByText('更多',{exact:true}).click();await page.getByRole('button',{name,exact:true}).click();}
  async function create(direction:string){const a=await ok(await r.post(API+'/development/plans',{headers:user,data:{submission_id:randomUUID(),request:{target_partner_id:'partner-1',development_direction:direction,model_input_allowed:true}}}));await expect.poll(async()=> (await ok(await r.get(API+'/development/plans/'+a.plan_id,{headers:user}))).runs[0].status).toBe('ready');return a.plan_id;}
  const id=await create('希望形成企业级 Agent 应用交付能力');const detail=()=>r.get(API+'/development/plans/'+id,{headers:user}).then(ok);
@@ -25,7 +26,7 @@ for(const width of [1366,1920])test(`Advisor UX content, discuss and revision ${
  await expect(page.getByTestId('resource-advice').first()).toContainText('1.5 小时');await expect(page.getByTestId('resource-advice').first()).toContainText('测试云账号');await snap('01-full-advice');
  const d=await detail(),v1=d.plan.current_version_id;expect(d.plan.confirmed_version_id).toBeNull();
  // Unconfirmed advice can open resources, including the backend-resolved redirect action.
- await page.getByRole('link',{name:'查看来源与发起跳转 →'}).first().click();await expect(page).toHaveURL(/enablement\/resources/);await expect(page.getByRole('button',{name:'发起跳转',exact:true})).toBeVisible();await page.goto('/tasks/'+id);
+ await page.getByRole('link',{name:'查看来源与发起跳转 →'}).first().click();await expect(page).toHaveURL(/resources\//);await expect(page.getByRole('button',{name:'发起跳转',exact:true})).toBeVisible();await page.goto('/tasks/'+id);
  for(const [index,message] of ['为什么推荐 RAG？','这两个实验有什么区别？'].entries()){
   await page.getByLabel('消息',{exact:true}).fill(message);await page.getByRole('button',{name:'发送',exact:true}).click();await expect.poll(async()=> (await detail()).conversation.length).toBe(index+1);await expect(page.getByTestId('conversation')).toContainText(message);expect((await detail()).versions.length).toBe(1);expect((await detail()).runs.length).toBe(1);await snap(index?'05-comparison':'04-explanation');
  }

@@ -152,7 +152,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
   return (
     <main className="page">
-      <div className="page-heading-row"><div><h1>任务详情</h1><span className="enablement-badge">{task.task_type === "development_plan" ? "发展方案" : "伙伴匹配"}</span><p className="lead">创建于 {new Date(task.createdAt).toLocaleString("zh-CN")} · 创建人 {task.createdBy || "历史数据"}</p></div><Link href={returnHref} className="secondary-btn">返回任务列表</Link></div>
+      <div className="page-heading-row"><div><h1>任务详情</h1><span className="enablement-badge">{task.task_type === "development_plan" ? "能力发展" : "项目找伙伴"}</span><p className="lead">创建于 {new Date(task.createdAt).toLocaleString("zh-CN")} · 创建人 {task.createdBy || "历史数据"}</p></div><Link href={returnHref} className="secondary-btn">返回任务列表</Link></div>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重新加载</button></div>}
       {(task.task_type || "partner_match") === "partner_match" ? <>
       {task.taskStatus !== "ready" && <div className={`${task.taskStatus === "failed" ? "notice-error" : "notice-warning"} task-status-notice`}><strong>{taskStatusText[task.taskStatus]}</strong>{task.lastErrorStage && <span>未完成环节：{errorStageText(task.lastErrorStage)}</span>}{(task.taskStatus === "partial" || task.taskStatus === "failed") && <button onClick={() => void retryTask()} disabled={retrying}>{retrying ? "重试中..." : "重试任务"}</button>}</div>}
@@ -162,7 +162,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           <div className="recommendation-title"><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><Link href={`/partners/${item.partnerId}`} className="secondary-btn">查看伙伴</Link></div>
           <div className="evidence-grid"><div><strong>匹配能力</strong><p>{text(item.matchedCapabilities)}</p></div><div><strong>行业经验</strong><p>{text(item.matchedIndustries)}</p></div><div><strong>覆盖区域</strong><p>{text(item.matchedRegions)}</p></div><div><strong>推荐理由</strong><p>{text(item.recommendationReason)}</p></div><div><strong>支撑案例</strong><p>{text(item.evidenceCases)}</p></div><div><strong>支撑交付物</strong><p>{text(item.evidenceDeliverables)}</p></div></div>
           <div className="risk-note"><strong>风险或缺口</strong><p>{text(item.riskNotes)}</p></div>
-          <div className="enablement-actions"><Link className="secondary-btn" href={`/enablement?partner_id=${encodeURIComponent(item.partnerId)}&task_id=${encodeURIComponent(task.id)}`}>针对该项目制定发展建议</Link></div>
+          <div className="enablement-actions"><Link className="secondary-btn" href={`/?mode=development&partner_id=${encodeURIComponent(item.partnerId)}&task_id=${encodeURIComponent(task.id)}`}>针对该伙伴制定发展建议</Link></div>
         </article>
       ))}</div>}</section>
       {task.demandProfile && <section className="card"><h2>需求画像</h2><div className="detail-grid">{Object.entries({

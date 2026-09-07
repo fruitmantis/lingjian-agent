@@ -34,7 +34,7 @@ test.beforeAll(async({request})=>{
 
 test('NAV-01/SCN-01 center preserves navigation and offers truthful scene entries',async({page,request})=>{
   await login(request,'admin1',page);await page.goto('/enablement');
-  for(const name of ['开启新任务','场景广场','伙伴洞察','全部任务','个人中心','管理后台','伙伴服务能力发展中心'])await expect(page.locator('aside').getByRole('link',{name,exact:true})).toBeVisible();
+  for(const name of ['开启新任务','场景广场','伙伴洞察','全部任务','个人中心','管理后台','资源中心'])await expect(page.locator('aside').getByRole('link',{name,exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'生成能力发展建议',exact:true})).toBeVisible();
   await page.getByLabel('选择目标伙伴').selectOption('partner-1');
   await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();
@@ -84,7 +84,7 @@ test('PRT-01/CASE-05 partner shared case and center exchange authorized identifi
   await page.getByRole('link',{name:'制定发展建议',exact:true}).click();
   await expect(page).toHaveURL(/partner_id=partner-1/);
   await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'当前可访问的证据引用',exact:true})).toBeVisible();
+  await page.getByText('查看获准引用的依据',{exact:true}).click();await expect(page.getByRole('heading',{name:'当前可访问的证据引用',exact:true})).toBeVisible();
   await page.goto(`/enablement/resources/case/${sharedCase}?source_version=1`);
   await expect(page.getByRole('heading',{level:1})).toHaveText('伙伴迁移实践共享案例（合成验证）');
   await expect(page.locator('main')).not.toContainText('INTERNAL_SECRET_PHASE_B');
@@ -100,7 +100,7 @@ test('PRT-01/CASE-05 partner shared case and center exchange authorized identifi
 test('MAT-01/NAV-02 project risks are context, old tasks and type filters remain real',async({page,request})=>{
   const headers=await login(request,'user_a',page);
   const before=await checked(await request.get(API+'/agent/tasks',{headers}));
-  await page.goto('/tasks/task-a-ready');await page.getByRole('link',{name:'针对该项目制定发展建议',exact:true}).click();
+  await page.goto('/tasks/task-a-ready');await page.getByRole('link',{name:'针对该伙伴制定发展建议',exact:true}).click();
   await expect(page.getByText('待能力发展流程复核',{exact:true})).toBeVisible();
   await expect(page.locator('main').getByText('A-ready',{exact:true})).toBeVisible();
   await expect(page.getByText('资料需复核',{exact:true})).toBeVisible();
@@ -108,7 +108,7 @@ test('MAT-01/NAV-02 project risks are context, old tasks and type filters remain
   await expect(page.getByLabel('选择目标伙伴')).toHaveValue('partner-1');
   await page.getByLabel('发展方向',{exact:true}).fill('人工整理诉求，不应创建任务');
   const after=await checked(await request.get(API+'/agent/tasks',{headers}));expect(after.total).toBe(before.total);
-  await page.goto('/?task=task-a-ready');await expect(page.getByRole('link',{name:'针对该项目制定发展建议',exact:true})).toBeVisible();
+  await page.goto('/?task=task-a-ready');await expect(page.getByRole('link',{name:'针对该伙伴制定发展建议',exact:true})).toBeVisible();
   await page.goto('/tasks');await page.getByLabel('任务类型').selectOption('partner_match');await page.getByRole('button',{name:'搜索',exact:true}).click();
   await expect(page.locator('tbody').getByText('A-ready',{exact:true})).toBeVisible();
   await expect(page.locator('tbody')).not.toContainText('B-ready');
@@ -137,22 +137,22 @@ for(const width of [1366,1920])test(`Phase B screenshots and layout ${width}`,as
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   const directory=path.resolve(`${evidenceRoot}/regression`);await mkdir(directory,{recursive:true});
   for(const [name,url,heading] of [
-    ['center','/enablement','伙伴服务能力发展中心'],
-    ['resources','/enablement?tab=resources','伙伴服务能力发展中心'],
+    ['center','/enablement','开启新任务'],
+    ['resources','/enablement?tab=resources','资源中心'],
     ['course',`/enablement/resources/course/${course}?source_version=1`,'数据库迁移基础课程（合成验证）'],
     ['shared-case',`/enablement/resources/case/${sharedCase}?source_version=1`,'伙伴迁移实践共享案例（合成验证）'],
     ['partner','/partners/partner-1','验证伙伴'],
     ['match','/tasks/task-a-ready','任务详情'],
     ['scenes','/scenes?category='+encodeURIComponent('能力发展'),'场景广场'],
     ['tasks','/tasks','我的任务'],
-    ['project-context','/enablement?partner_id=partner-1&task_id=task-a-ready','伙伴服务能力发展中心'],
+    ['project-context','/enablement?partner_id=partner-1&task_id=task-a-ready','开启新任务'],
   ]){
     await page.goto(url);await expect(page.getByRole('heading',{name:heading,exact:true,level:1})).toBeVisible();
     await expect(page.getByText(/正在核验|正在读取资源|任务加载中|伙伴信息加载中/)).toHaveCount(0);
     if(name==='tasks')await expect(page.locator('tbody')).toBeVisible();
     if(name==='resources')await expect(page.getByRole('link',{name:'数据库迁移基础课程（合成验证）',exact:true})).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-    const nav=page.locator('aside').getByRole('link',{name:'伙伴服务能力发展中心',exact:true});await expect(nav).toBeInViewport();
+    const nav=page.locator('aside').getByRole('link',{name:'资源中心',exact:true});await expect(nav).toBeInViewport();
     expect(await nav.evaluate(el=>{const p=el.closest('aside')!.getBoundingClientRect();const r=el.getBoundingClientRect();return r.left>=p.left&&r.right<=p.right;})).toBeTruthy();
     await page.addStyleTag({content:'nextjs-portal { display: none; }'});
     await page.screenshot({path:path.join(directory,`${name}-${width}.png`),fullPage:true});

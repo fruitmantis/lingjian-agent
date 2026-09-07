@@ -1072,3 +1072,21 @@ button:hover:not(:disabled) { background: var(--primary-hover); }
 .advisor-question { background:#f3f7ff; border-radius:10px; padding:12px 16px; }
 .advisor-secondary .enablement-field { margin:16px 0; }
 @media(max-width:700px){.advisor-detail .card{padding:20px;}.advisor-conditions{grid-template-columns:1fr;}.advisor-heading{gap:12px;}}
+
+/* Both task modes share the existing Agent shell and composer rhythm. */
+.unified-task-page .unified-task-heading { padding: 30px 0 0; text-align:center; }
+.unified-task-heading h1 { margin:0; font-size:32px; }
+.task-mode-tabs { justify-content:center; margin:24px auto 0; }
+.task-mode-tabs a.active { color:var(--primary); background:var(--brand-soft); border-color:var(--primary); }
+.unified-task-page .assistant-hero { padding:16px 0 24px; }
+.unified-task-page .assistant-submit { display:flex; width:auto; height:40px; padding:0 18px; border-radius:10px; gap:8px; }
+.development-entry { max-width:860px; margin:16px auto 0; min-width:0; }
+.development-entry > .assistant-subtitle { text-align:center; }
+.development-entry .card { margin-bottom:16px; }
+.development-entry h2 { font-size:17px; }
+.development-profile { border-top:1px solid var(--line); margin-top:16px; padding-top:12px; overflow-wrap:anywhere; }
+.profile-preview { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line; }
+.development-profile details { margin-top:12px; font-size:13px; }
+.development-profile summary { cursor:pointer; color:var(--muted); }
+.development-source { overflow-wrap:anywhere; }
+@media(max-width:700px){.unified-task-heading h1{font-size:26px}.unified-task-page .unified-task-heading{padding-top:16px}}
