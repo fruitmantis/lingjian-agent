@@ -1,0 +1,243 @@
+{
+  "code_head": "2f84b619c7ae065a58cc781b6094410ee92e9122",
+  "schema_version": 12,
+  "backend": {
+    "passed": 501,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 2,
+    "duration_seconds": 347.9
+  },
+  "browser": {
+    "passed": 57,
+    "failed": 0,
+    "skipped": 0,
+    "prior_attempt_interrupted_exit": 143,
+    "final_exit": 0
+  },
+  "typecheck": "PASS",
+  "production_build": "PASS",
+  "real_model_calls": 0,
+  "screenshots": [
+    {
+      "path": "artifacts/v12/advisor/01-full-advice-1366.png",
+      "sha256": "39ec5a18cbeb1b0c36d04026e811488b48b2ed5877a63275295e72d3c3bae836"
+    },
+    {
+      "path": "artifacts/v12/advisor/01-full-advice-1920.png",
+      "sha256": "2a0daad92e69c087223ea3ab1b1eb215018b4a4eb6cc61823e3eb0fade3bb79e"
+    },
+    {
+      "path": "artifacts/v12/advisor/02-exploratory-1366.png",
+      "sha256": "7d0a809661763df876460a1353b9fe31f387941e175cec276d4375ff2a524943"
+    },
+    {
+      "path": "artifacts/v12/advisor/02-exploratory-1920.png",
+      "sha256": "0fbb20d58bc85ddec5ad3a20c2cd6b26ebf6f7cd6cd4190ee5bd8815c89a1b66"
+    },
+    {
+      "path": "artifacts/v12/advisor/03-short-resources-1366.png",
+      "sha256": "5de6dc03f243bc262d5b27c95d24e14c49f39cd812059218f25845c2fe568c95"
+    },
+    {
+      "path": "artifacts/v12/advisor/03-short-resources-1920.png",
+      "sha256": "741c98af8cf194b2c61246c354ee7ab568dd688aa1e268903abc04a1d86595db"
+    },
+    {
+      "path": "artifacts/v12/advisor/04-explanation-1366.png",
+      "sha256": "ef5686a0657d0726b4d5847ca37b3a2155d62f2e09752cf5463f8cbb51e745e7"
+    },
+    {
+      "path": "artifacts/v12/advisor/04-explanation-1920.png",
+      "sha256": "64dc2194ac25ce1a169a324cf274a531f81130c4d445b762a21724ad9b933ac6"
+    },
+    {
+      "path": "artifacts/v12/advisor/05-comparison-1366.png",
+      "sha256": "2c0bccb4839d83445cfe0d9b0ad86382cfd43012f6d472c8c15b1655d0b6190e"
+    },
+    {
+      "path": "artifacts/v12/advisor/05-comparison-1920.png",
+      "sha256": "f43981771d39fe1f4a86b04249817a8005dba09f622aeccfaef5c5708462ace0"
+    },
+    {
+      "path": "artifacts/v12/advisor/06-natural-revise-1366.png",
+      "sha256": "456627deeed94e33085fa07508e2abeb7e2c51fc392393dd01cc18cee3019b33"
+    },
+    {
+      "path": "artifacts/v12/advisor/06-natural-revise-1920.png",
+      "sha256": "6a7e99539cc81e0633ce909df348a62ef7d0a627b2afee274255d6f47b8d057d"
+    },
+    {
+      "path": "artifacts/v12/advisor/07-failed-revise-1366.png",
+      "sha256": "81fbe31ad75cec979a56226885059abc9efcb927b551209f8a236054fd5d1e1a"
+    },
+    {
+      "path": "artifacts/v12/advisor/07-failed-revise-1920.png",
+      "sha256": "f3622953f03b17609dc89d1c14bed5be82cb17ead4a060c4e2ddcbe85ab09b74"
+    },
+    {
+      "path": "artifacts/v12/advisor/08-task-list-1366.png",
+      "sha256": "4a5c6584f9b00fd399d43cd9b2d02512991eb61fda873e73264d0aed235c477e"
+    },
+    {
+      "path": "artifacts/v12/advisor/08-task-list-1920.png",
+      "sha256": "30483344e9c999b62f632a01de373452f86a158a978117abb9a17468430f959e"
+    }
+  ],
+  "manual": {
+    "failed_revise_confirmed_v1_preserved": true,
+    "A": {
+      "plan_id": "d994c202-7fed-4cab-a999-2dee751595a8",
+      "focuses": [
+        "数据库迁移与回退验证"
+      ],
+      "resources": [
+        "dev-lab-2",
+        "v12-lab-db-rollback",
+        "dev-case",
+        "v12-case-db",
+        "v12-lab-db-check",
+        "dev-lab-1",
+        "dev-course-3",
+        "dev-course-2"
+      ],
+      "resource_types": [
+        "case",
+        "course",
+        "lab"
+      ],
+      "gaps": [],
+      "status": "ready"
+    },
+    "B": {
+      "plan_id": "de72609a-7814-45f8-bfa3-b2c019f697e4",
+      "focuses": [
+        "RAG 与知识库工程",
+        "Agent 系统集成与 POC 调优"
+      ],
+      "resources": [
+        "v12-course-integration",
+        "v12-lab-agent",
+        "v12-course-rag",
+        "v12-case-agent",
+        "v12-lab-agent-eval"
+      ],
+      "resource_types": [
+        "case",
+        "course",
+        "lab"
+      ],
+      "gaps": [
+        "当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。"
+      ],
+      "status": "ready"
+    },
+    "C": {
+      "plan_id": "fca7522c-c9c3-4c0e-9861-dd910552c997",
+      "focuses": [
+        "应用集成与云服务基础",
+        "RAG 与知识库工程",
+        "Agent 系统集成与 POC 调优"
+      ],
+      "resources": [
+        "v12-course-foundation",
+        "v12-course-integration",
+        "v12-lab-agent",
+        "v12-case-agent",
+        "v12-course-rag",
+        "v12-lab-agent-eval"
+      ],
+      "resource_types": [
+        "case",
+        "course",
+        "lab"
+      ],
+      "gaps": [
+        "当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。"
+      ],
+      "status": "ready"
+    },
+    "D": {
+      "plan_id": "7e52c7ad-7633-4bb6-a306-d70177620f29",
+      "focuses": [
+        "RAG 与知识库工程",
+        "Agent 系统集成与 POC 调优"
+      ],
+      "resources": [],
+      "resource_types": [],
+      "gaps": [],
+      "status": "ready"
+    },
+    "E": {
+      "plan_id": "16f371d8-cbea-4405-a044-34b512d1e315",
+      "focuses": [
+        "只给几个进阶实验，不要基础课"
+      ],
+      "resources": [
+        "v12-lab-agent-eval",
+        "v12-lab-db-rollback",
+        "v12-lab-db-check",
+        "v12-lab-agent"
+      ],
+      "resource_types": [
+        "lab"
+      ],
+      "gaps": [],
+      "status": "ready"
+    },
+    "conversation": {
+      "explanation_no_version": true,
+      "comparison_no_version": true,
+      "revision_v2_confirmed_v1": true,
+      "plan_id": "de72609a-7814-45f8-bfa3-b2c019f697e4"
+    },
+    "real_model_calls": 0
+  },
+  "protection": {
+    "branch": "feature/partner-enablement-v1.1",
+    "main": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+    "stable_files_unchanged": 167,
+    "runtime_source_unchanged": true,
+    "schema": "12",
+    "integrity": "ok",
+    "existing_fk_anomalies": 2,
+    "new_fk_anomalies": 0,
+    "health": {
+      "8000": 200,
+      "8100": 200,
+      "3100": 200
+    },
+    "model_configuration": {
+      "id": "manual-local-mock",
+      "provider": "Local mock",
+      "model": "local-development-mock",
+      "base_url": "http://127.0.0.1:18180/v1"
+    },
+    "resources": {
+      "course": 7,
+      "lab": 6,
+      "shared_case": 3
+    },
+    "processes": [
+      {
+        "name": "backend",
+        "pid": 412249,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement",
+        "database": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db",
+        "uploads": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/uploads"
+      },
+      {
+        "name": "frontend",
+        "pid": 412250,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement/frontend"
+      },
+      {
+        "name": "development-mock",
+        "pid": 412245,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement"
+      }
+    ],
+    "real_model_calls": 0
+  },
+  "manual_browser": "PASS; 0 page errors"
+}

@@ -6,8 +6,8 @@
 
 - 工作目录：`/home/yuan/project/lingjian-agent-enablement`
 - 分支：`feature/partner-enablement-v1.1`
-- 功能代码 HEAD：`f00c67f3a305ebb5fcd257545df26d73bba55fa0`；后续交付提交仅包含截图、测试取证等待和本报告。
-- 本轮功能提交：`4089bea`（V1.2 主流程与测试）、`f00c67f`（资源检索相关性修正）。交付归档 HEAD 为本报告所在提交，可用 `git log -1 -- V12_REFACTOR_DELIVERY_REPORT.md` 查询。
+- 功能代码 HEAD：`2f84b619c7ae065a58cc781b6094410ee92e9122`；本轮后续交付提交仅包含本报告和非敏感证据。
+- 首轮功能提交：`4089bea`（V1.2 主流程与测试）、`f00c67f`（资源检索相关性修正）；本轮 Advisor UX 提交：`2f84b61`（顾问界面、输出组织、对话与测试）。交付归档 HEAD 为本报告所在提交，可用 `git log -1 -- V12_REFACTOR_DELIVERY_REPORT.md` 查询。
 - 唯一需求基线：已评审的《灵鉴Agent全局需求与架构设计说明书 V1.2 评审修订稿》。未新建分支或 worktree，未 merge、push 或部署。
 
 首页只保留“目标伙伴”和自然语言“发展方向”，按钮为“生成能力发展建议”。人数、岗位、基础、周期、投入、预算、硬约束、目标能力手选、确认能力不足等旧表单已移除，没有折叠或高级设置入口。数据库旧字段保留，但不再构成生成门槛；schema 仍为 12，无破坏性迁移。
@@ -24,20 +24,39 @@
 
 实现主要位于 `backend/app/development_{types,lifecycle,engine,views}.py`、`backend/app/routers/development.py`、`backend/app/enablement_catalog.py`、`frontend/components/development-assistant.tsx`、`enablement-workspace.tsx` 及场景/入口文案。新增认证接口 `POST /development/plans/{id}/conversation`，无新服务或权限体系。
 
+## Advisor UX 收口
+
+本轮将详情页从方案对象管理收口为内部顾问交互。**默认主页面不再展示版本号、采用指针、结构化编辑表单或运行历史。**
+
+- **用户主线**：目标方向/原始诉求 → 基于当前伙伴画像的业务判断 → 每个发展重点的理由、可复用基础与资源 → 继续问灵鉴。探索问题使用“值得考虑的发展方向”，不重复叠加多个方向区块。
+- **后台操作降级**：右上角“更多”提供历史版本、设为当前采用版本、伙伴可传递视图、高级编辑、运行记录和归档。只有主动选择后才展开；正常查看、提问、比较和修改均不要求采用/确认。高级编辑仍可用，自然语言是默认修改路径。
+- **对话区别**：“为什么推荐 RAG”“哪个实验更难”“这两个实验有什么区别”在当前上下文回答，不创建 Run/Version；“不要基础课，多给实验”“系统集成优先”等实际修改才创建 Run，成功形成新版本。解释误判成修改的典型问句有程序拦截。
+- **三种输出**：探索只分析少量方向及理由，不执行资源套餐生成；明确目标提供完整顾问建议并按能力重点归组资源；局部资源问题返回资源与简短说明。课程、实验、案例不要求凑齐。
+- **资源只读**：时长来自已发布资源元数据，账号、环境、费用、语言、站点、先修均为只读属性，不把模型预计投入当课程时长。未知条件明确保留。
+- **失败仍可理解**：主页面提示“最近调整未完成，已有建议仍可使用”，具体运行记录在次级入口。current/confirmed、不可变版本、幂等、并发冲突、事务、超时/中断恢复、撤权和外发白名单全部保留；schema 仍为 12，无新服务、新数据库或权限体系。
+
+local mock 支持稳定重复体验明确方向、探索、只要实验、解释、比较、调整顺序及失败保留建议。可在合成开发任务中输入 **“模拟调整失败”** 观察失败提示；这仅是本地 mock 行为。两种既有测试伙伴画像、Agent/RAG/数据库资源与 RAG 实验缺口继续保留。真实模型未调用，不以 mock 结果代替真实模型质量验收。
+
+本轮统一验证：**后端 501 passed / 0 failed / 0 skipped；浏览器 57 passed / 0 failed / 0 skipped；typecheck PASS；production build PASS**。新截图为 `artifacts/v12/advisor/` 下 8 类场景 × 2 个视口（1366×768、1920×1080），覆盖完整建议、探索、短资源、解释、比较、自然语言修改、失败保留建议、统一任务列表。
+
+新版继续使用 [http://localhost:3100/enablement](http://localhost:3100/enablement)，后端 8100、本地 mock 18180；数据库仍为 `/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db`。旧版 3000/8000 和 main 保持不变。**REAL MODEL CALLS = 0**。
+
+浏览器第一次全量执行收到终止信号（143），未计为通过；已重新完整执行，最终 57 项全部通过。实际开发环境也已完成登录、资源中心、顾问详情、解释/修改及失败保留已采用建议检查，页面脚本错误为 0。现有 API 路径与 SQLite schema 未改变；分析 JSON 增加兼容的顾问摘要和可复用基础字段，仍经过原严格校验。
+
 ## 验证
 
 | 检查 | 最终结果 |
 |---|---|
-| `.venv/bin/python -m pytest backend/tests -q --tb=short` | 492 passed，0 failed，0 skipped；2 条既有 Starlette 弃用提示 |
-| `cd frontend && npm run test:e2e` | 57 passed，0 failed，0 skipped；另补跑 2 项截图状态核对通过 |
+| `.venv/bin/python -m pytest backend/tests -q --tb=short` | 501 passed，0 failed，0 skipped；2 条既有 Starlette 弃用提示 |
+| `cd frontend && npm run test:e2e` | 57 passed，0 failed，0 skipped |
 | `cd frontend && npm run typecheck` | PASS |
 | `cd frontend && npm run build` | PASS |
 | V1.2 关键截图 | 1366×768、1920×1080；无横向溢出，侧栏与任务详情状态均可辨识 |
-| 新版实际 API/UI 体验 | PASS：dev_admin 登录、资源页面、A～E 五个 ready 任务及解释/比较/修改链路 |
+| 新版实际 API/UI 体验 | PASS：dev_admin 登录、资源页面、五个有效建议及解释/比较/修改、失败保留链路 |
 
 已重跑原伙伴匹配、任务、需求画像、项目机会、伙伴洞察、场景广场、管理后台、用户、模型配置、系统状态、资源中心、共享案例，以及版本、权限、撤权和失败恢复测试。旧人员/周期/强制诊断等测试已按 V1.2 改写，没有为旧测试保留门槛。
 
-关键截图共 10 张，位于 [artifacts/v12/screenshots](artifacts/v12/screenshots/)：`01-minimal` 极简首页、`02-advice` 完整建议/草稿状态、`03-explanation` 对话解释、`04-short-revision` 仅实验响应与 V2 draft/confirmed V1、`05-resource-gap` 资源缺口；每组各 1366 和 1920 两个宽度。
+本轮关键截图共 16 张，位于 [artifacts/v12/advisor](artifacts/v12/advisor/)：`01-full-advice` 完整建议、`02-exploratory` 探索、`03-short-resources` 简短资源、`04-explanation` 解释、`05-comparison` 比较、`06-natural-revise` 修改、`07-failed-revise` 失败保留、`08-task-list` 任务列表；各覆盖 1366×768 与 1920×1080。首轮截图保留为历史证据。
 
 ## 打开新版体验
 
