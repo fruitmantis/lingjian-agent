@@ -1,0 +1,83 @@
+{
+  "code_commit": "e84a8636282cc4198cdb264eb9c648e00e814878",
+  "timestamp": "2026-09-07T14:19:50.326360+00:00",
+  "scope": "visual design system only",
+  "backend": {
+    "command": [
+      ".venv/bin/python",
+      "-m",
+      "pytest",
+      "backend/tests",
+      "-q",
+      "--tb=short",
+      "-o",
+      "junit_family=legacy",
+      "--junitxml=/tmp/huawei-backend.xml"
+    ],
+    "cwd": "/home/yuan/project/lingjian-agent-enablement",
+    "exit_code": 0,
+    "counts": {
+      "tests": 501,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "warnings": 2,
+    "seconds": 328.75
+  },
+  "frontend_final": [
+    {
+      "name": "typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "seconds": 2.0
+    },
+    {
+      "name": "build",
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exit_code": 0,
+      "seconds": 18.61
+    }
+  ],
+  "playwright": {
+    "command": "ENABLEMENT_EVIDENCE_DIR=/tmp/huawei-final-evidence npm run test:e2e",
+    "cwd": "/home/yuan/project/lingjian-agent-enablement/frontend",
+    "passed": 62,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 392.68,
+    "database": "/tmp/lingjian-enablement-e2e/app.db"
+  },
+  "visual_targeted": {
+    "passed": 2,
+    "failed": 0,
+    "seconds": 34.48
+  },
+  "initial_browser_run": {
+    "passed": 60,
+    "failed": 2,
+    "cause": "New visual selector matched both task mode and scene category; fixed by scoping to task-mode tablist."
+  },
+  "brand_blue_literal_hits": [],
+  "rendered_brand_blue": "PASS on 16 page/viewport captures",
+  "horizontal_overflow": "NONE on 16 captures",
+  "live_ui": {
+    "login": "PASS",
+    "unified_modes": "PASS",
+    "partner_context": "PASS",
+    "resources": "PASS",
+    "legacy_redirect": "PASS",
+    "advisor_failed_run_preserves_advice": "PASS",
+    "page_errors": 0,
+    "real_model_calls": 0
+  },
+  "real_model_calls": 0
+}

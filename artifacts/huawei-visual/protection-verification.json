@@ -1,0 +1,56 @@
+{
+  "branch": "feature/partner-enablement-v1.1",
+  "main": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+  "stable_files_unchanged": 167,
+  "runtime_source_unchanged": true,
+  "schema": "12",
+  "integrity": "ok",
+  "existing_fk_anomalies": 2,
+  "new_fk_anomalies": 0,
+  "health": {
+    "8000": 200,
+    "8100": 200,
+    "3100": 200
+  },
+  "model_configuration": {
+    "id": "manual-local-mock",
+    "provider": "Local mock",
+    "model": "local-development-mock",
+    "base_url": "http://127.0.0.1:18180/v1"
+  },
+  "resources": {
+    "course": 7,
+    "lab": 6,
+    "shared_case": 3
+  },
+  "processes": [
+    {
+      "name": "backend",
+      "pid": 444380,
+      "cwd": "/home/yuan/project/lingjian-agent-enablement",
+      "database": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db",
+      "uploads": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/uploads"
+    },
+    {
+      "name": "frontend",
+      "pid": 444381,
+      "cwd": "/home/yuan/project/lingjian-agent-enablement/frontend"
+    },
+    {
+      "name": "development-mock",
+      "pid": 444376,
+      "cwd": "/home/yuan/project/lingjian-agent-enablement"
+    }
+  ],
+  "real_model_calls": 0,
+  "stable_processes": [
+    {
+      "pid": 227786,
+      "cwd": "/home/yuan/project/lingjian-agent"
+    },
+    {
+      "pid": 236033,
+      "cwd": "/home/yuan/project/lingjian-agent/frontend"
+    }
+  ]
+}

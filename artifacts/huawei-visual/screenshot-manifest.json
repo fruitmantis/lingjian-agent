@@ -1,0 +1,165 @@
+{
+  "code_commit": "e84a8636282cc4198cdb264eb9c648e00e814878",
+  "screenshots": [
+    {
+      "file": "artifacts/huawei-visual/01-project-match-1366.png",
+      "width": 1366,
+      "height": 941,
+      "sha256": "607a9f7f6bf015bbc912091dcc4aa6cc760a5b1bb8c7e66da4fa658331908ea6",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/01-project-match-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "bfe0869181f01a7eb89946659568561f10cdbf5d1377ee0663cd5d6cb0bd260d",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/02-development-1366.png",
+      "width": 1366,
+      "height": 1036,
+      "sha256": "413257973c8237c432da15e5f8f139684fe751244cc388f3859d461eaa3d309e",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/02-development-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "6d3f414ab7c2ac117fa9794d9df608fe90828570a299f3d671125db073ef7307",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/03-advisor-1366.png",
+      "width": 1366,
+      "height": 2812,
+      "sha256": "be6b4ca49820378e0efd9b683c927ba6a287e05248516c9140e49bf64cb2fa8f",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/03-advisor-1920.png",
+      "width": 1920,
+      "height": 2812,
+      "sha256": "24dd0f7d02dbc75a46ef458aae4193f8b0693f44b42f9ba71d81eec63d634f8f",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/04-resources-1366.png",
+      "width": 1366,
+      "height": 1292,
+      "sha256": "b2f69c4a77816a1ffb0419510a4ae2343fee2984fdbfd7e487ae52a635e3a283",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/04-resources-1920.png",
+      "width": 1920,
+      "height": 1292,
+      "sha256": "bbc68d6f609acbb326db5432cd18af028e7c211ea6ba1ab416108ca8bd6597cf",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/05-scenes-1366.png",
+      "width": 1366,
+      "height": 973,
+      "sha256": "724f22c6b5d431cc00e91f63ac764b0c795370753bd9662780464b2d513e9258",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/05-scenes-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "8570cd6422fee07036677063f3da3926c4370b312512dd831aa32d3e45f9a602",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/06-partners-1366.png",
+      "width": 1366,
+      "height": 768,
+      "sha256": "e8eaa9801343d11e83dd9b21c1ace9bc798e75cc9d28233da7796834385cf13f",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/06-partners-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "5021c46ca9d2072c4fa9cf0fbf6571a7aeda6168c9e43073cb96339c1a58431d",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/07-tasks-1366.png",
+      "width": 1366,
+      "height": 768,
+      "sha256": "d70a627d094e928a11e578654f3386c71e2479978b72802634adc209d37dbaac",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/07-tasks-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "893ec6a7882192b4e49e4fd09df85f8439dde48ee218d56b9c52504684612673",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/08-admin-1366.png",
+      "width": 1366,
+      "height": 927,
+      "sha256": "4f4fa7cb5167b0287d42834dcbb69a38452af5b8480239e61f2001b168cc62e5",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      }
+    },
+    {
+      "file": "artifacts/huawei-visual/08-admin-1920.png",
+      "width": 1920,
+      "height": 1080,
+      "sha256": "756ba85ad0df650707b9a71a9a8882dfcf28e9e2adc5675e4ce62fbe30918f94",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      }
+    }
+  ]
+}
