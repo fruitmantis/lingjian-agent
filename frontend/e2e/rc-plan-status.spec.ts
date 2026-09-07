@@ -22,6 +22,7 @@ for(const width of [1366,1920])test(`RC plan availability, list, sidebar and det
 
  async function verify(name:string,primary:string,versions:string[],latest:string,archived=false){
   await page.goto('/tasks/'+id);
+  await page.getByText('更多',{exact:true}).click();await page.getByRole('button',{name:'历史版本',exact:true}).click();
   const main=page.locator('main').getByTestId('plan-status').first();
   await expect(main.getByTestId('plan-primary')).toHaveText(primary);
   for(const v of versions)await expect(main).toContainText(v);
@@ -47,7 +48,7 @@ for(const width of [1366,1920])test(`RC plan availability, list, sidebar and det
  // Force the selected older-task path while retaining real authenticated detail/actions.
  await page.route(/\/agent\/tasks\?/,async route=>{const response=await route.fetch();const data=await response.json();data.items=data.items.filter((x:{id:string})=>x.id!==id);await route.fulfill({response,json:data});});
  await page.goto('/tasks/'+id);await expect(page.locator(`aside .sidebar-selected-task [data-task-id="${id}"]`)).toBeVisible();
- await page.getByRole('button',{name:'确认当前版本',exact:true}).click();
+ await page.getByText('更多',{exact:true}).click();await page.getByRole('button',{name:'设为当前采用版本',exact:true}).click();
  await expect(page.locator(`aside [data-task-id="${id}"]`)).toContainText('已确认 V1');
  await page.unroute(/\/agent\/tasks\?/);
  await verify('02-v1-confirmed','方案可用',['当前版本 V1','已确认 V1'],'最近生成成功');
@@ -57,7 +58,7 @@ for(const width of [1366,1920])test(`RC plan availability, list, sidebar and det
  await verify('05-interrupted-revise','方案可用',['当前版本 V1','已确认 V1'],'最近调整中断');
  await ok(await r.post(API+`/development/plans/${id}/revise`,{headers,data:{submission_id:randomUUID(),based_on_version_id:v1,instruction:'缩短周期',request:demand}}));d=await wait('ready');expect(d.plan.confirmed_version_id).toBe(v1);
  await verify('03-v2-draft','方案可用',['当前草稿 V2','已确认 V1'],'最近调整成功');
- await page.goto('/tasks/'+id);await page.getByRole('button',{name:'归档方案',exact:true}).click();
+ await page.goto('/tasks/'+id);await page.getByText('更多',{exact:true}).click();await page.getByRole('button',{name:'归档方案',exact:true}).click();
  await expect(page.locator(`aside [data-task-id="${id}"]`).getByTestId('plan-primary')).toHaveText('已归档');
  await verify('06-archived','已归档',['当前草稿 V2','已确认 V1'],'最近调整成功',true);
  expect((await detail()).plan.confirmed_version_id).toBe(v1);

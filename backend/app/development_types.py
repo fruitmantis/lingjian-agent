@@ -92,12 +92,14 @@ class VersionAction(StrictModel):
 
 # V1.2 analysis is advice, never a certification or a prerequisite diagnosis.
 class Focus(StrictModel):
+    reusable_basis: list[str]=Field(default_factory=list,max_length=8)
     name: str=Field(min_length=1,max_length=200)
     reason: str=Field(min_length=1,max_length=1500)
     capability_tag_id: str | None=None
     search_terms: list[str]=Field(default_factory=list,max_length=12)
 
 class DirectionAnalysis(StrictModel):
+    partner_assessment: str=Field(default='',max_length=2000)
     target_partner_id: str
     intent: Literal['development','explore','resources']
     interpretation: str=Field(min_length=1,max_length=2000)

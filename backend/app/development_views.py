@@ -78,7 +78,7 @@ def detail(plan_id,user,version_id=None):
             if run['based_on_version_id'] and protected(conn,version_row(conn,plan,run['based_on_version_id'])):continue
             instruction=engine.safe_text(json.loads(run['input_snapshot']).get('instruction',''),engine.blocked_fragments(conn))
             if instruction:
-                response='本次调整已生成新草稿。' if run['status']=='ready' else '本次调整未完成，旧版本保持不变。' if run['status'] in ('failed','partial','interrupted') else '正在处理本次调整，已有版本仍可使用。'
+                response='建议已更新，可以继续查看或讨论。' if run['status']=='ready' else '本次调整未完成，已有建议仍可使用。' if run['status'] in ('failed','partial','interrupted') else '正在处理本次调整，已有版本仍可使用。'
                 conversation.append({'submission_id':run['id'],'message':instruction,'answer':response,'created_at':run['created_at']})
         conversation.sort(key=lambda m:m['created_at'])
         # Source-sensitive user text is also withheld after revocation, including original demand.
@@ -186,12 +186,12 @@ def converse(plan_id,body,user):
         # Never send historical free text whose model permission has since changed.
         current={'direction':payload.get('overview',{}).get('development_direction',''),'resources':pool}
         if len(model_refs)==len(deps):
-            current['analysis']={k:v for k,v in payload.get('analysis',{}).items() if k in ('interpretation','priorities','reusable_basis','basis_limitations')}
+            current['analysis']={k:v for k,v in payload.get('analysis',{}).items() if k in ('interpretation','partner_assessment','priorities','reusable_basis','basis_limitations')}
         engine.guard(current,blocked)
     try:
         response=engine.call(model.configuration(),'converse',{'target_partner_id':plan['target_partner_id'],'message':body.message,'current':current},ConversationOutput,blocked)
         engine.strong_guard(response)
-        if response['kind']=='revise' and re.search(r'^(为什么|为何|请解释|解释一下)|有什么区别|有什么差别',body.message.strip()):
+        if response['kind']=='revise' and re.search(r'^(为什么|为何|请解释|解释一下|哪个.{0,8}(更难|适合)|有没有更进阶)|为什么适合|有什么区别|有什么差别|哪个实验更难|如何比较',body.message.strip()):
             raise engine.InvalidOutput('Explanation cannot modify a version')
         if response['target_partner_id']!=plan['target_partner_id']:raise engine.InvalidOutput('Invented partner')
         if not {engine.key(ref) for ref in response['references']}<={engine.key(ref) for ref in pool}:raise engine.InvalidOutput('Invented reference')
