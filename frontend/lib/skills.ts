@@ -8,6 +8,7 @@ export const SKILL_CATEGORIES = [
 export type SkillCategory = (typeof SKILL_CATEGORIES)[number];
 
 export type SkillId =
+  | "enablement_workspace"
   | "partner_match"
   | "partner_profile"
   | "partner_capability_analysis"
@@ -33,6 +34,13 @@ export type SkillDefinition = {
  * enabled=false 表示当前没有可独立执行的底层能力。
  */
 export const SKILL_REGISTRY: readonly SkillDefinition[] = [
+  {
+    id: "enablement_workspace", name: "伙伴能力发展助手", category: "能力发展",
+    description: "理解自然语言方向与当前伙伴画像，检索真实资源，解释建议并按实际修改保存新版本。",
+    tags: ["诉求整理", "资源检索"], enabled: true,
+    capabilityReference: "POST /development/plans、GET /enablement/resources",
+    inputDefinition: "目标伙伴 + 自然语言发展方向；独立资源检索不需要伙伴",
+  },
   {
     id: "partner_match",
     name: "伙伴智能匹配",

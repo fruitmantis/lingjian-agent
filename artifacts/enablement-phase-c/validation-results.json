@@ -1,0 +1,85 @@
+{
+  "implementation_head": "7b8e552",
+  "backend": {
+    "command": ".venv/bin/python -m pytest backend/tests -q --junitxml=.isolation/logs/phase-c-backend-final.xml -o junit_family=legacy",
+    "tests": 356,
+    "passed": 356,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 224.789,
+    "warnings": 2
+  },
+  "browser": {
+    "command": "cd frontend && npx playwright test",
+    "tests": 54,
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0,
+    "duration_display": "6.1m"
+  },
+  "typecheck": {
+    "command": "cd frontend && npm run typecheck",
+    "status": "passed"
+  },
+  "build": {
+    "command": "cd frontend && npm run build",
+    "status": "passed",
+    "production_code_head": "7b8e552"
+  },
+  "targeted": {
+    "C1_passed": 23,
+    "C2_passed": 21,
+    "C3_API_passed": 16,
+    "C3_related_passed_before_last_API_addition": 48
+  },
+  "latency": {
+    "ASGI_sample_count": 20,
+    "ASGI_p95_ms": 9.751,
+    "HTTP": {
+      "sample_count": 20,
+      "p95_ms": 19.511481016874313,
+      "max_ms": 20.673617005348206,
+      "environment": "HTTP 8100, SQLite /tmp, loopback OpenAI-compatible mock, serial submissions",
+      "real_model_calls": 0
+    }
+  },
+  "screenshots": {
+    "phase_c": 30,
+    "regression": 18,
+    "total": 48,
+    "manifest": "screenshot-manifest.json"
+  },
+  "model_validation": {
+    "real": "NOT RUN",
+    "real_calls": 0,
+    "mock": "passed",
+    "external_resource_access": "intercepted synthetic redirects only"
+  },
+  "business_validation": {
+    "real_resource_batch": "NOT RUN",
+    "real_pilot": "NOT RUN"
+  },
+  "canary": {
+    "request_payload": "asserted absent",
+    "valid_generated_output": "asserted absent",
+    "transferable_view": "asserted absent",
+    "safe_errors_and_application_logs": "asserted absent",
+    "internal_authorized_context": "asserted present",
+    "final_log_occurrences": 0
+  },
+  "logs_private": [
+    {
+      "file": ".isolation/logs/phase-c-backend-final.log",
+      "sha256": "49754bb6589ba2a5c20a2114894902ad0a532d2465976d57230e231ce8d1b53d"
+    },
+    {
+      "file": ".isolation/logs/phase-c-browser-full-final.log",
+      "sha256": "53522b0a8165fbd2d22dd69e7d7ee56a1d605a5c5b997df87f4b60e7449d6dba"
+    },
+    {
+      "file": ".isolation/logs/phase-c-build-final.log",
+      "sha256": "2cd704e2041c119a7c8a6d481ea5a09953e61937753c516441b8c130abd04884"
+    }
+  ]
+}

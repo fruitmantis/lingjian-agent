@@ -1,0 +1,42 @@
+{
+  "handlers": [
+    {
+      "file": "frontend/app/page.tsx",
+      "eventHandlers": 8,
+      "asyncFunctions": 2,
+      "unchanged": true
+    },
+    {
+      "file": "frontend/components/admin-panels.tsx",
+      "eventHandlers": 70,
+      "asyncFunctions": 18,
+      "unchanged": true
+    },
+    {
+      "file": "frontend/components/admin-demand-panels.tsx",
+      "eventHandlers": 20,
+      "asyncFunctions": 3,
+      "unchanged": true
+    },
+    {
+      "file": "frontend/components/enablement-admin.tsx",
+      "eventHandlers": 26,
+      "asyncFunctions": 2,
+      "unchanged": true
+    },
+    {
+      "file": "frontend/components/enablement-workspace.tsx",
+      "eventHandlers": 12,
+      "asyncFunctions": 2,
+      "unchanged": true
+    },
+    {
+      "file": "frontend/components/task-list.tsx",
+      "eventHandlers": 12,
+      "asyncFunctions": 3,
+      "unchanged": true
+    }
+  ],
+  "paletteAndFontsUnchanged": true,
+  "tokenCount": 15
+}

@@ -13,6 +13,7 @@ type NavItem = { label: string; href: string; icon: IconName };
 const workspaceNav: NavItem[] = [
   { label: "场景广场", href: "/scenes", icon: "apps" },
   { label: "伙伴洞察", href: "/partners", icon: "users" },
+  { label: "资源中心", href: "/resources", icon: "grid" },
 ];
 
 const adminNav: { group: string; items: NavItem[] }[] = [
@@ -25,6 +26,7 @@ const adminNav: { group: string; items: NavItem[] }[] = [
     { label: "需求画像", href: "/admin/demands", icon: "file" },
     { label: "项目机会", href: "/admin/opportunities", icon: "spark" },
     { label: "运营报表", href: "/admin/reports", icon: "chart" },
+    { label: "课程与实验", href: "/admin/resources", icon: "file" },
     { label: "能力标签", href: "/admin/tags", icon: "tag" },
   ] },
   { group: "系统管理", items: [
@@ -63,7 +65,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="sidebar-header">
           <Link href={isAdmin ? "/admin" : "/"} className="sidebar-brand">
             <LingjianMark />
-            <span><span className="brand-text">{isAdmin ? "灵鉴管理后台" : "灵鉴助手"}</span><small>{isAdmin ? "平台运营与系统管理" : "伙伴能力智能助手"}</small></span>
+            <span><span className="brand-text">伴飞 Agent</span><small>{isAdmin ? "平台运营与系统管理" : "伙伴能力智能助手"}</small></span>
           </Link>
         </div>
         <nav className="sidebar-nav" aria-label={isAdmin ? "后台导航" : "工作台导航"}>
@@ -84,7 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="sidebar-footer">
           <Link href="/account" className={`sidebar-footer-link ${!isAdmin && pathname === "/account" ? "active" : ""}`} aria-current={pathname === "/account" ? "page" : undefined}><UiIcon name="user" size={18} /><span>个人中心</span></Link>
-          {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回灵鉴助手</span></Link> : user?.role === "admin" ? <Link href="/admin" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link> : null}
+          {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回伴飞 Agent</span></Link> : user?.role === "admin" ? <Link href="/admin" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link> : null}
           <button type="button" onClick={logout} className="sidebar-footer-link sidebar-logout"><UiIcon name="logout" size={18} /><span>退出登录</span></button>
         </div>
       </aside>

@@ -1,0 +1,12 @@
+{
+  "branch": "feature/partner-enablement-v1.1",
+  "head": "351489c3d3c89899837930bd7aab01fe61f4a52a",
+  "tag": "phase-c-accepted-20260906-351489c",
+  "initial_clean": true,
+  "stable_head": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+  "stable_file_count": 167,
+  "spec_sha256": "4ab64c866d7d08893b6206ef14adc7a1a3ddcab5edac39b87dda9863ed8f857a",
+  "schema": "12",
+  "real_model_authorization": false,
+  "real_model_calls": 0
+}

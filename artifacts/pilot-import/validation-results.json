@@ -1,0 +1,685 @@
+{
+  "command": ".venv/bin/python -m pytest backend/tests/test_pilot_import.py backend/tests/test_pilot_intake.py backend/tests/test_enablement.py -q --junitxml=/tmp/pilot-import-regression.xml",
+  "tests": 131,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 131,
+  "modules": {
+    "backend.tests.test_pilot_import": 51,
+    "backend.tests.test_pilot_intake": 37,
+    "backend.tests.test_enablement": 43
+  },
+  "cases": [
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_public_gate_rejects_synthetic",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_dry_run_readonly",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_atomic_success_immutable_ledger_and_real_actor",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[course_created]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[resource_version]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[capability_map]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[review_created]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[resource_published]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[lab_import]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[case_config]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[case_version]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[case_published]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[before_audit_ledger]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_fault_rolls_back_every_table[before_commit]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_actor[missing]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_actor[user]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_actor[disabled]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_actor[locked]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_database_boundaries[schema]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_database_boundaries[stable]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_database_boundaries[runtime]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_database_boundaries[symlink]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_database_boundaries[hardlink]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_input[partner]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_input[case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_input[orphan]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_input[tag]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_input[review]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_invalid_input[secret]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_permission_matrix_no_inference[flags0]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_permission_matrix_no_inference[flags1]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_permission_matrix_no_inference[flags2]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_permission_matrix_no_inference[flags3]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_permission_matrix_no_inference[flags4]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_permission_matrix_no_inference[flags5]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_permission_matrix_no_inference[flags6]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_permission_matrix_no_inference[flags7]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_idempotency_and_revision_conflict",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_different_package_cannot_overwrite_existing",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_input_change_and_new_fk_fail_before_commit",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_ledger_write_failure_recovers_without_duplicate",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_ledger_tamper_and_no_model_unlock",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_precommit_relational_validation_failure_rolls_back[new_fk]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_precommit_relational_validation_failure_rolls_back[same_count_different_fk]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_precommit_relational_validation_failure_rolls_back[capability_map]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_output_symlink_and_busy_lock_rejected",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_apply_transaction_trace_and_product_functions_unchanged",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_real_protected_files_unchanged",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_prepare_captures_committed_wal_without_copying_live_db",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_cli_rejects_synthetic_without_traceback[dry-run]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_import",
+      "name": "test_cli_rejects_synthetic_without_traceback[apply]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_complete_format_checks_do_not_accept_business",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_reject_test_markers_without_echoing[synthetic]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_reject_test_markers_without_echoing[fixture]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_reject_test_markers_without_echoing[example.com]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_reject_test_markers_without_echoing[\\u9a8c\\u8bc1\\u4f19\\u4f34]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_reject_test_markers_without_echoing[A-ready]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_reject_test_markers_without_echoing[INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_missing_lab_is_not_fabricated",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_invalid_or_orphan_case[False]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_invalid_or_orphan_case[True]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_permissions_independent[model_allowed-model]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_permissions_independent[partner_allowed-partner]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_permissions_must_be_explicit_booleans[system_visible]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_permissions_must_be_explicit_booleans[model_allowed]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_permissions_must_be_explicit_booleans[partner_allowed]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_bad_metadata_and_reviews[invalid_tag]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_bad_metadata_and_reviews[empty_url]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_bad_metadata_and_reviews[no_review]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_bad_metadata_and_reviews[bad_status]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_bad_metadata_and_reviews[unknown_omitted]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_bad_metadata_and_reviews[internal_model_text]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_imported_snapshot_mismatch_and_revocation",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_canary_stays_internal_and_precheck_blocks",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_readonly_connection_and_stable_path_rejected",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_path_escape_and_unknown_constraint",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_distributed_templates_rejected",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_all_permission_combinations[flags0]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_all_permission_combinations[flags1]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_all_permission_combinations[flags2]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_all_permission_combinations[flags3]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_all_permission_combinations[flags4]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_all_permission_combinations[flags5]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_all_permission_combinations[flags6]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_all_permission_combinations[flags7]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_duplicate_keys_and_hardlinks_fail_closed",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_precheck_receipts_are_verified_without_model_call",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_pilot_intake",
+      "name": "test_internal_case_text_rejected_even_when_model_permission_denied",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags0-resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags0-case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags1-resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags1-case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags2-resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags2-case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags3-resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags3-case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags4-resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags4-case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags5-resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags5-case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags6-resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags6-case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags7-resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_permissions_are_independent_and_whitelisted[flags7-case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_resource_lifecycle_review_and_conflicts[course]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_resource_lifecycle_review_and_conflicts[lab]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_revocation_and_regrant_do_not_resurrect_old_content[resource]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_revocation_and_regrant_do_not_resurrect_old_content[case]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_grant_needs_new_publication",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_case_independent_version_ownership_and_deletion",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_orphan_case_cannot_share",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[javascript:alert(1)]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[https://secret:password@example.com]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[http://localhost:8000]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[http://127.0.0.1]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[http://192.168.1.1]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[https://example.com\\\\@evil.test]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[https://example.com:8100]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[http://[::1]]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[http://127.1]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_reject_unsafe_urls[http://0x7f.0.0.1]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_tags_missing_disabled_and_invalid_reference",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_publish_requires_latest_complete_review[unknown-True-True]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_publish_requires_latest_complete_review[unavailable-True-True]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_publish_requires_latest_complete_review[available-False-True]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_publish_requires_latest_complete_review[available-True-False]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_concurrent_publish_only_one_version",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_publication_fault_rolls_back_version_and_pointer",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_all_new_api_operations_require_admin[anonymous]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_all_new_api_operations_require_admin[user]",
+      "status": "PASS"
+    },
+    {
+      "module": "backend.tests.test_enablement",
+      "name": "test_case_delete_and_initial_share_are_serialized",
+      "status": "PASS"
+    }
+  ],
+  "junit_sha256": "0f4baee005ee305b5684a4684c90ed4bf2fea09e043db336a27259d3bf3cfac1",
+  "source_sha256": {
+    "scripts/import_pilot_data.py": "14b9b1864d250d79d4656bea236311f39449dea37638958d6aa903db3ac119ad",
+    "scripts/pilot_import_contract.py": "319c0057a53400d791db1c408c447f726ecee0afafae087f38de6289ef470815",
+    "scripts/validate_pilot_data.py": "a6f55ca2048655b3bd1c280959246b6314a8251221e8799d9a5871d5b26321c8",
+    "scripts/collect_pilot_import_evidence.py": "82ba4025c5fc44fe8d7ac1c195e75621bbc88031b7d1bb101a0d74c97d9f3bb8",
+    "scripts/write_pilot_import_report.py": "6bca9c4e19362beca245a7bf32f4f12d2baee3ef92244f821e9a3bbbeef2321e",
+    "backend/tests/test_pilot_import.py": "a72d8deb9120cb5282c73d1ae438b12438aa07ef58b4b22ec570383ab4042278",
+    "backend/tests/test_pilot_intake.py": "98b04668c510c3b8bae5c3a16858b4655a77606375f7ca7d379feae3f99a1228",
+    "backend/tests/test_enablement.py": "819d894d37d43dce694f9fceac91fbb7f2f135053218dc7eccb774b2a6bbf280"
+  },
+  "syntax_check": "PASS",
+  "database_scope": "/tmp disposable synthetic fixtures only",
+  "real_model_calls": 0,
+  "synthetic_gate": "CLI denies; transaction tests locally replace only origin rejection, never permissions or product validation"
+}

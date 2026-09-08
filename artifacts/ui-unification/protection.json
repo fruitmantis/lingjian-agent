@@ -1,0 +1,67 @@
+{
+  "real_model_calls": 0,
+  "branch": "feature/partner-enablement-v1.1",
+  "head": "ad0cbf28e3616951f3c87871c0c999bd023d27fb",
+  "main": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+  "health": {
+    "new_frontend": 200,
+    "new_backend": 200,
+    "local_mock": 200,
+    "old_backend": 200
+  },
+  "stable_processes": [
+    {
+      "pid": 227786,
+      "cwd": "/home/yuan/project/lingjian-agent",
+      "alive": true
+    },
+    {
+      "pid": 236033,
+      "cwd": "/home/yuan/project/lingjian-agent/frontend",
+      "alive": true
+    }
+  ],
+  "new_processes": [
+    {
+      "name": "backend",
+      "pid": 528015,
+      "cwd": "/home/yuan/project/lingjian-agent-enablement",
+      "database": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db",
+      "uploads": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/uploads"
+    },
+    {
+      "name": "frontend",
+      "pid": 528016,
+      "cwd": "/home/yuan/project/lingjian-agent-enablement/frontend",
+      "database": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db",
+      "uploads": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/uploads"
+    },
+    {
+      "name": "development-mock",
+      "pid": 528011,
+      "cwd": "/home/yuan/project/lingjian-agent-enablement",
+      "database": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db",
+      "uploads": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/uploads"
+    }
+  ],
+  "databases": {
+    "/home/yuan/project/lingjian-agent/data/app.db": {
+      "sha256": "d39653267c52e49f968ed2070e7fedb0e31c949bc589ecee618237b66410cd20",
+      "unchanged": true,
+      "resolved_path": "/home/yuan/project/lingjian-agent/data/app.db",
+      "hardlink_count": 1
+    },
+    "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db": {
+      "sha256": "420bdcd891279244db34d27f0bd6a4d728cd9c4b7c05c548509413f6bdf22418",
+      "unchanged": true,
+      "resolved_path": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db",
+      "hardlink_count": 1
+    },
+    "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/app.db": {
+      "sha256": "3de5aeaeb0b73f7fb8f93fc4c31173e5c9edd1ed59483a853e33bb5d8dba4585",
+      "unchanged": true,
+      "resolved_path": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/app.db",
+      "hardlink_count": 1
+    }
+  }
+}

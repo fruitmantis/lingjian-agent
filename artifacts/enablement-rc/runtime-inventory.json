@@ -1,0 +1,45 @@
+{
+  "source": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/app.db",
+  "mode": "read-only transaction, no authentication",
+  "schema_version": "12",
+  "counts": {
+    "partners": 33,
+    "cases": 3,
+    "enablement_resources": 0,
+    "case_share_configs": 0,
+    "development_plans": 0,
+    "model_configs": 2
+  },
+  "model_configs": [
+    {
+      "id": "0a63f0ab-1482-4618-bc0b-fac04523fa14",
+      "name": "当前默认模型配置",
+      "provider": "OpenAI Compatible",
+      "model_name": "glm-5.2",
+      "enabled": 0,
+      "is_default": 1,
+      "endpoint_host": "ws-wg7ricxuri4ujx0f.cn-beijing.maas.aliyuncs.com"
+    },
+    {
+      "id": "5f4ee5bf-733a-428f-ba81-a8afd0eeae92",
+      "name": "deepseek-v4-flash",
+      "provider": "OpenAI Compatible",
+      "model_name": "deepseek-v4-flash",
+      "enabled": 1,
+      "is_default": 0,
+      "endpoint_host": "api.deepseek.com"
+    }
+  ],
+  "bindings": [
+    {
+      "scene_key": "default",
+      "model_config_id": null
+    },
+    {
+      "scene_key": "partner_development",
+      "model_config_id": null
+    }
+  ],
+  "real_model_calls": 0,
+  "approved_pilot_data_evidence": "No business-approved pilot package supplied; existing partners/cases do not constitute pilot approval."
+}

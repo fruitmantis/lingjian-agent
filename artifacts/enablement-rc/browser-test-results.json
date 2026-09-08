@@ -1,0 +1,416 @@
+{
+  "counts": {
+    "PASS": 58,
+    "FAIL": 0,
+    "NOT RUN": 0
+  },
+  "source_sha256": "e39f97862f78348a80e05601a09c76fe99eb5005aec889b25d8be2947f71a2b7",
+  "tests": [
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "request budgets cover backend model steps and preserve short reads",
+      "line": 17,
+      "status": "PASS",
+      "seconds": 0.034
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "request wrapper preserves caller cancellation and batch timeout override",
+      "line": 26,
+      "status": "PASS",
+      "seconds": 0.015
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "validation response is readable even when backend detail is a field-error array",
+      "line": 45,
+      "status": "PASS",
+      "seconds": 0.018
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "task processing can continue beyond the submission request budget",
+      "line": 50,
+      "status": "PASS",
+      "seconds": 37.054
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "submission timeout advises checking the original task without resubmission",
+      "line": 69,
+      "status": "PASS",
+      "seconds": 1.682
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "partner save, upload, profile and case failures release busy state",
+      "line": 90,
+      "status": "PASS",
+      "seconds": 2.613
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "model mutation failures keep the form and restore controls",
+      "line": 115,
+      "status": "PASS",
+      "seconds": 2.169
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "user creation and status network errors are caught and inputs retained",
+      "line": 139,
+      "status": "PASS",
+      "seconds": 2.246
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "task archive and retry network errors remain actionable",
+      "line": 160,
+      "status": "PASS",
+      "seconds": 2.3
+    },
+    {
+      "file": "frontend/e2e/batch2-resilience.spec.ts",
+      "test": "manual tag scan error clears scanning state",
+      "line": 173,
+      "status": "PASS",
+      "seconds": 2.001
+    },
+    {
+      "file": "frontend/e2e/batch3-quality.spec.ts",
+      "test": "system refresh preserves the database and explains unverified model status",
+      "line": 23,
+      "status": "PASS",
+      "seconds": 1.572
+    },
+    {
+      "file": "frontend/e2e/batch3-quality.spec.ts",
+      "test": "new match and task details display verified evidence and explicit gaps",
+      "line": 38,
+      "status": "PASS",
+      "seconds": 7.287
+    },
+    {
+      "file": "frontend/e2e/batch3-quality.spec.ts",
+      "test": "system and model pages remain readable at 1440",
+      "line": 67,
+      "status": "PASS",
+      "seconds": 2.303
+    },
+    {
+      "file": "frontend/e2e/batch3-quality.spec.ts",
+      "test": "system and model pages remain readable at 1024",
+      "line": 67,
+      "status": "PASS",
+      "seconds": 2.215
+    },
+    {
+      "file": "frontend/e2e/development-assistant.spec.ts",
+      "test": "DEV lifecycle browser and fourteen evidence states 1366",
+      "line": 21,
+      "status": "PASS",
+      "seconds": 30.194
+    },
+    {
+      "file": "frontend/e2e/development-assistant.spec.ts",
+      "test": "DEV lifecycle browser and fourteen evidence states 1920",
+      "line": 21,
+      "status": "PASS",
+      "seconds": 29.653
+    },
+    {
+      "file": "frontend/e2e/development-assistant.spec.ts",
+      "test": "NFR-01 real HTTP creation P95 returns before mock generation",
+      "line": 54,
+      "status": "PASS",
+      "seconds": 3.64
+    },
+    {
+      "file": "frontend/e2e/enablement-admin.spec.ts",
+      "test": "RES-01/05/07 course metadata review publication and removal",
+      "line": 31,
+      "status": "PASS",
+      "seconds": 3.76
+    },
+    {
+      "file": "frontend/e2e/enablement-admin.spec.ts",
+      "test": "RES-01/05/07 lab metadata review publication and removal",
+      "line": 31,
+      "status": "PASS",
+      "seconds": 2.972
+    },
+    {
+      "file": "frontend/e2e/enablement-admin.spec.ts",
+      "test": "CASE-01/02 sharing is configured from existing case and separately versioned",
+      "line": 60,
+      "status": "PASS",
+      "seconds": 5.095
+    },
+    {
+      "file": "frontend/e2e/enablement-admin.spec.ts",
+      "test": "SEC-03 user cannot access resource or sharing admin pages/API",
+      "line": 84,
+      "status": "PASS",
+      "seconds": 2.926
+    },
+    {
+      "file": "frontend/e2e/enablement-admin.spec.ts",
+      "test": "ACC-02/03 Phase A screenshots 1366",
+      "line": 93,
+      "status": "PASS",
+      "seconds": 4.785
+    },
+    {
+      "file": "frontend/e2e/enablement-admin.spec.ts",
+      "test": "ACC-02/03 Phase A screenshots 1920",
+      "line": 93,
+      "status": "PASS",
+      "seconds": 4.904
+    },
+    {
+      "file": "frontend/e2e/enablement-workspace.spec.ts",
+      "test": "NAV-01/SCN-01 center preserves navigation and offers truthful scene entries",
+      "line": 35,
+      "status": "PASS",
+      "seconds": 3.057
+    },
+    {
+      "file": "frontend/e2e/enablement-workspace.spec.ts",
+      "test": "RES-02/03 search filters details and unknown metadata use current resources",
+      "line": 48,
+      "status": "PASS",
+      "seconds": 4.163
+    },
+    {
+      "file": "frontend/e2e/enablement-workspace.spec.ts",
+      "test": "RES-08 redirect is recorded as initiation and URL is server resolved",
+      "line": 68,
+      "status": "PASS",
+      "seconds": 1.507
+    },
+    {
+      "file": "frontend/e2e/enablement-workspace.spec.ts",
+      "test": "PRT-01/CASE-05 partner shared case and center exchange authorized identifiers",
+      "line": 82,
+      "status": "PASS",
+      "seconds": 5.464
+    },
+    {
+      "file": "frontend/e2e/enablement-workspace.spec.ts",
+      "test": "MAT-01/NAV-02 project risks are context, old tasks and type filters remain real",
+      "line": 100,
+      "status": "PASS",
+      "seconds": 3.75
+    },
+    {
+      "file": "frontend/e2e/enablement-workspace.spec.ts",
+      "test": "SEC user B cannot load user A context; source data clears after revocation",
+      "line": 119,
+      "status": "PASS",
+      "seconds": 2.375
+    },
+    {
+      "file": "frontend/e2e/enablement-workspace.spec.ts",
+      "test": "Phase B screenshots and layout 1366",
+      "line": 135,
+      "status": "PASS",
+      "seconds": 9.996
+    },
+    {
+      "file": "frontend/e2e/enablement-workspace.spec.ts",
+      "test": "Phase B screenshots and layout 1920",
+      "line": 135,
+      "status": "PASS",
+      "seconds": 10.627
+    },
+    {
+      "file": "frontend/e2e/phase-d-assumptions.spec.ts",
+      "test": "Phase D explicit assumption is accepted and visible in saved version 1366",
+      "line": 5,
+      "status": "PASS",
+      "seconds": 3.696
+    },
+    {
+      "file": "frontend/e2e/phase-d-assumptions.spec.ts",
+      "test": "Phase D explicit assumption is accepted and visible in saved version 1920",
+      "line": 5,
+      "status": "PASS",
+      "seconds": 4.393
+    },
+    {
+      "file": "frontend/e2e/rc-plan-status.spec.ts",
+      "test": "RC plan availability, list, sidebar and detail 1366",
+      "line": 9,
+      "status": "PASS",
+      "seconds": 17.651
+    },
+    {
+      "file": "frontend/e2e/rc-plan-status.spec.ts",
+      "test": "RC plan availability, list, sidebar and detail 1920",
+      "line": 9,
+      "status": "PASS",
+      "seconds": 21.693
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-001 login and public application page render",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 2.306
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-002 application approval and forced first-login password change",
+      "line": 44,
+      "status": "PASS",
+      "seconds": 10.185
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-003 ordinary users see only their own tasks and cannot enter admin",
+      "line": 84,
+      "status": "PASS",
+      "seconds": 10.098
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-004 administrator sees all task owners and user management",
+      "line": 107,
+      "status": "PASS",
+      "seconds": 4.893
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-005 disabling a user and changing a password invalidate old sessions",
+      "line": 117,
+      "status": "PASS",
+      "seconds": 4.3
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-006 failed tasks retry while completed tasks return conflict",
+      "line": 145,
+      "status": "PASS",
+      "seconds": 3.285
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-007 API failures, not-found, forbidden, and network timeout are controlled",
+      "line": 161,
+      "status": "PASS",
+      "seconds": 4.274
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-009 workbench and key admin pages handle upstream and backend outages",
+      "line": 184,
+      "status": "PASS",
+      "seconds": 8.806
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-008-1920 key pages render without page-level overflow",
+      "line": 233,
+      "status": "PASS",
+      "seconds": 11.755
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-008-1440 key pages render without page-level overflow",
+      "line": 233,
+      "status": "PASS",
+      "seconds": 10.014
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-008-1366 key pages render without page-level overflow",
+      "line": 233,
+      "status": "PASS",
+      "seconds": 9.713
+    },
+    {
+      "file": "frontend/e2e/release-validation.spec.ts",
+      "test": "E2E-008-1024 key pages render without page-level overflow",
+      "line": 233,
+      "status": "PASS",
+      "seconds": 9.922
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "submission appears before acknowledgement and survives navigation and reload",
+      "line": 36,
+      "status": "PASS",
+      "seconds": 17.524
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "ten-row pages preserve scroll, selection and statuses when a new task arrives",
+      "line": 72,
+      "status": "PASS",
+      "seconds": 2.625
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "directly opened older task stays visible without changing the first page",
+      "line": 105,
+      "status": "PASS",
+      "seconds": 1.348
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "load-more failure retains existing rows and retry appends the next ten",
+      "line": 114,
+      "status": "PASS",
+      "seconds": 1.646
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "lost acknowledgement confirms the same ID without a second submission",
+      "line": 130,
+      "status": "PASS",
+      "seconds": 1.455
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "unconfirmed submission survives reload and only queries its original ID",
+      "line": 150,
+      "status": "PASS",
+      "seconds": 2.295
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "task access stays visible at 1024px and empty new task creates no record",
+      "line": 174,
+      "status": "PASS",
+      "seconds": 1.505
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "task access stays visible at 768px and empty new task creates no record",
+      "line": 174,
+      "status": "PASS",
+      "seconds": 1.399
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "starting a blank task during submission keeps the previous job in navigation",
+      "line": 192,
+      "status": "PASS",
+      "seconds": 4.885
+    },
+    {
+      "file": "frontend/e2e/task-navigation.spec.ts",
+      "test": "detail polling preserves unsaved opportunity fields",
+      "line": 223,
+      "status": "PASS",
+      "seconds": 5.28
+    },
+    {
+      "file": "frontend/e2e/visual-parity.spec.ts",
+      "test": "capture cloudbao visual parity pages and validate browser health",
+      "line": 16,
+      "status": "PASS",
+      "seconds": 13.81
+    }
+  ]
+}

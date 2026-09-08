@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from ..ai_client import ModelResponseError, chat_completion, model_error_message
 from ..model_resolver import ModelConfigurationError
 from ..auth import require_admin
+from ..business_taxonomy import canonical, taxonomy_prompt, preserve_pending
 from ..database import get_db
 
 router = APIRouter(prefix="/partners", tags=["ai"])
@@ -48,7 +49,7 @@ def generate_profile(partner_id: str) -> ProfileOut:
     structured_updates: dict[str, str] = {}
     try:
         struct_raw = chat_completion([
-            {"role": "system", "content": f"根据资料提取结构化标签。返回JSON含三个字段：capabilities(能力标签，只能从以下标准标签中选择：[{std_tags_str}]，选择3-4个匹配的，逗号分隔，不允许创造新标签，无匹配则返回空字符串)，service_areas(覆盖区域，3-4个，每个不超过10字，逗号分隔)，industries(行业经验，3-4个，每个不超过10字，逗号分隔)。只返回JSON。"},
+            {"role": "system", "content": f"根据资料提取结构化标签。{taxonomy_prompt()}返回JSON含三个字段：capabilities(能力标签，只能从以下标准标签中选择：[{std_tags_str}]，选择3-4个匹配的，逗号分隔，不允许创造新标签，无匹配则返回空字符串)，service_areas(覆盖区域，3-4个，每个不超过10字，逗号分隔)，industries(行业经验，3-4个，每个不超过10字，逗号分隔)。只返回JSON。"},
             {"role": "user", "content": context}
         ], timeout=60, scene="partner_profile")
         clean = struct_raw.strip()
@@ -70,6 +71,11 @@ def generate_profile(partner_id: str) -> ProfileOut:
                     tag.strip() for tag in value.replace("，", ",").split(",")
                     if tag.strip() in std_tags
                 ))
+            if field in ("industries", "service_areas"):
+                kind = "industry" if field == "industries" else "region"
+                standard_value = canonical(value, kind)
+                if not standard_value: continue
+                value = preserve_pending(p.get(field), standard_value, kind)
             if value:
                 structured_updates[field] = value
     except ModelConfigurationError as exc:

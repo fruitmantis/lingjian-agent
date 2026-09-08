@@ -1,0 +1,444 @@
+{
+  "page": "https://www.huaweicloud.com/",
+  "browser": "131.0.6778.33",
+  "timestamp": "2026-09-07T14:38:58.353Z",
+  "samples": [
+    {
+      "category": "顶部导航",
+      "selector": "a.",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "22px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei",
+          "isCustomFont": false,
+          "glyphCount": 2
+        }
+      ]
+    },
+    {
+      "category": "一级视觉标题（官网H5 Hero）",
+      "selector": "h5.banner-title.banner-title-enter",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "54px",
+        "fontWeight": "700",
+        "lineHeight": "80px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans-Bold",
+          "isCustomFont": true,
+          "glyphCount": 4
+        },
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei-Bold",
+          "isCustomFont": false,
+          "glyphCount": 3
+        }
+      ]
+    },
+    {
+      "category": "二级/区块标题",
+      "selector": "h2.por-section-title.hide-mb",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "40px",
+        "fontWeight": "600",
+        "lineHeight": "60px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei-Bold",
+          "isCustomFont": false,
+          "glyphCount": 13
+        }
+      ]
+    },
+    {
+      "category": "普通正文",
+      "selector": "p.event-desc",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "22px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans",
+          "isCustomFont": true,
+          "glyphCount": 8
+        },
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei",
+          "isCustomFont": false,
+          "glyphCount": 13
+        }
+      ]
+    },
+    {
+      "category": "产品名称",
+      "selector": "div.card-title.grey",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "24px",
+        "fontWeight": "700",
+        "lineHeight": "36px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei-Bold",
+          "isCustomFont": false,
+          "glyphCount": 10
+        }
+      ]
+    },
+    {
+      "category": "产品描述",
+      "selector": "p.",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "lineHeight": "24px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei",
+          "isCustomFont": false,
+          "glyphCount": 12
+        }
+      ]
+    },
+    {
+      "category": "选中Tab",
+      "selector": "a.customers-tab-item.active",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "18px",
+        "fontWeight": "700",
+        "lineHeight": "28px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei-Bold",
+          "isCustomFont": false,
+          "glyphCount": 2
+        }
+      ]
+    },
+    {
+      "category": "Button/CTA",
+      "selector": "a.por-btn.por-btn-default.por-btn-md-small.por-btn-primary",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "22px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei",
+          "isCustomFont": false,
+          "glyphCount": 4
+        }
+      ]
+    },
+    {
+      "category": "Input/Search",
+      "selector": "input.search-default",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "16.1px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei",
+          "isCustomFont": false,
+          "glyphCount": 2
+        }
+      ]
+    },
+    {
+      "category": "英文字符探针",
+      "selector": "p.probe-latin-400",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "21px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans",
+          "isCustomFont": true,
+          "glyphCount": 52
+        }
+      ]
+    },
+    {
+      "category": "数字字符探针",
+      "selector": "p.probe-digits-400",
+      "style": {
+        "fontFamily": "-apple-system, HuaweiSans, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "21px",
+        "letterSpacing": "normal",
+        "fontStyle": "normal"
+      },
+      "rendered": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans",
+          "isCustomFont": true,
+          "glyphCount": 10
+        }
+      ]
+    }
+  ],
+  "document_fonts": [
+    {
+      "family": "por-icon",
+      "weight": "400",
+      "style": "normal",
+      "status": "loaded",
+      "unicodeRange": "U+0-10FFFF",
+      "display": "auto"
+    },
+    {
+      "family": "HuaweiSans",
+      "weight": "400",
+      "style": "normal",
+      "status": "loaded",
+      "unicodeRange": "U+0-10FFFF",
+      "display": "auto"
+    },
+    {
+      "family": "HuaweiSans",
+      "weight": "700",
+      "style": "normal",
+      "status": "loaded",
+      "unicodeRange": "U+0-10FFFF",
+      "display": "auto"
+    },
+    {
+      "family": "u-icon",
+      "weight": "400",
+      "style": "normal",
+      "status": "loaded",
+      "unicodeRange": "U+0-10FFFF",
+      "display": "auto"
+    },
+    {
+      "family": "por-icon",
+      "weight": "400",
+      "style": "normal",
+      "status": "loaded",
+      "unicodeRange": "U+0-10FFFF",
+      "display": "auto"
+    },
+    {
+      "family": "iconFont-product",
+      "weight": "normal",
+      "style": "normal",
+      "status": "unloaded",
+      "unicodeRange": "U+0-10FFFF",
+      "display": "auto"
+    },
+    {
+      "family": "iconFont-solution",
+      "weight": "normal",
+      "style": "normal",
+      "status": "unloaded",
+      "unicodeRange": "U+0-10FFFF",
+      "display": "auto"
+    }
+  ],
+  "network_fonts": [
+    {
+      "url": "https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Bold.ttf",
+      "status": 200,
+      "content_type": "application/x-font-ttf"
+    },
+    {
+      "url": "https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Regular.ttf",
+      "status": 200,
+      "content_type": "application/x-font-ttf"
+    }
+  ],
+  "ui_font_faces": [
+    {
+      "css_url": "https://portal.hc-cdn.com/cnpm-baseui/3.0.18/theme-token.css",
+      "rule": "@font-face{font-family:HuaweiSans;font-style:normal;font-weight:400;src:url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Regular.eot);src:url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Regular.eot?#iefix) format(\"embedded-opentype\"),url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Regular.svg) format(\"svg\"),url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Regular.ttf) format(\"truetype\"),url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Regular.woff) format(\"woff\"),url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Regular.woff2) format(\"woff2\")}"
+    },
+    {
+      "css_url": "https://portal.hc-cdn.com/cnpm-baseui/3.0.18/theme-token.css",
+      "rule": "@font-face{font-family:HuaweiSans;font-style:normal;font-weight:700;src:url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Bold.eot);src:url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Bold.eot?#iefix) format(\"embedded-opentype\"),url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Bold.svg) format(\"svg\"),url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Bold.ttf) format(\"truetype\"),url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Bold.woff) format(\"woff\"),url(https://portal.hc-cdn.com/cnpm-baseui/3.0.18/style/core/fonts/HuaweiSans-Bold.woff2) format(\"woff2\")}"
+    }
+  ],
+  "character_probes": [
+    {
+      "className": "probe-chinese-400",
+      "fontWeight": "400",
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei",
+          "isCustomFont": false,
+          "glyphCount": 20
+        }
+      ]
+    },
+    {
+      "className": "probe-latin-400",
+      "fontWeight": "400",
+      "rendered": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans",
+          "isCustomFont": true,
+          "glyphCount": 52
+        }
+      ]
+    },
+    {
+      "className": "probe-digits-400",
+      "fontWeight": "400",
+      "rendered": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans",
+          "isCustomFont": true,
+          "glyphCount": 10
+        }
+      ]
+    },
+    {
+      "className": "probe-chinese-700",
+      "fontWeight": "700",
+      "rendered": [
+        {
+          "familyName": "Microsoft YaHei",
+          "postScriptName": "MicrosoftYaHei-Bold",
+          "isCustomFont": false,
+          "glyphCount": 20
+        }
+      ]
+    },
+    {
+      "className": "probe-latin-700",
+      "fontWeight": "700",
+      "rendered": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans-Bold",
+          "isCustomFont": true,
+          "glyphCount": 52
+        }
+      ]
+    },
+    {
+      "className": "probe-digits-700",
+      "fontWeight": "700",
+      "rendered": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans-Bold",
+          "isCustomFont": true,
+          "glyphCount": 10
+        }
+      ]
+    }
+  ],
+  "font_files": [
+    {
+      "filename": "HuaweiSans-Regular.ttf",
+      "family": "Huawei Sans",
+      "postscript": "HuaweiSans",
+      "version": "Version 1.00",
+      "weight": 400,
+      "variable": false,
+      "glyph_count": 776,
+      "codepoints": 721,
+      "missing_test_characters": "灵鉴智能体伙伴能力发展项目数据库实验案例",
+      "cjk_ideographs": 0
+    },
+    {
+      "filename": "HuaweiSans-Regular.woff2",
+      "family": "Huawei Sans",
+      "postscript": "HuaweiSans",
+      "version": "Version 1.00",
+      "weight": 400,
+      "variable": false,
+      "glyph_count": 776,
+      "codepoints": 721,
+      "missing_test_characters": "灵鉴智能体伙伴能力发展项目数据库实验案例",
+      "cjk_ideographs": 0
+    },
+    {
+      "filename": "HuaweiSans-Bold.woff2",
+      "family": "Huawei Sans",
+      "postscript": "HuaweiSans-Bold",
+      "version": "Version 1.00",
+      "weight": 700,
+      "variable": false,
+      "glyph_count": 776,
+      "codepoints": 721,
+      "missing_test_characters": "灵鉴智能体伙伴能力发展项目数据库实验案例",
+      "cjk_ideographs": 0
+    },
+    {
+      "filename": "HuaweiSans-Bold.ttf",
+      "family": "Huawei Sans",
+      "postscript": "HuaweiSans-Bold",
+      "version": "Version 1.00",
+      "weight": 700,
+      "variable": false,
+      "glyph_count": 776,
+      "codepoints": 721,
+      "missing_test_characters": "灵鉴智能体伙伴能力发展项目数据库实验案例",
+      "cjk_ideographs": 0
+    }
+  ],
+  "user_decision": "与华为云官网方案保持一致：中文保留官网系统fallback，不额外引入中文Web Font。"
+}

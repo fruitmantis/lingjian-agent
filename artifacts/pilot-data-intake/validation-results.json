@@ -1,0 +1,172 @@
+{
+  "command": ".venv/bin/python -m pytest backend/tests/test_pilot_intake.py -q --junitxml=/tmp/pilot-intake-tests.xml",
+  "tests": 37,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "passed": 37,
+  "source_xml_sha256": "f4cc5433a59e84799346fedea1d0a06ea643512bb6c559ef53a9a2219402609f",
+  "test_cases": [
+    {
+      "name": "test_complete_format_checks_do_not_accept_business",
+      "status": "PASS"
+    },
+    {
+      "name": "test_reject_test_markers_without_echoing[synthetic]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_reject_test_markers_without_echoing[fixture]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_reject_test_markers_without_echoing[example.com]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_reject_test_markers_without_echoing[\\u9a8c\\u8bc1\\u4f19\\u4f34]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_reject_test_markers_without_echoing[A-ready]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_reject_test_markers_without_echoing[INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_missing_lab_is_not_fabricated",
+      "status": "PASS"
+    },
+    {
+      "name": "test_invalid_or_orphan_case[False]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_invalid_or_orphan_case[True]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_permissions_independent[model_allowed-model]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_permissions_independent[partner_allowed-partner]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_permissions_must_be_explicit_booleans[system_visible]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_permissions_must_be_explicit_booleans[model_allowed]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_permissions_must_be_explicit_booleans[partner_allowed]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_bad_metadata_and_reviews[invalid_tag]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_bad_metadata_and_reviews[empty_url]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_bad_metadata_and_reviews[no_review]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_bad_metadata_and_reviews[bad_status]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_bad_metadata_and_reviews[unknown_omitted]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_bad_metadata_and_reviews[internal_model_text]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_imported_snapshot_mismatch_and_revocation",
+      "status": "PASS"
+    },
+    {
+      "name": "test_canary_stays_internal_and_precheck_blocks",
+      "status": "PASS"
+    },
+    {
+      "name": "test_readonly_connection_and_stable_path_rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "test_path_escape_and_unknown_constraint",
+      "status": "PASS"
+    },
+    {
+      "name": "test_distributed_templates_rejected",
+      "status": "PASS"
+    },
+    {
+      "name": "test_all_permission_combinations[flags0]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_all_permission_combinations[flags1]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_all_permission_combinations[flags2]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_all_permission_combinations[flags3]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_all_permission_combinations[flags4]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_all_permission_combinations[flags5]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_all_permission_combinations[flags6]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_all_permission_combinations[flags7]",
+      "status": "PASS"
+    },
+    {
+      "name": "test_duplicate_keys_and_hardlinks_fail_closed",
+      "status": "PASS"
+    },
+    {
+      "name": "test_precheck_receipts_are_verified_without_model_call",
+      "status": "PASS"
+    },
+    {
+      "name": "test_internal_case_text_rejected_even_when_model_permission_denied",
+      "status": "PASS"
+    }
+  ],
+  "checked_files": {
+    "scripts/collect_pilot_intake_evidence.py": "21ad442213a066f5f0159c267136ca4677697fbcba68e83294cee20647dd5084",
+    "scripts/validate_pilot_data.py": "d88361d09051b51982b25e8c201530f85cfad3db9996dc4ace6456d1987def82",
+    "scripts/write_pilot_intake_report.py": "8540e0d58258d1c978e3fd6924c3d1eb8c431f5b66e05ac8282a0b01ff108c00",
+    "backend/tests/test_pilot_intake.py": "98b04668c510c3b8bae5c3a16858b4655a77606375f7ca7d379feae3f99a1228",
+    "pilot-data/course.template.json": "97006a936cc254ebd04bcecc1c2dba5821c29a489215dddba8a8fe2eb8cb47e9",
+    "pilot-data/lab.template.json": "a549fb2cbeb387debab1a37f2fd86fc227a3872c0ae02593babbbb7662b63c0f",
+    "pilot-data/pilot-manifest.template.json": "4453bff0745c4303215c3cdce4d49de267b23e4d0fc781d1dc1445726d292a29",
+    "pilot-data/shared-case.template.json": "11f386daba0686038eee3aec0b4cc4cf2b1f5a735773a053bfa03f6a262078c4"
+  },
+  "network_and_model_calls_forbidden_by_fixture": true,
+  "database_scope": "pytest disposable /tmp databases only",
+  "real_model_calls": 0
+}

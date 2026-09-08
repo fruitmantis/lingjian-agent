@@ -1,0 +1,40 @@
+{
+  "url": "http://localhost:3100/login",
+  "anonymous": true,
+  "database_authentication": false,
+  "external_requests_blocked": true,
+  "network": [
+    {
+      "url": "http://localhost:3100/fonts/huawei-cloud/huawei-sans-regular.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:3100/fonts/huawei-cloud/huawei-sans-bold.woff2",
+      "status": 200
+    }
+  ],
+  "probes": [
+    {
+      "weight": 400,
+      "fonts": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans",
+          "isCustomFont": true,
+          "glyphCount": 15
+        }
+      ]
+    },
+    {
+      "weight": 700,
+      "fonts": [
+        {
+          "familyName": "Huawei Sans",
+          "postScriptName": "HuaweiSans-Bold",
+          "isCustomFont": true,
+          "glyphCount": 15
+        }
+      ]
+    }
+  ]
+}

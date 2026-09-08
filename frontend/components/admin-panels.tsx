@@ -183,69 +183,67 @@ export function CapabilityTagsTab() {
   }
 
   const isCatEditing = editCatId !== null || isNewCat;
-  const inpStyle = { padding: "4px 8px", border: "1px solid var(--brand)", borderRadius: "4px", fontSize: "13px", width: "100%", boxSizing: "border-box" as const };
-  const checkBtn = { fontSize: "16px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", lineHeight: 1 };
-  const crossBtn = { fontSize: "16px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", lineHeight: 1 };
+  const inpStyle = { width: "100%", boxSizing: "border-box" as const };
 
   return (
     <div>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-        <button onClick={() => setSubTab("tags")} className="secondary-btn" style={{ fontSize: "13px", padding: "6px 14px", fontWeight: subTab === "tags" ? 700 : 400, color: subTab === "tags" ? "var(--brand)" : "var(--muted)", borderColor: subTab === "tags" ? "var(--brand-border)" : "var(--line)", background: subTab === "tags" ? "var(--brand-soft)" : "var(--surface)" }}>能力标签</button>
-        <button onClick={() => setSubTab("categories")} className="secondary-btn" style={{ fontSize: "13px", padding: "6px 14px", fontWeight: subTab === "categories" ? 700 : 400, color: subTab === "categories" ? "var(--brand)" : "var(--muted)", borderColor: subTab === "categories" ? "var(--brand-border)" : "var(--line)", background: subTab === "categories" ? "var(--brand-soft)" : "var(--surface)" }}>标签分类</button>
-        <button onClick={() => setSubTab("suggestions")} className="secondary-btn" style={{ fontSize: "13px", padding: "6px 14px", fontWeight: subTab === "suggestions" ? 700 : 400, color: subTab === "suggestions" ? "var(--brand)" : "var(--muted)", borderColor: subTab === "suggestions" ? "var(--brand-border)" : "var(--line)", background: subTab === "suggestions" ? "var(--brand-soft)" : "var(--surface)" }}>AI 标签建议</button>
+      <div className="page-tabs">
+        <button onClick={() => setSubTab("tags")} className={subTab === "tags" ? "active" : ""}>能力标签</button>
+        <button onClick={() => setSubTab("categories")} className={subTab === "categories" ? "active" : ""}>标签分类</button>
+        <button onClick={() => setSubTab("suggestions")} className={subTab === "suggestions" ? "active" : ""}>AI 标签建议</button>
       </div>
       {subTab === "categories" && (
         <section className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
             <h2>标签分类配置</h2>
-            <button onClick={startNewCat} disabled={isCatEditing} style={{ fontSize: "13px", padding: "6px 16px", opacity: isCatEditing ? 0.5 : 1 }}>新增分类</button>
+            <button onClick={startNewCat} disabled={isCatEditing} style={{ opacity: isCatEditing ? 0.5 : 1 }}>新增分类</button>
           </div>
           <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
-            <input type="text" placeholder="搜索分类名称..." value={catSearch} onChange={(e) => setCatSearch(e.target.value)} style={{ flex: "1 1 200px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
-            <select value={catFilterEnabled} onChange={(e) => setCatFilterEnabled(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}><option value="">全部状态</option><option value="true">启用</option><option value="false">停用</option></select>
+            <input type="text" placeholder="搜索分类名称..." value={catSearch} onChange={(e) => setCatSearch(e.target.value)} style={{ flex: "1 1 200px" }} />
+            <select value={catFilterEnabled} onChange={(e) => setCatFilterEnabled(e.target.value)} ><option value="">全部状态</option><option value="true">启用</option><option value="false">停用</option></select>
           </div>
           {catError && <p className="error-text">{catError}</p>}
           {catLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : (catList.length === 0 && !isNewCat) ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无分类数据。</p> : (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+            <div className="table-wrap"><table className="data-table" style={{ marginTop: "12px" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>分类名称</th>
-                                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>说明</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>排序</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>状态</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>类型</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>操作</th>
+                <th style={{ textAlign: "left" }}>分类名称</th>
+                                <th style={{ textAlign: "left" }}>说明</th>
+                <th style={{ textAlign: "left" }}>排序</th>
+                <th style={{ textAlign: "left" }}>状态</th>
+                <th style={{ textAlign: "left" }}>类型</th>
+                <th style={{ textAlign: "left" }}>操作</th>
               </tr></thead>
               <tbody>
                 {isNewCat && (
-                  <tr style={{ borderBottom: "1px solid var(--line)", background: "#fffbeb" }}>
-                    <td style={{ padding: "8px" }}><input type="text" value={cN} onChange={(e) => setCN(e.target.value)} placeholder="分类名称" style={inpStyle} autoFocus /></td>
-                                        <td style={{ padding: "8px" }}><input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /></td>
-                    <td style={{ padding: "8px" }}><input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /></td>
-                    <td style={{ padding: "8px" }}></td><td style={{ padding: "8px" }}></td>
-                    <td style={{ padding: "8px" }}><div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveCatEdit(null)} style={checkBtn}>✓</button><button onClick={cancelCatEdit} style={crossBtn}>✕</button></div></td>
+                  <tr style={{ borderBottom: "1px solid var(--line)", background: "var(--bg-hover)" }}>
+                    <td ><input type="text" value={cN} onChange={(e) => setCN(e.target.value)} placeholder="分类名称" style={inpStyle} autoFocus /></td>
+                                        <td ><input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /></td>
+                    <td ><input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /></td>
+                    <td ></td><td ></td>
+                    <td ><div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveCatEdit(null)} className="table-save" aria-label="保存">✓</button><button onClick={cancelCatEdit} className="table-cancel" aria-label="取消">✕</button></div></td>
                   </tr>
                 )}
                 {catList.map((c) => {
                   const ic = editCatId === c.id;
                   return (
-                    <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "#fffbeb" : "transparent" }}>
-                      <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cN} onChange={(e) => setCN(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{c.name}</span>}</td>
-                                            <td style={{ padding: "8px" }}>{ic ? <input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{c.description || "-"}</span>}</td>
-                      <td style={{ padding: "8px" }}>{ic ? <input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /> : <span style={{ fontSize: "13px" }}>{c.sortOrder}</span>}</td>
-                      <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: !c.enabled ? "#fef2f2" : !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}` }}>{!c.enabled ? "停用" : !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>
-                      <td style={{ padding: "8px" }}>{c.isPreset ? <span className="partner-tag">预置</span> : <span className="partner-tag" style={{ background: "var(--brand-soft)", color: "var(--brand-dark)", border: "1px solid var(--brand-border)" }}>自定义</span>}</td>
-                      <td style={{ padding: "8px" }}>
+                    <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "var(--bg-hover)" : "transparent" }}>
+                      <td >{ic ? <input type="text" value={cN} onChange={(e) => setCN(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{c.name}</span>}</td>
+                                            <td >{ic ? <input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{c.description || "-"}</span>}</td>
+                      <td >{ic ? <input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /> : <span style={{ fontSize: "13px" }}>{c.sortOrder}</span>}</td>
+                      <td ><span className="ui-status-badge" style={{ background: !c.enabled ? "#fef2f2" : !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}` }}>{!c.enabled ? "停用" : !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>
+                      <td >{c.isPreset ? <span className="partner-tag">预置</span> : <span className="partner-tag" style={{ background: "var(--brand-soft)", color: "var(--brand-dark)", border: "1px solid var(--brand-border)" }}>自定义</span>}</td>
+                      <td >
                         {ic ? (
-                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveCatEdit(c.id)} style={checkBtn}>✓</button><button onClick={cancelCatEdit} style={crossBtn}>✕</button></div>
+                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => saveCatEdit(c.id)} className="table-save" aria-label="保存">✓</button><button onClick={cancelCatEdit} className="table-cancel" aria-label="取消">✕</button></div>
                         ) : (
-                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => startCatEdit(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>编辑</button><button onClick={() => toggleCatEnable(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{c.enabled ? "停用" : "启用"}</button></div>
+                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => startCatEdit(c)} className="secondary-btn" >编辑</button><button onClick={() => toggleCatEnable(c)} className="secondary-btn" >{c.enabled ? "停用" : "启用"}</button></div>
                         )}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
         </section>
       )}
@@ -254,53 +252,53 @@ export function CapabilityTagsTab() {
         <section className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
             <h2>AI 标签建议</h2>
-            <button onClick={scanSuggestions} disabled={scanning} style={{ fontSize: "13px", padding: "6px 16px", opacity: scanning ? 0.6 : 1 }}>{scanning ? "扫描中..." : "扫描需求"}</button>
+            <button onClick={scanSuggestions} disabled={scanning} style={{ opacity: scanning ? 0.6 : 1 }}>{scanning ? "扫描中..." : "扫描需求"}</button>
           </div>
           <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>基于项目需求识别标准能力标签未覆盖的新能力诉求，采纳后可上架为正式能力标签。</p>
           <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
-            <input type="text" placeholder="搜索建议名称..." value={sugKeyword} onChange={(e) => setSugKeyword(e.target.value)} style={{ flex: "1 1 200px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
-            <select value={sugStatus} onChange={(e) => setSugStatus(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}><option value="">全部状态</option><option value="pending">待采纳</option><option value="adopted">已采纳</option></select>
+            <input type="text" placeholder="搜索建议名称..." value={sugKeyword} onChange={(e) => setSugKeyword(e.target.value)} style={{ flex: "1 1 200px" }} />
+            <select value={sugStatus} onChange={(e) => setSugStatus(e.target.value)} ><option value="">全部状态</option><option value="pending">待采纳</option><option value="adopted">已采纳</option></select>
           </div>
           {sugError && <p className="error-text">{sugError}</p>}
           {sugLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : sugList.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无标签建议。</p> : (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+            <div className="table-wrap"><table className="data-table" style={{ marginTop: "12px" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>建议标签</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>分类</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>说明</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>次数</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>置信度</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>状态</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>建议标签</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>分类</th>
+                <th style={{ textAlign: "left" }}>说明</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>次数</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>置信度</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>状态</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>操作</th>
               </tr></thead>
               <tbody>
                 {sugList.map((s) => (
                   <tr key={s.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                    <td style={{ whiteSpace: "nowrap" }}>
                       {adoptingId === s.id ? <input type="text" value={adoptName} onChange={(e) => setAdoptName(e.target.value)} style={inpStyle} /> : s.suggestedName}
                     </td>
-                    <td style={{ padding: "10px 8px", fontSize: "13px" }}>
+                    <td >
                       {adoptingId === s.id ? <select value={adoptCat} onChange={(e) => setAdoptCat(e.target.value)} style={inpStyle}><option value="">使用建议分类</option>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select> : s.suggestedCategoryName || "-"}
                     </td>
-                    <td style={{ padding: "10px 8px", fontSize: "13px", color: "var(--muted)" }}>
+                    <td style={{ color: "var(--muted)" }}>
                       {adoptingId === s.id ? <input type="text" value={adoptDesc} onChange={(e) => setAdoptDesc(e.target.value)} style={inpStyle} /> : (s.description || "-")}
                     </td>
-                    <td style={{ padding: "10px 8px", fontSize: "13px" }}>{s.occurrenceCount}</td>
-                    <td style={{ padding: "10px 8px", fontSize: "13px" }}>{(s.confidence * 100).toFixed(0)}%</td>
-                    <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: s.status === "adopted" ? "#f0fdf4" : "#fffbeb", color: s.status === "adopted" ? "var(--success)" : "#e8a317", border: `1px solid ${s.status === "adopted" ? "#bbf7d0" : "#fde68a"}`, whiteSpace: "nowrap" }}>{s.status === "adopted" ? "已采纳" : "待采纳"}</span></td>
-                    <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}>
+                    <td >{s.occurrenceCount}</td>
+                    <td >{(s.confidence * 100).toFixed(0)}%</td>
+                    <td style={{ whiteSpace: "nowrap" }}><span className="ui-status-badge" style={{ background: s.status === "adopted" ? "#f0fdf4" : "#fffbeb", color: s.status === "adopted" ? "var(--success)" : "#e8a317", border: `1px solid ${s.status === "adopted" ? "#bbf7d0" : "#fde68a"}` }}>{s.status === "adopted" ? "已采纳" : "待采纳"}</span></td>
+                    <td style={{ whiteSpace: "nowrap" }}>
                       {s.status === "pending" && (
                         adoptingId === s.id ? (
-                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => confirmAdopt(s.id)} style={checkBtn}>✓</button><button onClick={cancelAdopt} style={crossBtn}>✕</button></div>
+                          <div style={{ display: "flex", gap: "6px" }}><button onClick={() => confirmAdopt(s.id)} className="table-save" aria-label="保存">✓</button><button onClick={cancelAdopt} className="table-cancel" aria-label="取消">✕</button></div>
                         ) : (
-                          <button onClick={() => startAdopt(s)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>采纳</button>
+                          <button onClick={() => startAdopt(s)} className="secondary-btn" >采纳</button>
                         )
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )}
         </section>
       )}
@@ -309,70 +307,70 @@ export function CapabilityTagsTab() {
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <h2>能力标签</h2>
-          <button onClick={startNew} disabled={isEditing} style={{ fontSize: "13px", padding: "6px 16px", opacity: isEditing ? 0.5 : 1 }}>新增标签</button>
+          <button onClick={startNew} disabled={isEditing} style={{ opacity: isEditing ? 0.5 : 1 }}>新增标签</button>
         </div>
         <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
-          <input type="text" placeholder="搜索标签名称..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: "1 1 200px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}>
+          <input type="text" placeholder="搜索标签名称..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: "1 1 200px" }} />
+          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} >
             <option value="">全部分类</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         {error && <p className="error-text">{error}</p>}
         {loading ? <p style={{ marginTop: "12px" }}>加载中...</p> : (tags.length === 0 && !isNewRow) ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无标签数据。</p> : (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+          <div className="table-wrap"><table className="data-table" style={{ marginTop: "12px" }}>
             <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>标签名称</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>分类</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>说明</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>排序</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>状态</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>类型</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>操作</th>
+              <th style={{ textAlign: "left" }}>标签名称</th>
+              <th style={{ textAlign: "left" }}>分类</th>
+              <th style={{ textAlign: "left" }}>说明</th>
+              <th style={{ textAlign: "left" }}>排序</th>
+              <th style={{ textAlign: "left" }}>状态</th>
+              <th style={{ textAlign: "left" }}>类型</th>
+              <th style={{ textAlign: "left" }}>操作</th>
             </tr></thead>
             <tbody>
               {isNewRow && (
-                <tr style={{ borderBottom: "1px solid var(--line)", background: "#fffbeb" }}>
-                  <td style={{ padding: "8px" }}><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="标签名称" style={inpStyle} autoFocus /></td>
-                  <td style={{ padding: "8px" }}><select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
-                  <td style={{ padding: "8px" }}><input type="text" value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="选填" style={inpStyle} /></td>
-                  <td style={{ padding: "8px" }}><input type="number" value={eSort} onChange={(e) => setESort(parseInt(e.target.value) || 0)} style={{ ...inpStyle, width: "60px" }} /></td>
-                  <td style={{ padding: "8px" }}></td>
-                  <td style={{ padding: "8px" }}></td>
-                  <td style={{ padding: "8px" }}><div style={{ display: "flex", gap: "6px" }}>
-                    <button onClick={() => saveEdit(null)} style={checkBtn}>✓</button>
-                    <button onClick={cancelEdit} style={crossBtn}>✕</button>
+                <tr style={{ borderBottom: "1px solid var(--line)", background: "var(--bg-hover)" }}>
+                  <td ><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="标签名称" style={inpStyle} autoFocus /></td>
+                  <td ><select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select></td>
+                  <td ><input type="text" value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="选填" style={inpStyle} /></td>
+                  <td ><input type="number" value={eSort} onChange={(e) => setESort(parseInt(e.target.value) || 0)} style={{ ...inpStyle, width: "60px" }} /></td>
+                  <td ></td>
+                  <td ></td>
+                  <td ><div style={{ display: "flex", gap: "6px" }}>
+                    <button onClick={() => saveEdit(null)} className="table-save" aria-label="保存">✓</button>
+                    <button onClick={cancelEdit} className="table-cancel" aria-label="取消">✕</button>
                   </div></td>
                 </tr>
               )}
               {tags.map((t) => {
                 const isThisEditing = editingId === t.id;
                 return (
-                  <tr key={t.id} style={{ borderBottom: "1px solid var(--line)", background: isThisEditing ? "#fffbeb" : "transparent" }}>
-                    <td style={{ padding: "8px" }}>
+                  <tr key={t.id} style={{ borderBottom: "1px solid var(--line)", background: isThisEditing ? "var(--bg-hover)" : "transparent" }}>
+                    <td >
                       {isThisEditing ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{t.name}</span>}
                     </td>
-                    <td style={{ padding: "8px" }}>
+                    <td >
                       {isThisEditing ? <select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select> : <span style={{ fontSize: "13px" }}>{t.category}</span>}
                     </td>
-                    <td style={{ padding: "8px" }}>
+                    <td >
                       {isThisEditing ? <input type="text" value={eDesc} onChange={(e) => setEDesc(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{t.description || "-"}</span>}
                     </td>
-                    <td style={{ padding: "8px" }}>
+                    <td >
                       {isThisEditing ? <input type="number" value={eSort} onChange={(e) => setESort(parseInt(e.target.value) || 0)} style={{ ...inpStyle, width: "60px" }} /> : <span style={{ fontSize: "13px" }}>{t.sortOrder}</span>}
                     </td>
-                    <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: t.enabled ? "#f0fdf4" : "#fef2f2", color: t.enabled ? "var(--success)" : "var(--danger)", border: `1px solid ${t.enabled ? "#bbf7d0" : "#fecaca"}` }}>{t.enabled ? "启用" : "停用"}</span></td>
-                    <td style={{ padding: "8px" }}>{t.isPreset ? <span className="partner-tag">预置</span> : <span className="partner-tag" style={{ background: "var(--brand-soft)", color: "var(--brand-dark)", border: "1px solid var(--brand-border)" }}>自定义</span>}</td>
-                    <td style={{ padding: "8px" }}>
+                    <td ><span className="ui-status-badge" style={{ background: t.enabled ? "#f0fdf4" : "#fef2f2", color: t.enabled ? "var(--success)" : "var(--danger)", border: `1px solid ${t.enabled ? "#bbf7d0" : "#fecaca"}` }}>{t.enabled ? "启用" : "停用"}</span></td>
+                    <td >{t.isPreset ? <span className="partner-tag">预置</span> : <span className="partner-tag" style={{ background: "var(--brand-soft)", color: "var(--brand-dark)", border: "1px solid var(--brand-border)" }}>自定义</span>}</td>
+                    <td >
                       {isThisEditing ? (
                         <div style={{ display: "flex", gap: "6px" }}>
-                          <button onClick={() => saveEdit(t.id)} style={checkBtn}>✓</button>
-                          <button onClick={cancelEdit} style={crossBtn}>✕</button>
+                          <button onClick={() => saveEdit(t.id)} className="table-save" aria-label="保存">✓</button>
+                          <button onClick={cancelEdit} className="table-cancel" aria-label="取消">✕</button>
                         </div>
                       ) : (
                         <div style={{ display: "flex", gap: "6px" }}>
-                          <button onClick={() => startEdit(t)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>编辑</button>
-                          <button onClick={() => handleToggle(t)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{t.enabled ? "停用" : "启用"}</button>
+                          <button onClick={() => startEdit(t)} className="secondary-btn" >编辑</button>
+                          <button onClick={() => handleToggle(t)} className="secondary-btn" >{t.enabled ? "停用" : "启用"}</button>
                         </div>
                       )}
                     </td>
@@ -380,7 +378,7 @@ export function CapabilityTagsTab() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </section>
       )}
@@ -411,10 +409,10 @@ export function SystemStatusTab() {
       normal: { label: "正常", color: "var(--success)", bg: "#f0fdf4", border: "#bbf7d0" },
       warning: { label: "警告", color: "#e8a317", bg: "#fffbeb", border: "#fde68a" },
       error: { label: "异常", color: "var(--danger)", bg: "#fef2f2", border: "#fecaca" },
-      unknown: { label: "未知", color: "var(--muted)", bg: "#f8f9fa", border: "var(--line)" },
+      unknown: { label: "未知", color: "var(--muted)", bg: "var(--bg-hover)", border: "var(--line)" },
     };
     const s = map[status] || map.unknown;
-    return <span style={{ padding: "3px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{s.label}</span>;
+    return <span className="ui-status-badge" style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}` }}>{s.label}</span>;
   }
 
   function StatusCard({ title, items }: { title: string; items: any[] }) {
@@ -423,7 +421,7 @@ export function SystemStatusTab() {
         <h2>{title}</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px" }}>
           {items.map((item, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}>
+            <div key={i} className="ui-status-row">
               <div>
                 <span style={{ fontSize: "14px", fontWeight: 600 }}>{item.name}</span>
                 <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "8px" }}>{item.message}</span>
@@ -452,7 +450,7 @@ export function SystemStatusTab() {
     <div>
       {/* Overall status */}
       <p className="placeholder-text" style={{ marginBottom: "16px" }}>本页仅执行只读查询和配置检查，不测试数据库写入，也不发送模型请求。需要验证模型连接时，请前往<a href="/admin/models">模型配置</a>手动测试。</p>
-      <section className="card" style={{ borderColor: overall.color }}>
+      <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <div>
             <h2 style={{ color: overall.color }}>{overall.label}</h2>
@@ -461,18 +459,18 @@ export function SystemStatusTab() {
           <button onClick={loadData} className="secondary-btn">刷新状态</button>
         </div>
         {/* Stats */}
-        <div style={{ display: "flex", gap: "16px", marginTop: "12px", flexWrap: "wrap" }}>
-          <div style={{ padding: "8px 16px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--success)" }}>{data.summary.normalCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>正常</span></div>
-          <div style={{ padding: "8px 16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "#e8a317" }}>{data.summary.warningCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>警告</span></div>
-          <div style={{ padding: "8px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--danger)" }}>{data.summary.errorCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>异常</span></div>
-          <div style={{ padding: "8px 16px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)" }}><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--muted)" }}>{data.summary.unknownCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>未知</span></div>
+        <div className="ui-status-summary">
+          <div><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--success)" }}>{data.summary.normalCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>正常</span></div>
+          <div><span style={{ fontSize: "20px", fontWeight: 700, color: "#e8a317" }}>{data.summary.warningCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>警告</span></div>
+          <div><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--danger)" }}>{data.summary.errorCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>异常</span></div>
+          <div><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--muted)" }}>{data.summary.unknownCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>未知</span></div>
         </div>
         {/* Abnormal modules */}
         {data.summary.abnormalModules.length > 0 && (
           <div style={{ marginTop: "12px" }}>
             <h3 style={{ fontSize: "14px", marginBottom: "8px" }}>异常详情</h3>
             {data.summary.abnormalModules.map((m: any, i: number) => (
-              <div key={i} style={{ padding: "12px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca", marginBottom: "8px" }}>
+              <div key={i} className="ui-status-issue">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                   <span style={{ fontSize: "14px", fontWeight: 600, color: "#991b1b" }}>{m.module}</span>
                   {statusBadge(m.status)}
@@ -573,7 +571,7 @@ export function ModelConfigTab() {
     }
   }
 
-  const inp = { padding: "4px 8px", border: "1px solid var(--brand)", borderRadius: "4px", fontSize: "13px", width: "100%", boxSizing: "border-box" as const };
+  const inp = { width: "100%", boxSizing: "border-box" as const };
 
   if (loading) return <div><p>加载中...</p></div>;
 
@@ -583,54 +581,54 @@ export function ModelConfigTab() {
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <h2>模型配置</h2>
-          <button onClick={startNew} disabled={saving || Boolean(editingId) || isNew} style={{ fontSize: "13px", padding: "6px 16px", opacity: Boolean(editingId) || isNew ? 0.5 : 1 }}>新增配置</button>
+          <button onClick={startNew} disabled={saving || Boolean(editingId) || isNew} style={{ opacity: Boolean(editingId) || isNew ? 0.5 : 1 }}>新增配置</button>
         </div>
         {testResult && <p style={{ fontSize: "13px", color: "var(--brand)", marginTop: "8px" }}>{testResult}</p>}
         {configs.length === 0 && !isNew ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无模型配置。</p> : (
-          <div className="table-wrap"><table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+          <div className="table-wrap"><table className="data-table" style={{ marginTop: "12px" }}>
             <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>名称</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>供应商</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>模型</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>最大输出</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>API 地址</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>API Key</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>状态</th>
-              <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
+              <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>名称</th>
+              <th style={{ textAlign: "left" }}>供应商</th>
+              <th style={{ textAlign: "left" }}>模型</th>
+              <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>最大输出</th>
+              <th style={{ textAlign: "left" }}>API 地址</th>
+              <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>API Key</th>
+              <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>状态</th>
+              <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>操作</th>
             </tr></thead>
             <tbody>
               {isNew && (
-                <tr style={{ borderBottom: "1px solid var(--line)", background: "#fffbeb" }}>
-                  <td style={{ padding: "8px" }}><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="配置名称" style={inp} autoFocus /></td>
-                  <td style={{ padding: "8px" }}><input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /></td>
-                  <td style={{ padding: "8px" }}><input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} placeholder="模型名称" style={inp} /></td>
-                  <td style={{ padding: "8px" }}><input type="number" min={1} step={1} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /></td>
-                  <td style={{ padding: "8px" }}><input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /></td>
-                  <td style={{ padding: "8px" }}><input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="输入新Key" style={inp} /></td>
-                  <td style={{ padding: "8px" }}></td>
-                  <td style={{ padding: "8px", whiteSpace: "nowrap" }}><div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(null)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button disabled={saving} onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div></td>
+                <tr style={{ borderBottom: "1px solid var(--line)", background: "var(--bg-hover)" }}>
+                  <td ><input type="text" value={eName} onChange={(e) => setEName(e.target.value)} placeholder="配置名称" style={inp} autoFocus /></td>
+                  <td ><input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /></td>
+                  <td ><input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} placeholder="模型名称" style={inp} /></td>
+                  <td ><input type="number" min={1} step={1} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /></td>
+                  <td ><input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /></td>
+                  <td ><input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="输入新Key" style={inp} /></td>
+                  <td ></td>
+                  <td style={{ whiteSpace: "nowrap" }}><div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(null)} className="table-save" aria-label="保存">✓</button><button disabled={saving} onClick={cancelEdit} className="table-cancel" aria-label="取消">✕</button></div></td>
                 </tr>
               )}
               {configs.map((c) => {
                 const ic = editingId === c.id;
                 return (
-                  <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "#fffbeb" : "transparent" }}>
-                    <td style={{ padding: "8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}{c.isDefault ? <span className="tag-red" style={{ marginLeft: "6px" }}>默认</span> : null}</span>}</td>
-                    <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /> : c.provider}</td>
-                    <td style={{ padding: "8px", fontSize: "13px" }}>{ic ? <input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} style={inp} /> : c.modelName}</td>
-                    <td style={{ padding: "8px", fontSize: "13px", whiteSpace: "nowrap" }}>{ic ? <input type="number" min={1} step={1} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /> : c.maxTokens.toLocaleString()}</td>
-                    <td style={{ padding: "8px", fontSize: "12px", color: "var(--muted)" }}>{ic ? <input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /> : (c.baseUrl ? c.baseUrl.replace(/https?:\/\//, "").split("/")[0] : "-")}</td>
-                    <td style={{ padding: "8px" }}>{ic ? <input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="留空保留原Key" style={inp} /> : <span style={{ fontSize: "12px", color: c.apiKeyConfigured ? "var(--success)" : "var(--danger)" }}>{c.apiKeyConfigured ? "已配置" : "未配置"}</span>}</td>
-                    <td style={{ padding: "8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: !c.enabled ? "#fef2f2" : !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}`, whiteSpace: "nowrap" }}>{!c.enabled ? "停用" : !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>
-                    <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
+                  <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "var(--bg-hover)" : "transparent" }}>
+                    <td style={{ whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}{c.isDefault ? <span className="tag-red" style={{ marginLeft: "6px" }}>默认</span> : null}</span>}</td>
+                    <td >{ic ? <input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /> : c.provider}</td>
+                    <td >{ic ? <input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} style={inp} /> : c.modelName}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{ic ? <input type="number" min={1} step={1} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /> : c.maxTokens.toLocaleString()}</td>
+                    <td style={{ color: "var(--muted)" }}>{ic ? <input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /> : (c.baseUrl ? c.baseUrl.replace(/https?:\/\//, "").split("/")[0] : "-")}</td>
+                    <td >{ic ? <input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="留空保留原Key" style={inp} /> : <span style={{ fontSize: "12px", color: c.apiKeyConfigured ? "var(--success)" : "var(--danger)" }}>{c.apiKeyConfigured ? "已配置" : "未配置"}</span>}</td>
+                    <td ><span className="ui-status-badge" style={{ background: !c.enabled ? "#fef2f2" : !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}` }}>{!c.enabled ? "停用" : !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>
+                    <td style={{ whiteSpace: "nowrap" }}>
                       {ic ? (
-                        <div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(c.id)} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--success)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✓</button><button disabled={saving} onClick={cancelEdit} style={{ fontSize: "14px", padding: "2px 10px", background: "var(--danger)", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" }}>✕</button></div>
+                        <div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(c.id)} className="table-save" aria-label="保存">✓</button><button disabled={saving} onClick={cancelEdit} className="table-cancel" aria-label="取消">✕</button></div>
                       ) : (
                         <div style={{ display: "flex", gap: "4px" }}>
-                          <button onClick={() => startEdit(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>编辑</button>
-                          <button onClick={() => testConn(c)} disabled={testing === c.id} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{testing === c.id ? "测试中" : "测试"}</button>
-                          <button disabled={saving} onClick={() => toggleEnable(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{c.enabled ? "停用" : "启用"}</button>
-                          {!c.isDefault && c.enabled && <button disabled={saving} onClick={() => setDefault(c)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>设默认</button>}
+                          <button onClick={() => startEdit(c)} className="secondary-btn" >编辑</button>
+                          <button onClick={() => testConn(c)} disabled={testing === c.id} className="secondary-btn" >{testing === c.id ? "测试中" : "测试"}</button>
+                          <button disabled={saving} onClick={() => toggleEnable(c)} className="secondary-btn" >{c.enabled ? "停用" : "启用"}</button>
+                          {!c.isDefault && c.enabled && <button disabled={saving} onClick={() => setDefault(c)} className="secondary-btn" >设默认</button>}
                         </div>
                       )}
                     </td>
@@ -647,10 +645,10 @@ export function ModelConfigTab() {
         <p className="placeholder-text">未绑定时依次使用默认场景、启用的默认模型、首个启用模型或环境变量配置。显式绑定的模型不可用时会报错。</p>
         <div style={{ marginTop: "12px" }}>
           {usages.map((u) => (
-            <div key={u.sceneKey} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#f8f9fa", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "8px" }}>
+            <div key={u.sceneKey} className="ui-model-binding">
               <div><span style={{ fontSize: "14px", fontWeight: 600 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "使用默认配置"}</span></div>
               {u.sceneKey === "recommendation_summary" && <span className="placeholder-text">当前暂无独立调用，推荐理由随伙伴匹配生成。</span>}
-              <select aria-label={`${u.sceneName}模型`} disabled={saving} value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} style={{ padding: "6px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "13px" }}>
+              <select aria-label={`${u.sceneName}模型`} disabled={saving} value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} >
                 <option value="">使用默认配置</option>
                 {u.modelConfigId && !configs.some(c => c.id === u.modelConfigId && c.enabled) && <option value={u.modelConfigId} disabled>{u.modelConfigName || "原绑定模型"}（不可用，请重新选择）</option>}
                 {configs.filter(c => c.enabled).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

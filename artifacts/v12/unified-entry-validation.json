@@ -1,0 +1,154 @@
+{
+  "phase": "V1.2 unified entry",
+  "code_commit": "bb9ec7b760137c937b3157fce4cb19e01107741f",
+  "baseline": "a28ba21f3bddeb116a57a991b695bcc49c503da5",
+  "backend": {
+    "passed": 501,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 2,
+    "command": ".venv/bin/python -m pytest backend/tests -q --tb=short -o junit_family=legacy --junitxml=/tmp/ia-backend.xml"
+  },
+  "browser": {
+    "passed": 60,
+    "failed": 0,
+    "skipped": 0,
+    "command": "ENABLEMENT_EVIDENCE_DIR=/tmp/ia-evidence npm run test:e2e",
+    "first_attempt": {
+      "passed": 41,
+      "failed": 4,
+      "not_run": 15,
+      "resolved": "Nested main landmark removed; login heading assertion restored; async scene navigation awaited."
+    }
+  },
+  "frontend_final": {
+    "typecheck": {
+      "returncode": 0,
+      "seconds": 5.33
+    },
+    "build": {
+      "returncode": 0,
+      "seconds": 18.91
+    },
+    "browser": {
+      "returncode": 0,
+      "seconds": 413.74
+    }
+  },
+  "live_browser": {
+    "login": "PASS",
+    "unified_modes": "PASS",
+    "partner_context": "PASS",
+    "resources": "PASS",
+    "legacy_redirect": "PASS",
+    "advisor_failed_run_preserves_advice": "PASS",
+    "page_errors": 0,
+    "real_model_calls": 0
+  },
+  "protection": {
+    "branch": "feature/partner-enablement-v1.1",
+    "main": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+    "stable_files_unchanged": 167,
+    "runtime_source_unchanged": true,
+    "schema": "12",
+    "integrity": "ok",
+    "existing_fk_anomalies": 2,
+    "new_fk_anomalies": 0,
+    "health": {
+      "8000": 200,
+      "8100": 200,
+      "3100": 200
+    },
+    "model_configuration": {
+      "id": "manual-local-mock",
+      "provider": "Local mock",
+      "model": "local-development-mock",
+      "base_url": "http://127.0.0.1:18180/v1"
+    },
+    "resources": {
+      "course": 7,
+      "lab": 6,
+      "shared_case": 3
+    },
+    "processes": [
+      {
+        "name": "backend",
+        "pid": 425076,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement",
+        "database": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db",
+        "uploads": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/uploads"
+      },
+      {
+        "name": "frontend",
+        "pid": 425077,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement/frontend"
+      },
+      {
+        "name": "development-mock",
+        "pid": 425072,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement"
+      }
+    ],
+    "real_model_calls": 0
+  },
+  "screenshots": [
+    {
+      "path": "artifacts/v12/unified-entry/01-project-match-1366.png",
+      "sha256": "643274b7366d1971f883e6e65ecb83de193587d6c1be095f39c01d1d32ea37d2"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/01-project-match-1920.png",
+      "sha256": "956babbff7151bf7895d55c6b8dfe4d8bc4e8a9bb4dcea53c2b5f3d887c50665"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/02-development-1366.png",
+      "sha256": "5da3d2e5c4ff629b9f1c02062a9a3758f4c5692bde79036ccdacc8047d25c526"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/02-development-1920.png",
+      "sha256": "7f018ea668371221a5f1c85fabc1dd0caed0063ce00b298f075a0b401f8aaa4f"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/03-resources-1366.png",
+      "sha256": "318dcc7bd9102af143cdf85994cc0cadfe1f259f84e9e93626b08a5a4d3cf703"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/03-resources-1920.png",
+      "sha256": "88f1ab4d1ce9917e9ecef1ccc651be271aa2e4d5492cb1fc864c0f479f8282d3"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/04-partner-context-1366.png",
+      "sha256": "59a4fd276e898f96e1b61e8e640ddd7ad0ad0cf9fef03f2d64fc2002cc436a4c"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/04-partner-context-1920.png",
+      "sha256": "e780eb690b253dfea0ee02050942fb0aca7cccec2b5ecfe2f4bdc9cd1c420e48"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/05-project-context-1366.png",
+      "sha256": "2f43e9cc8141c8e717b6992b396206480758b76aefcb36b506f7365c73eaa536"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/05-project-context-1920.png",
+      "sha256": "9538374dcb99a0480dc4a48a35a8a64525972bbb4ac96c57c956b9a6e8b340fc"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/06-advisor-detail-1366.png",
+      "sha256": "9bb922cc167fcd6a179f3c36320b320bfd2bfe360050a66f4eaaaffa4b72e838"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/06-advisor-detail-1920.png",
+      "sha256": "f3391e7bdbea320c6a3a83556a3eb54a5099fdb79fe5413ab97c02d38ab18ebd"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/07-unified-tasks-1366.png",
+      "sha256": "f04a48f9362e01ef02316c7f86d8a4793bdc9fc1c4213cfd6568baf952908fcd"
+    },
+    {
+      "path": "artifacts/v12/unified-entry/07-unified-tasks-1920.png",
+      "sha256": "ac02bed091680cf299391e145e232d038ce4f043bac8714f0f7a8f4af716f3cc"
+    }
+  ],
+  "real_model_calls": 0,
+  "result": "READY FOR V1.2 MANUAL REVIEW"
+}

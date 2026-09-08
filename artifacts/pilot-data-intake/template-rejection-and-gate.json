@@ -1,0 +1,44 @@
+{
+  "template_intentionally_rejected": true,
+  "template_result": {
+    "machine_status": "FAIL",
+    "mode": "intake",
+    "errors": [
+      {
+        "code": "SCHEMA_STRING_TOO_SHORT",
+        "location": "target_partner_name"
+      },
+      {
+        "code": "SCHEMA_TOO_SHORT",
+        "location": "allowed_diagnostic_scope"
+      },
+      {
+        "code": "SCHEMA_STRING_TOO_SHORT",
+        "location": "request.targets.0.unrecognized_field"
+      }
+    ],
+    "DATA_01_business_signoff": "NOT RUN",
+    "DATA_02": "BLOCKED",
+    "real_model_calls": 0
+  },
+  "real_model_precheck": {
+    "status": "BLOCKED",
+    "checks": {
+      "worktree_clean": false,
+      "imported_machine_pass": false,
+      "model_path_complete": false,
+      "safe_projection": false,
+      "model_pool_within_approved_package": false,
+      "request_model_permission": false,
+      "explicit_user_authorization": false,
+      "business_data_authorization": false,
+      "explicit_approved_test_model": false,
+      "budget_and_audit_ready": false,
+      "independent_database": true,
+      "unapproved_attachments_excluded": false
+    },
+    "real_model_calls": 0,
+    "authorization_note": "Receipt integrity is checked; a human must attest that approvals and audit runner evidence are authentic. This command never calls a model."
+  },
+  "measurement_phase": "Before intake delivery commit; final clean check is rendered after commit"
+}

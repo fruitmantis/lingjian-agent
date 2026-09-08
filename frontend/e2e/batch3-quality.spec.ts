@@ -2,8 +2,8 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { createHash } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 
-const API = "http://127.0.0.1:18000";
-const screenshotRoot = "/tmp/lingjian-batch3/screenshots";
+const API = "http://127.0.0.1:8100";
+const screenshotRoot = "/tmp/lingjian-enablement-batch3/screenshots";
 
 async function login(page: Page, request: APIRequestContext, username = "admin1") {
   const response = await request.post(`${API}/auth/login`, { data: { username, password: "ValidationPass123" } });
@@ -17,7 +17,7 @@ async function login(page: Page, request: APIRequestContext, username = "admin1"
 }
 
 async function databaseHash() {
-  return createHash("sha256").update(await readFile("/tmp/lingjian-agent-e2e/app.db")).digest("hex");
+  return createHash("sha256").update(await readFile("/tmp/lingjian-enablement-e2e/app.db")).digest("hex");
 }
 
 test("system refresh preserves the database and explains unverified model status", async ({ page, request }) => {
@@ -40,7 +40,7 @@ test("new match and task details display verified evidence and explicit gaps", a
   await page.goto("/");
   await page.locator("#requirement").fill("第三批验证：寻找制造业知识库项目伙伴");
   const result = page.waitForResponse(response => response.url() === `${API}/agent/tasks` && response.request().method() === "POST");
-  await page.getByRole("button", { name: "开始任务", exact: true }).click();
+  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
   const response = await result;
   expect(response.ok()).toBeTruthy();
   const accepted = await response.json();

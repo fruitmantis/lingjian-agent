@@ -1,16 +1,16 @@
 import { defineConfig } from "@playwright/test";
 
 const validationEnvironment = {
-  LINGJIAN_DATABASE_PATH: "/tmp/lingjian-agent-e2e/app.db",
-  LINGJIAN_UPLOADS_DIR: "/tmp/lingjian-agent-e2e/uploads",
-  LINGJIAN_CHROMA_DIR: "/tmp/lingjian-agent-e2e/chroma",
+  LINGJIAN_DATABASE_PATH: "/tmp/lingjian-enablement-e2e/app.db",
+  LINGJIAN_UPLOADS_DIR: "/tmp/lingjian-enablement-e2e/uploads",
+  LINGJIAN_CHROMA_DIR: "/tmp/lingjian-enablement-e2e/chroma",
   JWT_SECRET_KEY: "e2e-validation-secret-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ",
   BOOTSTRAP_ADMIN_USERNAME: "unused_bootstrap",
   BOOTSTRAP_ADMIN_PASSWORD: "UnusedBootstrap123",
-  TASK_STALE_SECONDS: process.env.TASK_STALE_SECONDS || "2",
+  TASK_STALE_SECONDS: process.env.TASK_STALE_SECONDS || "60",
   USER_APPLICATION_RATE_LIMIT: "1000",
   USER_APPLICATION_PENDING_LIMIT: "200",
-  VALIDATION_FAKE_LLM_BASE_URL: "http://127.0.0.1:18080/v1",
+  VALIDATION_FAKE_LLM_BASE_URL: "http://127.0.0.1:18180/v1",
   CORS_ORIGINS: "http://127.0.0.1:3100,http://localhost:3100",
 };
 
@@ -29,17 +29,17 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: ".venv/bin/python -m uvicorn backend.tests.support.fake_llm_server:app --host 127.0.0.1 --port 18080",
+      command: ".venv/bin/python -m uvicorn backend.tests.support.fake_llm_server:app --host 127.0.0.1 --port 18180",
       cwd: "..",
-      url: "http://127.0.0.1:18080/health",
+      url: "http://127.0.0.1:18180/health",
       env: validationEnvironment,
       reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
       timeout: 30_000,
     },
     {
-      command: ".venv/bin/python -m backend.tests.support.prepare_e2e && .venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 18000",
+      command: ".venv/bin/python -m backend.tests.support.prepare_e2e && .venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8100",
       cwd: "..",
-      url: "http://127.0.0.1:18000/health",
+      url: "http://127.0.0.1:8100/health",
       env: validationEnvironment,
       reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
       timeout: 30_000,
@@ -48,7 +48,7 @@ export default defineConfig({
       command: "npm run dev -- -p 3100",
       cwd: ".",
       url: "http://127.0.0.1:3100/login",
-      env: { NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:18000" },
+      env: { NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8100" },
       reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
       timeout: 60_000,
     },

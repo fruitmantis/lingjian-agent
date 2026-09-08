@@ -1,0 +1,229 @@
+{
+  "code_head": "f00c67f3a305ebb5fcd257545df26d73bba55fa0",
+  "backend": {
+    "passed": 492,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 2,
+    "seconds": 320.97
+  },
+  "playwright": {
+    "passed": 57,
+    "failed": 0,
+    "skipped": 0
+  },
+  "snapshot_refresh_tests": {
+    "passed": 2,
+    "failed": 0
+  },
+  "typecheck": "PASS",
+  "production_build": "PASS",
+  "manual_flows": {
+    "A": {
+      "plan_id": "08371422-8aad-46d1-832d-5fef774a9747",
+      "focuses": [
+        "数据库迁移与回退验证"
+      ],
+      "resources": [
+        "dev-lab-2",
+        "v12-lab-db-rollback",
+        "dev-case",
+        "v12-case-db",
+        "v12-lab-db-check",
+        "dev-lab-1",
+        "dev-course-3",
+        "dev-course-2"
+      ],
+      "resource_types": [
+        "case",
+        "course",
+        "lab"
+      ],
+      "gaps": [],
+      "status": "ready"
+    },
+    "B": {
+      "plan_id": "3d9c1934-a907-4a21-81c0-7e08f869245c",
+      "focuses": [
+        "RAG 与知识库工程",
+        "Agent 系统集成与 POC 调优"
+      ],
+      "resources": [
+        "v12-course-integration",
+        "v12-lab-agent",
+        "v12-course-rag",
+        "v12-case-agent",
+        "v12-lab-agent-eval"
+      ],
+      "resource_types": [
+        "case",
+        "course",
+        "lab"
+      ],
+      "gaps": [
+        "当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。"
+      ],
+      "status": "ready"
+    },
+    "C": {
+      "plan_id": "cee7980d-037b-48a7-857a-23d3279853bf",
+      "focuses": [
+        "应用集成与云服务基础",
+        "RAG 与知识库工程",
+        "Agent 系统集成与 POC 调优"
+      ],
+      "resources": [
+        "v12-course-foundation",
+        "v12-course-integration",
+        "v12-lab-agent",
+        "v12-case-agent",
+        "v12-course-rag",
+        "v12-lab-agent-eval"
+      ],
+      "resource_types": [
+        "case",
+        "course",
+        "lab"
+      ],
+      "gaps": [
+        "当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。"
+      ],
+      "status": "ready"
+    },
+    "D": {
+      "plan_id": "d745d38b-594e-4dd7-aef8-1a115b119940",
+      "focuses": [
+        "RAG 与知识库工程",
+        "Agent 系统集成与 POC 调优"
+      ],
+      "resources": [
+        "v12-course-integration",
+        "v12-lab-agent",
+        "v12-course-rag",
+        "v12-case-agent",
+        "v12-lab-agent-eval"
+      ],
+      "resource_types": [
+        "case",
+        "course",
+        "lab"
+      ],
+      "gaps": [
+        "当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。"
+      ],
+      "status": "ready"
+    },
+    "E": {
+      "plan_id": "9eb4d5c1-1e14-422e-9020-8f1f0a2fc502",
+      "focuses": [
+        "只给几个进阶实验，不要基础课"
+      ],
+      "resources": [
+        "v12-lab-agent-eval",
+        "v12-lab-db-rollback",
+        "v12-lab-db-check",
+        "v12-lab-agent"
+      ],
+      "resource_types": [
+        "lab"
+      ],
+      "gaps": [],
+      "status": "ready"
+    },
+    "conversation": {
+      "explanation_no_version": true,
+      "comparison_no_version": true,
+      "revision_v2_confirmed_v1": true,
+      "plan_id": "3d9c1934-a907-4a21-81c0-7e08f869245c"
+    },
+    "real_model_calls": 0
+  },
+  "protection": {
+    "branch": "feature/partner-enablement-v1.1",
+    "main": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+    "stable_files_unchanged": 167,
+    "runtime_source_unchanged": true,
+    "schema": "12",
+    "integrity": "ok",
+    "existing_fk_anomalies": 2,
+    "new_fk_anomalies": 0,
+    "health": {
+      "8000": 200,
+      "8100": 200,
+      "3100": 200
+    },
+    "model_configuration": {
+      "id": "manual-local-mock",
+      "provider": "Local mock",
+      "model": "local-development-mock",
+      "base_url": "http://127.0.0.1:18180/v1"
+    },
+    "resources": {
+      "course": 7,
+      "lab": 6,
+      "shared_case": 3
+    },
+    "processes": [
+      {
+        "name": "backend",
+        "pid": 398733,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement",
+        "database": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/app.db",
+        "uploads": "/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/dev/uploads"
+      },
+      {
+        "name": "frontend",
+        "pid": 398734,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement/frontend"
+      },
+      {
+        "name": "development-mock",
+        "pid": 398503,
+        "cwd": "/home/yuan/project/lingjian-agent-enablement"
+      }
+    ],
+    "real_model_calls": 0
+  },
+  "screenshots": [
+    {
+      "path": "artifacts/v12/screenshots/01-minimal-1366.png",
+      "sha256": "4d3a5049d41e05f3ef6760ad954961572fcf74d304892eb4dad85de3f36768a8"
+    },
+    {
+      "path": "artifacts/v12/screenshots/01-minimal-1920.png",
+      "sha256": "85c91b4c7ef5e24f2263f2c20293fc735d3307c7f3f58bfc7864520c83d576c1"
+    },
+    {
+      "path": "artifacts/v12/screenshots/02-advice-1366.png",
+      "sha256": "20ef80f3967c221a2c808b9d1fba279240b275eda7a2b011c84cf306df4efd1e"
+    },
+    {
+      "path": "artifacts/v12/screenshots/02-advice-1920.png",
+      "sha256": "41e4244c13bd5910a66ddcf267f57d9c229401be1bba64da13434efc41085a73"
+    },
+    {
+      "path": "artifacts/v12/screenshots/03-explanation-1366.png",
+      "sha256": "4118da4d917e80619deff5f7275ad91cb93c5a6acd6a0d72fc730c4c1fe54213"
+    },
+    {
+      "path": "artifacts/v12/screenshots/03-explanation-1920.png",
+      "sha256": "2f17197196f72f13370f41a73af2c68aad8e42379e131edf72c14933569528ee"
+    },
+    {
+      "path": "artifacts/v12/screenshots/04-short-revision-1366.png",
+      "sha256": "5b4e6edf68923cd28f44f9e96922291178dd19ac78101628c2de9af2155b259a"
+    },
+    {
+      "path": "artifacts/v12/screenshots/04-short-revision-1920.png",
+      "sha256": "509174c8800323622dd451ce5f7fda4e8a209994dd70aaebd90331e13e2e7f0e"
+    },
+    {
+      "path": "artifacts/v12/screenshots/05-resource-gap-1366.png",
+      "sha256": "75095cf9d12ff19c80817a0e98e881c7fb4c28f47e78e4053145e084fd22f77a"
+    },
+    {
+      "path": "artifacts/v12/screenshots/05-resource-gap-1920.png",
+      "sha256": "89df06fd24a62b36bcd9cb11926ef4b485c60ced65a64cb8b96857e520c53321"
+    }
+  ]
+}

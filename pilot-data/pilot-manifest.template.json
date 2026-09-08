@@ -1,0 +1,51 @@
+{
+  "package_kind": "template",
+  "target_partner_name": "",
+  "allowed_diagnostic_scope": [],
+  "request": {
+    "target_partner_id": "",
+    "request_source": "partner_manager",
+    "raw_demand": "",
+    "development_goal": "",
+    "trainee_role": "",
+    "trainee_count": null,
+    "known_baseline": "",
+    "duration_weeks": null,
+    "hours_per_week": null,
+    "constraints": {
+      "language": "",
+      "site": "",
+      "account": "",
+      "network": "",
+      "environment": "",
+      "cost": "",
+      "budget": ""
+    },
+    "accepted_assumptions": {},
+    "targets": [
+      {
+        "capability_tag_id": "",
+        "requirement": "",
+        "confirmed_gap": false,
+        "confirmation_note": ""
+      }
+    ],
+    "source_task_id": null,
+    "source_case_id": null,
+    "source_case_version": null,
+    "model_input_allowed": false,
+    "partner_goal_allowed": false
+  },
+  "resources": [
+    "course.template.json",
+    "lab.template.json"
+  ],
+  "shared_cases": [
+    "shared-case.template.json"
+  ],
+  "resource_gaps": {
+    "reviewed": false,
+    "items": [],
+    "no_known_gaps_reason": ""
+  }
+}

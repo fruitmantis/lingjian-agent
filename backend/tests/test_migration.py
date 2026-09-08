@@ -47,7 +47,7 @@ def run_migration(path: Path, uploads: Path) -> None:
     )
 
 
-def test_v8_backup_migrates_to_v9_idempotently_without_new_violations(tmp_path):
+def test_v8_backup_migrates_to_current_schema_idempotently_without_new_violations(tmp_path):
     assert V8_BACKUP.exists()
     migrated = tmp_path / "migration-replay.db"
     shutil.copy2(V8_BACKUP, migrated)
@@ -58,7 +58,7 @@ def test_v8_backup_migrates_to_v9_idempotently_without_new_violations(tmp_path):
 
     run_migration(migrated, tmp_path / "uploads")
     first = snapshot(migrated)
-    assert first["version"] == "9"
+    assert first["version"] == "12"
     assert first["integrity"] == "ok"
     assert first["counts"] == before["counts"]
     assert first["unowned"] == 0

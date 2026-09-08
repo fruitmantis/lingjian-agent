@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
-const API = "http://127.0.0.1:18000";
+const API = "http://127.0.0.1:8100";
 type Task = { id: string; requirement: string; createdAt: string; taskStatus: string; recommendations: unknown[]; archivedAt: null; opportunity: null };
 async function login(page: Page, request: APIRequestContext) {
   const response = await request.post(`${API}/auth/login`, { data: { username: "user_a", password: "ValidationPass123" } });
@@ -47,7 +47,7 @@ test("submission appears before acknowledgement and survives navigation and relo
   const requirement = "SIDEBAR_SLOW 即时任务验证";
   await page.locator("#requirement").fill(requirement);
   const accepted = page.waitForResponse(response => response.url() === `${API}/agent/tasks` && response.request().method() === "POST");
-  await page.getByRole("button", { name: "开始任务", exact: true }).click();
+  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
   await expect(page.locator(".pending-task")).toContainText("提交中");
   const response = await accepted;
   expect(response.status()).toBe(202);
@@ -98,8 +98,8 @@ test("ten-row pages preserve scroll, selection and statuses when a new task arri
   await expect(rows(page)).toHaveCount(36);
   await expect(page.getByRole("button", { name: "加载更多" })).toHaveCount(0);
   expect(new Set(await rows(page).evaluateAll(els => els.map(el => el.getAttribute("href")))).size).toBe(36);
-  await mkdir("/tmp/lingjian-task-navigation", { recursive: true });
-  await page.screenshot({ path: "/tmp/lingjian-task-navigation/sidebar-desktop.png" });
+  await mkdir("/tmp/lingjian-enablement-navigation", { recursive: true });
+  await page.screenshot({ path: "/tmp/lingjian-enablement-navigation/sidebar-desktop.png" });
 });
 
 test("directly opened older task stays visible without changing the first page", async ({ page, request }) => {
@@ -140,7 +140,7 @@ test("lost acknowledgement confirms the same ID without a second submission", as
   });
   await page.goto("/");
   await page.locator("#requirement").fill("确认原任务");
-  await page.getByRole("button", { name: "开始任务", exact: true }).click();
+  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
   await expect(page.locator(".current-task-summary")).toContainText("已完成");
   await expect(rows(page)).toHaveCount(1);
   await expect(page.locator(".pending-task")).toHaveCount(0);
@@ -159,7 +159,7 @@ test("unconfirmed submission survives reload and only queries its original ID", 
   });
   await page.goto("/");
   await page.locator("#requirement").fill("暂未确认的任务");
-  await page.getByRole("button", { name: "开始任务", exact: true }).click();
+  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
   await expect(page.locator(".pending-task")).toContainText("提交未确认");
   await page.reload();
   await expect(page.locator(".pending-task")).toContainText("待确认的提交");
@@ -184,8 +184,8 @@ for (const width of [1024, 768]) {
     await expect(page.locator("#requirement")).toHaveValue("");
     expect(creates).toBe(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
-    await mkdir("/tmp/lingjian-task-navigation", { recursive: true });
-    await page.screenshot({ path: `/tmp/lingjian-task-navigation/sidebar-${width}.png`, fullPage: true });
+    await mkdir("/tmp/lingjian-enablement-navigation", { recursive: true });
+    await page.screenshot({ path: `/tmp/lingjian-enablement-navigation/sidebar-${width}.png`, fullPage: true });
   });
 }
 
@@ -205,7 +205,7 @@ test("starting a blank task during submission keeps the previous job in navigati
   });
   await page.goto("/");
   await page.locator("#requirement").fill("保留后台任务");
-  await page.getByRole("button", { name: "开始任务", exact: true }).click();
+  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
   await expect(page.locator(".pending-task")).toContainText("提交中");
   await page.getByRole("link", { name: "开启新任务", exact: true }).click();
   await expect(page.locator("#requirement")).toHaveValue("");

@@ -1,4 +1,6 @@
 "use client";
+import {ClassificationFields} from "@/components/business-taxonomy";
+
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
@@ -9,6 +11,7 @@ type Partner = { id: string; name: string; intro: string | null; capabilities: s
 export default function AdminPartnersPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
   const [name, setName] = useState("");
+  const [industries,setIndustries]=useState(""),[regions,setRegions]=useState("");
   const [loading, setLoading] = useState(true);
   const [batchLoading, setBatchLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -29,9 +32,9 @@ export default function AdminPartnersPage() {
   async function create(event: FormEvent) {
     event.preventDefault(); setError(null);
     try {
-      const response = await apiFetch("/partners", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const response = await apiFetch("/partners", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, industries, service_areas:regions }) });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "新增失败");
-      setName(""); await load();
+      setName(""); setIndustries(""); setRegions(""); await load();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "新增失败"); }
   }
   async function toggle(partner: Partner) {
@@ -61,7 +64,7 @@ export default function AdminPartnersPage() {
   }
   return (
     <main className="page"><p className="eyebrow">Partner Management</p><h1>伙伴管理</h1><p className="lead">维护伙伴基础信息、资料、案例和 AI 画像。</p>
-      <section className="card"><h2>新增伙伴</h2><form onSubmit={create} className="inline-search"><input value={name} onChange={event => setName(event.target.value)} placeholder="伙伴名称" required maxLength={200} /><button>新增伙伴</button></form></section>
+      <section className="card"><h2>新增伙伴</h2><form onSubmit={create} className="form-grid"><input value={name} onChange={event => setName(event.target.value)} placeholder="伙伴名称" required maxLength={200} /><ClassificationFields industries={industries} regions={regions} onIndustries={setIndustries} onRegions={setRegions}/><div><button>新增伙伴</button></div></form></section>
       <section className="card"><div className="section-heading-row"><h2>伙伴列表</h2><div className="table-actions"><span className="result-count">共 {partners.length} 家</span><button onClick={batchGenerate} disabled={batchLoading}>{batchLoading ? "批量生成中..." : "批量生成画像"}</button></div></div>{message && <p className="success-text">{message}</p>}{error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重试</button></div>}{loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>伙伴名称</th><th>能力标签</th><th>行业经验</th><th>画像状态</th><th>伙伴状态</th><th>操作</th></tr></thead><tbody>{partners.map(partner => <tr key={partner.id}><td>{partner.name}</td><td>{partner.capabilities || "-"}</td><td>{partner.industries || "-"}</td><td>{partner.ai_profile ? "已生成" : "待生成"}</td><td><span className={`status-badge ${partner.status}`}>{partner.status === "active" ? "启用" : "停用"}</span></td><td><div className="table-actions"><Link href={`/admin/partners/${partner.id}`} className="secondary-btn">维护</Link><button className="secondary-btn" onClick={() => toggle(partner)}>{partner.status === "active" ? "停用" : "启用"}</button></div></td></tr>)}</tbody></table></div>}</section>
     </main>
   );

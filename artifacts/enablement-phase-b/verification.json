@@ -1,0 +1,374 @@
+{
+  "screenshots": [
+    {
+      "file": "center-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 1110,
+      "full_page": true,
+      "sha256": "07c2488103f302afdd385a3a776e46212eb4a1991e5630d1e39f78c9bbd79500"
+    },
+    {
+      "file": "center-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 1086,
+      "full_page": true,
+      "sha256": "30e229585ceeed637a6091b1ac966cc72a28be872680c724555277a3c7425e52"
+    },
+    {
+      "file": "course-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 1229,
+      "full_page": true,
+      "sha256": "cbbf18b3ba9ca3521ee65b3f69a346fd34b2d1ed2ed6c2cfa21c6cb79da24388"
+    },
+    {
+      "file": "course-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 1229,
+      "full_page": true,
+      "sha256": "f1be41030d82c49c51105d8410b3fdef8be133e721df023758059e7258641915"
+    },
+    {
+      "file": "match-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 2706,
+      "full_page": true,
+      "sha256": "622f95cd34d12f866fad07c82a9aa8eee4aaa42e66d5067d7fe43575090dfdcc"
+    },
+    {
+      "file": "match-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 2706,
+      "full_page": true,
+      "sha256": "e8ea19b07f0565d38e8143db9054e9169a2a414123558beab023cb47995b17ea"
+    },
+    {
+      "file": "partner-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 1352,
+      "full_page": true,
+      "sha256": "5e01ad20add420294e4cf3ada18aba0f936d5a4f3ed2ec0a41bb534201c5d54d"
+    },
+    {
+      "file": "partner-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 1352,
+      "full_page": true,
+      "sha256": "f4c3bf95fa33d6fcd2806a124bb8c7773f4adc0bc8b241a8e85e8736a5804c05"
+    },
+    {
+      "file": "project-context-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 1503,
+      "full_page": true,
+      "sha256": "67cf525d80b18318da45b7c4670d8fd6a34feb58e3646e497427568f8f5586be"
+    },
+    {
+      "file": "project-context-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 1503,
+      "full_page": true,
+      "sha256": "8dda84b4195f93ebc0eb623ad21b4da58b598855dd379fdae8bed7c124cbcf65"
+    },
+    {
+      "file": "resources-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 1279,
+      "full_page": true,
+      "sha256": "a9f74f36e58aefe7ce9ea567bfcea76371c8e5c2ff25d7367f755e6c2a6ec89a"
+    },
+    {
+      "file": "resources-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 1279,
+      "full_page": true,
+      "sha256": "14c06bfa1514c8e1a127546732bea51abe0cfdbf3462e2c6e9202f137ba7fc96"
+    },
+    {
+      "file": "scenes-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 1010,
+      "full_page": true,
+      "sha256": "f013bca8a77719daae289b2b85b0af96a8eae4271d449331540e0e0206155150"
+    },
+    {
+      "file": "scenes-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 1080,
+      "full_page": true,
+      "sha256": "4b090353d0eb7cbe89cdba647399d81b2a62daa50a4403e58dad511fa44f47ad"
+    },
+    {
+      "file": "shared-case-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 1420,
+      "full_page": true,
+      "sha256": "c7de926c2fda9ac3201dc7a4beef2a7fde22b178f138af4d08687764fd9cbd8a"
+    },
+    {
+      "file": "shared-case-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 1420,
+      "full_page": true,
+      "sha256": "4da34ad74c79f315914a123437c66a6da3f91458db443acd7e9c59b5a120b4c9"
+    },
+    {
+      "file": "tasks-1366.png",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_height": 768,
+      "full_page": true,
+      "sha256": "af694e9d2ab28905cbc766a0486b9cc5f1c01bc95c714d02b0bbe1068eae8ad6"
+    },
+    {
+      "file": "tasks-1920.png",
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "image_height": 1080,
+      "full_page": true,
+      "sha256": "565a1b46d10272c1712d319c183d4692f1aa061f1ffe281123526c4ab3061015"
+    }
+  ],
+  "test_dataset": "Synthetic only; /tmp/lingjian-enablement-e2e",
+  "backend_full": {
+    "passed": 296,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 2
+  },
+  "backend_final_targeted": {
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browser_full": {
+    "passed": 51,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browser_final_targeted": {
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "typecheck": "passed",
+  "build": "passed",
+  "resource_search_benchmark": {
+    "courses_and_labs": 2000,
+    "shared_cases": 1000,
+    "iterations": 20,
+    "p95_seconds": 0.0428,
+    "scope": "in-process catalog search, excludes external source latency"
+  },
+  "real_model_calls": 0,
+  "migration": {
+    "before_schema": "10",
+    "after_schema": "11",
+    "before_counts": {
+      "partners": 33,
+      "cases": 3,
+      "deliverables": 0,
+      "partner_documents": 3,
+      "users": 1,
+      "capability_tags": 24,
+      "capability_tag_categories": 7,
+      "_health_check": 0,
+      "model_configs": 2,
+      "model_usage_configs": 6,
+      "user_audit_logs": 13,
+      "user_applications": 0,
+      "match_records": 48,
+      "demand_profiles": 48,
+      "project_opportunities": 48,
+      "capability_tag_suggestions": 32,
+      "enablement_resources": 0,
+      "enablement_resource_versions": 0,
+      "case_share_configs": 0,
+      "case_share_versions": 0,
+      "resource_capability_map": 0,
+      "enablement_reviews": 0,
+      "enablement_audit_events": 0
+    },
+    "after_counts": {
+      "partners": 33,
+      "cases": 3,
+      "deliverables": 0,
+      "partner_documents": 3,
+      "users": 1,
+      "capability_tags": 24,
+      "capability_tag_categories": 7,
+      "_health_check": 0,
+      "model_configs": 2,
+      "model_usage_configs": 6,
+      "user_audit_logs": 13,
+      "user_applications": 0,
+      "match_records": 48,
+      "demand_profiles": 48,
+      "project_opportunities": 48,
+      "capability_tag_suggestions": 32,
+      "enablement_resources": 0,
+      "enablement_resource_versions": 0,
+      "case_share_configs": 0,
+      "case_share_versions": 0,
+      "resource_capability_map": 0,
+      "enablement_reviews": 0,
+      "enablement_audit_events": 0,
+      "resource_redirect_events": 0
+    },
+    "existing_tables_unchanged": 23,
+    "changed_existing_tables": [],
+    "integrity": "ok",
+    "before_fk": [
+      [
+        "cases",
+        3,
+        "partners",
+        0
+      ],
+      [
+        "cases",
+        4,
+        "partners",
+        0
+      ]
+    ],
+    "after_fk": [
+      [
+        "cases",
+        3,
+        "partners",
+        0
+      ],
+      [
+        "cases",
+        4,
+        "partners",
+        0
+      ]
+    ],
+    "new_fk_count": 0,
+    "health_statuses": {
+      "http://127.0.0.1:8100/health": 200,
+      "http://127.0.0.1:8100/enablement/resources": 401,
+      "http://127.0.0.1:3100/enablement": 200,
+      "http://127.0.0.1:3000": 200,
+      "http://127.0.0.1:8000/health": 200
+    },
+    "independent_regular_uploads": 8
+  },
+  "stable_protection": {
+    "stable_branch": "main",
+    "stable_head": "f79cbb29ec7b3ad70c88e618e3161211f211c06a",
+    "stable_status": "",
+    "protected_files_checked": 163,
+    "changed_files": [],
+    "stable_db_tables_checked": 16,
+    "stable_db_changed_tables": [
+      "users",
+      "user_audit_logs"
+    ],
+    "stable_schema": "9",
+    "stable_fk_anomalies": [
+      [
+        "cases",
+        3,
+        "partners",
+        0
+      ],
+      [
+        "cases",
+        4,
+        "partners",
+        0
+      ]
+    ],
+    "stable_processes": {
+      "227786": "/home/yuan/project/lingjian-agent",
+      "236033": "/home/yuan/project/lingjian-agent/frontend"
+    },
+    "stable_db_difference": {
+      "comparison": "Phase 0 snapshot, not a same-turn baseline",
+      "user_columns": [
+        "last_login_at",
+        "updated_at"
+      ],
+      "new_login_audit_events": 1,
+      "audit_times": [
+        "2026-09-05T23:14:25.945517+00:00"
+      ]
+    }
+  },
+  "verified_code_sha256": {
+    "backend/app/database.py": "09e04dde7ad66ea74d4dd17ea1edddd16a0d5298ef3b1bd2a6bcd3af57112a86",
+    "backend/app/enablement_catalog.py": "79ac8cf3153ef43713293809381f293c22ffd3790b9bcb20d42507f5f96c2900",
+    "backend/app/enablement_schema.py": "671be08ddac745b259f9fe84bd7ac73a8dc1467760d99006d8325b4f0b152b9e",
+    "backend/app/main.py": "98718c4e5770bddc2177bbe8f34b4ef6242a7e9cf52aaf80dba5d16ecbe4a551",
+    "backend/app/routers/enablement_workspace.py": "e9864a1693040f21f5ae14e8b618af0ab73e574dd6bcdb16cef53f816f102498",
+    "backend/app/routers/match.py": "651b9d284425baaa9595c2749959bf069cbfb9a0948ec35347af17ef7c51299e",
+    "frontend/app/enablement/page.tsx": "65e83d9416f1cb3f03b0ba9f43a751e0379f715a30e0351bee53ab5b68a0cd67",
+    "frontend/app/enablement/resources/[type]/[id]/page.tsx": "c8db6d946ae8207e87d82b152f74432beb2a313bd366c8efec3fc7958a381b8c",
+    "frontend/app/globals.css": "f510674bb036b07b5e976545b2a449c3ca4816a011dad690da2d6bc6a83d06d5",
+    "frontend/app/page.tsx": "27ca7d58bdcde0b5244c906335b821a35c6142c5f62f8ad9f65bf0f31aef9a3f",
+    "frontend/app/partners/[id]/page.tsx": "65c07109aec1e94c5308e53d337a9fbfae6ce7c0d8960a39f5bf3d526e54ebcd",
+    "frontend/app/scenes/page.tsx": "74bdcf5118c3ae57c8d53a101390ed3e51d27c939abb7f09000ba3721c219293",
+    "frontend/app/tasks/[id]/page.tsx": "cb8a7b806ecaf4323be6976edbc4efe74c5e4b9816e7abb3bc4cd7c67daebf67",
+    "frontend/app/tasks/page.tsx": "f0860c87d67f09cbc0345907ff8fcf6878d353fbeb188302ac95f7990e57da4a",
+    "frontend/components/app-shell.tsx": "c6e20bf4d1894982573022018e198b58a693a856b2bcd5572479ae373f33ed1d",
+    "frontend/components/enablement-workspace.tsx": "0f94893cb1b7aecb4ddaea70a7ee5dabba43075b7d3c2e3e1a46855d8d8fb0fb",
+    "frontend/components/task-list.tsx": "f6f82aeaffd72ca4b591123565882203cf63aa645298b5e242edafa7782f0156",
+    "frontend/lib/scenes.ts": "18db88775132883fcae0d6b038f17d0c692530f540db53786933b2bdf9240952",
+    "frontend/lib/skills.ts": "bd7d40fe58ee8b2fdf5978a8b1fccb967c5765866669c06386931f180c44f23f"
+  }
+}

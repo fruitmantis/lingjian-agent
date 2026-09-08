@@ -1,3 +1,7 @@
+import sqlite3
+
+import pytest
+
 from concurrent.futures import ThreadPoolExecutor
 
 from backend.app.auth import verify_password
@@ -12,7 +16,8 @@ def application_payload(index: int = 1, **overrides) -> dict:
         "username": f"applicant_{index}",
         "display_name": f"申请人 {index}",
         "department": "解决方案部",
-        "contact": f"applicant_{index}@company.example",
+        "employee_id": f"EMP-{index}",
+        "email": f"applicant_{index}@company.example",
         "reason": "验证内部账号申请",
         "password": "ApplicantPass123",
     }
@@ -38,9 +43,9 @@ def test_application_002_duplicate_username_is_rejected(client):
     assert client.post("/auth/user-applications", json=duplicate).status_code == 409
 
 
-def test_application_003_duplicate_contact_is_rejected(client):
+def test_application_003_duplicate_email_is_rejected(client):
     assert client.post("/auth/user-applications", json=application_payload()).status_code == 201
-    duplicate = application_payload(2, contact="APPLICANT_1@COMPANY.EXAMPLE")
+    duplicate = application_payload(2, email="APPLICANT_1@COMPANY.EXAMPLE")
     assert client.post("/auth/user-applications", json=duplicate).status_code == 409
 
 
@@ -111,3 +116,58 @@ def test_application_pending_capacity_is_rate_limited(client, monkeypatch):
     monkeypatch.setenv("USER_APPLICATION_PENDING_LIMIT", "1")
     assert client.post("/auth/user-applications", json=application_payload(1)).status_code == 201
     assert client.post("/auth/user-applications", json=application_payload(2)).status_code == 429
+
+
+@pytest.mark.parametrize("field,value", [("employee_id", ""), ("employee_id", "   "), ("employee_id", "EMP 01"), ("email", "invalid"), ("email", "a@"), ("department", "  "), ("display_name", "  ")])
+def test_identity_fields_are_validated_before_writes(client, field, value):
+    response = client.post("/auth/user-applications", json=application_payload(**{field: value}))
+    assert response.status_code == 422
+    with get_db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM user_applications").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("field", ["employee_id", "email"])
+def test_identity_fields_are_required(client, field):
+    payload = application_payload()
+    payload.pop(field)
+    payload["contact"] = "legacy@company.example"
+    assert client.post("/auth/user-applications", json=payload).status_code == 422
+
+
+def test_identity_round_trip_admin_only_and_no_password(client):
+    admin = make_user("identity_admin", role="admin")
+    user = make_user("identity_user")
+    payload = application_payload(employee_id="  EMP-Case  ", email="  Applicant@Company.Example  ", reason=None)
+    assert client.post("/auth/user-applications", json=payload).status_code == 201
+    assert client.get("/admin/user-applications", headers=auth_headers(user)).status_code == 403
+    row = client.get("/admin/user-applications", headers=auth_headers(admin)).json()["items"][0]
+    assert row["employee_id"] == "EMP-Case"
+    assert row["email"] == "applicant@company.example"
+    assert row["reason"] is None
+    assert "password" not in row and "password_hash" not in row
+    duplicate = application_payload(2, employee_id="emp-case")
+    assert client.post("/auth/user-applications", json=duplicate).status_code == 409
+
+
+@pytest.mark.parametrize("legacy_contact", ["EMP-1", "APPLICANT_1@COMPANY.EXAMPLE"])
+def test_legacy_identity_still_prevents_duplicate_registration(client, legacy_contact):
+    assert client.post("/auth/user-applications", json=application_payload(2)).status_code == 201
+    with get_db() as conn:
+        conn.execute("UPDATE user_applications SET employee_id=NULL, email=NULL, contact=?", (legacy_contact,))
+    assert client.post("/auth/user-applications", json=application_payload()).status_code == 409
+
+
+def test_identity_column_upgrade_preserves_old_rows_and_is_repeatable(tmp_path):
+    from backend.app.database import _ensure_application_identity_columns
+    with sqlite3.connect(tmp_path / "legacy.db") as conn:
+        conn.execute("CREATE TABLE user_applications(id TEXT PRIMARY KEY, contact TEXT, password_hash TEXT)")
+        conn.execute("INSERT INTO user_applications VALUES ('legacy', 'old-id', 'existing-hash')")
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        _ensure_application_identity_columns(conn)
+        conn.rollback()
+        assert [c[1] for c in conn.execute("PRAGMA table_info(user_applications)")] == ["id", "contact", "password_hash"]
+        _ensure_application_identity_columns(conn)
+        _ensure_application_identity_columns(conn)
+        assert conn.execute("SELECT * FROM user_applications").fetchone() == ("legacy", "old-id", "existing-hash", None, None)
+        assert conn.execute("PRAGMA integrity_check").fetchone()[0] == "ok"

@@ -112,9 +112,12 @@ def delete_deliverable(case_id: str, deliverable_id: str):
 @router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
 def delete_case(case_id: str):
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute("SELECT id FROM cases WHERE id = ?", (case_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="案例不存在")
+        if conn.execute("SELECT case_id FROM case_share_configs WHERE case_id = ?", (case_id,)).fetchone():
+            raise HTTPException(status.HTTP_409_CONFLICT, detail="案例已有共享版本或配置，需保留原案例以供追溯；可停止共享")
         files = [row["file_path"] for row in conn.execute("SELECT file_path FROM deliverables WHERE case_id = ?", (case_id,)).fetchall()]
         conn.execute("DELETE FROM deliverables WHERE case_id = ?", (case_id,))
         conn.execute("DELETE FROM cases WHERE id = ?", (case_id,))

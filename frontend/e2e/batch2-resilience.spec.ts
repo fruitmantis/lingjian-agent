@@ -1,7 +1,7 @@
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 import { fetchWithTimeout, requestTimeoutMs, responseError } from "../lib/api-request";
 
-const API = "http://127.0.0.1:18000";
+const API = "http://127.0.0.1:8100";
 
 async function login(page: Page, request: APIRequestContext, username = "admin1") {
   const response = await request.post(`${API}/auth/login`, { data: { username, password: "ValidationPass123" } });
@@ -60,7 +60,7 @@ test("task processing can continue beyond the submission request budget", async 
   await page.route(`${API}/agent/tasks/*`, route => route.fulfill({ json: { id: taskId, requirement: "慢响应验证", createdAt: new Date(started).toISOString(), recommendations: [], taskStatus: Date.now() - started > 31_000 ? "ready" : "matching" } }));
   await page.goto("/");
   await page.locator("#requirement").fill("慢响应验证：寻找制造业知识库伙伴");
-  await page.getByRole("button", { name: "开始任务", exact: true }).click();
+  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
   await expect(page.locator("#requirement")).toHaveValue("");
   await expect(page.locator(".current-task-summary")).toContainText("已完成", { timeout: 40_000 });
   await expect(page.locator(".assistant-error")).toHaveCount(0);
@@ -80,9 +80,9 @@ test("submission timeout advises checking the original task without resubmission
   });
   await page.goto("/");
   await page.locator("#requirement").fill("超时验证：寻找制造业知识库伙伴");
-  await page.getByRole("button", { name: "开始任务", exact: true }).click();
+  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
   await expect(page.locator(".assistant-error")).toContainText("提交结果暂未确认");
-  await expect(page.getByRole("button", { name: "开始任务", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "开始匹配", exact: true })).toBeEnabled();
   await expect(page.locator("#requirement")).toHaveValue("超时验证：寻找制造业知识库伙伴");
   expect(attempts).toBe(1);
 });
@@ -131,9 +131,9 @@ test("model mutation failures keep the form and restore controls", async ({ page
   await row.getByRole("button", { name: "编辑", exact: true }).click();
   const editingRow = page.locator("tbody tr").filter({ has: page.locator('input[type="number"]') });
   await editingRow.locator('input[type="number"]').fill("384000");
-  await editingRow.getByRole("button", { name: "✓", exact: true }).click();
+  await editingRow.getByRole("button", { name: "保存", exact: true }).click();
   await expect(editingRow.locator('input[type="number"]')).toHaveValue("384000");
-  await expect(editingRow.getByRole("button", { name: "✓", exact: true })).toBeEnabled();
+  await expect(editingRow.getByRole("button", { name: "保存", exact: true })).toBeEnabled();
 });
 
 test("user creation and status network errors are caught and inputs retained", async ({ page, request }) => {

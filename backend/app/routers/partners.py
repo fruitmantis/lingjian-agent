@@ -9,9 +9,10 @@ from pydantic import BaseModel
 from ..auth import require_active_user, require_admin
 from ..database import get_db
 from ..models import PartnerCreate, PartnerOut
+from ..business_taxonomy import ClassificationInput, ClassificationOutput, preserve_pending, project_partner
 
 
-class PartnerUpdate(BaseModel):
+class PartnerUpdate(ClassificationInput):
     name: str | None = None
     intro: str | None = None
     capabilities: str | None = None
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/partners", tags=["partners"], dependencies=[Depends(
 _COLUMNS = "id, name, intro, capabilities, service_areas, industries, ai_profile, status, created_at, updated_at"
 
 
-class PartnerProfileCard(BaseModel):
+class PartnerProfileCard(ClassificationOutput):
     id: str
     name: str
     capabilities: str | None
@@ -71,11 +72,11 @@ def list_profiles() -> list[PartnerProfileCard]:
         partners = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE status = 'active' ORDER BY created_at DESC").fetchall()
         result = []
         for p in partners:
-            pd = dict(p)
+            pd = project_partner(dict(p))
             case_count = conn.execute("SELECT COUNT(*) as cnt FROM cases WHERE partner_id = ?", (pd["id"],)).fetchone()["cnt"]
             deliverable_count = conn.execute("SELECT COUNT(*) as cnt FROM deliverables WHERE case_id IN (SELECT id FROM cases WHERE partner_id = ?)", (pd["id"],)).fetchone()["cnt"]
-            hs, hl, hr = calculate_partner_health(pd.get("ai_profile"), pd.get("capabilities"), pd.get("service_areas"), pd.get("industries"), case_count, deliverable_count)
-            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), case_count=case_count, deliverable_count=deliverable_count, healthScore=hs, healthLevel=hl, healthReason=hr))
+            hs, hl, hr = calculate_partner_health(p["ai_profile"], p["capabilities"], p["service_areas"], p["industries"], case_count, deliverable_count)
+            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), case_count=case_count, deliverable_count=deliverable_count, classification_pending=pd["classification_pending"], healthScore=hs, healthLevel=hl, healthReason=hr))
     return result
 
 
@@ -125,9 +126,9 @@ def update_partner(partner_id: str, payload: PartnerUpdate) -> PartnerOut:
         if payload.capabilities is not None:
             updates.append("capabilities = ?"); params.append(payload.capabilities)
         if payload.service_areas is not None:
-            updates.append("service_areas = ?"); params.append(payload.service_areas)
+            updates.append("service_areas = ?"); params.append(preserve_pending(row["service_areas"], payload.service_areas, "region"))
         if payload.industries is not None:
-            updates.append("industries = ?"); params.append(payload.industries)
+            updates.append("industries = ?"); params.append(preserve_pending(row["industries"], payload.industries, "industry"))
         if payload.status is not None:
             if payload.status not in ("active", "disabled"):
                 raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="伙伴状态无效")

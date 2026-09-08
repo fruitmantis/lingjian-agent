@@ -10,6 +10,7 @@ type CategoryFilter = (typeof SCENE_CATEGORIES)[number];
 
 const STATUS_TEXT = {
   ready: "可使用",
+  preparation: "可整理诉求",
   embedded: "随匹配生成",
   building: "能力建设中",
 } as const;
@@ -98,7 +99,7 @@ export default function ScenesPage() {
           <section className="scene-gallery-grid" aria-live="polite">
           {visibleScenes.map((scene) => {
             return (
-              <article className={`scene-gallery-card ${scene.availability}`} key={scene.id}>
+              <article className={`scene-gallery-card ${scene.availability}${scene.actionHref ? " is-interactive" : ""}`} key={scene.id}>
                 <div className="scene-card-header">
                   <span className={`scene-line-icon scene-tone-${sceneTone(scene.category)}`}><UiIcon name={sceneIcon(scene.category)} size={20} /></span>
                   <div className="scene-card-title-wrap">

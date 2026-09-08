@@ -1,0 +1,36 @@
+{
+  "full_browser": {
+    "command": "npm --prefix frontend run test:e2e",
+    "passed": 66,
+    "failed": 0,
+    "skipped": 0,
+    "duration": "8.3m"
+  },
+  "final_layout_regression": {
+    "command": "npm --prefix frontend run test:e2e -- ui-system.spec.ts business-taxonomy.spec.ts batch3-quality.spec.ts",
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "duration": "1.3m",
+    "reason": "Final report-grid and overseas-label layout refinements after full regression"
+  },
+  "typecheck": {
+    "command": "npm --prefix frontend run typecheck",
+    "status": "PASS"
+  },
+  "production_build": {
+    "command": "npm --prefix frontend run build",
+    "status": "PASS"
+  },
+  "backend_pytest": {
+    "status": "NOT RUN",
+    "reason": "No backend or API contract modifications"
+  },
+  "page_audit": {
+    "checks": 48,
+    "page_errors": 0,
+    "horizontal_overflow": 0,
+    "writes": 0
+  },
+  "real_model_calls": 0
+}

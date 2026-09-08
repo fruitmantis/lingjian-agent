@@ -1,0 +1,2252 @@
+{
+  "network": [
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-regular.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-bold.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-regular.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-bold.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-regular.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-bold.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-regular.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-bold.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-regular.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-bold.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-regular.woff2",
+      "status": 200
+    },
+    {
+      "url": "http://127.0.0.1:3100/fonts/huawei-cloud/huawei-sans-bold.woff2",
+      "status": 200
+    }
+  ],
+  "blockedOrigins": [],
+  "externalNetworkBlocked": true,
+  "latinAndDigitsSelfHosted": true,
+  "chineseUsesOfficialSystemFallback": true,
+  "pages": [
+    {
+      "name": "01-project-match",
+      "fonts": [
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "className": "sidebar-footer-link sidebar-logout",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "TEXTAREA",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "assistant-submit",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "active",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "assistant-refresh",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        }
+      ],
+      "samples": [
+        {
+          "selector": "main h1",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "26px",
+            "weight": "700",
+            "lineHeight": "39px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 5
+            }
+          ]
+        },
+        {
+          "selector": "main h2",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "18px",
+            "weight": "700",
+            "lineHeight": "27px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main p",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "18px",
+            "weight": "700",
+            "lineHeight": "27px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 16
+            }
+          ]
+        },
+        {
+          "selector": "main button",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "400",
+            "lineHeight": "normal",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main textarea",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "18px",
+            "weight": "400",
+            "lineHeight": "29.7px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 21
+            }
+          ]
+        },
+        {
+          "selector": "[role=tab]",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "700",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 5
+            }
+          ]
+        }
+      ],
+      "probes": [
+        {
+          "kind": "chinese",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        },
+        {
+          "kind": "chinese",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02-development",
+      "fonts": [
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "className": "sidebar-footer-link sidebar-logout",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "TEXTAREA",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "assistant-submit",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "active",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "assistant-refresh",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "TEXTAREA",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        }
+      ],
+      "samples": [
+        {
+          "selector": "main h1",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "26px",
+            "weight": "700",
+            "lineHeight": "39px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 5
+            }
+          ]
+        },
+        {
+          "selector": "main select",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "normal",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "[role=tab]",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "400",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 5
+            }
+          ]
+        }
+      ],
+      "probes": [
+        {
+          "kind": "chinese",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        },
+        {
+          "kind": "chinese",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03-advisor",
+      "fonts": [
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "className": "sidebar-footer-link sidebar-logout",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "TEXTAREA",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        }
+      ],
+      "samples": [
+        {
+          "selector": "main h1",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "26px",
+            "weight": "700",
+            "lineHeight": "39px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 6
+            }
+          ]
+        },
+        {
+          "selector": "main h2",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "18px",
+            "weight": "700",
+            "lineHeight": "27px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main p",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "700",
+            "lineHeight": "22px",
+            "letterSpacing": "1.26px",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main textarea",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "22.1px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 1
+            },
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 15
+            }
+          ]
+        }
+      ],
+      "probes": [
+        {
+          "kind": "chinese",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        },
+        {
+          "kind": "chinese",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04-resources",
+      "fonts": [
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "className": "sidebar-footer-link sidebar-logout",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "active",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "INPUT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        }
+      ],
+      "samples": [
+        {
+          "selector": "main h1",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "26px",
+            "weight": "700",
+            "lineHeight": "39px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main h2",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "18px",
+            "weight": "700",
+            "lineHeight": "27px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 4
+            },
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 15
+            }
+          ]
+        },
+        {
+          "selector": "main p",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "400",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 32
+            }
+          ]
+        },
+        {
+          "selector": "main button",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "700",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 2
+            }
+          ]
+        },
+        {
+          "selector": "main input",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "20.4286px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 6
+            }
+          ]
+        },
+        {
+          "selector": "main select",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "normal",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "[role=tab]",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "700",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 2
+            }
+          ]
+        }
+      ],
+      "probes": [
+        {
+          "kind": "chinese",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        },
+        {
+          "kind": "chinese",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05-scenes",
+      "fonts": [
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "className": "sidebar-footer-link sidebar-logout",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "active",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "INPUT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "active",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        }
+      ],
+      "samples": [
+        {
+          "selector": "main h1",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "26px",
+            "weight": "700",
+            "lineHeight": "39px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main h2",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "18px",
+            "weight": "700",
+            "lineHeight": "27px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 2
+            },
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 6
+            }
+          ]
+        },
+        {
+          "selector": "main p",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "21.45px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 16
+            }
+          ]
+        },
+        {
+          "selector": "main button",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "700",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 2
+            }
+          ]
+        },
+        {
+          "selector": "main input",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "20.4286px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 12
+            }
+          ]
+        },
+        {
+          "selector": "main select",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "12px",
+            "weight": "400",
+            "lineHeight": "normal",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 1
+            }
+          ]
+        },
+        {
+          "selector": "[role=tab]",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "700",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 2
+            }
+          ]
+        }
+      ],
+      "probes": [
+        {
+          "kind": "chinese",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        },
+        {
+          "kind": "chinese",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06-partners",
+      "fonts": [
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "className": "sidebar-footer-link sidebar-logout",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "INPUT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        }
+      ],
+      "samples": [
+        {
+          "selector": "main h1",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "26px",
+            "weight": "700",
+            "lineHeight": "39px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main h2",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "18px",
+            "weight": "700",
+            "lineHeight": "27px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main input",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "20.4286px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 15
+            }
+          ]
+        }
+      ],
+      "probes": [
+        {
+          "kind": "chinese",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        },
+        {
+          "kind": "chinese",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07-tasks",
+      "fonts": [
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "className": "sidebar-footer-link sidebar-logout",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "active",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "INPUT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "SELECT",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "OPTION",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        },
+        {
+          "tag": "BUTTON",
+          "className": "secondary-btn",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        }
+      ],
+      "samples": [
+        {
+          "selector": "main h1",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "26px",
+            "weight": "700",
+            "lineHeight": "39px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main p",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "400",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 21
+            }
+          ]
+        },
+        {
+          "selector": "main button",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "14px",
+            "weight": "700",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 3
+            }
+          ]
+        },
+        {
+          "selector": "main input",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "20.4286px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 6
+            }
+          ]
+        },
+        {
+          "selector": "main select",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "normal",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main th",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "12px",
+            "weight": "400",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main td",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "13px",
+            "weight": "400",
+            "lineHeight": "22px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 7
+            },
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 13
+            }
+          ]
+        }
+      ],
+      "probes": [
+        {
+          "kind": "chinese",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        },
+        {
+          "kind": "chinese",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08-admin",
+      "fonts": [
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "400",
+          "status": "loaded"
+        },
+        {
+          "family": "HuaweiCloudUI",
+          "weight": "700",
+          "status": "loaded"
+        }
+      ],
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "className": "sidebar-footer-link sidebar-logout",
+          "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif"
+        }
+      ],
+      "samples": [
+        {
+          "selector": "main h1",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "26px",
+            "weight": "700",
+            "lineHeight": "39px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        },
+        {
+          "selector": "main h2",
+          "style": {
+            "family": "HuaweiCloudUI, \"Helvetica Neue\", Helvetica, Arial, \"PingFang SC\", \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"Microsoft JhengHei\", SimSun, sans-serif",
+            "size": "18px",
+            "weight": "700",
+            "lineHeight": "27px",
+            "letterSpacing": "normal",
+            "fontStyle": "normal"
+          },
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 4
+            }
+          ]
+        }
+      ],
+      "probes": [
+        {
+          "kind": "chinese",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 400,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        },
+        {
+          "kind": "chinese",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Microsoft YaHei",
+              "postScriptName": "MicrosoftYaHei-Bold",
+              "isCustomFont": false,
+              "glyphCount": 20
+            }
+          ]
+        },
+        {
+          "kind": "latin",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 52
+            }
+          ]
+        },
+        {
+          "kind": "digits",
+          "weight": 700,
+          "rendered": [
+            {
+              "familyName": "Huawei Sans",
+              "postScriptName": "HuaweiSans-Bold",
+              "isCustomFont": true,
+              "glyphCount": 10
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

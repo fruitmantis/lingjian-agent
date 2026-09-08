@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from .config import get_jwt_secret_key
 from .database import initialize_storage, get_db, recover_stale_tasks
-from .routers import partners, cases, profile, match, documents, users, demand, capability_tags, system, model_config
+from .routers import partners, cases, profile, match, documents, users, demand, capability_tags, system, model_config, enablement, enablement_workspace, development
 from .auth import get_bootstrap_admin
 
 
@@ -30,6 +30,8 @@ def initialize_application() -> None:
                 (admin["id"], admin["username"], admin["hashed_password"], admin["display_name"], admin["role"], admin["status"], admin["must_change_password"], admin["token_version"], admin["created_at"], admin["updated_at"]),
             )
     recover_stale_tasks()
+    from .development_lifecycle import recover
+    recover(startup=True)
 
 
 @asynccontextmanager
@@ -43,7 +45,7 @@ class HealthResponse(BaseModel):
     service: str
 
 
-app = FastAPI(title="灵鉴 Agent API", description="交付伙伴智能匹配智能体 MVP API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="伴飞 Agent API", description="交付伙伴智能匹配智能体 MVP API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=get_cors_origins(), allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
@@ -64,3 +66,8 @@ app.include_router(demand.admin_router)
 app.include_router(capability_tags.router)
 app.include_router(system.router)
 app.include_router(model_config.router)
+
+app.include_router(enablement.router)
+app.include_router(enablement_workspace.router)
+
+app.include_router(development.router)

@@ -3,9 +3,10 @@
 from typing import Literal
 
 from pydantic import BaseModel, Field
+from .business_taxonomy import ClassificationInput, ClassificationOutput
 
 
-class PartnerCreate(BaseModel):
+class PartnerCreate(ClassificationInput):
     name: str = Field(..., min_length=1, max_length=200)
     intro: str | None = None
     capabilities: str | None = Field(None, description="能力标签，逗号分隔")
@@ -13,7 +14,7 @@ class PartnerCreate(BaseModel):
     industries: str | None = Field(None, description="行业经验，逗号分隔")
 
 
-class PartnerOut(BaseModel):
+class PartnerOut(ClassificationOutput):
     id: str
     name: str
     intro: str | None

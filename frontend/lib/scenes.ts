@@ -10,7 +10,7 @@ export const SCENE_CATEGORIES = [
 ] as const;
 
 export type SceneCategory = Exclude<(typeof SCENE_CATEGORIES)[number], "全部">;
-export type SceneAvailability = "ready" | "embedded" | "building";
+export type SceneAvailability = "ready" | "embedded" | "building" | "preparation";
 
 export type SceneDefinition = {
   id: string;
@@ -31,6 +31,41 @@ export type SceneDefinition = {
  * 用户视角的场景注册表。Scene 只映射 Skill，不包含路由、意图识别或执行编排。
  */
 export const SCENE_REGISTRY: readonly SceneDefinition[] = [
+  {
+    id: "partner-enablement-prepare", name: "制定伙伴能力发展建议",
+    description: "选择伙伴并描述发展方向，结合当前画像生成建议，继续解释、比较和调整。",
+    category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["整理伙伴服务能力发展诉求"],
+    tags: ["伙伴发展", "诉求整理"], enabled: true, sortOrder: 61,
+    availability: "ready", actionHref: "/?mode=development", actionLabel: "制定发展建议",
+  },
+  {
+    id: "enablement-resource-search", name: "查找课程与实验",
+    description: "按名称、用途、技术方向与能力检索当前已发布的课程与实验，无需先选择伙伴。",
+    category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["查找数据库迁移课程与实验"],
+    tags: ["课程", "实验", "资源检索"], enabled: true, sortOrder: 62,
+    availability: "ready", actionHref: "/resources?resource_type=course", actionLabel: "查找资源",
+  },
+  {
+    id: "enablement-shared-cases", name: "学习优秀伙伴案例",
+    description: "查看已核验的共享学习版本，了解贡献伙伴的实践方法与实际角色。",
+    category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["查找可学习的伙伴实践案例"],
+    tags: ["共享案例", "实践方法"], enabled: true, sortOrder: 63,
+    availability: "ready", actionHref: "/resources?resource_type=case", actionLabel: "查看共享案例",
+  },
+  {
+    id: "enablement-advice-revise", name: "调整已有发展建议",
+    description: "进入已有发展任务，用自然语言解释、比较或修改建议。",
+    category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["不要基础课，多给实验"],
+    tags: ["自然语言交流", "版本"], enabled: true, sortOrder: 64,
+    availability: "ready", actionHref: "/tasks", actionLabel: "选择已有任务",
+  },
+  {
+    id: "enablement-project-advice", name: "针对项目制定发展建议",
+    description: "从匹配任务的推荐伙伴入口带入项目需求与参考风险。",
+    category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["针对这个项目发展伙伴"],
+    tags: ["项目", "伙伴发展"], enabled: true, sortOrder: 65,
+    availability: "ready", actionHref: "/tasks", actionLabel: "选择项目任务",
+  },
   {
     id: "ai-project-partner-recommendation",
     name: "AI项目伙伴推荐",

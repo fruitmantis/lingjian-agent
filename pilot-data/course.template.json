@@ -1,0 +1,42 @@
+{
+  "source_type": "course",
+  "source_id": null,
+  "source_version": null,
+  "contributor_id": null,
+  "status": "published",
+  "metadata": {
+    "resource_type": "course",
+    "title": "",
+    "summary": "",
+    "target_capability": "",
+    "audience": "",
+    "product_direction": "",
+    "difficulty": "unknown",
+    "language": "",
+    "site": "",
+    "prerequisites": "",
+    "duration_minutes": null,
+    "cost": "unknown",
+    "account_requirement": "",
+    "environment_requirement": "",
+    "source_platform": "",
+    "source_url": "",
+    "capability_tag_ids": []
+  },
+  "permissions": {
+    "base_revision": null,
+    "system_visible": null,
+    "model_allowed": null,
+    "partner_allowed": null,
+    "reason": ""
+  },
+  "review": {
+    "base_revision": null,
+    "link_status": "unknown",
+    "content_checked": false,
+    "authorization_checked": false,
+    "note": ""
+  },
+  "reviewer_id": "",
+  "reviewed_at": ""
+}

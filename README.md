@@ -1,5 +1,10 @@
 # 灵鉴 Agent
 
+> 本功能分支已完成“伙伴服务能力发展中心” Phase 0 + Phase A，仅提供管理员课程/实验资源与案例共享配置；前台中心和方案生成尚未实施。稳定 `main` 与旧服务保持独立。
+>
+> 本分支请使用 `bash enablement-dev.sh start|stop|status` 管理独立 3100/8100 环境；不要用原 `dev.sh` 启动此分支。隔离配置/数据准备与边界见 [开发启动记录](docs/enablement/STARTUP_AND_DESIGN.md)，验证见 [后端批次](docs/enablement/PHASE_A_BACKEND.md) 和 [后台界面批次](docs/enablement/PHASE_A_UI.md)。新环境模型外网访问被阻断，真实业务试点尚未验收。
+
+
 灵鉴 Agent 是面向公司内部人员的伙伴能力洞察与项目需求匹配平台。普通用户可以提交项目需求、获得有证据支撑的伙伴推荐并持续跟进自己的任务；管理员在独立后台维护伙伴、用户、需求运营数据、能力标签、模型配置和系统状态。
 
 当前版本为单机 MVP，运行于 WSL Ubuntu，采用 Next.js + FastAPI + SQLite，不包含面向外部伙伴的开放访问能力。
@@ -276,9 +281,9 @@ npx playwright install chromium   # 首次运行 Playwright 时执行
 npm run test:e2e
 ```
 
-生产构建和开发服务共用 `.next` 目录。运行 `npm run build` 或 Playwright 发布验收前，建议先执行 `bash dev.sh stop`，验证完成后再执行 `bash dev.sh start`，避免并行构建造成缓存冲突。
+本功能分支的生产构建和开发服务共用独立 `frontend/.next`。执行构建或 Playwright 前，先在本 worktree 执行 `bash enablement-dev.sh stop`；不要停止原目录的 3000/8000 稳定服务。验证结束后默认保持新版停止。
 
-Playwright 使用 3100/18000/18080 测试专属端口，并将隔离数据写入 `/tmp/lingjian-agent-e2e`。发布验证不会写入真实数据库或上传目录。
+本功能分支 Playwright 使用 3100/8100/18180（前端/后端/本地 mock）测试端口，并将合成隔离数据写入 `/tmp/lingjian-enablement-e2e`。发布验证不会写入真实数据库或上传目录。
 
 2026-09-04 的发布前验证结果：
 
@@ -301,6 +306,14 @@ Playwright 使用 3100/18000/18080 测试专属端口，并将隔离数据写入
 - [第四批：历史治理清单、受控补齐与验证记录](docs/validation/BATCH_4_REVIEW.md)
 
 2026-09-05 任务导航调整：提交后立即显示、自动查询状态、首批 10 条和游标追加；当前 OpenAPI 为 60 paths / 72 operations。详见[任务导航实现与验证](docs/validation/TASK_NAVIGATION.md)。
+
+## 伙伴服务能力发展中心（Phase B）
+
+本分支新增 `/enablement` 前台：能力发展助手可选择伙伴、查看经过鉴权的来源上下文并在页面内整理诉求；资源中心检索课程、实验和当前已发布共享案例。伙伴详情、匹配结果和共享案例提供上下文入口；统一任务列表展示并筛选真实任务类型。
+
+当前 **不生成发展方案、不保存诉求草稿、不调用真实模型**。已下架、撤权或过期共享版本不可通过前台接口读取或发起跳转；“发起跳转”不代表外部访问或学习完成。现有两个角色与任务所有权不变。
+
+[Phase B 设计](docs/enablement/PHASE_B_STARTUP.md) · [前台批次](docs/enablement/PHASE_B_FRONTEND.md) · [验收与回归记录](docs/enablement/PHASE_B_VALIDATION.md)。本地完整报告为 `PHASE_B_DELIVERY_REPORT.md`，可用 `.venv/bin/python backend/scripts/write_phase_b_report.py` 从已提交记录重建。该报告包含最终 HEAD，因此生成件不纳入 Git；报告源、生成脚本和合成截图已版本化。
 
 ## AI 规则
 

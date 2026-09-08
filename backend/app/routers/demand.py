@@ -1,7 +1,8 @@
 """Demand profile operations router."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, model_validator
+from ..business_taxonomy import canonical, classify, tokens, validate_standard, preserve_pending
 from ..database import get_db
 from ..auth import require_active_user, require_admin
 
@@ -10,7 +11,32 @@ router = APIRouter(prefix="/agent", tags=["demand"], dependencies=[Depends(requi
 admin_router = APIRouter(prefix="/admin", tags=["admin-demand"], dependencies=[Depends(require_admin)])
 
 
-class DemandProfileOut(BaseModel):
+class StandardOutput(BaseModel):
+    classification_pending: dict[str,list[str]] = Field(default_factory=dict)
+    @model_validator(mode='before')
+    @classmethod
+    def standard_projection(cls,value):
+        if not isinstance(value,dict): return value
+        result=dict(value); pending=dict(value.get('classification_pending',{}))
+        for field,kind in [('industryTags','industry'),('regionTags','region'),('industry','industry'),('region','region')]:
+            if field in result:
+                pending[field]=classify(result[field],kind)[1]
+                result[field]=canonical(result[field],kind)
+        result['classification_pending']=pending
+        return result
+
+
+def standard_filter(rows, industry, region, industry_col, region_col):
+    try:
+        selected_industry=tokens(validate_standard(industry,'industry'))
+        selected_region=tokens(validate_standard(region,'region'))
+    except ValueError as exc:
+        raise HTTPException(422,str(exc)) from None
+    return [r for r in rows if (not selected_industry or set(selected_industry)&set(classify(r[industry_col],'industry')[0]))
+            and (not selected_region or set(selected_region)&set(classify(r[region_col],'region')[0]))]
+
+
+class DemandProfileOut(StandardOutput):
     id: str
     matchRecordId: str | None
     requirementText: str
@@ -49,6 +75,8 @@ def _count_tags(rows, col) -> dict[str, int]:
     counts: dict[str, int] = {}
     for r in rows:
         val = r[col] or ""
+        if col in ("industry_tags","region_tags"):
+            val=canonical(val,"industry" if col=="industry_tags" else "region")
         for tag in val.split(","):
             tag = tag.strip()
             if tag:
@@ -153,17 +181,12 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
                LEFT JOIN match_records mr ON mr.id = dp.match_record_id
                WHERE dp.created_at >= ? AND (dp.match_record_id IS NULL OR mr.archived_at IS NULL)"""
         params = [cutoff]
-        if industry:
-            q += " AND industry_tags LIKE ?"
-            params.append(f"%{industry}%")
-        if region:
-            q += " AND region_tags LIKE ?"
-            params.append(f"%{region}%")
         if capability:
             q += " AND capability_tags LIKE ?"
             params.append(f"%{capability}%")
         q += " ORDER BY created_at DESC"
         rows = conn.execute(q, params).fetchall()
+        rows = standard_filter(rows,industry,region,"industry_tags","region_tags")
 
         now_str = datetime.now(timezone.utc).strftime("%Y-%m")
         total = len(rows)
@@ -272,13 +295,8 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
 
         # Distributions
         def count_tags(col):
-            counts = {}
-            for r in rows:
-                for tag in (r[col] or "").split(","):
-                    tag = tag.strip()
-                    if tag:
-                        counts[tag] = counts.get(tag, 0) + 1
-            return sorted([ReportDist(label=k, count=v) for k, v in counts.items()], key=lambda x: x.count, reverse=True)[:10]
+            counts = _count_tags(rows,col)
+            return sorted([ReportDist(label=k,count=v) for k,v in counts.items()], key=lambda x:x.count, reverse=True)[:10]
 
     return ReportResponse(
         overview=ReportOverview(totalDemands=total, thisMonthDemands=this_month, totalPartners=total_partners,
@@ -301,7 +319,7 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
 
 # ============ Project Opportunities ============
 
-class OpportunityOut(BaseModel):
+class OpportunityOut(StandardOutput):
     id: str
     matchRecordId: str | None
     requirementText: str
@@ -330,6 +348,12 @@ class OpportunityOut(BaseModel):
 
 
 class OpportunityUpdate(BaseModel):
+    @field_validator('industry',mode='before',check_fields=False)
+    @classmethod
+    def industry_value(cls,value): return validate_standard(value,'industry')
+    @field_validator('region',mode='before',check_fields=False)
+    @classmethod
+    def region_value(cls,value): return validate_standard(value,'region')
     customerName: str | None = None
     projectName: str | None = None
     industry: str | None = None
@@ -363,7 +387,7 @@ def _save_opportunity_fields(conn, row, payload: OpportunityUpdate, now: str) ->
         value = getattr(payload, field)
         if value is not None:
             updates.append(f"{column} = ?")
-            params.append(value)
+            params.append(preserve_pending(row[column],value,'industry' if column=='industry' else 'region') if column in ('industry','region') else value)
             values[field] = value
     if updates:
         completeness, missing = calculate_opportunity_completeness(values)
@@ -400,10 +424,6 @@ def list_opportunities(keyword: str | None = None, industry: str | None = None, 
         if keyword:
             conditions.append("(project_name LIKE ? OR customer_name LIKE ? OR requirement_text LIKE ?)")
             params.extend([f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"])
-        if industry:
-            conditions.append("industry LIKE ?"); params.append(f"%{industry}%")
-        if region:
-            conditions.append("region LIKE ?"); params.append(f"%{region}%")
         if stage:
             conditions.append("project_stage LIKE ?"); params.append(f"%{stage}%")
         if supplyStatus:
@@ -412,7 +432,7 @@ def list_opportunities(keyword: str | None = None, industry: str | None = None, 
             q += " WHERE " + " AND ".join(conditions)
         q += " ORDER BY created_at DESC"
         rows = conn.execute(q, params).fetchall()
-    return [_opp_to_out(r) for r in rows]
+    return [_opp_to_out(r) for r in standard_filter(rows,industry,region,"industry","region")]
 
 
 @admin_router.get("/opportunities/{opp_id}", response_model=OpportunityOut)

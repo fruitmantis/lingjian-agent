@@ -1,0 +1,267 @@
+{
+  "branch": "feature/partner-enablement-v1.1",
+  "phase_c_accepted": "351489c3d3c89899837930bd7aab01fe61f4a52a",
+  "tested_implementation_commit": "71640891dc20561464975b2ddd948ddb055fdf3a",
+  "schema_changed": false,
+  "backend": {
+    "runs": [
+      {
+        "label": "full suite excluding owned port 8100 process test",
+        "evidence": ".isolation/logs/phase-d-backend-final.xml",
+        "sha256": "8073a1ced1b81b740b3a38bd8d0b4d93cc8a8d4c798a3e85d1d3db436ca580b9",
+        "counts": {
+          "PASS": 389,
+          "FAIL": 0,
+          "NOT RUN": 0,
+          "BLOCKED": 0
+        },
+        "total": 389
+      },
+      {
+        "label": "owned port 8100 process test selected from adapter batch",
+        "evidence": ".isolation/logs/phase-d-adapter-final.xml",
+        "sha256": "012f627c269a5dbb6904add13f9a6ec773dd0c9e1c91dc3e69128a047952296d",
+        "counts": {
+          "PASS": 1,
+          "FAIL": 0,
+          "NOT RUN": 0,
+          "BLOCKED": 0
+        },
+        "total": 1
+      }
+    ],
+    "total": 390,
+    "PASS": 390,
+    "FAIL": 0,
+    "NOT RUN": 0,
+    "BLOCKED": 0,
+    "warnings": "2 existing Starlette 422 constant deprecation warnings"
+  },
+  "browser": {
+    "runs": [
+      {
+        "label": "final full suite",
+        "evidence": ".isolation/logs/phase-d-browser-final.json",
+        "sha256": "ba531103725dfd7ea714515b7a87ac052349d2eddc8a73648d4177eb780b500f",
+        "counts": {
+          "PASS": 56,
+          "FAIL": 0,
+          "NOT RUN": 0,
+          "BLOCKED": 0
+        },
+        "stats": {
+          "startTime": "2026-09-06T05:33:09.360Z",
+          "duration": 365991.884,
+          "expected": 56,
+          "skipped": 0,
+          "unexpected": 0,
+          "flaky": 0
+        }
+      }
+    ],
+    "total": 56,
+    "execution_count": 56,
+    "PASS": 56,
+    "FAIL": 0,
+    "NOT RUN": 0,
+    "BLOCKED": 0
+  },
+  "typecheck": {
+    "status": "PASS",
+    "command": "npm run typecheck",
+    "evidence": ".isolation/logs/phase-d-typecheck.log"
+  },
+  "build": {
+    "status": "PASS",
+    "command": "npm run build",
+    "evidence": ".isolation/logs/phase-d-build.log"
+  },
+  "metrics": {
+    "catalog_performance": {
+      "course_lab_count": 2000,
+      "case_count": 1000,
+      "samples": 60,
+      "p50_seconds": 0.03247501500300132,
+      "p95_seconds": 0.04922113800421357,
+      "max_seconds": 0.06223188998410478,
+      "scope": "catalog Python service: SQL search/count + permission projection + 12 details; no HTTP/browser/external source time"
+    },
+    "candidate_performance": {
+      "course_lab_count": 2000,
+      "case_count": 1000,
+      "samples": 30,
+      "p50_seconds": 0.01746202100184746,
+      "p95_seconds": 0.020846853993134573,
+      "max_seconds": 0.02227396800299175,
+      "scope": "model-safe candidate SQL, permission and constraints filtering; 100 candidate cap; no model/network/browser"
+    },
+    "fixed_samples": [
+      {
+        "goal": "数据库迁移",
+        "capability": "ebbe849f-c38a-442c-ae5d-ff506bf2538c",
+        "resource_ids": [
+          "synthetic-goal-0"
+        ],
+        "plan_id": "fb7d57b0-e5ba-4c37-bee8-124c54f1b255"
+      },
+      {
+        "goal": "Agent 应用交付",
+        "capability": "3004059b-f960-4897-ad57-ae2e2d91d751",
+        "resource_ids": [
+          "synthetic-goal-1"
+        ],
+        "plan_id": "27f2842c-994f-4b08-b704-48b454802671"
+      }
+    ],
+    "parallel_plans": "3 owners / 3 partners / 3 courses / 3 cases; diagnostic barrier reached simultaneously; one version each",
+    "http_creation": {
+      "sample_count": 50,
+      "p50_seconds": 0.00719237100565806,
+      "p95_seconds": 0.011249971023062244,
+      "max_seconds": 0.01723141100956127,
+      "scope": "HTTP loopback 8100 + bearer validation + SQLite commit + executor enqueue; excludes model completion/browser/source site",
+      "slow_model_seconds_per_call": 3,
+      "real_model_calls": 0
+    },
+    "kill_restart": {
+      "port": 8100,
+      "recovery_seconds": 0.40407196700107306,
+      "status": "interrupted",
+      "retry": "ready",
+      "versions": 2,
+      "confirmed_preserved": true
+    }
+  },
+  "supplier_mock": [
+    {
+      "mode": "normal",
+      "status": "ready",
+      "seconds": 0.06663551300880499,
+      "real_provider_calls": 0
+    },
+    {
+      "mode": "markdown",
+      "status": "failed",
+      "seconds": 0.05522112699691206,
+      "real_provider_calls": 0
+    },
+    {
+      "mode": "empty",
+      "status": "failed",
+      "seconds": 0.04201194099732675,
+      "real_provider_calls": 0
+    },
+    {
+      "mode": "invalid",
+      "status": "failed",
+      "seconds": 0.03147100599016994,
+      "real_provider_calls": 0
+    },
+    {
+      "mode": "enum",
+      "status": "failed",
+      "seconds": 0.04479629299021326,
+      "real_provider_calls": 0
+    },
+    {
+      "mode": "http_error",
+      "status": "failed",
+      "seconds": 0.036171533982269466,
+      "real_provider_calls": 0
+    },
+    {
+      "mode": "slow",
+      "status": "failed",
+      "seconds": 0.10081744799390435,
+      "real_provider_calls": 0
+    },
+    {
+      "mode": "dribble",
+      "status": "failed",
+      "seconds": 0.266272184002446,
+      "real_provider_calls": 0
+    }
+  ],
+  "real_model": {
+    "status": "BLOCKED",
+    "execution": "NOT RUN",
+    "reason": "USER AUTHORIZATION REQUIRED",
+    "provider": null,
+    "model": null,
+    "calls": 0,
+    "time": null
+  },
+  "business_data": {
+    "status": "BLOCKED",
+    "reason": "BUSINESS DATA REQUIRED",
+    "requirements": [
+      "DATA-01",
+      "DATA-02"
+    ]
+  },
+  "business_pilot": {
+    "status": "NOT RUN",
+    "reason": "real resources, model authorization and human business review pending"
+  },
+  "canary": {
+    "status": "PASS",
+    "internal_authorized_view": "asserted present",
+    "forbidden_boundaries": [
+      "model request",
+      "persisted generated output",
+      "transferable preview",
+      "copy",
+      "errors",
+      "application logs",
+      "audit fields"
+    ],
+    "final_execution_logs_scanned": [
+      {
+        "path": ".isolation/logs/phase-d-backend-final.log",
+        "sha256": "5d65ed4fbf8977ef51f234a12b4473f2e80e00e3f8d35c184fc46b12adf4078a"
+      },
+      {
+        "path": ".isolation/logs/phase-d-adapter-final.log",
+        "sha256": "b3532cd1b40d60de39dd12d16fa35f66da6d139cca2593a581020820c721f412"
+      },
+      {
+        "path": ".isolation/logs/phase-d-browser-final.log",
+        "sha256": "d50e5e07d2ec6a74a10d72161a4eef365b63513f6b9f80ae838105c6a1d04c03"
+      },
+      {
+        "path": ".isolation/logs/phase-d-typecheck.log",
+        "sha256": "55cdbfc060748ff319a0839e078af5b9ee96ca67e91f93c07d055c1662bab25a"
+      },
+      {
+        "path": ".isolation/logs/phase-d-build.log",
+        "sha256": "18dfe36de7f1f16359e0a0301cdfaf319ac204568d9a9726ea0802eb66177637"
+      }
+    ]
+  },
+  "iteration_findings": [
+    {
+      "issue": "expired Run accepted late result",
+      "pre_fix": "1 failed",
+      "fixed": true
+    },
+    {
+      "issue": "dribbled HTTP response exceeded total deadline",
+      "pre_fix": "1 failed; 0.4857s with 0.25s limit",
+      "fixed": true
+    },
+    {
+      "issue": "synthetic test used nonexistent AI tag name",
+      "pre_fix": "1 fixture assertion failed",
+      "fixed": true
+    }
+  ],
+  "screenshots": 52,
+  "visual_review": {
+    "layout": "PASS",
+    "state_language": "PRODUCT REVIEW REQUIRED: sidebar latest Run failure label and Plan active wording can be ambiguous",
+    "partner_text": "IMPROVEMENT RECOMMENDED; whitelist unchanged",
+    "business_signoff": "NOT RUN"
+  },
+  "recommendation": "CONDITIONAL GO",
+  "scope": "engineering automation complete; no real provider call, approved business data or business sign-off"
+}

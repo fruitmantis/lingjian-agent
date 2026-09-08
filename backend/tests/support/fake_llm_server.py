@@ -28,21 +28,21 @@ def _content(stage: str) -> str:
     if stage == "match":
         return json.dumps([{
             "partnerId": "partner-1", "partnerName": "验证伙伴", "matchScore": "92",
-            "matchedCapabilities": "AI,数据治理", "matchedIndustries": "制造",
-            "matchedRegions": "全国", "recommendationReason": "与验证需求匹配",
+            "matchedCapabilities": "AI,数据治理", "matchedIndustries": "制造与工业",
+            "matchedRegions": "广东", "recommendationReason": "与验证需求匹配",
             "evidenceCases": "制造知识库案例", "evidenceDeliverables": "方案文档",
             "riskNotes": "需复核交付排期",
         }], ensure_ascii=False)
     if stage == "demand":
         return json.dumps({
-            "industryTags": "制造", "capabilityTags": "数据治理", "deliveryTypeTags": "咨询",
-            "regionTags": "全国", "complexityLevel": "中", "urgencyLevel": "中",
+            "industryTags": "制造与工业", "capabilityTags": "数据治理", "deliveryTypeTags": "咨询",
+            "regionTags": "广东", "complexityLevel": "中", "urgencyLevel": "中",
             "projectKeywords": "知识库,Agent", "supplyStatus": "sufficient", "gapAnalysis": "供给充足",
         }, ensure_ascii=False)
     if stage == "opportunity":
         return json.dumps({
-            "customerName": "验证客户", "projectName": "制造知识库 Agent", "industry": "制造",
-            "region": "全国", "projectStage": "需求调研", "businessNeeds": "建设知识库",
+            "customerName": "验证客户", "projectName": "制造知识库 Agent", "industry": "制造与工业",
+            "region": "广东", "projectStage": "需求调研", "businessNeeds": "建设知识库",
             "technicalNeeds": "Agent", "deliveryNeeds": "咨询实施", "qualificationRequirements": "未识别",
             "caseRequirements": "制造案例", "onsiteRequirement": "未识别", "timelineRequirement": "未识别",
             "cloudPlatformPreference": "华为云", "followUpQuestions": ["计划时间？"],
@@ -59,7 +59,14 @@ def health():
 
 @app.post("/v1/chat/completions")
 async def completions(payload: dict):
-    stage = _stage(payload.get("messages") or [])
+    messages=payload.get('messages') or []
+    system=' '.join(m.get('content','') for m in messages if m.get('role')=='system')
+    if 'partner_development:' in system:
+        from backend.tests.support.development_mock import response
+        if 'C_SLOW' in json.dumps(messages,ensure_ascii=False):await asyncio.sleep(3)
+        content=json.dumps(response(messages),ensure_ascii=False)
+        return {'choices':[{'message':{'content':content},'finish_reason':'stop'}],'usage':{'completion_tokens':20}}
+    stage = _stage(messages)
     if "SIDEBAR_SLOW" in json.dumps(payload.get("messages"), ensure_ascii=False) and stage in {"match", "demand"}:
         await asyncio.sleep(5)
     delay_name = "FAKE_LLM_MATCH_DELAY_SECONDS" if stage == "match" else "FAKE_LLM_ENRICH_DELAY_SECONDS"

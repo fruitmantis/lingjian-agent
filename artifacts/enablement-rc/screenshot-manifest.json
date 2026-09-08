@@ -1,0 +1,917 @@
+{
+  "total": 76,
+  "screenshots": [
+    {
+      "path": "artifacts/enablement-rc/01-request-form-1366.png",
+      "sha256": "faea36ea3663859689857cb87766130de876cd4d2b97f7b7433038fe30cd3d41",
+      "image_width": 1366,
+      "image_height": 3694,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/01-request-form-1920.png",
+      "sha256": "57cc95b0708be5d6f10cb6e12e49654599ba9b691ff35460eec4b684947f19aa",
+      "image_width": 1920,
+      "image_height": 3694,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/02-clarification-1366.png",
+      "sha256": "783d262a31801fee8d1d51af26a6d006462f03a970fda2fddab2672685bf175d",
+      "image_width": 1366,
+      "image_height": 3446,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/02-clarification-1920.png",
+      "sha256": "91bf9a61d13a3401af5d02e394c7feb739d01b4c68b083a3725ff6616241b32a",
+      "image_width": 1920,
+      "image_height": 3446,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/03-generating-1366.png",
+      "sha256": "a154993df973b93678bdb461c5f458e74c8d845746dec168ad7e99bbfb0d2bd3",
+      "image_width": 1366,
+      "image_height": 918,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/03-generating-1920.png",
+      "sha256": "89c60b977853251be26e59f49879b8735be056d182d888b30bab9c394b05c513",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/04-v1-draft-1366.png",
+      "sha256": "e5f56993cb619cd777fe90c9ffe2b914b7ba22e8db80c75eef7046282c04756a",
+      "image_width": 1366,
+      "image_height": 2094,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/04-v1-draft-1920.png",
+      "sha256": "577f518062a0efdc5fe882c57b55d510525573929451ebf9911b3e4c5e3a9f43",
+      "image_width": 1920,
+      "image_height": 2094,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/05-v1-confirmed-1366.png",
+      "sha256": "e2267092afebb148b1e1e1f348844f26367da420a9be1c14f1ef4d902bae2745",
+      "image_width": 1366,
+      "image_height": 2094,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/05-v1-confirmed-1920.png",
+      "sha256": "f358bf7b4cd8ebc2cb7a0dd899759df6ef5ef98a068f6952b95a627d0e33c97b",
+      "image_width": 1920,
+      "image_height": 2094,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/06-v2-draft-v1-confirmed-1366.png",
+      "sha256": "d6344a95e5e174aafb1bc1d62aca823e747f5e153a84e9572aafc73300f69bf0",
+      "image_width": 1366,
+      "image_height": 2118,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/06-v2-draft-v1-confirmed-1920.png",
+      "sha256": "21e06aba9b9a3c4ad54bcea4bde2de05612b9525c8a2bb1c660e8568f5aafc64",
+      "image_width": 1920,
+      "image_height": 2118,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/07-diagnosis-1366.png",
+      "sha256": "d6344a95e5e174aafb1bc1d62aca823e747f5e153a84e9572aafc73300f69bf0",
+      "image_width": 1366,
+      "image_height": 2118,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/07-diagnosis-1920.png",
+      "sha256": "21e06aba9b9a3c4ad54bcea4bde2de05612b9525c8a2bb1c660e8568f5aafc64",
+      "image_width": 1920,
+      "image_height": 2118,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/08-stages-1366.png",
+      "sha256": "d6344a95e5e174aafb1bc1d62aca823e747f5e153a84e9572aafc73300f69bf0",
+      "image_width": 1366,
+      "image_height": 2118,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/08-stages-1920.png",
+      "sha256": "21e06aba9b9a3c4ad54bcea4bde2de05612b9525c8a2bb1c660e8568f5aafc64",
+      "image_width": 1920,
+      "image_height": 2118,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/09-resource-gap-1366.png",
+      "sha256": "79759b646f2f63e0de990341617f8b5981683c33da3a5f8426be37e8e5dfa2e8",
+      "image_width": 1366,
+      "image_height": 1534,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/09-resource-gap-1920.png",
+      "sha256": "700602272a93b48c357d1e17c6fb8826c1639f957be175f136be01d473895933",
+      "image_width": 1920,
+      "image_height": 1534,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/10-structured-edit-1366.png",
+      "sha256": "3b955b9ab44db5799ed0e9edfe72ef92525a46d22ecdb3dba97ce40a3919a64e",
+      "image_width": 1366,
+      "image_height": 3357,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/10-structured-edit-1920.png",
+      "sha256": "82b69aca3cdfa1dde051df21a4f7ceefb822c524f8b7fe2aacea5d84694400be",
+      "image_width": 1920,
+      "image_height": 3357,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/11-transferable-1366.png",
+      "sha256": "29dec611b4ae10818c5ad01af33f31643fb543c1234b427bb7270672f69d22f6",
+      "image_width": 1366,
+      "image_height": 2969,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/11-transferable-1920.png",
+      "sha256": "b3674abe2ca9551e5a7d8398d5028f0ed838454e5fd2db3672147ac1d37495f8",
+      "image_width": 1920,
+      "image_height": 2969,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/12-unified-tasks-1366.png",
+      "sha256": "5ce9abc3c791b8c233445efedf9be0dbe2a3027d6a4db0f4b8cec62a23ae7c97",
+      "image_width": 1366,
+      "image_height": 768,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/12-unified-tasks-1920.png",
+      "sha256": "ff8a75c27b2901c8688f9faacfbff7561d56e0a8722c831957b281341061dcbc",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/13-revoked-history-1366.png",
+      "sha256": "3d3b7bf1803b351d2424a3df6b7279dd07b9f9f0a1fda892b211840ee3c4af54",
+      "image_width": 1366,
+      "image_height": 940,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/13-revoked-history-1920.png",
+      "sha256": "4c4e653e829de522395f0794c090f4f290ca97f57cd489afaec40e92e92a73b6",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/14-conflict-old-version-1366.png",
+      "sha256": "685e3da0b439148fbbd2d275dee42d8e9ee1362391fc4f29ed873e1b8a02ab8a",
+      "image_width": 1366,
+      "image_height": 3432,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/14-conflict-old-version-1920.png",
+      "sha256": "62900927ab8080870af4d51d3544179180ee7a4f47ef4e5630e99329385bea3b",
+      "image_width": 1920,
+      "image_height": 3432,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/15-failed-revision-old-version-1366.png",
+      "sha256": "e9972321089d1780b75970bdf1e22d2c0c9e401ebf310883f93ea0a51700edf6",
+      "image_width": 1366,
+      "image_height": 2217,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/15-failed-revision-old-version-1920.png",
+      "sha256": "05cc7a1b445f332433c1b19bac1c89633e9f908853e3357b523c22d9a59e04c6",
+      "image_width": 1920,
+      "image_height": 2217,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/16-assumption-accepted-1366.png",
+      "sha256": "bf3af3b3cc23bef37fd3d929808cdd002cd1d6fc64d5be7e680f145214a1bb73",
+      "image_width": 1366,
+      "image_height": 2887,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/16-assumption-accepted-1920.png",
+      "sha256": "a8ad62545d91f9c3a4ef918080054bbaafadce6c24436f04cf2b1954617992da",
+      "image_width": 1920,
+      "image_height": 2887,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/17-assumption-persisted-1366.png",
+      "sha256": "127c5bb80a2efd6522bc0f5b3b70e2bb921896afad32ece0942f54e5dbad559c",
+      "image_width": 1366,
+      "image_height": 2150,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/17-assumption-persisted-1920.png",
+      "sha256": "21fb3124fb051843c6a7d83a45d4c67467601f74f44c2cbdd0d6ea024187943a",
+      "image_width": 1920,
+      "image_height": 2150,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/01-v1-draft-detail-sidebar-1366.png",
+      "sha256": "864ed04e555c7e8d969e81c62e441e1c5c8a924b97faf6d117d3ecc8433bfe19",
+      "image_width": 1366,
+      "image_height": 1534,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/01-v1-draft-detail-sidebar-1920.png",
+      "sha256": "7618993f358d0f69e169be126e4156411f5b9fa6abd21f102ad8ad3f10160035",
+      "image_width": 1920,
+      "image_height": 1534,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/01-v1-draft-list-1366.png",
+      "sha256": "24d25e551512f925ae4e0413b987a8b79d4b02e8773e9eabfb239820595e19e0",
+      "image_width": 1366,
+      "image_height": 768,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/01-v1-draft-list-1920.png",
+      "sha256": "47c6b11294c56ee25b206d89e3624c2c6fbc6529e9cc67a04df772976e55575d",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/02-v1-confirmed-detail-sidebar-1366.png",
+      "sha256": "02287d68a94988dad8777e9111d397d3c550f028bd1a8fc57f59d11873406e87",
+      "image_width": 1366,
+      "image_height": 1534,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/02-v1-confirmed-detail-sidebar-1920.png",
+      "sha256": "eb87965a16676ae047965465caad0ce7bb6c495a704a1a6541d2da6896e1ea9d",
+      "image_width": 1920,
+      "image_height": 1534,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/02-v1-confirmed-list-1366.png",
+      "sha256": "50cf1a63ea02a95f364fbd58f39c855e32c7e41659e4fef8d761a92059305ec1",
+      "image_width": 1366,
+      "image_height": 768,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/02-v1-confirmed-list-1920.png",
+      "sha256": "2d4d3c908b4753c3e6eb487053a8654c6eec9f413a14ef43d75c6d36371f6550",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/03-v2-draft-detail-sidebar-1366.png",
+      "sha256": "634746a57d9aa4215a21ffb5d0553aa224500fdde259d85e0a5a5718d79b1ed1",
+      "image_width": 1366,
+      "image_height": 1582,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/03-v2-draft-detail-sidebar-1920.png",
+      "sha256": "ee0b3d24012a3ae263f57418b82ed4899e4ac57707342fd6b62ecdb067e44173",
+      "image_width": 1920,
+      "image_height": 1582,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/03-v2-draft-list-1366.png",
+      "sha256": "a277e7f8a1e795987222fa31272323e9711c999b644fd864e2396b6065789e9c",
+      "image_width": 1366,
+      "image_height": 768,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/03-v2-draft-list-1920.png",
+      "sha256": "06b155c179b0aabcf9c66383764ba9430a087f57c2303e13e270ed7d4d527cdf",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/04-failed-revise-detail-sidebar-1366.png",
+      "sha256": "0f4cc3a1dc7f14a5a98af2bbb41320bb8a00d9a89bdf1c916cbfb2d090c0e274",
+      "image_width": 1366,
+      "image_height": 1633,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/04-failed-revise-detail-sidebar-1920.png",
+      "sha256": "d5e013101557e46af2d541ddef59051af1cdc41a755ca48092042b6b482713c1",
+      "image_width": 1920,
+      "image_height": 1633,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/04-failed-revise-list-1366.png",
+      "sha256": "f20b5e549370609c72391c99b318979005cbed36a87f22cf67a12d347e9bc217",
+      "image_width": 1366,
+      "image_height": 768,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/04-failed-revise-list-1920.png",
+      "sha256": "c6a7550a4150eb8c92a452d3bd4b9bfd8cab11a7e6d5765429078516476af20a",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/05-interrupted-revise-detail-sidebar-1366.png",
+      "sha256": "79eb1535bfe9e70119fa79d4d9c09feda1e80b2f31697a1f24458c9eb379caee",
+      "image_width": 1366,
+      "image_height": 1633,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/05-interrupted-revise-detail-sidebar-1920.png",
+      "sha256": "707eab1ca87bc003aee06b543d6c47c630102054394ec243a55571e7254960cb",
+      "image_width": 1920,
+      "image_height": 1633,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/05-interrupted-revise-list-1366.png",
+      "sha256": "9d9df6590841f9ba4ae8669502243870ce9f125c6039999d26430c1dd59f6c09",
+      "image_width": 1366,
+      "image_height": 768,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/05-interrupted-revise-list-1920.png",
+      "sha256": "a2016ba0661c79e41c269713ce513629a573cf1c09bfa1dd0aa93b381e89c656",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/06-archived-detail-sidebar-1366.png",
+      "sha256": "c1dddcc0f65a376a79d9ac190bebed5a515e40747f46a32acdd1a94709e09fe0",
+      "image_width": 1366,
+      "image_height": 1582,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/06-archived-detail-sidebar-1920.png",
+      "sha256": "6936d95fb82691380ad672414fd729cd79da058ec2bf3d70a5eb24c172f03516",
+      "image_width": 1920,
+      "image_height": 1582,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/06-archived-list-1366.png",
+      "sha256": "6f5493082e809f2c9ecfa7735b60eaa699807e01104d0432d0c10caf9cd388da",
+      "image_width": 1366,
+      "image_height": 768,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/rc-states/06-archived-list-1920.png",
+      "sha256": "875f97ab8bf5211b4db5234cd3eba7be883d5113e9dd867af498b6e795c4e226",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/center-1366.png",
+      "sha256": "7a9a7a572c105309e0ce4f4e976edf3086bf486a968720b15312dcf7d0b70885",
+      "image_width": 1366,
+      "image_height": 1970,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/center-1920.png",
+      "sha256": "e0f1f1b5754c49f58e66e1c39911a0c7ba6cd281c2cd03d96a58a5174338bfeb",
+      "image_width": 1920,
+      "image_height": 1946,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/course-1366.png",
+      "sha256": "2a2489c86e4deb94ed5af26db4e2c2ff82a126642cb10f7322098d62a6d8b4c0",
+      "image_width": 1366,
+      "image_height": 1229,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/course-1920.png",
+      "sha256": "953d8f1da29a3abb68b4437da2011537920d2a1af9b7b2bcc29283eca98c9685",
+      "image_width": 1920,
+      "image_height": 1229,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/match-1366.png",
+      "sha256": "649807097a50170d97df4a9af7207c2b59525a1d35cb13d01918267f0b54d316",
+      "image_width": 1366,
+      "image_height": 2706,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/match-1920.png",
+      "sha256": "a1e91298d002a5075b3729311e57698fd9397a4b6b0e9be03db472b1fa3282e5",
+      "image_width": 1920,
+      "image_height": 2706,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/partner-1366.png",
+      "sha256": "b5fe96eef184cb4b3a915b1c57ff99b9556a6d282e956f6c394824f6ff103ad7",
+      "image_width": 1366,
+      "image_height": 1568,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/partner-1920.png",
+      "sha256": "5dea3f1a2693f10973c3cf3381b1c1e6faab182b75e085e2a84b1c2dba6509ea",
+      "image_width": 1920,
+      "image_height": 1568,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/project-context-1366.png",
+      "sha256": "af425456c113950b410debf0840996cc2e36aff3e27b443c142703ae37bc85ba",
+      "image_width": 1366,
+      "image_height": 2385,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/project-context-1920.png",
+      "sha256": "ecdd8bb4fafc2e0af1bf4ce6c755c78f0be9400b5d3bce267e0c53fe05b109c9",
+      "image_width": 1920,
+      "image_height": 2385,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/resources-1366.png",
+      "sha256": "ed14c4d2b9c8e07c42313078d4fa380602f86a79e047453c3d816682b362f138",
+      "image_width": 1366,
+      "image_height": 1279,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/resources-1920.png",
+      "sha256": "f9f2a252b5114b9023184dbe530da2fd8bd2b38e6c4432021b2257d0d61c04cb",
+      "image_width": 1920,
+      "image_height": 1279,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/scenes-1366.png",
+      "sha256": "ed263bc47314913b22a884fabf74b4faad0e20beb1de9c43836aaa80a0e062c2",
+      "image_width": 1366,
+      "image_height": 1010,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/scenes-1920.png",
+      "sha256": "f58edf53bc9bff83af475272924159fe1cacb43d3cffbbc5c64eb675bff93d38",
+      "image_width": 1920,
+      "image_height": 1080,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/shared-case-1366.png",
+      "sha256": "22948b5d22d14b3752fa8d1ebf6e7956c2c4a925d42e1222df7f0b7478d28875",
+      "image_width": 1366,
+      "image_height": 1420,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/shared-case-1920.png",
+      "sha256": "bf267534e9caf177b3db9ab08eb04f308e99eec398e422b4b60df06cf6f8431d",
+      "image_width": 1920,
+      "image_height": 1420,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/tasks-1366.png",
+      "sha256": "b1dfe8662bf4fa33207fe576629c319c185d50499149689a4c90a13869e2c048",
+      "image_width": 1366,
+      "image_height": 1440,
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    },
+    {
+      "path": "artifacts/enablement-rc/regression/tasks-1920.png",
+      "sha256": "4bb71d0b3961cd70393170ae341b2e706149f0b1debee9e066ce7d0769c4dc44",
+      "image_width": 1920,
+      "image_height": 1242,
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "full_page": true,
+      "data": "synthetic /tmp only"
+    }
+  ]
+}
