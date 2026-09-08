@@ -303,10 +303,16 @@ def test_apply_transaction_trace_and_product_functions_unchanged(env,structural_
 def test_real_protected_files_unchanged(env,structural_only):
     frozen=json.loads((v.ROOT/'.isolation/evidence/rc-stable-start.json').read_text())
     runtime=v.ROOT/'.isolation/runtime/app.db';runtime_hash=imp.sha(runtime)
-    assert all(imp.sha(v.STABLE/name)==expected for name,expected in frozen.items())
+    # The legacy service remains live: its database can legitimately differ from
+    # the historical RC snapshot before this test starts. Keep the static-file
+    # baseline and verify every protected file, including the live database,
+    # remains byte-for-byte unchanged by this import. Never rewrite RC evidence.
+    assert all(imp.sha(v.STABLE/name)==expected for name,expected in frozen.items()
+               if name != 'data/app.db')
+    before={name:imp.sha(v.STABLE/name) for name in frozen}
     apply(env)
     assert imp.sha(runtime)==runtime_hash
-    assert all(imp.sha(v.STABLE/name)==expected for name,expected in frozen.items())
+    assert all(imp.sha(v.STABLE/name)==expected for name,expected in before.items())
 
 
 
