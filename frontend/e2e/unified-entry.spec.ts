@@ -28,7 +28,7 @@ for(const width of [1366,1920])test(`Unified task modes, source links and shared
  await page.getByRole('button',{name:'生成能力发展建议',exact:true}).click();const body=(await posted).postDataJSON();expect(body.request.target_partner_id).toBe('partner-1');expect(body.request.development_direction).toContain('Agent');expect(body.request.source_task_id).toBeNull();
  await expect(page).toHaveURL(/\/tasks\/[^/?]+$/);const id=new URL(page.url()).pathname.split('/').pop()!;
  await expect.poll(async()=>{const r=await request.get(API+'/development/plans/'+id,{headers});return (await r.json()).runs[0].status;}).toBe('ready');
- await expect(page.getByTestId('advisor-status')).toHaveText('建议可用');await expect(page.getByRole('heading',{name:'继续问灵鉴',exact:true})).toBeVisible();
+ await expect(page.getByTestId('advisor-status')).toHaveText('建议可用');await expect(page.getByRole('heading',{name:'继续问伴飞',exact:true})).toBeVisible();
  await expect(page.getByRole('button',{name:'高级编辑',exact:true})).not.toBeVisible();await shot('06-advisor-detail');
  await page.goto('/tasks');await page.getByLabel('任务类型').selectOption('development_plan');await page.getByRole('button',{name:'搜索',exact:true}).click();await expect(page.locator(`tbody a[href="/tasks/${id}"]`)).toBeVisible();await expect(page.locator('tbody tr').first()).toContainText('能力发展');await shot('07-unified-tasks');
  await page.goto('/partners/partner-1');await page.getByRole('link',{name:'制定发展建议',exact:true}).click();await development();await expect(page.getByLabel('选择目标伙伴')).toHaveValue('partner-1');await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();await shot('04-partner-context');

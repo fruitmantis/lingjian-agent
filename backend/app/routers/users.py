@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..auth import create_token, hash_password, record_audit, require_admin, require_user, verify_password
 from ..database import get_db
@@ -43,9 +43,15 @@ class UserApplicationCreate(BaseModel):
     username: str = Field(..., min_length=1, max_length=50, pattern=r"^[A-Za-z0-9._-]+$")
     display_name: str = Field(..., min_length=1, max_length=100)
     department: str = Field(..., min_length=1, max_length=100)
-    contact: str = Field(..., min_length=2, max_length=100)
+    employee_id: str = Field(..., min_length=1, max_length=50, pattern=r"^\S+$")
+    email: str = Field(..., min_length=3, max_length=100, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
     reason: str | None = Field(None, max_length=500)
     password: str = Field(..., min_length=_PASSWORD_MIN_LENGTH, max_length=64)
+
+    @field_validator("display_name", "department", "employee_id", "email", mode="before")
+    @classmethod
+    def trim_identity(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 class UserApplicationSubmitResponse(BaseModel):
@@ -60,6 +66,8 @@ class UserApplicationOut(BaseModel):
     display_name: str
     department: str | None
     contact: str | None
+    employee_id: str | None = None
+    email: str | None = None
     reason: str | None
     status: Literal["pending", "approved", "rejected"]
     review_note: str | None
@@ -177,7 +185,8 @@ def _enforce_application_rate_limit(client_ip: str | None) -> None:
 def submit_user_application(payload: UserApplicationCreate, request: Request) -> UserApplicationSubmitResponse:
     _validate_password(payload.password)
     username = payload.username.strip().lower()
-    contact = payload.contact.strip().lower()
+    employee_id = payload.employee_id
+    email = payload.email.lower()
     client_ip = _client_ip(request)
     _enforce_application_rate_limit(client_ip)
     now = datetime.now(timezone.utc).isoformat()
@@ -193,18 +202,19 @@ def submit_user_application(payload: UserApplicationCreate, request: Request) ->
         if conn.execute("SELECT id FROM user_applications WHERE lower(username) = ? AND status = 'pending'", (username,)).fetchone():
             raise HTTPException(status.HTTP_409_CONFLICT, detail="该用户名已有待审批申请，请勿重复提交")
         if conn.execute(
-            "SELECT id FROM user_applications WHERE lower(contact) = ? AND status IN ('pending', 'approved')",
-            (contact,),
+            """SELECT id FROM user_applications WHERE status IN ('pending', 'approved')
+               AND (lower(employee_id) = ? OR lower(email) = ? OR lower(contact) IN (?, ?))""",
+            (employee_id.lower(), email, employee_id.lower(), email),
         ).fetchone():
             raise HTTPException(status.HTTP_409_CONFLICT, detail="该企业邮箱或工号已提交过账号申请")
         conn.execute(
             """INSERT INTO user_applications
-               (id, username, display_name, department, contact, reason, password_hash, status,
+               (id, username, display_name, department, contact, employee_id, email, reason, password_hash, status,
                 applicant_ip, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)""",
             (
                 application_id, username, payload.display_name.strip(), payload.department.strip(),
-                contact, payload.reason.strip() if payload.reason else None,
+                email, employee_id, email, payload.reason.strip() if payload.reason else None,
                 hash_password(payload.password), client_ip, now, now,
             ),
         )
@@ -481,7 +491,7 @@ def list_user_applications(
     with get_db() as conn:
         total = conn.execute(f"SELECT COUNT(*) FROM user_applications ua{where}", params).fetchone()[0]
         rows = conn.execute(
-            f"""SELECT ua.id, ua.username, ua.display_name, ua.department, ua.contact, ua.reason,
+            f"""SELECT ua.id, ua.username, ua.display_name, ua.department, ua.contact, ua.employee_id, ua.email, ua.reason,
                        ua.status, ua.review_note, reviewer.display_name AS reviewed_by_name,
                        ua.reviewed_at, ua.user_id, ua.created_at
                 FROM user_applications ua
@@ -570,7 +580,7 @@ def reject_user_application(
             summary={"applicationId": application_id}, ip_address=_client_ip(request),
         )
         row = conn.execute(
-            """SELECT ua.id, ua.username, ua.display_name, ua.department, ua.contact, ua.reason,
+            """SELECT ua.id, ua.username, ua.display_name, ua.department, ua.contact, ua.employee_id, ua.email, ua.reason,
                       ua.status, ua.review_note, reviewer.display_name AS reviewed_by_name,
                       ua.reviewed_at, ua.user_id, ua.created_at
                FROM user_applications ua LEFT JOIN users reviewer ON reviewer.id = ua.reviewed_by

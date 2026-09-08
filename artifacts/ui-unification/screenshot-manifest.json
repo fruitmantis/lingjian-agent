@@ -1,0 +1,110 @@
+[
+  {
+    "path": "artifacts/ui-unification/screenshots/01-project-match-1366.png",
+    "sha256": "1a83b5f4d1598ecc961d91c7217ff53a9605381a2f159a8af5e456b2be85d67c",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/01-project-match-1920.png",
+    "sha256": "187e91faf2bd7a45099c94b3fda66653adc7de3a1ead58952dc83d06f6d9bd44",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/02-development-1366.png",
+    "sha256": "1ee72f87ae14c88bd1ea6e9e2a312d03444ae7e8c8dab60213431b5cdfecbe93",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/02-development-1920.png",
+    "sha256": "3718fd8b5c0f9f25bb5f5276fb29695534db52696ce9a59fb27aa9dc11ed0247",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/03-advisor-1366.png",
+    "sha256": "457ece082bf7db7b0bd1142e7a499a3752207853129c29c32b856496b424ddfc",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/03-advisor-1920.png",
+    "sha256": "d6055f8615c185b628c86ffde767ed6b14b501b5ae4d39a8f732a6d85af9308e",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/04-resources-1366.png",
+    "sha256": "29c18d7bda6680ff29e6a7a6abd2b83b5b73c0347138233fca26475bfe21350b",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/04-resources-1920.png",
+    "sha256": "7389791a35fff3ffc24f96bdf4bceb50a3430e0cd0d63a73a5bd95db43ef630d",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/05-scenes-1366.png",
+    "sha256": "88bd845672128b57bd5b63ec99038f1d78d36a4cc0572c8d705ecb2963054d97",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/05-scenes-1920.png",
+    "sha256": "fbd7964293218cd9c11f4a80f3cc4ab0cec7462a08b97f5c00731ec88a2760af",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/06-partners-1366.png",
+    "sha256": "3ac35e8a5e0eec040ff32ac4dd9d5ce07a953fba3e3b6d08b5c9f8648259cd53",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/06-partners-1920.png",
+    "sha256": "566737bd50460f7585ac5f61c8d63979ab2353be8c325887982c782b14aae255",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/07-tasks-1366.png",
+    "sha256": "e0e9c60bd16dfa3615964d37e01ae677d47be03c7fb625e7ef363aa4b7bfce2e",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/07-tasks-1920.png",
+    "sha256": "b7a94ffd5d9e875b17b13c9bfcb157386c560d8b6ac8e7e3e0202559434ddce6",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/08-admin-1366.png",
+    "sha256": "477c774217d9cccb6751485350db3fda11c4bb996d360e2a09f3137c7c3b3114",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/08-admin-1920.png",
+    "sha256": "9ed4bfc364ffd7aed3db6ecad18b5a89ccf4d8105038f025af88dd9fd40aae3b",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/admin-reports-1366.png",
+    "sha256": "4693b302e688fd0e823ecc39efe54935a18b34b3b3c3167a30976faef8030680",
+    "data": "synthetic only",
+    "viewport_width": 1366
+  },
+  {
+    "path": "artifacts/ui-unification/screenshots/admin-reports-1920.png",
+    "sha256": "2ec5790b60b04f66ec5130c221324c708fde6db7d0499fa308a94c09b8eb0a60",
+    "data": "synthetic only",
+    "viewport_width": 1920
+  }
+]

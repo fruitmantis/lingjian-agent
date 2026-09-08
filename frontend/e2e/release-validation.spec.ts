@@ -35,24 +35,45 @@ test.describe.configure({ mode: "serial" });
 
 test("E2E-001 login and public application page render", async ({ page }) => {
   await page.goto("/login");
-  await expect(page.getByRole("heading", { name: "灵鉴 Agent" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "账号登录" })).toBeVisible();
-  await page.getByRole("tab", { name: "注册" }).click();
+  await expect(page.getByRole("heading", { name: "伴飞 Agent" })).toBeVisible();
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+  await expect(page.locator("#username")).toBeVisible();
+  await expect(page.locator("#applyName")).toHaveCount(0);
+  await page.getByRole("button", { name: "注册", exact: true }).click();
   await expect(page.getByRole("heading", { name: "注册" })).toBeVisible();
+  for (const name of ["姓名", "工号", "部门", "邮箱", "用户名", "密码", "确认密码"]) {
+    await expect(page.getByLabel(name, { exact: true })).toHaveAttribute("required", "");
+  }
+  await expect(page.getByLabel("申请说明（选填）")).not.toHaveAttribute("required", "");
+  await page.getByRole("button", { name: "返回登录" }).click();
+  await expect(page.locator("#username")).toBeVisible();
+  await expect(page.locator("#applyName")).toHaveCount(0);
+  await page.getByRole("button", { name: "注册", exact: true }).click();
+  for (const viewport of [{ width: 1366, height: 768 }, { width: 1920, height: 1080 }]) {
+    await page.setViewportSize(viewport);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+    await page.screenshot({ path: `/tmp/registration-${viewport.width}.png`, fullPage: true });
+  }
+
 });
 
 test("E2E-002 application approval and forced first-login password change", async ({ browser }) => {
   const applicantContext = await browser.newContext();
   const applicant = await applicantContext.newPage();
   await applicant.goto("/login");
-  await applicant.getByRole("tab", { name: "注册" }).click();
+  await applicant.getByRole("button", { name: "注册", exact: true }).click();
   await applicant.locator("#applyName").fill("端到端申请人");
   await applicant.locator("#applyUsername").fill("e2e_applicant");
   await applicant.locator("#applyDepartment").fill("验证部门");
-  await applicant.locator("#applyContact").fill("e2e_applicant@company.example");
+  await applicant.locator("#applyEmployeeId").fill("E2E-001");
+  await applicant.locator("#applyEmail").fill("e2e_applicant@company.example");
   await applicant.locator("#applyPassword").fill("ApplicantPass123");
   await applicant.locator("#applyConfirmPassword").fill("ApplicantPass123");
   await applicant.locator("#applyReason").fill("发布前自动化验证");
+  await applicant.locator("#applyConfirmPassword").fill("DifferentPass123");
+  await applicant.getByRole("button", { name: "提交" }).click();
+  await expect(applicant.getByText("两次输入的密码不一致")).toBeVisible();
+  await applicant.locator("#applyConfirmPassword").fill("ApplicantPass123");
   await applicant.getByRole("button", { name: "提交" }).click();
   await expect(applicant.getByText("账号申请已提交", { exact: false })).toBeVisible();
   await applicantContext.close();
@@ -63,6 +84,8 @@ test("E2E-002 application approval and forced first-login password change", asyn
   await admin.goto("/admin/users?tab=applications");
   const row = admin.locator("tbody tr").filter({ hasText: "e2e_applicant" });
   await expect(row).toBeVisible();
+  await expect(row).toContainText("E2E-001");
+  await expect(row).toContainText("e2e_applicant@company.example");
   admin.once("dialog", dialog => dialog.accept());
   await row.getByRole("button", { name: "批准" }).click();
   await expect(admin.getByText("账号 e2e_applicant 已开通", { exact: false })).toBeVisible();

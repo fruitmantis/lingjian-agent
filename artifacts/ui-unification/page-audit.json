@@ -1,0 +1,390 @@
+{
+  "database": "temporary E2E only",
+  "blockedWrites": 0,
+  "results": [
+    {
+      "url": "/",
+      "width": 1366,
+      "heading": "开启新任务",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/?mode=development&partner_id=partner-1",
+      "width": 1366,
+      "heading": "开启新任务",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/scenes",
+      "width": 1366,
+      "heading": "场景广场",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/partners",
+      "width": 1366,
+      "heading": "伙伴洞察",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/partners/partner-1",
+      "width": 1366,
+      "heading": "验证伙伴",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/resources",
+      "width": 1366,
+      "heading": "资源中心",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/tasks",
+      "width": 1366,
+      "heading": "我的任务",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/tasks/task-a-ready",
+      "width": 1366,
+      "heading": "任务详情",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/account",
+      "width": 1366,
+      "heading": "个人中心",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin",
+      "width": 1366,
+      "heading": "后台概览",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/tasks",
+      "width": 1366,
+      "heading": "全量任务",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/partners",
+      "width": 1366,
+      "heading": "伙伴管理",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/partners/partner-1",
+      "width": 1366,
+      "heading": "验证伙伴",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/partners/partner-1/cases/case-1/sharing",
+      "width": 1366,
+      "heading": "案例共享配置",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/demands",
+      "width": 1366,
+      "heading": "需求画像",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/opportunities",
+      "width": 1366,
+      "heading": "项目机会库",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/reports",
+      "width": 1366,
+      "heading": "运营报表",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/resources",
+      "width": 1366,
+      "heading": "课程与实验资源",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/tags",
+      "width": 1366,
+      "heading": "能力标签",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/users",
+      "width": 1366,
+      "heading": "用户管理",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/users/admin-1-id",
+      "width": 1366,
+      "heading": "用户详情",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/models",
+      "width": 1366,
+      "heading": "模型配置",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/system",
+      "width": 1366,
+      "heading": "系统状态",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/403",
+      "width": 1366,
+      "heading": "没有访问权限",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/",
+      "width": 1920,
+      "heading": "开启新任务",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/?mode=development&partner_id=partner-1",
+      "width": 1920,
+      "heading": "开启新任务",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/scenes",
+      "width": 1920,
+      "heading": "场景广场",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/partners",
+      "width": 1920,
+      "heading": "伙伴洞察",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/partners/partner-1",
+      "width": 1920,
+      "heading": "验证伙伴",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/resources",
+      "width": 1920,
+      "heading": "资源中心",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/tasks",
+      "width": 1920,
+      "heading": "我的任务",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/tasks/task-a-ready",
+      "width": 1920,
+      "heading": "任务详情",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/account",
+      "width": 1920,
+      "heading": "个人中心",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin",
+      "width": 1920,
+      "heading": "后台概览",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/tasks",
+      "width": 1920,
+      "heading": "全量任务",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/partners",
+      "width": 1920,
+      "heading": "伙伴管理",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/partners/partner-1",
+      "width": 1920,
+      "heading": "验证伙伴",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/partners/partner-1/cases/case-1/sharing",
+      "width": 1920,
+      "heading": "案例共享配置",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/demands",
+      "width": 1920,
+      "heading": "需求画像",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/opportunities",
+      "width": 1920,
+      "heading": "项目机会库",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/reports",
+      "width": 1920,
+      "heading": "运营报表",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/resources",
+      "width": 1920,
+      "heading": "课程与实验资源",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/tags",
+      "width": 1920,
+      "heading": "能力标签",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/users",
+      "width": 1920,
+      "heading": "用户管理",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/users/admin-1-id",
+      "width": 1920,
+      "heading": "用户详情",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/models",
+      "width": 1920,
+      "heading": "模型配置",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/admin/system",
+      "width": 1920,
+      "heading": "系统状态",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    },
+    {
+      "url": "/403",
+      "width": 1920,
+      "heading": "没有访问权限",
+      "overflow": false,
+      "emptyMain": false,
+      "errors": []
+    }
+  ]
+}

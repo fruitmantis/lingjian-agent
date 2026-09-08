@@ -49,13 +49,13 @@ def test_profile_updates_only_valid_supplied_fields(client, monkeypatch):
     partner = make_partner()
     before = partner_row(partner["id"])
     mock_profile_calls(monkeypatch, json.dumps({
-        "capabilities": "数据库，不在正式字典中的能力,数据库", "service_areas": " 华东 ",
+        "capabilities": "数据库，不在正式字典中的能力,数据库", "service_areas": " 江苏 ",
     }))
     response = client.post(f"/partners/{partner['id']}/profile", headers=auth_headers(admin))
     assert response.status_code == 200
     after = partner_row(partner["id"])
     assert after["capabilities"] == "数据库"
-    assert after["service_areas"] == "华东"
+    assert after["service_areas"] == "江苏"
     assert after["industries"] == before["industries"]
 
 

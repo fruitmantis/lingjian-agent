@@ -12,12 +12,12 @@ from .conftest import auth_headers, make_partner, make_task, make_user, recommen
 
 
 COMPLETE_OPPORTUNITY = {
-    "customerName": "合成客户", "projectName": "合成项目", "industry": "制造",
-    "region": "华东", "projectStage": "需求调研", "businessNeeds": "合成业务需求",
+    "customerName": "合成客户", "projectName": "合成项目", "industry": "制造与工业",
+    "region": "江苏", "projectStage": "需求调研", "businessNeeds": "合成业务需求",
 }
 
 
-def add_demand(owner, label, recs, *, industry="制造", region="华东", capability="数据库", old=False, archived=False):
+def add_demand(owner, label, recs, *, industry="制造与工业", region="江苏", capability="数据库", old=False, archived=False):
     task_id = make_task(owner, label, recommendations=recs, archived=archived)
     created_at = (datetime.now(timezone.utc) - timedelta(days=60 if old else 0)).isoformat()
     with get_db() as conn:
@@ -55,8 +55,8 @@ def test_report_counts_distinct_enabled_supply(client, enabled_count, expected_s
 
 
 @pytest.mark.parametrize("query", [
-    "days=7", "industry=制造", "region=华东", "capability=数据库",
-    "days=7&industry=制造&region=华东&capability=数据库",
+    "days=7", "industry=制造与工业", "region=江苏", "capability=数据库",
+    "days=7&industry=制造与工业&region=江苏&capability=数据库",
 ])
 def test_report_activity_uses_filtered_unarchived_demands(client, query):
     admin = make_user("report_admin", role="admin")
@@ -68,7 +68,7 @@ def test_report_activity_uses_filtered_unarchived_demands(client, query):
     add_demand(admin, "included one", [rec, rec])
     add_demand(admin, "included two", [rec])
     add_demand(admin, "outside filter", [recommendation(excluded["id"], excluded["name"])],
-               industry="金融", region="华北", capability="容器", old=True)
+               industry="金融", region="北京", capability="容器", old=True)
     add_demand(admin, "archived", [recommendation(excluded["id"], excluded["name"])], archived=True)
     response = client.get(f"/admin/reports?{query}", headers=auth_headers(admin))
     assert response.status_code == 200
@@ -133,7 +133,7 @@ def test_opportunity_edits_recalculate_completeness_and_missing_fields(client, e
     assert full["followUpQuestions"] == '["原始补充建议"]'
     assert full["updatedAt"] != full["createdAt"]
 
-    response = client.request(method, url, headers=headers, json={"customerName": "", "region": "  ", "industry": " 未识别 "})
+    response = client.request(method, url, headers=headers, json={"customerName": "", "region": "  ", "industry": ""})
     assert response.status_code == 200
     partial = response.json()
     assert partial["completenessScore"] == 50

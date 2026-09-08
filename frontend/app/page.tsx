@@ -221,7 +221,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
   return (
     <div hidden={!active} role="tabpanel" id="match-panel" aria-labelledby="match-tab">
       <section className="assistant-hero">
-        <p className="assistant-subtitle">告诉灵鉴你的项目需要什么样的伙伴</p>
+        <p className="assistant-subtitle">告诉伴飞你的项目需要什么样的伙伴</p>
 
         <form onSubmit={handleMatch} className="assistant-composer">
           <label htmlFor="requirement" className="sr-only">输入项目需求</label>
@@ -322,22 +322,12 @@ function ProjectMatchTask({active}:{active:boolean}) {
                 const areaTags = parseTags(r.matchedRegions);
                 const rank = i + 1;
                 return (
-                  <div key={i} className="case-item" style={{ position: "relative", padding: "24px", border: i === 0 ? "2px solid var(--brand)" : "1px solid var(--line)", boxShadow: i === 0 ? "0 4px 20px rgb(var(--brand-rgb) / 10%)" : "none" }}>
-                    {/* Rank badge */}
-                    <div style={{
-                      position: "absolute", top: "-10px", left: "20px",
-                      width: "32px", height: "32px", borderRadius: "50%",
-                      background: i === 0 ? "var(--brand)" : i === 1 ? "#e8a317" : "var(--muted)",
-                      color: "white", fontSize: "16px", fontWeight: 700,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: "none",
-                    }}>{rank}</div>
-
+                  <div key={i} className="case-item ui-match-result">
                     <div style={{ marginTop: "12px" }}>
                       {/* Header: name + level + score + copy */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
                         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                          <h3 style={{ margin: 0 }}><a href={`/partners/${r.partnerId}`}>{r.partnerName}</a></h3>
+                          <span className="ui-match-rank">{rank}</span><h3 style={{ margin: 0 }}><a href={`/partners/${r.partnerId}`}>{r.partnerName}</a></h3>
                           <span style={{
                             padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600,
                             background: level.bg, color: level.color, border: `1px solid ${level.color}40`,
@@ -354,7 +344,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
                       {activeTaskId && <div className="enablement-actions"><Link className="secondary-btn" href={`/?mode=development&partner_id=${encodeURIComponent(r.partnerId)}&task_id=${encodeURIComponent(activeTaskId)}`}>针对该伙伴制定发展建议</Link></div>}
 
                       {/* Recommendation reason */}
-                      <div style={{ marginTop: "12px", padding: "12px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                      <div className="ui-match-reason">
                         <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>推荐理由</div>
                         <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{r.recommendationReason || "暂无推荐理由"}</div>
                       </div>
@@ -377,11 +367,11 @@ function ProjectMatchTask({active}:{active:boolean}) {
 
                       {/* Evidence */}
                       <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
-                        <div style={{ flex: "1 1 200px", padding: "12px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                        <div className="ui-match-evidence">
                           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>支撑案例</div>
                           <div style={{ fontSize: "13px", lineHeight: 1.6 }}>{r.evidenceCases || "暂无支撑案例"}</div>
                         </div>
-                        <div style={{ flex: "1 1 200px", padding: "12px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                        <div className="ui-match-evidence">
                           <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>支撑交付物</div>
                           <div style={{ fontSize: "13px", lineHeight: 1.6 }}>{r.evidenceDeliverables || "暂无交付物证据"}</div>
                         </div>
@@ -408,7 +398,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
 export default function HomePage() {
   const search=useSearchParams();
   const development=search.get("mode")==="development";
-  return <div className="page assistant-page unified-task-page">
+  return <div className={`page assistant-page unified-task-page${development?" development-task-page":""}`}>
     <header className="unified-task-heading"><div className="assistant-title"><h1>开启新任务</h1></div>
       <nav className="enablement-tabs task-mode-tabs" role="tablist" aria-label="任务模式">
         <Link id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" href="/" className={!development?"active":""}>项目找伙伴</Link>

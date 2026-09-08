@@ -21,6 +21,12 @@ def _ensure_column(connection: sqlite3.Connection, table: str, column: str, defi
         connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
+def _ensure_application_identity_columns(connection: sqlite3.Connection) -> None:
+    """Add separate identity fields without guessing values for legacy applications."""
+    _ensure_column(connection, "user_applications", "employee_id", "TEXT")
+    _ensure_column(connection, "user_applications", "email", "TEXT")
+
+
 def _migrate_to_v9(connection: sqlite3.Connection) -> None:
     """Rebuild task-related tables with strict ownership and relationship constraints."""
     version_row = connection.execute("SELECT value FROM app_metadata WHERE key = 'schema_version'").fetchone()
@@ -230,6 +236,7 @@ def initialize_storage() -> None:
             reviewed_by TEXT, reviewed_at TEXT, user_id TEXT,
             applicant_ip TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
             FOREIGN KEY (reviewed_by) REFERENCES users(id), FOREIGN KEY (user_id) REFERENCES users(id))""")
+        _ensure_application_identity_columns(connection)
         users = connection.execute("SELECT id, username FROM users").fetchall()
         for user_id, username in users:
             connection.execute(

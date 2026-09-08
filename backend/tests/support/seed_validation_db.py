@@ -22,8 +22,8 @@ USERS = [
 def recommendation() -> list[dict]:
     return [{
         "partnerId": "partner-1", "partnerName": "验证伙伴", "matchScore": "92",
-        "matchedCapabilities": "AI,数据治理", "matchedIndustries": "制造",
-        "matchedRegions": "全国", "recommendationReason": "验证推荐",
+        "matchedCapabilities": "AI,数据治理", "matchedIndustries": "制造与工业",
+        "matchedRegions": "广东", "recommendationReason": "验证推荐",
         "evidenceCases": "制造知识库案例", "evidenceDeliverables": "方案文档",
         "riskNotes": "资料需复核",
     }]
@@ -45,7 +45,7 @@ def seed() -> None:
         conn.execute(
             """INSERT INTO partners
                (id, name, intro, capabilities, service_areas, industries, ai_profile, status, created_at, updated_at)
-               VALUES ('partner-1', '验证伙伴', '仅用于自动化验证', 'AI,数据治理', '全国', '制造',
+               VALUES ('partner-1', '验证伙伴', '仅用于自动化验证', 'AI,数据治理', '广东', '制造与工业',
                        '具备制造知识库实施能力', 'active', ?, ?)""",
             (now, now),
         )
@@ -81,7 +81,7 @@ def seed() -> None:
                 """INSERT INTO demand_profiles
                    (id, match_record_id, requirement_text, industry_tags, capability_tags,
                     matched_partner_count, supply_status, created_at)
-                   VALUES (?, ?, ?, '制造', '数据治理', 1, 'sufficient', ?)""",
+                   VALUES (?, ?, ?, '制造与工业', '数据治理', 1, 'sufficient', ?)""",
                 (f"demand-{prefix}", f"task-{prefix}-ready", f"{prefix.upper()}-ready", now),
             )
             conn.execute(

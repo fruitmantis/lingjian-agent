@@ -84,8 +84,12 @@ def profile_context(conn,request):
     if not request.get('model_input_allowed'):return {'basis_limited':True,'notice':'未获准使用画像摘要，仅依据发展方向'}
     row=conn.execute("SELECT * FROM partners WHERE id=? AND status='active'",(request['target_partner_id'],)).fetchone()
     if not row:raise InvalidOutput('Partner unavailable')
+    from .business_taxonomy import canonical, region_groups
     blocked=blocked_fragments(conn);row=dict(row)
+    row["industries"]=canonical(row.get("industries"),"industry")
+    row["service_areas"]=canonical(row.get("service_areas"),"region")
     profile={k:safe_text(row.get(k),blocked) for k in ('intro','capabilities','industries','service_areas','ai_profile')}
+    profile['region_groups']=region_groups(profile['service_areas'])
     profile['profile_updated_at']=row.get('updated_at')
     # No health score is treated as a real service level.
     if row.get('service_level'):profile['service_level']=safe_text(row['service_level'],blocked)

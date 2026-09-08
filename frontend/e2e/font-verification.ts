@@ -42,7 +42,7 @@ export async function createFontVerification(page: Page) {
       samples.push({ selector, style, rendered: await rendered(selector) });
     }
     const probes = [];
-    for (const weight of [400,700]) for (const [kind,text] of Object.entries({ chinese: '灵鉴智能体伙伴能力发展项目数据库实验案例', latin: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', digits: '0123456789' })) {
+    for (const weight of [400,700]) for (const [kind,text] of Object.entries({ chinese: '伴飞智能体伙伴能力发展项目数据库实验案例', latin: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', digits: '0123456789' })) {
       await page.evaluate(({ weight, text }) => {
         const element = document.createElement('p'); element.id = 'typography-character-probe'; element.textContent = text;
         element.style.cssText = `font-family:var(--font-body);font-size:16px;font-weight:${weight};line-height:24px;letter-spacing:normal;white-space:nowrap`;

@@ -131,9 +131,9 @@ test("model mutation failures keep the form and restore controls", async ({ page
   await row.getByRole("button", { name: "编辑", exact: true }).click();
   const editingRow = page.locator("tbody tr").filter({ has: page.locator('input[type="number"]') });
   await editingRow.locator('input[type="number"]').fill("384000");
-  await editingRow.getByRole("button", { name: "✓", exact: true }).click();
+  await editingRow.getByRole("button", { name: "保存", exact: true }).click();
   await expect(editingRow.locator('input[type="number"]')).toHaveValue("384000");
-  await expect(editingRow.getByRole("button", { name: "✓", exact: true })).toBeEnabled();
+  await expect(editingRow.getByRole("button", { name: "保存", exact: true })).toBeEnabled();
 });
 
 test("user creation and status network errors are caught and inputs retained", async ({ page, request }) => {

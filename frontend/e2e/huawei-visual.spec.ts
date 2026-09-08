@@ -93,12 +93,12 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
       return [...new Set(findings)];
     });
     expect(blue, 'No rendered brand blue').toEqual([]);
-    await expect(page.locator('aside .brand-text')).toHaveText('灵鉴 Agent');
+    await expect(page.locator('aside .brand-text')).toHaveText('伴飞 Agent');
     if (!new URL(page.url()).pathname.startsWith('/admin')) await expect(page.locator('aside').getByRole('link', { name: '资源中心', exact: true })).toBeInViewport();
     await page.screenshot({ path: path.join(directory, `${name}-${width}.png`), fullPage: true });
   }
   await page.goto('/');
-  await expect(page).toHaveTitle(/灵鉴 Agent/);
+  await expect(page).toHaveTitle(/伴飞 Agent/);
   await expect(page.locator('.sidebar .lingjian-mark')).toHaveCSS('background-color', 'rgb(199, 0, 11)');
   await page.locator('#requirement').fill('寻找具备数据库迁移与系统集成经验的交付伙伴');
   await expect(page.getByRole('button', { name: '开始匹配', exact: true })).toHaveCSS('background-color', 'rgb(199, 0, 11)');
@@ -115,7 +115,7 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
     const result = await request.get(`${API}/development/plans/${id}`, { headers: { Authorization: `Bearer ${session.access_token}` } });
     return (await result.json()).runs[0].status;
   }, { timeout: 30_000 }).toBe('ready');
-  await expect(page.getByRole('heading', { name: '继续问灵鉴', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '继续问伴飞', exact: true })).toBeVisible();
   await capture('03-advisor');
   for (const [route, name] of [['/resources','04-resources'], ['/scenes','05-scenes'], ['/partners','06-partners'], ['/tasks','07-tasks'], ['/admin','08-admin']]) {
     await page.goto(route);
@@ -130,7 +130,7 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
   const publicContext = await browser.newContext();
   const login = await publicContext.newPage();
   await login.goto('http://127.0.0.1:3100/login');
-  await expect(login.getByRole('heading', { name: '灵鉴 Agent', exact: true })).toBeVisible();
+  await expect(login.getByRole('heading', { name: '伴飞 Agent', exact: true })).toBeVisible();
   await publicContext.close();
   expect((await request.get('http://127.0.0.1:3100/icon.svg')).status()).toBe(200);
   if (typography) await writeFile(path.join(directory, `font-validation-${width}.json`), JSON.stringify(typography.evidence(), null, 2));

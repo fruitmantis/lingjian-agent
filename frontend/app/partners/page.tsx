@@ -1,5 +1,6 @@
 "use client";
 
+
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../../components/auth-provider";
@@ -22,8 +23,7 @@ export default function PartnersPage() {
   }, []);
   const filtered = useMemo(() => {
     const key = keyword.trim().toLowerCase();
-    if (!key) return partners;
-    return partners.filter(partner => [partner.name, partner.capabilities, partner.service_areas, partner.industries].some(value => value?.toLowerCase().includes(key)));
+    return partners.filter(partner => (!key || [partner.name,partner.capabilities,partner.service_areas,partner.industries].some(value=>value?.toLowerCase().includes(key))));
   }, [keyword, partners]);
   return (
     <main className="page">

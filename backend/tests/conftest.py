@@ -143,8 +143,8 @@ def recommendation(partner_id: str = "partner-1", partner_name: str = "验证伙
         "partnerName": partner_name,
         "matchScore": "92",
         "matchedCapabilities": "AI",
-        "matchedIndustries": "制造",
-        "matchedRegions": "全国",
+        "matchedIndustries": "制造与工业",
+        "matchedRegions": "广东",
         "recommendationReason": "验证推荐",
         "evidenceCases": "验证案例",
         "evidenceDeliverables": "验证交付物",
@@ -158,7 +158,7 @@ def make_partner(partner_id: str = "partner-1", name: str = "验证伙伴") -> d
         conn.execute(
             """INSERT INTO partners
                (id, name, intro, capabilities, service_areas, industries, ai_profile, status, created_at, updated_at)
-               VALUES (?, ?, '测试伙伴', 'AI,数据治理', '全国', '制造', NULL, 'active', ?, ?)""",
+               VALUES (?, ?, '测试伙伴', 'AI,数据治理', '广东', '制造与工业', NULL, 'active', ?, ?)""",
             (partner_id, name, now, now),
         )
     return {"id": partner_id, "name": name}

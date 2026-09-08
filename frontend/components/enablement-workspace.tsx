@@ -1,4 +1,6 @@
 "use client";
+import {ClassificationNotice} from "@/components/business-taxonomy";
+
 
 import Link from "next/link";
 import {UiIcon} from "./ui-icons";
@@ -16,7 +18,7 @@ type Resource = {
   review: { reviewer_name: string; reviewed_at: string; link_status: string; content_checked: number; authorization_checked: number } | null;
   contributor_name?: string; contributor_id?: string; contributor_role?: string; methods?: string;
 };
-type Context = { partner: { id: string; name: string; intro: string | null; capabilities: string | null; industries: string | null; service_areas: string | null; ai_profile: string | null } | null;
+type Context = { partner: { classification_pending?: Record<string,string[]>; id: string; name: string; intro: string | null; capabilities: string | null; industries: string | null; service_areas: string | null; ai_profile: string | null } | null;
   evidence: {source_type: string; source_id: string; title: string}[];
   project: {task_id: string; requirement: string; risk_notes: string; risk_status: string} | null; shared_case: Resource | null; };
 const typeLabels: Record<string,string> = {course:"课程",lab:"实验",case:"案例"};
@@ -66,12 +68,15 @@ export function DevelopmentEntry() {
   const partner=context.data?.partner,project=context.data?.project,shared=context.data?.shared_case;
   return <div className="development-entry">
     <p className="assistant-subtitle">选择伙伴，说说你希望发展的方向</p>
-    <section className="card development-partner"><label className="enablement-field">目标伙伴<select aria-label="选择目标伙伴" value={search.get("partner_id")||""} disabled={!!search.get("task_id")} onChange={e=>selectPartner(e.target.value)}><option value="">请选择伙伴</option>{partners.data?.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}
+    <div className="development-composer"><div className={`development-context-row${project||shared?" has-source":""}`} >
+    <section className="card development-partner"><h2>目标伙伴</h2><label className="enablement-field"><select aria-label="选择目标伙伴" value={search.get("partner_id")||""} disabled={!!search.get("task_id")} onChange={e=>selectPartner(e.target.value)}><option value="">请选择伙伴</option>{partners.data?.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}
     {search.get("task_id")&&<p className="muted">目标伙伴来自所选匹配结果。切换伙伴请返回匹配结果选择。</p>}
-    {context.error?<ReadError message={context.error} retry={context.retry}/>:!context.data?<p role="status">正在核验来源上下文…</p>:partner&&<div className="development-profile"><h2>当前伙伴画像摘要</h2><p>{[partner.capabilities,partner.industries,partner.service_areas].filter(Boolean).join(" · ")||"暂无已维护的能力与行业摘要"}</p><p className="profile-preview">{partner.ai_profile||partner.intro||"当前画像依据有限，可继续描述发展方向。"}</p><Link href={`/partners/${encodeURIComponent(partner.id)}`}>查看完整伙伴画像</Link><details><summary>查看获准引用的依据</summary><h3>当前可访问的证据引用</h3>{context.data.evidence.length?<ul>{context.data.evidence.map(e=><li key={e.source_type+e.source_id}>{e.title}</li>)}</ul>:<p className="muted">暂无可引用证据。</p>}<p className="muted">内部资料可见不代表获准发送模型或对伙伴外发。</p></details></div>}
+    {context.error?<ReadError message={context.error} retry={context.retry}/>:!context.data?<p role="status">正在核验来源上下文…</p>:partner&&<div className="development-profile"><div className="development-profile-heading"><h3>当前伙伴画像摘要</h3><Link href={`/partners/${encodeURIComponent(partner.id)}`}>查看完整伙伴画像 <span aria-hidden="true">→</span></Link></div><dl className="development-profile-facts">{[["正式能力",partner.capabilities],["行业经验",partner.industries],["服务区域",partner.service_areas]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||"暂无已维护信息"}</dd></div>)}</dl><ClassificationNotice pending={partner.classification_pending}/><p className="profile-preview">{partner.ai_profile||partner.intro||"当前画像依据有限，可继续描述发展方向。"}</p><details className="development-profile-evidence"><summary>查看获准引用的依据</summary><h3>当前可访问的证据引用</h3>{context.data.evidence.length?<ul>{context.data.evidence.map(e=><li key={e.source_type+e.source_id}>{e.title}</li>)}</ul>:<p className="muted">暂无可引用证据。</p>}<p className="muted">内部资料可见不代表获准发送模型或对伙伴外发。</p></details></div>}
     </section>
     {(project||shared)&&<section className="card development-source" data-testid="source-context"><h2>来源上下文</h2>{project&&<><Link href={`/tasks/${encodeURIComponent(project.task_id)}`}>返回来源项目任务</Link><h3>项目需求</h3><p className="enablement-prose">{project.requirement}</p><h3>原匹配风险 / 缺口</h3><span className="enablement-badge">{project.risk_status}</span><p className="enablement-prose">{project.risk_notes||"原匹配未提供风险信息"}</p><p className="muted">这是原匹配提示，尚未确认能力短板，也未转化为培训需求。</p></>}{shared&&<><Link href={resourcePath(shared)}>{shared.title}</Link><p>{shared.summary}</p><p className="muted">贡献伙伴：{shared.contributor_name} · {shared.contributor_role}</p></>}</section>}
+    </div>
     <DevelopmentRequestForm partnerId={search.get("partner_id")||""} sourceTask={search.get("task_id")} sourceCase={search.get("case_id")} sourceVersion={search.get("case_version")?Number(search.get("case_version")):null}/>
+    </div>
   </div>;
 }
 
@@ -87,7 +92,7 @@ export function ResourceCatalog() {
   function tab(type:string){const next=new URLSearchParams(search);next.delete("tab");next.set("resource_type",type);setPage(1);router.replace(`/resources?${next}`,{scroll:false});}
   return <section aria-label="资源中心">
     <div className="enablement-tabs" role="tablist" aria-label="资源类型">{Object.entries(typeLabels).map(([key,label])=><button role="tab" aria-selected={source===key} className={source===key?"active":""} key={key} onClick={()=>tab(key)}>{label}</button>)}</div>
-    <form className="card" onSubmit={e=>{e.preventDefault();setApplied({q:query,...filters});setPage(1);}}>
+    <form className="card resource-filters" onSubmit={e=>{e.preventDefault();setApplied({q:query,...filters});setPage(1);}}>
       <div className="enablement-search"><label className="enablement-field">资源名称<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索资源名称" maxLength={200}/></label><button type="submit">搜索资源</button><button type="button" className="secondary-btn" onClick={()=>{setQuery("");setFilters({});setApplied({});setPage(1);}}>重置筛选</button></div>
       <div className="enablement-filter-grid"><label className="enablement-field">能力<select aria-label="能力" value={filters.capability_tag_id||""} onChange={e=>setFilters({...filters,capability_tag_id:e.target.value})}><option value="">全部能力</option>{options.data?.capabilities.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       {filterFields.map(([key,label])=><label className="enablement-field" key={key}>{label}<select aria-label={label} value={filters[key]||""} onChange={e=>setFilters({...filters,[key]:e.target.value})}><option value="">全部</option>{((options.data?.[key]||[]) as string[]).map(v=><option key={v} value={v}>{display(v)}</option>)}</select></label>)}
@@ -95,7 +100,7 @@ export function ResourceCatalog() {
       <p className="muted">仅展示当前已发布且获准在系统内查看的版本。已下架、撤权内容不可查看。</p>
     </form>
     {result.error ? <ReadError message={result.error} retry={result.retry}/> : !result.data ? <p role="status">正在读取资源…</p> : <><p className="muted" role="status">共 {result.data.total} 条资源</p><div className="enablement-resource-grid">{result.data.items.map(r=><article className="card enablement-resource-card" key={r.source_type+r.source_id}><div><span className="enablement-badge">{typeLabels[r.source_type]} · 已发布</span><h2><UiIcon name={r.source_type==="lab"?"settings":r.source_type==="case"?"users":"file"} size={18}/><Link href={resourcePath(r)}>{r.title}</Link></h2><p>{r.summary}</p></div><div className="enablement-tags">{r.capabilities.map(c=><span key={c.id}>{c.name}</span>)}</div><p className="muted">{r.source_platform} · {display(r.difficulty)} · {display(r.language)}</p><div className="enablement-actions"><span className="muted">人工核验{r.review?"已记录":"未知"}</span><Link href={resourcePath(r)}>查看详情</Link></div></article>)}</div>{result.data.items.length===0&&<div className="card empty-state"><h2>暂无符合条件的资源</h2><p>可调整筛选，或等待管理员核验并发布资源。</p></div>}
-    <div className="enablement-actions"><button className="secondary-btn" disabled={page===1} onClick={()=>setPage(p=>p-1)}>上一页</button><span>第 {page} 页</span><button className="secondary-btn" disabled={page*12>=result.data.total} onClick={()=>setPage(p=>p+1)}>下一页</button></div></>}
+    <div className="enablement-actions resource-pagination"><button className="secondary-btn" disabled={page===1} onClick={()=>setPage(p=>p-1)}>上一页</button><span>第 {page} 页</span><button className="secondary-btn" disabled={page*12>=result.data.total} onClick={()=>setPage(p=>p+1)}>下一页</button></div></>}
   </section>;
 }
 

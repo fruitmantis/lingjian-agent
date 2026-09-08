@@ -22,7 +22,7 @@ for(const width of [1366,1920])test(`Advisor UX content, discuss and revision ${
  async function create(direction:string){const a=await ok(await r.post(API+'/development/plans',{headers:user,data:{submission_id:randomUUID(),request:{target_partner_id:'partner-1',development_direction:direction,model_input_allowed:true}}}));await expect.poll(async()=> (await ok(await r.get(API+'/development/plans/'+a.plan_id,{headers:user}))).runs[0].status).toBe('ready');return a.plan_id;}
  const id=await create('希望形成企业级 Agent 应用交付能力');const detail=()=>r.get(API+'/development/plans/'+id,{headers:user}).then(ok);
  await page.goto('/tasks/'+id);await expect(page.getByRole('heading',{name:'目标方向',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'基于当前伙伴画像',exact:true})).toBeVisible();await expect(page.getByTestId('advisor-focus').first()).toBeVisible();
- await expect(page.getByRole('button',{name:'设为当前采用版本',exact:true})).not.toBeVisible();await expect(page.getByRole('button',{name:'高级编辑',exact:true})).not.toBeVisible();await expect(page.getByTestId('version-history')).toHaveCount(0);await expect(page.getByTestId('run-records')).toHaveCount(0);await expect(page.locator('main input[type=number]')).toHaveCount(0);await expect(page.locator('main select')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'设为当前采用版本',exact:true})).not.toBeVisible();await expect(page.getByRole('button',{name:'高级编辑',exact:true})).toHaveCount(0);await expect(page.getByTestId('version-history')).toHaveCount(0);await expect(page.getByTestId('run-records')).toHaveCount(0);await expect(page.locator('main input[type=number]')).toHaveCount(0);await expect(page.locator('main select')).toHaveCount(0);
  await expect(page.getByTestId('resource-advice').first()).toContainText('1.5 小时');await expect(page.getByTestId('resource-advice').first()).toContainText('测试云账号');await snap('01-full-advice');
  const d=await detail(),v1=d.plan.current_version_id;expect(d.plan.confirmed_version_id).toBeNull();
  // Unconfirmed advice can open resources, including the backend-resolved redirect action.
@@ -30,12 +30,26 @@ for(const width of [1366,1920])test(`Advisor UX content, discuss and revision ${
  for(const [index,message] of ['为什么推荐 RAG？','这两个实验有什么区别？'].entries()){
   await page.getByLabel('消息',{exact:true}).fill(message);await page.getByRole('button',{name:'发送',exact:true}).click();await expect.poll(async()=> (await detail()).conversation.length).toBe(index+1);await expect(page.getByTestId('conversation')).toContainText(message);expect((await detail()).versions.length).toBe(1);expect((await detail()).runs.length).toBe(1);await snap(index?'05-comparison':'04-explanation');
  }
- // Secondary operations remain available but never lead the default page.
- await menu('高级编辑');await expect(page.getByTestId('structured-edit')).toBeVisible();await page.getByRole('button',{name:'取消编辑',exact:true}).click();await expect(page.getByTestId('structured-edit')).toHaveCount(0);
+ // Natural language is the only user-facing editing path; backend edit API remains tested separately.
+ await page.getByText('更多',{exact:true}).click();
+ await expect(page.getByRole('button',{name:'高级编辑',exact:true})).toHaveCount(0);
+ await expect(page.getByTestId('structured-edit')).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'运行记录',exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'运行记录',exact:true}).click();
+ await expect(page.getByTestId('run-records')).toBeVisible();
+ await menu('运行记录');await expect(page.getByTestId('run-records')).toHaveCount(0);
  await menu('设为当前采用版本');await expect.poll(async()=> (await detail()).plan.confirmed_version_id).toBe(v1);
  await page.getByLabel('消息',{exact:true}).fill('模拟调整失败');await page.getByRole('button',{name:'发送',exact:true}).click();await expect.poll(async()=> (await detail()).runs[0].status).toBe('failed');await expect(page.getByTestId('advisor-run-notice')).toContainText('已有建议仍可使用');expect((await detail()).plan.current_version_id).toBe(v1);expect((await detail()).plan.confirmed_version_id).toBe(v1);await snap('07-failed-revise');
- await page.getByLabel('消息',{exact:true}).fill('不要基础课，多给实验');await page.getByRole('button',{name:'发送',exact:true}).click();await expect.poll(async()=> (await detail()).versions.length).toBe(2);await page.reload();await expect(page.getByTestId('analysis')).toHaveCount(0);const v2=await detail();expect(v2.plan.confirmed_version_id).toBe(v1);expect(new Set(v2.payload.stages.flatMap((s:{items:{source_type:string}[]})=>s.items.map(i=>i.source_type)))).toEqual(new Set(['lab']));await snap('06-natural-revise');
- await menu('历史版本');await expect(page.getByTestId('version-history')).toContainText('当前草稿 V2');await expect(page.getByTestId('version-history')).toContainText('已确认 V1');await page.getByRole('button',{name:'收起历史版本',exact:true}).click();
+ await page.getByLabel('消息',{exact:true}).fill('不要基础课，多给实验');await page.getByRole('button',{name:'发送',exact:true}).click();await expect.poll(async()=> (await detail()).versions.length).toBe(2);await page.reload();await expect(page.getByTestId('analysis')).toHaveCount(0);const v2=await detail();expect(v2.plan.current_version_id).not.toBe(v1);expect(v2.plan.confirmed_version_id).toBe(v1);expect(new Set(v2.payload.stages.flatMap((s:{items:{source_type:string}[]})=>s.items.map(i=>i.source_type)))).toEqual(new Set(['lab']));await snap('06-natural-revise');
+ await menu('历史版本');await expect(page.getByTestId('version-history')).toContainText('当前草稿 V2');await expect(page.getByTestId('version-history')).toContainText('已确认 V1');
+ await page.getByTestId('version-history').locator('select').selectOption(v1);
+ await expect(page.getByText('正在查看历史内容。',{exact:false})).toBeVisible();
+ await expect(page.getByTestId('analysis')).toBeVisible();
+ expect((await detail()).plan.current_version_id).toBe(v2.plan.current_version_id);
+ expect((await detail()).plan.confirmed_version_id).toBe(v1);
+ await page.getByRole('button',{name:'返回最新建议继续交流',exact:true}).click();
+ await expect(page.getByTestId('analysis')).toHaveCount(0);
+ await page.getByRole('button',{name:'收起历史版本',exact:true}).click();
  const exploratory=await create('这个伙伴下一步适合往哪里发展？');await page.goto('/tasks/'+exploratory);await expect(page.getByRole('heading',{name:'值得考虑的发展方向',exact:true})).toBeVisible();await expect(page.getByTestId('resource-advice')).toHaveCount(0);await expect(page.getByRole('heading',{name:'下一步项目实践',exact:true})).toHaveCount(0);await snap('02-exploratory');
  const short=await create('只给几个进阶实验，不要基础课');await page.goto('/tasks/'+short);await expect(page.getByTestId('resource-advice').first()).toBeVisible();await expect(page.getByTestId('analysis')).toHaveCount(0);await expect(page.getByTestId('advisor-focus')).toHaveCount(0);await expect(page.getByRole('heading',{name:'下一步项目实践',exact:true})).toHaveCount(0);await snap('03-short-resources');
  await page.goto('/tasks');await page.getByRole('combobox',{name:'任务类型'}).selectOption('development_plan');await expect(page.locator('tbody').getByTestId('plan-status').first()).toBeVisible();await snap('08-task-list');

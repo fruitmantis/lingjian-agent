@@ -8,10 +8,11 @@ from typing import Literal
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
+from pydantic import field_validator, BaseModel, Field
 
 from ..ai_client import chat_completion, model_error_message
 from ..model_resolver import ModelConfigurationError
+from ..business_taxonomy import canonical, classify, project_partner, taxonomy_prompt
 from ..database import get_db, recover_stale_tasks
 from ..auth import require_active_user, require_admin
 from .demand import calculate_opportunity_completeness
@@ -53,6 +54,11 @@ class PartnerRecommendation(BaseModel):
     partnerName: str
     matchScore: str
     matchedCapabilities: str
+    @field_validator("matchedIndustries", "matchedRegions", mode="before")
+    @classmethod
+    def standard_match_labels(cls, value, info):
+        return canonical(value,"industry" if info.field_name=="matchedIndustries" else "region") or "未核实"
+
     matchedIndustries: str
     matchedRegions: str
     recommendationReason: str
@@ -111,8 +117,9 @@ def _demand_profile_dict(row) -> dict | None:
     if row is None:
         return None
     return {
-        "id": row["id"], "industryTags": row["industry_tags"], "capabilityTags": row["capability_tags"],
-        "deliveryTypeTags": row["delivery_type_tags"], "regionTags": row["region_tags"],
+        "classification_pending": {"industryTags":classify(row["industry_tags"],"industry")[1],"regionTags":classify(row["region_tags"],"region")[1]},
+        "id": row["id"], "industryTags": canonical(row["industry_tags"],"industry"), "capabilityTags": row["capability_tags"],
+        "deliveryTypeTags": row["delivery_type_tags"], "regionTags": canonical(row["region_tags"],"region"),
         "complexityLevel": row["complexity_level"], "urgencyLevel": row["urgency_level"],
         "projectKeywords": row["project_keywords"], "matchedPartnerCount": row["matched_partner_count"],
         "topPartnerNames": row["top_partner_names"], "supplyStatus": row["supply_status"],
@@ -134,7 +141,11 @@ def _opportunity_dict(row) -> dict | None:
         "supplyStatus": "supply_status", "completenessScore": "completeness_score", "missingFields": "missing_fields",
         "followUpQuestions": "follow_up_questions", "createdAt": "created_at", "updatedAt": "updated_at",
     }
-    return {key: row[column] for key, column in mapping.items()}
+    result={key: row[column] for key, column in mapping.items()}
+    result["classification_pending"]={"industry":classify(result["industry"],"industry")[1],"region":classify(result["region"],"region")[1]}
+    result["industry"]=canonical(result["industry"],"industry")
+    result["region"]=canonical(result["region"],"region")
+    return result
 
 
 def _query_tasks(
@@ -375,7 +386,12 @@ def _validated_recommendations(items: list, partners: list[dict], cases: dict, d
         matched = {}
         for field, column in (("matchedCapabilities", "capabilities"), ("matchedIndustries", "industries"), ("matchedRegions", "service_areas")):
             proposed = _reference_tokens(_model_value(item, field))
-            available = set(_reference_tokens(partner.get(column)))
+            if column in ("industries", "service_areas"):
+                kind = "industry" if column == "industries" else "region"
+                proposed = _reference_tokens(canonical(proposed,kind))
+                available = set(_reference_tokens(canonical(partner.get(column),kind)))
+            else:
+                available = set(_reference_tokens(partner.get(column)))
             verified = list(dict.fromkeys(token for token in proposed if token in available))
             matched[field] = ", ".join(verified) or "未核实"
             if not verified or any(token not in available for token in proposed):
@@ -425,9 +441,9 @@ def _perform_partner_match(requirement: str) -> list[PartnerRecommendation]:
             ).fetchall()
             partner_deliverables[pid] = [dict(row) for row in deliverables]
 
-    partner_dicts = [dict(partner) for partner in partners]
+    partner_dicts = [project_partner(dict(partner)) for partner in partners]
 
-    partner_summaries = []
+    partner_summaries = [taxonomy_prompt()]
     for pd in partner_dicts:
         cases = partner_cases.get(pd["id"], [])
         deliverables = partner_deliverables.get(pd["id"], [])
@@ -692,7 +708,7 @@ def _extract_project_opportunity(
         from ..ai_client import chat_completion
         rec_names = ", ".join([r.partnerName for r in recommendations[:5]])
         raw = chat_completion([
-            {"role": "system", "content": "从项目需求中抽取结构化项目信息。返回JSON含: customerName(客户名称),projectName(项目名称),industry(行业),region(区域),projectStage(项目阶段如需求调研/方案设计/招投标/实施交付),businessNeeds(业务诉求),technicalNeeds(技术诉求),deliveryNeeds(交付诉求),qualificationRequirements(资质要求),caseRequirements(案例要求),onsiteRequirement(驻场要求),timelineRequirement(时间要求),cloudPlatformPreference(云平台偏好),followUpQuestions(建议补充问题,数组)。无法识别的字段填'未识别'。只返回JSON。"},
+            {"role": "system", "content": taxonomy_prompt() + "从项目需求中抽取结构化项目信息。返回JSON含: customerName(客户名称),projectName(项目名称),industry(行业),region(区域),projectStage(项目阶段如需求调研/方案设计/招投标/实施交付),businessNeeds(业务诉求),technicalNeeds(技术诉求),deliveryNeeds(交付诉求),qualificationRequirements(资质要求),caseRequirements(案例要求),onsiteRequirement(驻场要求),timelineRequirement(时间要求),cloudPlatformPreference(云平台偏好),followUpQuestions(建议补充问题,数组)。无法识别的字段填'未识别'。只返回JSON。"},
             {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴: {rec_names}"}
         ], timeout=60, scene="demand_profile")
         clean = raw.strip()
@@ -714,6 +730,8 @@ def _extract_project_opportunity(
             if not isinstance(questions, list) or any(not isinstance(q, str) for q in questions):
                 raise ValueError("Invalid follow-up questions")
 
+        data["industry"] = canonical(data.get("industry"),"industry") or "未识别"
+        data["region"] = canonical(data.get("region"),"region") or "未识别"
         # Calculate completeness
         completeness, missing = calculate_opportunity_completeness(data)
 
@@ -815,7 +833,7 @@ def _generate_demand_profile(
 
     try:
         llm_messages = [
-            {"role": "system", "content": f"你是项目需求分析专家。根据项目需求文本，提取结构化标签。返回JSON含：industryTags(行业,逗号分隔), capabilityTags(能力标签，只能从以下标准标签中选择：[{std_tags_str}]，选择匹配的，逗号分隔，不允许创造新标签，无匹配则返回空字符串), deliveryTypeTags(交付类型如全栈/运维/咨询,逗号分隔), regionTags(区域,逗号分隔), complexityLevel(高/中/低), urgencyLevel(高/中/低), projectKeywords(关键词,逗号分隔), supplyStatus(sufficient/partial/gap), gapAnalysis(缺口分析一句话)。只返回JSON。"},
+            {"role": "system", "content": taxonomy_prompt() + f"你是项目需求分析专家。根据项目需求文本，提取结构化标签。返回JSON含：industryTags(行业,逗号分隔), capabilityTags(能力标签，只能从以下标准标签中选择：[{std_tags_str}]，选择匹配的，逗号分隔，不允许创造新标签，无匹配则返回空字符串), deliveryTypeTags(交付类型如全栈/运维/咨询,逗号分隔), regionTags(区域,逗号分隔), complexityLevel(高/中/低), urgencyLevel(高/中/低), projectKeywords(关键词,逗号分隔), supplyStatus(sufficient/partial/gap), gapAnalysis(缺口分析一句话)。只返回JSON。"},
             {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴数: {partner_count}\n推荐伙伴: {top_names}"},
         ]
         raw = chat_completion(llm_messages, timeout=30, scene="demand_profile")
@@ -834,14 +852,14 @@ def _generate_demand_profile(
                     or data["complexityLevel"] not in {"高", "中", "低"}
                     or data["urgencyLevel"] not in {"高", "中", "低"}):
                 raise ValueError("Invalid repair classification")
-        industry_tags = data.get("industryTags", "")
+        industry_tags = canonical(data.get("industryTags", ""), "industry")
         capability_tags = data.get("capabilityTags", "")
         # Post-filter: only keep tags that exist in standard dictionary
         if capability_tags and (std_tags or strict):
             cap_list = [t.strip() for t in capability_tags.split(",") if t.strip()]
             capability_tags = ", ".join(t for t in cap_list if t in std_tags)
         delivery_type_tags = data.get("deliveryTypeTags", "")
-        region_tags = data.get("regionTags", "")
+        region_tags = canonical(data.get("regionTags", ""), "region")
         complexity_level = data.get("complexityLevel", "中")
         urgency_level = data.get("urgencyLevel", "中")
         project_keywords = data.get("projectKeywords", "")

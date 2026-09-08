@@ -45,7 +45,7 @@ class HealthResponse(BaseModel):
     service: str
 
 
-app = FastAPI(title="灵鉴 Agent API", description="交付伙伴智能匹配智能体 MVP API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="伴飞 Agent API", description="交付伙伴智能匹配智能体 MVP API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=get_cors_origins(), allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 

@@ -1,4 +1,6 @@
 "use client";
+import {ClassificationFields, ClassificationNotice} from "@/components/business-taxonomy";
+
 
 import Link from "next/link";
 import {DevelopmentPlanDetail} from "../../../components/development-assistant";
@@ -13,7 +15,7 @@ type Recommendation = {
   matchedIndustries: string; matchedRegions: string; recommendationReason: string;
   evidenceCases: string; evidenceDeliverables: string; riskNotes: string;
 };
-type Opportunity = {
+type Opportunity = { classification_pending?:Record<string,string[]>;
   id: string; customerName: string; projectName: string; industry: string; region: string;
   projectStage: string; businessNeeds: string; technicalNeeds: string; deliveryNeeds: string;
   qualificationRequirements: string; caseRequirements: string; onsiteRequirement: string;
@@ -173,7 +175,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
         "缺口分析": task.demandProfile.gapAnalysis,
       }).map(([label, value]) => <div key={label}><span>{label}</span><strong>{text(value)}</strong></div>)}</div></section>}
       {task.opportunity && <section className="card"><div className="section-heading-row"><div><h2>项目机会</h2><p>可补充业务字段，AI 抽取字段保持只读。</p></div><span className="score-chip">完整度 {task.opportunity.completenessScore}%</span></div>
-        <form onSubmit={saveOpportunity} className="form-grid">{editableFields.map(field => <div className={`form-row ${field.multiline ? "form-span-two" : ""}`} key={field.key}><label>{field.label}</label>{field.multiline ? <textarea rows={3} value={form[field.key] || ""} onChange={event => setForm(current => ({ ...current, [field.key]: event.target.value }))} /> : <input value={form[field.key] || ""} onChange={event => setForm(current => ({ ...current, [field.key]: event.target.value }))} />}</div>)}<div className="form-span-two"><button disabled={saving}>{saving ? "保存中..." : "保存项目信息"}</button></div></form>
+        <ClassificationNotice pending={task.opportunity.classification_pending}/><form onSubmit={saveOpportunity} className="form-grid">{editableFields.filter(field=>!["industry","region"].includes(field.key)).map(field => <div className={`form-row ${field.multiline ? "form-span-two" : ""}`} key={field.key}><label>{field.label}</label>{field.multiline ? <textarea rows={3} value={form[field.key] || ""} onChange={event => setForm(current => ({ ...current, [field.key]: event.target.value }))} /> : <input value={form[field.key] || ""} onChange={event => setForm(current => ({ ...current, [field.key]: event.target.value }))} />}</div>)}<ClassificationFields industries={form.industry||""} regions={form.region||""} onIndustries={industry=>setForm(current=>({...current,industry}))} onRegions={region=>setForm(current=>({...current,region}))}/><div className="form-span-two"><button disabled={saving}>{saving ? "保存中..." : "保存项目信息"}</button></div></form>
         <div className="detail-grid readonly-grid">{Object.entries({
           "技术需求": task.opportunity.technicalNeeds, "交付要求": task.opportunity.deliveryNeeds,
           "资质要求": task.opportunity.qualificationRequirements, "案例要求": task.opportunity.caseRequirements,

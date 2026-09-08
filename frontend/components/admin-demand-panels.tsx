@@ -1,9 +1,11 @@
 "use client";
+import {ClassificationFilter, ClassificationNotice} from "@/components/business-taxonomy";
+
 
 import { useState, useEffect } from "react";
 import { fetchWithTimeout } from "../lib/api-request";
 
-type DemandProfile = {
+type DemandProfile = { classification_pending?:Record<string,string[]>;
   id: string; matchRecordId: string | null; requirementText: string;
   industryTags: string | null; capabilityTags: string | null; deliveryTypeTags: string | null;
   regionTags: string | null; complexityLevel: string | null; urgencyLevel: string | null;
@@ -44,9 +46,9 @@ function supplyBadge(status: string | null) {
 
 function MetricCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
-    <div style={{ flex: "1 1 160px", padding: "20px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)", textAlign: "center" }}>
-      <div style={{ fontSize: "28px", fontWeight: 700, color: color || "var(--brand)" }}>{value}</div>
-      <div style={{ fontSize: "13px", color: "var(--muted)", marginTop: "6px" }}>{label}</div>
+    <div className="ui-metric">
+      <div className="ui-metric-value" style={{ color }}>{value}</div>
+      <div className="ui-metric-label">{label}</div>
     </div>
   );
 }
@@ -212,8 +214,8 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
-                        <span style={{ padding: "4px 10px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>{badge.label}</span>
-                        <button onClick={() => setExpandedId(isExpanded ? null : p.id)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>{isExpanded ? "收起" : "展开"}</button>
+                        <span className="ui-status-badge" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>{badge.label}</span>
+                        <button onClick={() => setExpandedId(isExpanded ? null : p.id)} className="secondary-btn" >{isExpanded ? "收起" : "展开"}</button>
                       </div>
                     </div>
                     {isExpanded && (
@@ -225,7 +227,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
                           <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "var(--brand-soft)", borderRadius: "8px", border: "1px solid var(--brand-border)" }}>
                             <div style={{ fontSize: "12px", color: "var(--brand-dark)", fontWeight: 600, marginBottom: "6px" }}>行业标签</div>
-                            <TagsDisplay val={p.industryTags} />
+                            <TagsDisplay val={p.industryTags} /><ClassificationNotice pending={p.classification_pending}/>
                           </div>
                           <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
                             <div style={{ fontSize: "12px", color: "var(--success)", fontWeight: 600, marginBottom: "6px" }}>能力标签</div>
@@ -268,15 +270,15 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
               <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
-                <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: "4px", fontSize: "13px" }}>
+                <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} >
                   <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
                 </select>
                 <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {data.profiles.length} 条</span>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: page === 1 ? 0.5 : 1 }}>上一页</button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="secondary-btn" style={{ opacity: page === 1 ? 0.5 : 1 }}>上一页</button>
                 <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {page} / {Math.ceil(data.profiles.length / pageSize)} 页</span>
-                <button onClick={() => setPage(p => Math.min(Math.ceil(data.profiles.length / pageSize), p + 1))} disabled={page >= Math.ceil(data.profiles.length / pageSize)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: page >= Math.ceil(data.profiles.length / pageSize) ? 0.5 : 1 }}>下一页</button>
+                <button onClick={() => setPage(p => Math.min(Math.ceil(data.profiles.length / pageSize), p + 1))} disabled={page >= Math.ceil(data.profiles.length / pageSize)} className="secondary-btn" style={{ opacity: page >= Math.ceil(data.profiles.length / pageSize) ? 0.5 : 1 }}>下一页</button>
               </div>
             </div>
           )}
@@ -295,7 +297,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                     <div key={p.id} style={{ padding: "12px 16px", background: badge.bg, borderRadius: "8px", border: `1px solid ${badge.border}` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                         <span style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.requirementText}</span>
-                        <span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: "white", color: badge.color, border: `1px solid ${badge.border}`, flexShrink: 0, marginLeft: "8px" }}>{badge.label}</span>
+                        <span className="ui-status-badge" style={{ background: "white", color: badge.color, border: `1px solid ${badge.border}`, flexShrink: 0, marginLeft: "8px" }}>{badge.label}</span>
                       </div>
                       <div style={{ fontSize: "13px", color: "#666", lineHeight: 1.6 }}>{p.gapAnalysis || "暂无分析"}</div>
                       {p.supplyStatus === "gap" && <div style={{ fontSize: "12px", color: "var(--danger)", marginTop: "4px" }}>建议：补充相关行业案例和交付资源</div>}
@@ -308,15 +310,15 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                   <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
-                  <select value={gapPageSize} onChange={(e) => { setGapPageSize(Number(e.target.value)); setGapPage(1); }} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: "4px", fontSize: "13px" }}>
+                  <select value={gapPageSize} onChange={(e) => { setGapPageSize(Number(e.target.value)); setGapPage(1); }} >
                     <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
                   </select>
                   <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length} 条</span>
                 </div>
                 <div style={{ display: "flex", gap: "6px" }}>
-                  <button onClick={() => setGapPage(p => Math.max(1, p - 1))} disabled={gapPage === 1} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: gapPage === 1 ? 0.5 : 1 }}>上一页</button>
+                  <button onClick={() => setGapPage(p => Math.max(1, p - 1))} disabled={gapPage === 1} className="secondary-btn" style={{ opacity: gapPage === 1 ? 0.5 : 1 }}>上一页</button>
                   <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {gapPage} / {Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize)} 页</span>
-                  <button onClick={() => setGapPage(p => Math.min(Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize), p + 1))} disabled={gapPage >= Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: gapPage >= Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize) ? 0.5 : 1 }}>下一页</button>
+                  <button onClick={() => setGapPage(p => Math.min(Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize), p + 1))} disabled={gapPage >= Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize)} className="secondary-btn" style={{ opacity: gapPage >= Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize) ? 0.5 : 1 }}>下一页</button>
                 </div>
               </div>
             )}
@@ -331,24 +333,24 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
       {subTab === "opportunities" && (
         <section className="card">
           <h2 className="section-title">项目机会库</h2>
-          <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
-            <input type="text" placeholder="搜索项目名称/客户..." value={oppKeyword} onChange={(e) => setOppKeyword(e.target.value)} style={{ flex: "1 1 180px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
-            <input type="text" placeholder="行业" value={oppIndustry} onChange={(e) => setOppIndustry(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
-            <input type="text" placeholder="区域" value={oppRegion} onChange={(e) => setOppRegion(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
-            <input type="text" placeholder="阶段" value={oppStage} onChange={(e) => setOppStage(e.target.value)} style={{ width: "100px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+          <div className="ui-filter-row">
+            <input type="text" placeholder="搜索项目名称/客户..." value={oppKeyword} onChange={(e) => setOppKeyword(e.target.value)} style={{ flex: "1 1 180px" }} />
+            <ClassificationFilter kind="industry" label="行业" value={oppIndustry} onChange={setOppIndustry}/>
+            <ClassificationFilter kind="region" label="区域" value={oppRegion} onChange={setOppRegion}/>
+            <input type="text" placeholder="阶段" value={oppStage} onChange={(e) => setOppStage(e.target.value)} style={{ width: "100px" }} />
           </div>
           {oppError && <p className="error-text">{oppError}</p>}
           {oppLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : opps.length === 0 ? <div style={{ textAlign: "center", padding: "40px 20px" }}><p style={{ fontSize: "15px", color: "var(--muted)", marginBottom: "16px" }}>暂无项目机会。</p><p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "20px" }}>项目机会信息由 Agent 工作台智能匹配后自动抽取生成。</p><a href="/" className="btn-primary-lg" style={{ display: "inline-block", fontSize: "14px", padding: "10px 28px", textDecoration: "none" }}>前往智能匹配</a></div> : (
-            <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}>
+            <div className="table-wrap"><table className="data-table" style={{ marginTop: "12px" }}>
               <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>项目名称</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>客户</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>行业</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>区域</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>阶段</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>完整度</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>供给状态</th>
-                <th style={{ textAlign: "left", padding: "8px", fontSize: "14px", whiteSpace: "nowrap" }}>操作</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>项目名称</th>
+                <th style={{ textAlign: "left" }}>客户</th>
+                <th style={{ textAlign: "left" }}>行业</th>
+                <th style={{ textAlign: "left" }}>区域</th>
+                <th style={{ textAlign: "left" }}>阶段</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>完整度</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>供给状态</th>
+                <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>操作</th>
               </tr></thead>
               <tbody>
                 {opps.slice((oppPage - 1) * oppPageSize, oppPage * oppPageSize).map((o) => {
@@ -356,33 +358,33 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                   const badge = o.supplyStatus === "gap" ? { l: "明显缺口", c: "var(--danger)", bg: "#fef2f2", bd: "#fecaca" } : o.supplyStatus === "partial" ? { l: "部分满足", c: "#e8a317", bg: "#fffbeb", bd: "#fde68a" } : { l: "基本满足", c: "var(--success)", bg: "#f0fdf4", bd: "#bbf7d0" };
                   return (
                     <tr key={o.id} style={{ borderBottom: "1px solid var(--line)" }}>
-                      <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600 }}>{o.projectName || "未识别"}</td>
-                      <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.customerName || "未识别"}</td>
-                      <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.industry || "-"}</td>
-                      <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.region || "-"}</td>
-                      <td style={{ padding: "10px 8px", fontSize: "13px" }}>{o.projectStage || "-"}</td>
-                      <td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 700, color: o.completenessScore >= 80 ? "var(--success)" : o.completenessScore >= 50 ? "#e8a317" : "var(--danger)" }}>{o.completenessScore}%</td>
-                      <td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: badge.bg, color: badge.c, border: `1px solid ${badge.bd}`, whiteSpace: "nowrap" }}>{badge.l}</span></td>
-                      <td style={{ padding: "10px 8px", whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" style={{ fontSize: "11px", padding: "3px 8px" }}>{isExp ? "收起" : "详情"}</button></td>
+                      <td >{o.projectName || "未识别"}</td>
+                      <td >{o.customerName || "未识别"}</td>
+                      <td >{o.industry || "-"}<ClassificationNotice pending={o.classification_pending}/></td>
+                      <td >{o.region || "-"}</td>
+                      <td >{o.projectStage || "-"}</td>
+                      <td style={{ color: o.completenessScore >= 80 ? "var(--success)" : o.completenessScore >= 50 ? "#e8a317" : "var(--danger)" }}>{o.completenessScore}%</td>
+                      <td ><span className="ui-status-badge" style={{ background: badge.bg, color: badge.c, border: `1px solid ${badge.bd}` }}>{badge.l}</span></td>
+                      <td style={{ whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" >{isExp ? "收起" : "详情"}</button></td>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
           {opps.length > oppPageSize && (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
               <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                 <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
-                <select value={oppPageSize} onChange={(e) => { setOppPageSize(Number(e.target.value)); setOppPage(1); }} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: "4px", fontSize: "13px" }}>
+                <select value={oppPageSize} onChange={(e) => { setOppPageSize(Number(e.target.value)); setOppPage(1); }} >
                   <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
                 </select>
                 <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {opps.length} 条</span>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>
-                <button onClick={() => setOppPage(p => Math.max(1, p - 1))} disabled={oppPage === 1} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: oppPage === 1 ? 0.5 : 1 }}>上一页</button>
+                <button onClick={() => setOppPage(p => Math.max(1, p - 1))} disabled={oppPage === 1} className="secondary-btn" style={{ opacity: oppPage === 1 ? 0.5 : 1 }}>上一页</button>
                 <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {oppPage} / {Math.ceil(opps.length / oppPageSize)} 页</span>
-                <button onClick={() => setOppPage(p => Math.min(Math.ceil(opps.length / oppPageSize), p + 1))} disabled={oppPage >= Math.ceil(opps.length / oppPageSize)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 10px", opacity: oppPage >= Math.ceil(opps.length / oppPageSize) ? 0.5 : 1 }}>下一页</button>
+                <button onClick={() => setOppPage(p => Math.min(Math.ceil(opps.length / oppPageSize), p + 1))} disabled={oppPage >= Math.ceil(opps.length / oppPageSize)} className="secondary-btn" style={{ opacity: oppPage >= Math.ceil(opps.length / oppPageSize) ? 0.5 : 1 }}>下一页</button>
               </div>
             </div>
           )}
@@ -399,16 +401,16 @@ function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIn
   return (
     <>
       <section className="card"><h2>筛选条件</h2>
-        <div style={{ display: "flex", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
-          <select value={filterDays} onChange={(e: any) => setFilterDays(parseInt(e.target.value))} style={{ padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }}><option value={0}>全部时间</option><option value={7}>近7天</option><option value={30}>近30天</option><option value={90}>近90天</option></select>
-          <input type="text" placeholder="行业" value={filterIndustry} onChange={(e: any) => setFilterIndustry(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
-          <input type="text" placeholder="区域" value={filterRegion} onChange={(e: any) => setFilterRegion(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
-          <input type="text" placeholder="能力标签" value={filterCapability} onChange={(e: any) => setFilterCapability(e.target.value)} style={{ flex: "1 1 120px", padding: "8px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "14px" }} />
+        <div className="ui-filter-row">
+          <select value={filterDays} onChange={(e: any) => setFilterDays(parseInt(e.target.value))} ><option value={0}>全部时间</option><option value={7}>近7天</option><option value={30}>近30天</option><option value={90}>近90天</option></select>
+          <ClassificationFilter kind="industry" label="行业" value={filterIndustry} onChange={setFilterIndustry}/>
+          <ClassificationFilter kind="region" label="区域" value={filterRegion} onChange={setFilterRegion}/>
+          <input type="text" placeholder="能力标签" value={filterCapability} onChange={(e: any) => setFilterCapability(e.target.value)} style={{ flex: "1 1 120px" }} />
         </div>
       </section>
-      <section className="card"><h2>运营总览</h2><div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "16px" }}>
+      <section className="card"><h2>运营总览</h2><div className="ui-report-metrics">
         {[{v:report.overview.totalDemands,l:"累计需求"},{v:report.overview.thisMonthDemands,l:"本月新增"},{v:report.overview.totalPartners,l:"伙伴总数"},{v:report.overview.partnersWithProfile,l:"已生成画像"},{v:report.overview.activePartners,l:"活跃伙伴"},{v:report.overview.noPartnerDemands,l:"无合适伙伴"},{v:report.overview.partialDemands,l:"部分满足"},{v:report.overview.pendingSuggestions,l:"待采纳建议"}].map((m,i) => (
-          <div key={i} style={{ flex: "1 1 120px", padding: "16px", background: "var(--bg-hover)", borderRadius: "8px", textAlign: "center" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "var(--brand)" }}>{m.v}</div><div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>{m.l}</div></div>
+          <MetricCard key={i} label={m.l} value={m.v} />
         ))}
       </div></section>
       <section className="card"><h2>需求分布 TOP 10</h2><div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>
@@ -423,11 +425,11 @@ function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIn
       <section className="card"><h2>供需缺口分析</h2>
         <p className="placeholder-text">需求与推荐次数采用上方筛选范围；伙伴总量为全库数量，可推荐伙伴仅统计当前启用伙伴的能力覆盖。</p>
         {report.supplyGaps.length === 0 ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无数据。</p> : (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "12px" }}><thead><tr style={{ borderBottom: "1px solid var(--line)" }}><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>能力</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>需求次数</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>可推荐伙伴</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>供给状态</th><th style={{ textAlign: "left", padding: "8px", fontSize: "14px" }}>缺口说明</th></tr></thead><tbody>
+          <div className="table-wrap"><table className="data-table" style={{ marginTop: "12px" }}><thead><tr style={{ borderBottom: "1px solid var(--line)" }}><th style={{ textAlign: "left" }}>能力</th><th style={{ textAlign: "left" }}>需求次数</th><th style={{ textAlign: "left" }}>可推荐伙伴</th><th style={{ textAlign: "left" }}>供给状态</th><th style={{ textAlign: "left" }}>缺口说明</th></tr></thead><tbody>
             {report.supplyGaps.map((g: any, i: number) => { const b = g.supplyStatus === "gap" ? { l: "明显缺口", c: "var(--danger)", bg: "#fef2f2", bd: "#fecaca" } : g.supplyStatus === "partial" ? { l: "部分满足", c: "#e8a317", bg: "#fffbeb", bd: "#fde68a" } : { l: "基本满足", c: "var(--success)", bg: "#f0fdf4", bd: "#bbf7d0" }; return (
-              <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}><td style={{ padding: "10px 8px", fontSize: "14px", fontWeight: 600, whiteSpace: "nowrap" }}>{g.capability}</td><td style={{ padding: "10px 8px", fontSize: "13px" }}>{g.demandCount}</td><td style={{ padding: "10px 8px", fontSize: "13px" }}>{g.partnerCount}</td><td style={{ padding: "10px 8px" }}><span style={{ padding: "3px 8px", borderRadius: "999px", fontSize: "11px", fontWeight: 600, background: b.bg, color: b.c, border: `1px solid ${b.bd}`, whiteSpace: "nowrap" }}>{b.l}</span></td><td style={{ padding: "10px 8px", fontSize: "13px", color: "var(--muted)" }}>{g.gapNote}</td></tr>
+              <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}><td style={{ whiteSpace: "nowrap" }}>{g.capability}</td><td >{g.demandCount}</td><td >{g.partnerCount}</td><td ><span className="ui-status-badge" style={{ background: b.bg, color: b.c, border: `1px solid ${b.bd}` }}>{b.l}</span></td><td style={{ color: "var(--muted)" }}>{g.gapNote}</td></tr>
             ); })}
-          </tbody></table>
+          </tbody></table></div>
         )}
       </section>
       <section className="card"><h2>伙伴活跃度</h2><div style={{ marginTop: "12px" }}>
