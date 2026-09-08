@@ -37,4 +37,4 @@ def connect_ex(self, address):
 socket.socket.connect = connect
 socket.socket.connect_ex = connect_ex
 import uvicorn
-uvicorn.run('app.main:app', host='127.0.0.1', port=8100)
+uvicorn.run('app.main:app', host='127.0.0.1', port=8000)

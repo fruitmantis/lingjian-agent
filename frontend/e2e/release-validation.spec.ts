@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Browser, type Page } from "@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const API_BASE = "http://127.0.0.1:8100";
+const API_BASE = "http://127.0.0.1:8000";
 const DEFAULT_PASSWORD = "ValidationPass123";
 
 type LoginResult = { access_token: string; user: Record<string, unknown> };
@@ -218,7 +218,7 @@ test("E2E-009 workbench and key admin pages handle upstream and backend outages"
 
   const adminUsers = await loggedPage(browser, request, "admin1");
   adminUsers.page.on("pageerror", error => pageErrors.push(error.message));
-  await adminUsers.page.route(/^http:\/\/127\.0\.0\.1:8100\/admin\/users\?/, route => route.abort("connectionrefused"));
+  await adminUsers.page.route(/^http:\/\/127\.0\.0\.1:8000\/admin\/users\?/, route => route.abort("connectionrefused"));
   await adminUsers.page.goto("/admin/users");
   await expect(adminUsers.page.getByText(/用户加载失败|网络连接中断/)).toBeVisible();
   await expect(adminUsers.page.getByText("加载中...")).toHaveCount(0);

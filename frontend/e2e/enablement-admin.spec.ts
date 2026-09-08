@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-const API='http://127.0.0.1:8100';
+const API='http://127.0.0.1:8000';
 
 async function login(page:Page,request:APIRequestContext,username='admin1'){
   const response=await request.post(`${API}/auth/login`,{data:{username,password:'ValidationPass123'}});

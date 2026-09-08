@@ -3,7 +3,7 @@ import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {evidenceRoot} from './evidence-path';
 import {randomUUID} from 'node:crypto';
-const API='http://127.0.0.1:8100';
+const API='http://127.0.0.1:8000';
 let admin:Record<string,string>,user:Record<string,string>,tag:string;
 async function login(r:APIRequestContext,name:string,page?:Page){const res=await r.post(API+'/auth/login',{data:{username:name,password:'ValidationPass123'}});expect(res.ok()).toBeTruthy();const s=await res.json();if(page)await page.addInitScript(s=>{localStorage.setItem('token',s.access_token);localStorage.setItem('user',JSON.stringify(s.user));},s);return {Authorization:`Bearer ${s.access_token}`};}
 async function ok(res:Awaited<ReturnType<APIRequestContext['get']>>){expect(res.ok(),await res.text()).toBeTruthy();return res.status()===204?null:res.json();}

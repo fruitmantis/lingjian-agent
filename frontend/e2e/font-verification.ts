@@ -63,7 +63,7 @@ export async function createFontVerification(page: Page) {
     }
     expect(network.some(r => r.url.includes('/fonts/huawei-cloud/huawei-sans-regular.woff2') && r.status === 200)).toBeTruthy();
     expect(network.some(r => r.url.includes('/fonts/huawei-cloud/huawei-sans-bold.woff2') && r.status === 200)).toBeTruthy();
-    expect(network.every(r => new URL(r.url).port === '3100')).toBeTruthy();
+    expect(network.every(r => new URL(r.url).port === '3000')).toBeTruthy();
     pages.push({ name, fonts, controls, samples, probes });
   }
   return { inspect, evidence: () => ({ network, blockedOrigins: [...new Set(blocked)], externalNetworkBlocked: true, latinAndDigitsSelfHosted: true, chineseUsesOfficialSystemFallback: true, pages }) };

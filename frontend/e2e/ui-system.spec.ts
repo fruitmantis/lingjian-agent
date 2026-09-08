@@ -7,7 +7,7 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
   await page.setViewportSize({width,height:width===1366?768:1080});
   await page.addInitScript(()=>localStorage.setItem('token','synthetic-browser-only'));
   let writes=0;
-  await page.route(/https?:\/\/(127\.0\.0\.1|localhost):(8100|8000)\//,route=>{
+  await page.route(/https?:\/\/(127\.0\.0\.1|localhost):8000\//,route=>{
     const u=new URL(route.request().url()),p=u.pathname;
     if(route.request().method()!=='GET'){writes++;return route.abort();}
     let json:unknown={items:[],total:0,page:1,pageSize:20,totalPages:0};

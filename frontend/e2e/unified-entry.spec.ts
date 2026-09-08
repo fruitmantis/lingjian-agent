@@ -2,7 +2,7 @@ import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {evidenceRoot} from './evidence-path';
-const API='http://127.0.0.1:8100';
+const API='http://127.0.0.1:8000';
 for(const width of [1366,1920])test(`Unified task modes, source links and shared history ${width}`,async({page,request})=>{
  test.setTimeout(90000);
  const login=await request.post(API+'/auth/login',{data:{username:'user_a',password:'ValidationPass123'}});expect(login.ok()).toBeTruthy();const session=await login.json();

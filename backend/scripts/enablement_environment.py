@@ -40,31 +40,37 @@ def stop():
 def start():
     if STATE.exists() and any(owned(i) for i in json.loads(STATE.read_text())):
         raise SystemExit('Isolated services already managed; use status')
-    for port in (3100,8100):
+    for port in (3000,8000):
         with socket.socket() as s:
             try: s.bind(('127.0.0.1',port))
             except OSError: raise SystemExit(f'Port {port} busy; no process stopped')
-    expected='NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8100'
+    expected='NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000'
     if expected not in (ROOT/'frontend/.env.local').read_text():
         raise SystemExit('Wrong isolated frontend API configuration')
+    # Preserve the existing manual-test configuration when restarting this main.
+    # This file is private runtime configuration, never a new database or seed.
+    environment = dict(os.environ)
+    dev_config = RUN / 'runtime/dev/environment.json'
+    if dev_config.exists():
+        environment.update(json.loads(dev_config.read_text()))
     (RUN/'logs').mkdir(parents=True,exist_ok=True)
     items=[]
     try:
         for name,command,cwd in [
             ('backend',[str(ROOT/'.venv/bin/python'),str(ROOT/'backend/scripts/isolated_server.py')],ROOT),
-            ('frontend',['npm','run','dev','--','-p','3100','-H','127.0.0.1'],ROOT/'frontend')]:
+            ('frontend',['npm','run','dev','--','-p','3000','-H','127.0.0.1'],ROOT/'frontend')]:
             with (RUN/f'logs/{name}.log').open('ab') as log:
-                p=subprocess.Popen(command,cwd=cwd,stdout=log,stderr=log,stdin=subprocess.DEVNULL,start_new_session=True)
+                p=subprocess.Popen(command,cwd=cwd,env=environment,stdout=log,stderr=log,stdin=subprocess.DEVNULL,start_new_session=True)
             items.append({'name':name,'pid':p.pid,'identity':identity(p.pid)})
             STATE.write_text(json.dumps(items))
-        for url in ('http://127.0.0.1:8100/health','http://127.0.0.1:3100/login'):
+        for url in ('http://127.0.0.1:8000/health','http://127.0.0.1:3000/login'):
             for _ in range(40):
                 try:
                     with urlopen(url,timeout=2) as response:
                         if response.status==200: break
                 except Exception: time.sleep(0.5)
             else: raise RuntimeError('Isolated service did not become healthy')
-        print('Isolated snapshot ready at http://127.0.0.1:3100; backend 8100; external model access blocked')
+        print('Isolated snapshot ready at http://127.0.0.1:3000; backend 8000; external model access blocked')
     except Exception:
         stop(); raise
 

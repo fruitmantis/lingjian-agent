@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { createHash } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 
-const API = "http://127.0.0.1:8100";
+const API = "http://127.0.0.1:8000";
 const screenshotRoot = "/tmp/lingjian-enablement-batch3/screenshots";
 
 async function login(page: Page, request: APIRequestContext, username = "admin1") {

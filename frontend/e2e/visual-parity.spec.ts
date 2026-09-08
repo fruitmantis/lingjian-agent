@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Browser } from "@playwright/
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const API_BASE = "http://127.0.0.1:8100";
+const API_BASE = "http://127.0.0.1:8000";
 const DEFAULT_PASSWORD = "ValidationPass123";
 
 type LoginResult = { access_token: string; user: Record<string, unknown> };

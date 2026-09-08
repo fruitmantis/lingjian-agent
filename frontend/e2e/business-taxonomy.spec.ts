@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import standard from '../../shared/business-taxonomy.json';
-const API='http://127.0.0.1:8100';
+const API='http://127.0.0.1:8000';
 for(const width of [1366,1920])test(`standard industry and grouped regions ${width}`,async({page,request})=>{
  const login=await request.post(API+'/auth/login',{data:{username:'admin1',password:'ValidationPass123'}});expect(login.ok()).toBeTruthy();const session=await login.json();const headers={Authorization:`Bearer ${session.access_token}`};await page.addInitScript(s=>localStorage.setItem('token',s.access_token),session);await page.setViewportSize({width,height:width===1366?768:1080});
  await page.goto('/admin/partners');const section=page.locator('section').filter({has:page.getByRole('heading',{name:'新增伙伴',exact:true})});

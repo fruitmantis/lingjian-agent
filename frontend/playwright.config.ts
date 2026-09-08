@@ -11,7 +11,7 @@ const validationEnvironment = {
   USER_APPLICATION_RATE_LIMIT: "1000",
   USER_APPLICATION_PENDING_LIMIT: "200",
   VALIDATION_FAKE_LLM_BASE_URL: "http://127.0.0.1:18180/v1",
-  CORS_ORIGINS: "http://127.0.0.1:3100,http://localhost:3100",
+  CORS_ORIGINS: "http://127.0.0.1:3000,http://localhost:3000",
 };
 
 export default defineConfig({
@@ -23,7 +23,7 @@ export default defineConfig({
   reporter: [["line"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   outputDir: "test-results",
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: "http://127.0.0.1:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -37,18 +37,18 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
-      command: ".venv/bin/python -m backend.tests.support.prepare_e2e && .venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8100",
+      command: ".venv/bin/python -m backend.tests.support.prepare_e2e && .venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000",
       cwd: "..",
-      url: "http://127.0.0.1:8100/health",
+      url: "http://127.0.0.1:8000/health",
       env: validationEnvironment,
       reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
       timeout: 30_000,
     },
     {
-      command: "npm run dev -- -p 3100",
+      command: "npm run dev -- -p 3000",
       cwd: ".",
-      url: "http://127.0.0.1:3100/login",
-      env: { NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8100" },
+      url: "http://127.0.0.1:3000/login",
+      env: { NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000" },
       reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
       timeout: 60_000,
     },

@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
-const API = "http://127.0.0.1:8100";
+const API = "http://127.0.0.1:8000";
 type Task = { id: string; requirement: string; createdAt: string; taskStatus: string; recommendations: unknown[]; archivedAt: null; opportunity: null };
 async function login(page: Page, request: APIRequestContext) {
   const response = await request.post(`${API}/auth/login`, { data: { username: "user_a", password: "ValidationPass123" } });

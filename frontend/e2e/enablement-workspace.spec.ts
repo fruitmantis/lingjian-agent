@@ -2,7 +2,7 @@ import {evidenceRoot} from "./evidence-path";
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
-const API='http://127.0.0.1:8100';
+const API='http://127.0.0.1:8000';
 test.describe.configure({mode:'serial'});
 let adminHeaders:Record<string,string>;let course:string;let lab:string;let sharedCase:string;
 async function login(request:APIRequestContext,username='user_a',page?:Page){

@@ -1,8 +1,10 @@
 # 灵鉴 Agent
 
-> 本功能分支已完成“伙伴服务能力发展中心” Phase 0 + Phase A，仅提供管理员课程/实验资源与案例共享配置；前台中心和方案生成尚未实施。稳定 `main` 与旧服务保持独立。
+> 当前 `main` 正式工作区：`/home/yuan/project/lingjian-agent-enablement`；本地基线为前端 **3000**、后端 **8000**，本地 mock 仍为 **18180**。
 >
-> 本分支请使用 `bash enablement-dev.sh start|stop|status` 管理独立 3100/8100 环境；不要用原 `dev.sh` 启动此分支。隔离配置/数据准备与边界见 [开发启动记录](docs/enablement/STARTUP_AND_DESIGN.md)，验证见 [后端批次](docs/enablement/PHASE_A_BACKEND.md) 和 [后台界面批次](docs/enablement/PHASE_A_UI.md)。新环境模型外网访问被阻断，真实业务试点尚未验收。
+> 使用 `bash enablement-dev.sh start|stop|status` 管理当前独立运行环境。启动器读取已有私有 `.isolation/runtime/dev/environment.json`，继续使用 `.isolation/runtime/dev/app.db` 和原上传目录；不初始化或替换数据库。不要用下文通用 `dev.sh` 或手动 uvicorn 绕过当前隔离启动器。
+>
+> legacy 原目录、数据库、分支 `legacy/pre-v1.2-main` 和标签 `v1.1-legacy` 保留，旧服务已停用。阶段报告中的 3100/8100 是历史取证端口，不是当前启动配置。模型外网阻断保持，真实业务试点状态不因端口调整改变。
 
 
 灵鉴 Agent 是面向公司内部人员的伙伴能力洞察与项目需求匹配平台。普通用户可以提交项目需求、获得有证据支撑的伙伴推荐并持续跟进自己的任务；管理员在独立后台维护伙伴、用户、需求运营数据、能力标签、模型配置和系统状态。
@@ -140,6 +142,8 @@
 
 ## 首次配置
 
+以下仅适用于全新安装；当前工作区已有依赖、私有配置和运行库，直接沿用，不要重新安装、复制配置或初始化数据库。
+
 ### 1. 安装依赖
 
 ```bash
@@ -189,7 +193,7 @@ BOOTSTRAP_ADMIN_PASSWORD=至少12位且同时包含字母和数字的强密码
 
 ## 启动与停止
 
-推荐在项目根目录使用服务脚本：
+当前正式工作区使用 `bash enablement-dev.sh start|stop|status`。本地 mock 18180 沿用现有配置；端口调整不修改模型绑定。下面的 `dev.sh` 命令仅说明通用启动器，已有独立运行环境不要切换到该入口：
 
 ```bash
 bash dev.sh start
@@ -281,9 +285,9 @@ npx playwright install chromium   # 首次运行 Playwright 时执行
 npm run test:e2e
 ```
 
-本功能分支的生产构建和开发服务共用独立 `frontend/.next`。执行构建或 Playwright 前，先在本 worktree 执行 `bash enablement-dev.sh stop`；不要停止原目录的 3000/8000 稳定服务。验证结束后默认保持新版停止。
+当前 main 的生产构建和开发服务共用 `frontend/.next`。执行构建或 Playwright 前，先在正式工作区执行 `bash enablement-dev.sh stop`；legacy 服务保持停止。验证结束后恢复当前 main 的 3000/8000，不启动 legacy。
 
-本功能分支 Playwright 使用 3100/8100/18180（前端/后端/本地 mock）测试端口，并将合成隔离数据写入 `/tmp/lingjian-enablement-e2e`。发布验证不会写入真实数据库或上传目录。
+当前 main Playwright 使用 3000/8000/18180（前端/后端/本地 mock）测试端口，并将合成隔离数据写入 `/tmp/lingjian-enablement-e2e`。发布验证不会写入真实数据库或上传目录。全量 pytest 的进程恢复测试与 Playwright 共用 8000，必须先停止运行服务，按 pytest → typecheck/build → Playwright 串行执行；完成后恢复 main。
 
 2026-09-04 的发布前验证结果：
 

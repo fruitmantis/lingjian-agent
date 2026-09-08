@@ -1,4 +1,4 @@
-"""Owned 8100 process crash/restart and real HTTP latency; synthetic /tmp only."""
+"""Owned 8000 process crash/restart and real HTTP latency; synthetic /tmp only."""
 import json
 import os
 import socket
@@ -14,7 +14,7 @@ from backend.tests.test_process_recovery import PROJECT_ROOT, PROCESS_SECRET, fr
 
 def test_development_kill_restart_retry_and_http_creation(tmp_path,record_property):
     # Fail if occupied. Never discover or terminate somebody else's listener.
-    with socket.socket() as sock:sock.bind(('127.0.0.1',8100))
+    with socket.socket() as sock:sock.bind(('127.0.0.1',8000))
     fake_port=free_port();db=tmp_path/'development.db'
     env={**os.environ,'LINGJIAN_DATABASE_PATH':str(db),'LINGJIAN_UPLOADS_DIR':str(tmp_path/'uploads'),
          'LINGJIAN_CHROMA_DIR':str(tmp_path/'chroma'),'JWT_SECRET_KEY':PROCESS_SECRET,
@@ -32,8 +32,8 @@ def test_development_kill_restart_retry_and_http_creation(tmp_path,record_proper
                 conn.execute("UPDATE model_usage_configs SET model_config_id=? WHERE scene_key='partner_development'",(config,))
             fake=subprocess.Popen([sys.executable,'-m','uvicorn','backend.tests.support.fake_llm_server:app','--host','127.0.0.1','--port',str(fake_port)],cwd=PROJECT_ROOT,env=env,stdout=fl,stderr=subprocess.STDOUT)
             wait_health(f'http://127.0.0.1:{fake_port}/health',fake)
-            def launch():return subprocess.Popen([sys.executable,'-m','uvicorn','app.main:app','--app-dir','backend','--host','127.0.0.1','--port','8100'],cwd=PROJECT_ROOT,env=env,stdout=bl,stderr=subprocess.STDOUT)
-            backend=launch();base='http://127.0.0.1:8100';wait_health(base+'/health',backend)
+            def launch():return subprocess.Popen([sys.executable,'-m','uvicorn','app.main:app','--app-dir','backend','--host','127.0.0.1','--port','8000'],cwd=PROJECT_ROOT,env=env,stdout=bl,stderr=subprocess.STDOUT)
+            backend=launch();base='http://127.0.0.1:8000';wait_health(base+'/health',backend)
             token=jwt.encode({'sub':'user-a-id','username':'user_a','role':'user','ver':0,'iat':datetime.now(timezone.utc),'exp':datetime.now(timezone.utc)+timedelta(hours=1)},PROCESS_SECRET,algorithm='HS256')
             request={'target_partner_id':'partner-1','raw_demand':'合成可靠性验证','development_goal':'数据库交付',
                 'trainee_role':'工程师','trainee_count':3,'known_baseline':'入门','duration_weeks':4,'hours_per_week':3,
@@ -55,7 +55,7 @@ def test_development_kill_restart_retry_and_http_creation(tmp_path,record_proper
             code,second=post(f'/development/plans/{pid}/revise',{'submission_id':'process-crash-revise','based_on_version_id':v1,'instruction':'调整','request':{**request,'development_goal':'C_SLOW 合成数据库交付'}})
             assert code==202;wait_status(second['run_id'],'running')
             assert Path(f'/proc/{backend.pid}/cwd').resolve()==PROJECT_ROOT
-            assert '--port\x008100' in Path(f'/proc/{backend.pid}/cmdline').read_text()
+            assert '--port\x008000' in Path(f'/proc/{backend.pid}/cmdline').read_text()
             backend.kill();backend.wait(timeout=5)
             started=time.monotonic();restarted=launch();wait_health(base+'/health',restarted);wait_status(second['run_id'],'interrupted')
             recovered_seconds=time.monotonic()-started;assert recovered_seconds<60
@@ -76,9 +76,9 @@ def test_development_kill_restart_retry_and_http_creation(tmp_path,record_proper
                 assert run_status(created['run_id']) in ('pending','running')
             ordered=sorted(elapsed);assert ordered[47]<=1
             record_property('http_creation',json.dumps({'sample_count':50,'p50_seconds':ordered[24],'p95_seconds':ordered[47],
-                'max_seconds':max(elapsed),'scope':'HTTP loopback 8100 + bearer validation + SQLite commit + executor enqueue; excludes model completion/browser/source site',
+                'max_seconds':max(elapsed),'scope':'HTTP loopback 8000 + bearer validation + SQLite commit + executor enqueue; excludes model completion/browser/source site',
                 'slow_model_seconds_per_call':3,'real_model_calls':0}))
-            record_property('kill_restart',json.dumps({'port':8100,'recovery_seconds':recovered_seconds,'status':'interrupted','retry':'ready','versions':2,'confirmed_preserved':True}))
+            record_property('kill_restart',json.dumps({'port':8000,'recovery_seconds':recovered_seconds,'status':'interrupted','retry':'ready','versions':2,'confirmed_preserved':True}))
         finally:
             stop_process(restarted);stop_process(backend);stop_process(fake)
     assert 'INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE' not in (tmp_path/'backend.log').read_text()

@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-const API='http://127.0.0.1:8100';
+const API='http://127.0.0.1:8000';
 for(const width of [1366,1920])test(`V1.2 no legacy assumption gate ${width}`,async({page,request})=>{
  const s=await (await request.post(API+'/auth/login',{data:{username:'user_a',password:'ValidationPass123'}})).json();
  await page.addInitScript(s=>{localStorage.setItem('token',s.access_token);localStorage.setItem('user',JSON.stringify(s.user));},s);

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { createFontVerification } from './font-verification';
 import { writeFile } from 'node:fs/promises';
 
-const API = 'http://127.0.0.1:8100';
+const API = 'http://127.0.0.1:8000';
 const temporaryDatabase = '/tmp/lingjian-enablement-e2e/app.db';
 
 // Fail closed before authentication: this suite must never reuse the manual server.
@@ -14,7 +14,7 @@ async function isolatedSession() {
   for (const pid of (await readdir('/proc')).filter(value => /^\d+$/.test(value))) {
     try {
       const command = (await readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0');
-      if (!command.includes('uvicorn') || !command.includes('8100')) continue;
+      if (!command.includes('uvicorn') || !command.includes('8000')) continue;
       const environment = (await readFile(`/proc/${pid}/environ`, 'utf8')).split('\0');
       if (!environment.includes(`LINGJIAN_DATABASE_PATH=${temporaryDatabase}`)) throw new Error('Unexpected backend database');
       isolatedBackend = true;
@@ -129,10 +129,10 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
   }
   const publicContext = await browser.newContext();
   const login = await publicContext.newPage();
-  await login.goto('http://127.0.0.1:3100/login');
+  await login.goto('http://127.0.0.1:3000/login');
   await expect(login.getByRole('heading', { name: '伴飞 Agent', exact: true })).toBeVisible();
   await publicContext.close();
-  expect((await request.get('http://127.0.0.1:3100/icon.svg')).status()).toBe(200);
+  expect((await request.get('http://127.0.0.1:3000/icon.svg')).status()).toBe(200);
   if (typography) await writeFile(path.join(directory, `font-validation-${width}.json`), JSON.stringify(typography.evidence(), null, 2));
   expect(errors).toEqual([]);
 });

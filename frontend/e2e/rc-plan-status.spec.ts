@@ -4,7 +4,7 @@ import {execFileSync} from 'node:child_process';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {evidenceRoot} from './evidence-path';
-const API='http://127.0.0.1:8100';
+const API='http://127.0.0.1:8000';
 async function ok(res:APIResponse){expect(res.ok(),await res.text()).toBeTruthy();return res.status()===204?null:res.json();}
 for(const width of [1366,1920])test(`RC plan availability, list, sidebar and detail ${width}`,async({page,request:r})=>{
  test.setTimeout(180000);
