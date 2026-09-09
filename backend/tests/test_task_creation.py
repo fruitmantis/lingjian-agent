@@ -8,7 +8,7 @@ from fastapi import BackgroundTasks, HTTPException
 
 from backend.app.database import get_db
 from backend.app.routers import match as match_router
-from .conftest import auth_headers, make_task, make_user
+from .conftest import auth_headers, make_task, make_user, make_partner
 from .test_tasks import finish_enrichment, recommendation_model
 
 
@@ -24,6 +24,7 @@ def payload(requirement="即时任务验证"):
 
 
 def test_acceptance_persists_before_model_and_duplicate_schedules_once(client, queued, monkeypatch):
+    make_partner()
     user = make_user("immediate-user")
     body = payload()
     headers = auth_headers(user)
@@ -82,6 +83,7 @@ def test_creation_requires_authentication(client, queued):
 
 @pytest.mark.parametrize("stage,expected", [("match", "failed"), ("enrich", "partial")])
 def test_background_failure_has_real_persisted_status(client, monkeypatch, stage, expected):
+    make_partner()
     def fail(*args, **kwargs):
         raise HTTPException(502, "synthetic failure")
     monkeypatch.setattr(match_router, "_perform_partner_match", fail if stage == "match" else lambda _: [recommendation_model()])

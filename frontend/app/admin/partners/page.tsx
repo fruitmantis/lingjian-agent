@@ -13,6 +13,7 @@ export default function AdminPartnersPage() {
   const [name, setName] = useState("");
   const [industries,setIndustries]=useState(""),[regions,setRegions]=useState("");
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [batchLoading, setBatchLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +46,23 @@ export default function AdminPartnersPage() {
       await load();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "状态修改失败"); }
   }
+  async function remove(partner: Partner) {
+    if (!confirm(`确定删除“${partner.name}”？删除后无法恢复；有业务历史的伙伴只能停用。`)) return;
+    setDeletingId(partner.id); setError(null); setMessage(null);
+    try {
+      const response = await apiFetch(`/partners/${partner.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const detail = (await response.json().catch(() => ({}))).detail;
+        throw new Error(typeof detail === "string" ? detail : detail?.message || "删除失败，请稍后重试");
+      }
+      setPartners(current => current.filter(item => item.id !== partner.id));
+      setMessage("伙伴已删除");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "删除失败，请稍后重试");
+    } finally {
+      setDeletingId(null);
+    }
+  }
   async function batchGenerate() {
     if (!confirm(`将为 ${partners.filter(item => item.status === "active").length} 家启用伙伴依次生成 AI 画像，可能产生模型调用费用。确定继续？`)) return;
     setBatchLoading(true); setMessage(null); setError(null);
@@ -65,7 +83,7 @@ export default function AdminPartnersPage() {
   return (
     <main className="page"><p className="eyebrow">Partner Management</p><h1>伙伴管理</h1><p className="lead">维护伙伴基础信息、资料、案例和 AI 画像。</p>
       <section className="card"><h2>新增伙伴</h2><form onSubmit={create} className="form-grid"><input value={name} onChange={event => setName(event.target.value)} placeholder="伙伴名称" required maxLength={200} /><ClassificationFields industries={industries} regions={regions} onIndustries={setIndustries} onRegions={setRegions}/><div><button>新增伙伴</button></div></form></section>
-      <section className="card"><div className="section-heading-row"><h2>伙伴列表</h2><div className="table-actions"><span className="result-count">共 {partners.length} 家</span><button onClick={batchGenerate} disabled={batchLoading}>{batchLoading ? "批量生成中..." : "批量生成画像"}</button></div></div>{message && <p className="success-text">{message}</p>}{error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重试</button></div>}{loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>伙伴名称</th><th>能力标签</th><th>行业经验</th><th>画像状态</th><th>伙伴状态</th><th>操作</th></tr></thead><tbody>{partners.map(partner => <tr key={partner.id}><td>{partner.name}</td><td>{partner.capabilities || "-"}</td><td>{partner.industries || "-"}</td><td>{partner.ai_profile ? "已生成" : "待生成"}</td><td><span className={`status-badge ${partner.status}`}>{partner.status === "active" ? "启用" : "停用"}</span></td><td><div className="table-actions"><Link href={`/admin/partners/${partner.id}`} className="secondary-btn">维护</Link><button className="secondary-btn" onClick={() => toggle(partner)}>{partner.status === "active" ? "停用" : "启用"}</button></div></td></tr>)}</tbody></table></div>}</section>
+      <section className="card"><div className="section-heading-row"><h2>伙伴列表</h2><div className="table-actions"><span className="result-count">共 {partners.length} 家</span><button onClick={batchGenerate} disabled={batchLoading}>{batchLoading ? "批量生成中..." : "批量生成画像"}</button></div></div>{message && <p className="success-text">{message}</p>}{error && <div className="inline-error-actions"><p className="error-text" role="alert">{error}</p><button className="secondary-btn" onClick={() => void load()}>重试</button></div>}{loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>伙伴名称</th><th>能力标签</th><th>行业经验</th><th>画像状态</th><th>伙伴状态</th><th>操作</th></tr></thead><tbody>{partners.map(partner => <tr key={partner.id}><td>{partner.name}</td><td>{partner.capabilities || "-"}</td><td>{partner.industries || "-"}</td><td>{partner.ai_profile ? "已生成" : "待生成"}</td><td><span className={`status-badge ${partner.status}`}>{partner.status === "active" ? "启用" : "停用"}</span></td><td><div className="table-actions"><Link href={`/admin/partners/${partner.id}`} className="secondary-btn">维护</Link><button className="secondary-btn" onClick={() => toggle(partner)}>{partner.status === "active" ? "停用" : "启用"}</button><button className="secondary-btn danger-outline" disabled={deletingId !== null} onClick={() => remove(partner)}>{deletingId === partner.id ? "删除中..." : "删除"}</button></div></td></tr>)}</tbody></table></div>}</section>
     </main>
   );
 }

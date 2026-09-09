@@ -115,6 +115,7 @@ def test_task_005_retry_does_not_duplicate_derivative_records(client, monkeypatc
 
 
 def test_task_006_only_one_of_ten_concurrent_retries_executes(client, monkeypatch):
+    make_partner()
     user = make_user("concurrent_retry_user")
     task_id = make_task(user, "TASK-006", task_status="failed", recommendations=[])
     calls = 0
@@ -138,6 +139,7 @@ def test_task_006_only_one_of_ten_concurrent_retries_executes(client, monkeypatc
 
 
 def test_task_007_archive_during_retry_has_consistent_final_state(client, monkeypatch):
+    make_partner()
     user = make_user("archive_retry_user")
     task_id = make_task(user, "TASK-007", task_status="failed", recommendations=[])
     started = threading.Event()
@@ -180,6 +182,7 @@ def test_stale_matching_and_enriching_tasks_become_retryable(client, monkeypatch
 
 
 def test_empty_partial_recommendations_force_rematch(client, monkeypatch):
+    make_partner()
     user = make_user("empty_partial_user")
     task_id = make_task(user, "EMPTY-PARTIAL", task_status="partial", recommendations=[])
     calls = 0

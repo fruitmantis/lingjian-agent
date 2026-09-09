@@ -53,6 +53,17 @@ def test_json_null_integer_datetime_values_preserved(client):
     assert client.get('/partners',headers=auth_headers(admin)).status_code==200
 
 
+def test_administrator_delete_and_history_protection(client):
+    admin=make_user('pg-delete-admin',role='admin');user=make_user('pg-delete-user');p=make_partner()
+    assert client.delete('/partners/'+p['id'],headers=auth_headers(user)).status_code==403
+    task=make_task(user,'Synthetic matching history')
+    response=client.delete('/partners/'+p['id'],headers=auth_headers(admin))
+    assert response.status_code==409 and response.json()['detail']['counts']['matching_tasks']==1
+    unused=make_partner('unused','Synthetic unused')
+    assert client.delete('/partners/'+unused['id'],headers=auth_headers(admin)).status_code==204
+    with get_db() as conn:assert conn.execute('SELECT id FROM match_records WHERE id=?',(task,)).fetchone()
+
+
 def test_confirmed_version_survives_revise_failure_and_stale_edit(prepared):
     accepted,run=start(prepared);v1=complete(prepared,accepted,run);pid=accepted['plan_id'];user=prepared[0]
     life.confirm(pid,v1,user)

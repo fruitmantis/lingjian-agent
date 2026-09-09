@@ -1,12 +1,13 @@
 """Partner CRUD router - requires authentication."""
 
+import json
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 
-from ..auth import require_active_user, require_admin
+from ..auth import require_active_user, require_admin, record_audit
 from ..database import get_db
 from ..models import PartnerCreate, PartnerOut
 from ..business_taxonomy import ClassificationInput, ClassificationOutput, preserve_pending, project_partner
@@ -139,3 +140,53 @@ def update_partner(partner_id: str, payload: PartnerUpdate) -> PartnerOut:
             conn.execute(f"UPDATE partners SET {', '.join(updates)} WHERE id = ?", params)
         row = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
     return PartnerOut(**dict(row))
+
+
+@router.delete("/{partner_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_partner(partner_id: str, actor: dict = Depends(require_admin)) -> None:
+    """Delete only unused partners; check references and delete under one write lock."""
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        if conn.execute("SELECT id FROM partners WHERE id = ?", (partner_id,)).fetchone() is None:
+            raise HTTPException(404, "伙伴不存在")
+        queries = {
+            "cases": "SELECT COUNT(*) FROM cases WHERE partner_id = ?",
+            "deliverables": "SELECT COUNT(*) FROM deliverables d JOIN cases c ON c.id=d.case_id WHERE c.partner_id = ?",
+            "documents": "SELECT COUNT(*) FROM partner_documents WHERE partner_id = ?",
+            "development_plans": "SELECT COUNT(*) FROM development_plans WHERE target_partner_id = ?",
+            # A request normally belongs to a plan. Count unattached requests separately.
+            "development_requests": "SELECT COUNT(*) FROM development_requests q WHERE target_partner_id = ? AND NOT EXISTS (SELECT 1 FROM development_plans p WHERE p.request_id=q.id)",
+        }
+        counts = {key: conn.execute(sql, (partner_id,)).fetchone()[0] for key, sql in queries.items()}
+        counts["matching_tasks"] = 0
+        counts["unverifiable_matching_tasks"] = 0
+        # JSON references are not SQLite foreign keys. Include all owners/states/archives,
+        # count each task once, and never mistake an ID substring for a reference.
+        for row in conn.execute("SELECT recommendations_json FROM match_records"):
+            try:
+                items = json.loads(row["recommendations_json"])
+                if not isinstance(items, list) or any(
+                    not isinstance(item, dict) or not isinstance(item.get("partnerId"), str)
+                    or not item["partnerId"] for item in items
+                ):
+                    raise ValueError("Unverifiable history")
+            except (TypeError, ValueError):
+                counts["unverifiable_matching_tasks"] += 1
+                continue
+            if any(item["partnerId"] == partner_id for item in items):
+                counts["matching_tasks"] += 1
+        labels = {
+            "cases": "案例", "deliverables": "交付物", "documents": "资料",
+            "matching_tasks": "项目匹配历史", "development_plans": "能力发展方案",
+            "development_requests": "能力发展请求",
+            "unverifiable_matching_tasks": "无法核验关联的匹配历史",
+        }
+        if any(counts.values()):
+            summary = "、".join(f"{labels[key]} {value} 条" for key, value in counts.items() if value)
+            raise HTTPException(409, detail={
+                "code": "partner_delete_blocked", "counts": counts,
+                "message": f"无法删除：存在{summary}。请停用伙伴以保留历史。",
+            })
+        # Profile and assigned capability labels live on this row. Global tags stay intact.
+        conn.execute("DELETE FROM partners WHERE id = ?", (partner_id,))
+        record_audit(conn, "partner_deleted", actor_user_id=actor["id"], summary={"partner_id": partner_id})

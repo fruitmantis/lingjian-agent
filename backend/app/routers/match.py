@@ -549,6 +549,10 @@ def _perform_partner_match(requirement: str) -> list[PartnerRecommendation]:
     return recs
 
 
+class DeletedMatchPartnerError(ValueError):
+    """A candidate was deleted while a model request was running."""
+
+
 def _set_task_state(
     record_id: str,
     task_status: str,
@@ -563,6 +567,11 @@ def _set_task_state(
                 (task_status, error_stage, now, record_id),
             )
         else:
+            # Serialize against partner deletion: late model results must not create
+            # dangling JSON references after the candidate snapshot was read.
+            conn.execute("BEGIN IMMEDIATE")
+            if any(conn.execute("SELECT 1 FROM partners WHERE id = ?", (item.partnerId,)).fetchone() is None for item in recommendations):
+                raise DeletedMatchPartnerError("推荐伙伴已删除，请重试匹配")
             cursor = conn.execute(
                 """UPDATE match_records
                    SET recommendations_json = ?, task_status = ?, last_error_stage = ?, updated_at = ?
@@ -673,6 +682,9 @@ def _execute_match(record_id: str, requirement: str, created_at: str) -> MatchRe
         task_status = _run_task_enrichment(
             record_id, requirement, recs, created_at, include_tag_suggestions=True,
         )
+    except DeletedMatchPartnerError:
+        _set_task_state(record_id, "failed", "partner_data")
+        raise HTTPException(409, "推荐伙伴已删除，请重试匹配")
     except Exception:
         try:
             _set_task_state(record_id, "partial", "persistence")
@@ -948,7 +960,11 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
         except Exception:
             _set_task_state(record_id, "failed", "partner_data")
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="伙伴数据读取失败，请稍后再试")
-        _set_task_state(record_id, "enriching", recommendations=recommendations)
+        try:
+            _set_task_state(record_id, "enriching", recommendations=recommendations)
+        except DeletedMatchPartnerError:
+            _set_task_state(record_id, "failed", "partner_data")
+            raise HTTPException(409, "推荐伙伴已删除，请重试匹配")
 
     try:
         task_status = _run_task_enrichment(
