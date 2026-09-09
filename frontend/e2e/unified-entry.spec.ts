@@ -16,7 +16,7 @@ for(const width of [1366,1920])test(`Unified task modes, source links and shared
  await page.goto('/');
  const nav=page.locator('aside');await expect(nav.getByText('伙伴服务能力发展中心',{exact:true})).toHaveCount(0);
  const links=await nav.locator('a').allTextContents();expect(links.indexOf('场景广场')).toBeLessThan(links.indexOf('伙伴洞察'));expect(links.indexOf('伙伴洞察')).toBeLessThan(links.indexOf('资源中心'));
- await expect(page.getByRole('tab',{name:'项目找伙伴',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('tab',{name:'资源匹配',exact:true})).toHaveAttribute('aria-selected','true');
  await expect(page.getByRole('button',{name:'开始匹配',exact:true})).toBeVisible();await shot('01-project-match');
  await page.getByRole('tablist',{name:'任务模式',exact:true}).getByRole('tab',{name:'能力发展',exact:true}).click();await development();
  await page.getByLabel('选择目标伙伴').selectOption('partner-1');await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();
@@ -56,5 +56,5 @@ test('Switching mode during matching acknowledgement preserves explicit intent',
  await expect(page.locator(`.sidebar-task-list a[href="/tasks/${recordId}"]`)).toBeVisible();
  await expect(page.getByRole('tablist',{name:'任务模式'}).getByRole('tab',{name:'能力发展',exact:true})).toHaveAttribute('aria-selected','true');
  expect(new URL(page.url()).searchParams.get('mode')).toBe('development');
- await page.getByRole('tab',{name:'项目找伙伴',exact:true}).click();await page.locator('#requirement').fill('另一个项目');await expect(page.getByRole('button',{name:'开始匹配',exact:true})).toBeEnabled();
+ await page.getByRole('tab',{name:'资源匹配',exact:true}).click();await page.locator('#requirement').fill('另一个项目');await expect(page.getByRole('button',{name:'开始匹配',exact:true})).toBeEnabled();
 });
