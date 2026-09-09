@@ -1,4 +1,5 @@
 """Live authorization for historical snapshots; immutable storage stays untouched."""
+from .task_failures import public_failures
 import copy,json,re
 from fastapi import HTTPException
 from .database import get_db
@@ -65,7 +66,13 @@ def detail(plan_id,user,version_id=None):
         conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user)
         request=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
         versions=[dict(r) for r in conn.execute('SELECT id,version_no,based_on_version_id,created_by,created_at FROM development_versions WHERE plan_id=? ORDER BY version_no DESC',(plan_id,))]
-        runs=[dict(r) for r in conn.execute('SELECT id,run_type,based_on_version_id,status,model_config_id,created_at,started_at,ended_at,error_stage,safe_error_message FROM development_runs WHERE plan_id=? ORDER BY created_at DESC',(plan_id,))]
+        runs=[dict(r) for r in conn.execute('SELECT id,run_type,based_on_version_id,status,model_config_id,created_at,started_at,ended_at,error_stage,safe_error_message FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC',(plan_id,))]
+        # Historical failure text is untrusted too; expose only current safe messages.
+        for run in runs:
+            if run['status'] in ('failed','partial','interrupted'):
+                safe=public_failures(run['error_stage'],run['safe_error_message'])[0]
+                run['error_stage']=safe['stage']
+                run['safe_error_message']=safe['message']
         payload=None;hidden=False
         if version_id or plan['current_version_id']:
             row=version_row(conn,plan,version_id);payload=readable_payload(conn,row);hidden=payload is None
@@ -83,7 +90,7 @@ def detail(plan_id,user,version_id=None):
         conversation.sort(key=lambda m:m['created_at'])
         # Source-sensitive user text is also withheld after revocation, including original demand.
         if hidden:request={k:v for k,v in request.items() if k in ('target_partner_id','request_source','targets')};request['targets']=[]
-        return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
+        return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':public_failures(runs[0]['error_stage'],runs[0]['safe_error_message']) if runs and runs[0]['status'] in ('failed','partial','interrupted') else [],'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
 
 def confirm(plan_id,version_id,user):
     with get_db() as conn:

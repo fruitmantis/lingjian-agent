@@ -50,8 +50,12 @@ def source_inventory(source):
         inventory={}
         for table in metadata.tables.values():
             actual=[row[1] for row in c.execute('PRAGMA table_info("'+table.name+'")')]
-            if actual!=list(table.c.keys()):raise RuntimeError('Column mapping differs for '+table.name)
-            rows=c.execute('SELECT * FROM "'+table.name+'"').fetchall()
+            expected=list(table.c.keys())
+            legacy_errors=(table.name=='match_records' and actual==[name for name in expected if name!='last_error_details'])
+            if actual!=expected and not legacy_errors:raise RuntimeError('Column mapping differs for '+table.name)
+            # Older v12 snapshots have no diagnostics; keep the source read-only.
+            projection=','.join('NULL AS "'+name+'"' if legacy_errors and name=='last_error_details' else '"'+name+'"' for name in expected)
+            rows=c.execute('SELECT '+projection+' FROM "'+table.name+'"').fetchall()
             inventory[table.name]={'count':len(rows),'sha256':digest(rows)}
         return inventory
 

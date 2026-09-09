@@ -4,6 +4,7 @@ from fastapi import APIRouter,Depends,Response
 from ..auth import require_active_user
 from ..database import get_db
 from .. import development_lifecycle as life,development_engine as engine,development_views as views
+from pydantic import BaseModel,Field,ConfigDict
 from ..development_types import DevelopmentRequest,Submit,Revise,Edit,VersionAction,Conversation
 
 router=APIRouter(prefix='/development',tags=['development'])
@@ -55,4 +56,17 @@ def copy(plan_id:str,body:VersionAction,user:dict=Depends(require_active_user)):
 def conversation(plan_id:str,body:Conversation,user:dict=Depends(require_active_user)):
     result=views.converse(plan_id,body,user)
     if result['kind']=='revise' and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
+    return result
+
+
+class RetryRun(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    submission_id:str=Field(min_length=1,max_length=128)
+    based_on_version_id:str|None=None
+    run_id:str=Field(min_length=1,max_length=128)
+
+@router.post('/plans/{plan_id}/retry',status_code=202)
+def retry(plan_id:str,body:RetryRun,user:dict=Depends(require_active_user)):
+    result=life.retry(plan_id,body,user)
+    if not result['replayed']:executor.submit(engine.execute,result['run_id'])
     return result

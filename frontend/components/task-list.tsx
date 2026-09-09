@@ -1,5 +1,6 @@
 "use client";
 
+import {FailureReasons,type FailureDetail} from "./task-failure";
 import Link from "next/link";
 import {PlanStatus,type PlanPresentation} from "./plan-status";
 import { useEffect, useState } from "react";
@@ -9,6 +10,7 @@ import { tasksChanged } from "./task-navigation";
 
 type TaskStatus = "matching" | "enriching" | "ready" | "partial" | "failed";
 type Task = {
+  failureDetails?: FailureDetail[];
   planPresentation?: PlanPresentation | null;
   id: string; requirement: string; topPartner: string; partnerCount: number; createdAt: string;
   archivedAt: string | null; ownerName: string | null; department: string | null; completenessScore: number | null;
@@ -120,7 +122,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
         {loading ? <p>加载中...</p> : items.length === 0 ? <div className="empty-state"><h2>{archived ? "暂无已归档任务" : "暂无任务"}</h2><p>{taskType === "development_plan" ? "暂无能力发展任务，可在开启新任务中选择能力发展。" : admin ? "当前筛选条件下没有任务。" : "前往开启新任务，完成第一次伙伴匹配。"}</p>{!admin && <Link href={taskType === "development_plan" ? "/?mode=development" : "/"} className="btn-primary-lg">开启新任务</Link>}</div> : (
           <>
             <div className="table-wrap"><table className="data-table task-table"><thead><tr><th>需求摘要</th><th>任务类型</th>{admin && <><th>创建人</th><th>部门</th></>}<th>状态</th><th>首选伙伴</th><th>推荐数</th><th>机会完整度</th><th>创建时间</th><th>操作</th></tr></thead><tbody>
-              {items.map(item => <tr key={item.id}><td className="task-requirement">{item.requirement}</td><td>{item.task_type === "development_plan" ? "能力发展" : "项目找伙伴"}</td>{admin && <><td>{item.ownerName || "-"}</td><td>{item.department || "-"}</td></>}<td>{item.task_type === "development_plan" && item.planPresentation ? <PlanStatus value={item.planPresentation}/> : <span className={`status-badge task-${item.taskStatus}`} title={errorStageText(item.lastErrorStage)}>{item.task_type === "development_plan" && ["matching","enriching"].includes(item.taskStatus) ? "生成中" : statusLabels[item.taskStatus]}</span>}</td><td>{item.topPartner}</td><td>{item.partnerCount}</td><td>{item.completenessScore == null ? "-" : `${item.completenessScore}%`}</td><td className="task-time">{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td><div className="table-actions"><Link href={`/tasks/${item.id}${admin ? "?from=admin" : ""}`} className="secondary-btn">详情</Link>{item.task_type !== "development_plan" && (item.taskStatus === "partial" || item.taskStatus === "failed") && <button className="secondary-btn" disabled={retryingId === item.id} onClick={() => void retry(item)}>{retryingId === item.id ? "重试中..." : "重试"}</button>}<button className="secondary-btn" onClick={() => void toggleArchive(item)}>{item.archivedAt ? "恢复" : "归档"}</button></div></td></tr>)}
+              {items.map(item => <tr key={item.id}><td className="task-requirement">{item.requirement}</td><td>{item.task_type === "development_plan" ? "能力发展" : "项目找伙伴"}</td>{admin && <><td>{item.ownerName || "-"}</td><td>{item.department || "-"}</td></>}<td>{item.task_type === "development_plan" && item.planPresentation ? <PlanStatus value={item.planPresentation}/> : <span className={`status-badge task-${item.taskStatus}`} title={errorStageText(item.lastErrorStage)}>{item.task_type === "development_plan" && ["matching","enriching"].includes(item.taskStatus) ? "生成中" : statusLabels[item.taskStatus]}</span>}{(item.taskStatus==="partial"||item.taskStatus==="failed")&&<FailureReasons details={item.failureDetails} stages={item.lastErrorStage} href={`/tasks/${item.id}`}/>}</td><td>{item.topPartner}</td><td>{item.partnerCount}</td><td>{item.completenessScore == null ? "-" : `${item.completenessScore}%`}</td><td className="task-time">{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td><div className="table-actions"><Link href={`/tasks/${item.id}${admin ? "?from=admin" : ""}`} className="secondary-btn">详情</Link>{item.task_type !== "development_plan" && (item.taskStatus === "partial" || item.taskStatus === "failed") && <button className="secondary-btn" disabled={retryingId === item.id} onClick={() => void retry(item)}>{retryingId === item.id ? "重试中..." : "重试"}</button>}<button className="secondary-btn" onClick={() => void toggleArchive(item)}>{item.archivedAt ? "恢复" : "归档"}</button></div></td></tr>)}
             </tbody></table></div>
             <div className="pagination"><span>共 {total} 条</span><button className="secondary-btn" disabled={page <= 1} onClick={() => void load(page - 1)}>上一页</button><span>第 {page} / {Math.max(1, totalPages)} 页</span><button className="secondary-btn" disabled={page >= totalPages} onClick={() => void load(page + 1)}>下一页</button></div>
           </>

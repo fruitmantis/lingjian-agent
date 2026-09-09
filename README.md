@@ -91,6 +91,8 @@ bash enablement-dev.sh stop
 
 ### PostgreSQL 与一次性迁移
 
+任务错误原因功能为 v12 增加可空的 `match_records.last_error_details` 列。更新旧 PostgreSQL 环境前，先确认无运行中任务并停止当前应用；使用该环境已有的私有 `DATABASE_URL` 执行 `.venv/bin/python scripts/migrate_task_failure_details.py --backup-dir <新的私有备份目录>`，再启动应用。脚本先执行一致性 `pg_dump`，再事务化增加列并校验原有各表内容不变；重复执行不覆盖数据，失败回滚。不重建表、不回填猜测原因。需回退代码时保留该可空列即可兼容旧代码；不要用旧备份覆盖期间新增业务数据。原 v12 SQLite 只读迁移仍支持缺少该列的快照。
+
 PostgreSQL 16 来自 Ubuntu 24.04 官方 apt 源，使用专用非超级用户 `banfei_app`。连接串形如 `postgresql+psycopg://banfei_app:<密码>@127.0.0.1:5432/banfei_agent`，实际值仅存在被忽略的私有运行配置中。现有 32 张表由 `backend/app/storage_models.py` 映射；保留 v12 字段、ID、约束、JSON 文本、ISO 时间和 0/1 标志，不引入 Alembic。
 
 `scripts/migrate_sqlite_to_postgres.py --source <SQLite路径> --evidence-dir <新的私有证据目录> --apply` 使用进程环境中的 PostgreSQL `DATABASE_URL`，仅接受空目标库。工具先用 SQLite backup API 保存快照，检查完整性/外键，再在一个 PostgreSQL 事务中建表、按依赖导入、校正已有 identity sequence（如有）并逐表对账行数和内容 SHA-256；失败回滚目标事务，不覆盖已有 PostgreSQL 表，不写源 SQLite。当前业务主键都是 UUID 文本，没有需要重新编号的业务 sequence。

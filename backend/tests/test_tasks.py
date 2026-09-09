@@ -93,7 +93,7 @@ def test_task_005_retry_does_not_duplicate_derivative_records(client, monkeypatc
             (task_id, now),
         )
 
-    def create_opportunity(requirement, record_id, recommendations):
+    def create_opportunity(requirement, record_id, recommendations, **_kwargs):
         with get_db() as conn:
             conn.execute(
                 """INSERT INTO project_opportunities
@@ -212,12 +212,12 @@ def test_persist_failure_then_retry_rematches_instead_of_reusing_empty(client, m
     original_set_state = match_router._set_task_state
     injected = False
 
-    def fail_recommendation_persist(record_id, task_status, error_stage=None, recommendations=None):
+    def fail_recommendation_persist(record_id, task_status, error_stage=None, recommendations=None, **kwargs):
         nonlocal injected
         if task_status == "enriching" and recommendations is not None and not injected:
             injected = True
             raise RuntimeError("injected recommendation persistence failure")
-        return original_set_state(record_id, task_status, error_stage, recommendations)
+        return original_set_state(record_id, task_status, error_stage, recommendations, **kwargs)
 
     monkeypatch.setattr(match_router, "_perform_partner_match", match)
     monkeypatch.setattr(match_router, "_set_task_state", fail_recommendation_persist)

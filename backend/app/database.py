@@ -187,7 +187,7 @@ def recover_stale_tasks(
     with get_db() as conn:
         cursor = conn.execute(
             f"""UPDATE match_records
-                    SET task_status = 'failed', last_error_stage = 'interrupted', updated_at = ?
+                    SET task_status = 'failed', last_error_stage = 'interrupted', last_error_details = NULL, updated_at = ?
                   WHERE {' AND '.join(conditions)}""",
             [now, *params],
         )
@@ -364,3 +364,5 @@ def initialize_storage() -> None:
         migrate_to_v11(connection)
         from .development_schema import migrate_to_v12
         migrate_to_v12(connection)
+        _ensure_column(connection, "match_records", "last_error_details", "TEXT")
+        connection.commit()

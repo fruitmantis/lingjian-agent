@@ -340,6 +340,7 @@ match_records = Table('match_records', metadata,
     Column('task_status', Text, primary_key=False, nullable=False, server_default=text("'ready'")),
     Column('last_error_stage', Text, primary_key=False, nullable=True),
     Column('updated_at', Text, primary_key=False, nullable=False),
+    Column('last_error_details', Text, nullable=True),
     CheckConstraint("task_status IN ('matching', 'enriching', 'ready', 'partial', 'failed')", name='ck_match_records_0'),
     ForeignKeyConstraint(['owner_user_id'], ['users.id'], name='fk_match_records_0', deferrable=True, initially='IMMEDIATE', use_alter=True, ondelete='RESTRICT', onupdate='RESTRICT'),
 )

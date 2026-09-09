@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import field_validator, BaseModel, Field
 
+from ..task_failures import failure, public_failures, PublicTaskError
 from ..ai_client import chat_completion, model_error_message
 from ..model_resolver import ModelConfigurationError
 from ..business_taxonomy import canonical, classify, project_partner, taxonomy_prompt
@@ -88,6 +89,7 @@ class MatchRecordSummary(BaseModel):
     completenessScore: float | None
     taskStatus: str
     lastErrorStage: str | None
+    failureDetails: list[dict] = Field(default_factory=list)
 
 
 class TaskListResponse(BaseModel):
@@ -111,6 +113,7 @@ class MatchRecordDetail(BaseModel):
     opportunity: dict | None
     taskStatus: str
     lastErrorStage: str | None
+    failureDetails: list[dict] = Field(default_factory=list)
 
 
 def _demand_profile_dict(row) -> dict | None:
@@ -158,10 +161,10 @@ def _query_tasks(
     from ..development_lifecycle import recover
     recover(owner_user_id=owner_user_id)
     cte = """WITH unified AS (
-        SELECT id, owner_user_id, requirement, recommendations_json, created_at, archived_at, task_status, last_error_stage, 'partner_match' AS task_type FROM match_records
+        SELECT id, owner_user_id, requirement, recommendations_json, created_at, archived_at, task_status, last_error_stage, last_error_details AS failure_details, 'partner_match' AS task_type FROM match_records
         UNION ALL
         SELECT p.id,p.owner_user_id,json_extract(q.payload_json,'$.development_goal'),json_array(json_object('partnerName',t.name)),p.created_at,p.archived_at,
-        CASE r.status WHEN 'pending' THEN 'matching' WHEN 'running' THEN 'enriching' WHEN 'interrupted' THEN 'failed' ELSE COALESCE(r.status,'failed') END,r.error_stage,'development_plan'
+        CASE r.status WHEN 'pending' THEN 'matching' WHEN 'running' THEN 'enriching' WHEN 'interrupted' THEN 'failed' ELSE COALESCE(r.status,'failed') END,r.error_stage,r.safe_error_message,'development_plan'
         FROM development_plans p JOIN development_requests q ON q.id=p.request_id JOIN partners t ON t.id=p.target_partner_id
         LEFT JOIN development_runs r ON r.id=COALESCE(p.active_run_id,(SELECT id FROM development_runs WHERE plan_id=p.id ORDER BY created_at DESC,id DESC LIMIT 1))
     ) """
@@ -191,7 +194,7 @@ def _query_tasks(
         ).fetchone()[0]
         rows = conn.execute(
             cte + f"""SELECT mr.task_type, mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
-                       mr.task_status, mr.last_error_stage, u.display_name AS owner_name, u.department,
+                       mr.task_status, mr.last_error_stage, mr.failure_details, u.display_name AS owner_name, u.department,
                        (SELECT po.completeness_score FROM project_opportunities po
                         WHERE po.match_record_id = mr.id ORDER BY po.created_at DESC LIMIT 1) AS completeness_score
                 FROM unified mr
@@ -218,6 +221,7 @@ def _query_tasks(
             createdAt=row["created_at"], archivedAt=row["archived_at"], ownerName=row["owner_name"],
             department=row["department"], completenessScore=row["completeness_score"],
             taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],
+            failureDetails=public_failures(row["last_error_stage"],row["failure_details"]) if row["task_status"] in ("partial","failed","interrupted") else [],
         ))
     return TaskListResponse(
         items=items, page=page, pageSize=page_size, total=total,
@@ -316,11 +320,11 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
             owner=plan['owner_user_id']
     if exists:
         summary=_query_tasks(owner_user_id=owner,archived=bool(plan['archived_at']),keyword=None,owner_keyword=None,task_status=None,page=1,page_size=1,ids=[record_id]).items[0]
-        return MatchRecordDetail(planPresentation=summary.planPresentation,task_type='development_plan',id=record_id,requirement=summary.requirement,recommendations=[],createdAt=summary.createdAt,createdBy=summary.ownerName,archivedAt=summary.archivedAt,demandProfile=None,opportunity=None,taskStatus=summary.taskStatus,lastErrorStage=summary.lastErrorStage)
+        return MatchRecordDetail(planPresentation=summary.planPresentation,task_type='development_plan',id=record_id,requirement=summary.requirement,recommendations=[],createdAt=summary.createdAt,createdBy=summary.ownerName,archivedAt=summary.archivedAt,demandProfile=None,opportunity=None,taskStatus=summary.taskStatus,lastErrorStage=summary.lastErrorStage,failureDetails=summary.failureDetails)
     _recover_accessible_task(record_id, user)
     with get_db() as conn:
         row = conn.execute("""SELECT mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
-                                     mr.task_status, mr.last_error_stage,
+                                     mr.task_status, mr.last_error_stage, mr.last_error_details,
                                      mr.owner_user_id, u.display_name AS owner_name
                               FROM match_records mr LEFT JOIN users u ON u.id = mr.owner_user_id
                               WHERE mr.id = ?""", (record_id,)).fetchone()
@@ -331,7 +335,7 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="记录不存在")
     recs = json.loads(row["recommendations_json"])
-    return MatchRecordDetail(id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=_demand_profile_dict(demand_profile), opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"])
+    return MatchRecordDetail(id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=_demand_profile_dict(demand_profile), opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
 
 
 def _model_value(item: dict, field: str):
@@ -516,12 +520,9 @@ def _perform_partner_match(requirement: str) -> list[PartnerRecommendation]:
     try:
         raw = chat_completion(messages, timeout=180, scene="partner_match")
     except ModelConfigurationError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=model_error_message(exc)) from None
-    except Exception:
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            detail="伙伴匹配暂时失败，项目需求已保存，可在“我的任务”中重试",
-        )
+        raise PublicTaskError(exc,503) from None
+    except Exception as exc:
+        raise PublicTaskError(exc) from None
 
     try:
         clean = raw.strip()
@@ -541,11 +542,8 @@ def _perform_partner_match(requirement: str) -> list[PartnerRecommendation]:
         recs = _validated_recommendations(items, partner_dicts, partner_cases, partner_deliverables)
         if not recs:
             raise ValueError("返回内容未包含有效候选伙伴")
-    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            detail="伙伴匹配结果处理失败，项目需求已保存，可在“我的任务”中重试",
-        )
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        raise PublicTaskError(ValueError('Invalid recommendation structure')) from None
     return recs
 
 
@@ -558,13 +556,15 @@ def _set_task_state(
     task_status: str,
     error_stage: str | None = None,
     recommendations: list[PartnerRecommendation] | None = None,
+    failures: list[dict] | None = None,
 ) -> None:
     now = datetime.now(timezone.utc).isoformat()
+    details=json.dumps(failures,ensure_ascii=False) if failures else None
     with get_db() as conn:
         if recommendations is None:
             cursor = conn.execute(
-                "UPDATE match_records SET task_status = ?, last_error_stage = ?, updated_at = ? WHERE id = ?",
-                (task_status, error_stage, now, record_id),
+                "UPDATE match_records SET task_status = ?, last_error_stage = ?, last_error_details = ?, updated_at = ? WHERE id = ?",
+                (task_status, error_stage, details, now, record_id),
             )
         else:
             # Serialize against partner deletion: late model results must not create
@@ -574,11 +574,11 @@ def _set_task_state(
                 raise DeletedMatchPartnerError("推荐伙伴已删除，请重试匹配")
             cursor = conn.execute(
                 """UPDATE match_records
-                   SET recommendations_json = ?, task_status = ?, last_error_stage = ?, updated_at = ?
+                   SET recommendations_json = ?, task_status = ?, last_error_stage = ?, last_error_details = ?, updated_at = ?
                    WHERE id = ?""",
                 (
                     json.dumps([item.model_dump() for item in recommendations], ensure_ascii=False),
-                    task_status, error_stage, now, record_id,
+                    task_status, error_stage, details, now, record_id,
                 ),
             )
         if cursor.rowcount != 1:
@@ -590,7 +590,7 @@ def _claim_task_retry(record_id: str, current_status: str, next_status: str) -> 
     with get_db() as conn:
         cursor = conn.execute(
             """UPDATE match_records
-               SET task_status = ?, last_error_stage = NULL, updated_at = ?
+               SET task_status = ?, last_error_stage = NULL, last_error_details = NULL, updated_at = ?
                WHERE id = ? AND task_status = ?""",
             (next_status, datetime.now(timezone.utc).isoformat(), record_id, current_status),
         )
@@ -616,11 +616,13 @@ def _run_task_enrichment(
         ).fetchone() is not None
 
     failed_stages: list[str] = []
+    failures: list[dict] = []
     if not demand_exists:
         try:
             _generate_demand_profile(record_id, requirement, recommendations, created_at)
             demand_exists = True
-        except Exception:
+        except Exception as exc:
+            failures.append(failure("demand_profile",exc))
             failed_stages.append("demand_profile")
             print(f"[WARN] demand profile generation failed for task {record_id}", flush=True)
 
@@ -629,12 +631,12 @@ def _run_task_enrichment(
             print(f"[WARN] tag suggestion generation failed for task {record_id}", flush=True)
 
     if not opportunity_exists:
-        opportunity_exists = _extract_project_opportunity(requirement, record_id, recommendations)
+        opportunity_exists = _extract_project_opportunity(requirement, record_id, recommendations, failures=failures)
         if not opportunity_exists:
             failed_stages.append("project_opportunity")
 
     final_status = "ready" if demand_exists and opportunity_exists else "partial"
-    _set_task_state(record_id, final_status, ",".join(failed_stages) or None)
+    _set_task_state(record_id, final_status, ",".join(failed_stages) or None, failures=failures)
     return final_status
 
 
@@ -661,15 +663,15 @@ def _execute_match(record_id: str, requirement: str, created_at: str) -> MatchRe
 
     try:
         recs = _perform_partner_match(requirement)
-    except HTTPException:
+    except HTTPException as exc:
         try:
-            _set_task_state(record_id, "failed", "partner_match")
+            _set_task_state(record_id, "failed", "partner_match", failures=[failure("partner_match",exc)])
         except Exception:
             print(f"[WARN] failed to persist failure state for task {record_id}", flush=True)
         raise
-    except Exception:
+    except Exception as exc:
         try:
-            _set_task_state(record_id, "failed", "partner_data")
+            _set_task_state(record_id, "failed", "partner_data", failures=[failure("partner_data",exc)])
         except Exception:
             print(f"[WARN] failed to persist failure state for task {record_id}", flush=True)
         raise HTTPException(
@@ -685,9 +687,9 @@ def _execute_match(record_id: str, requirement: str, created_at: str) -> MatchRe
     except DeletedMatchPartnerError:
         _set_task_state(record_id, "failed", "partner_data")
         raise HTTPException(409, "推荐伙伴已删除，请重试匹配")
-    except Exception:
+    except Exception as exc:
         try:
-            _set_task_state(record_id, "partial", "persistence")
+            _set_task_state(record_id, "partial", "persistence", failures=[failure("persistence",exc)])
         except Exception:
             print(f"[WARN] failed to persist partial state for task {record_id}", flush=True)
         raise HTTPException(
@@ -737,7 +739,7 @@ def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks, user:
 
 def _extract_project_opportunity(
     requirement: str, match_record_id: str, recommendations: list[PartnerRecommendation],
-    *, strict: bool = False,
+    *, strict: bool = False, failures: list[dict] | None = None,
 ) -> bool:
     try:
         from ..ai_client import chat_completion
@@ -752,8 +754,9 @@ def _extract_project_opportunity(
         clean = clean.strip()
         if clean.startswith("json"): clean = clean[4:].strip()
         if not clean:
-            return False
+            raise ValueError("Empty opportunity output")
         data = json.loads(clean)
+        if not isinstance(data,dict):raise ValueError("Invalid opportunity object")
 
         if strict:
             _validate_repair_fields(data, (
@@ -784,7 +787,8 @@ def _extract_project_opportunity(
                 (opp_id, match_record_id, requirement, data.get("customerName","未识别"), data.get("projectName","未识别"), data.get("industry","未识别"), data.get("region","未识别"), data.get("projectStage","未识别"), data.get("businessNeeds","未识别"), data.get("technicalNeeds","未识别"), data.get("deliveryNeeds","未识别"), data.get("qualificationRequirements","未识别"), data.get("caseRequirements","未识别"), data.get("onsiteRequirement","未识别"), data.get("timelineRequirement","未识别"), data.get("cloudPlatformPreference","未识别"), cap_tags, "", "", rec_names, supply, completeness, ",".join(missing), json.dumps(data.get("followUpQuestions",[]), ensure_ascii=False), now, now)
             )
         return True
-    except Exception:
+    except Exception as exc:
+        if failures is not None:failures.append(failure("project_opportunity",exc))
         print(f"[WARN] project opportunity extraction failed for task {match_record_id}", flush=True)
         return False
 
@@ -954,8 +958,8 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
     if should_rematch:
         try:
             recommendations = _perform_partner_match(requirement)
-        except HTTPException:
-            _set_task_state(record_id, "failed", "partner_match")
+        except HTTPException as exc:
+            _set_task_state(record_id, "failed", "partner_match", failures=[failure("partner_match",exc)])
             raise
         except Exception:
             _set_task_state(record_id, "failed", "partner_data")
@@ -970,8 +974,8 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
         task_status = _run_task_enrichment(
             record_id, requirement, recommendations, created_at, include_tag_suggestions=False,
         )
-    except Exception:
-        _set_task_state(record_id, "partial", "persistence")
+    except Exception as exc:
+        _set_task_state(record_id, "partial", "persistence", failures=[failure("persistence",exc)])
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="任务重试未完成，请稍后再试")
     return MatchResponse(
         requirement=requirement, recommendations=recommendations, recordId=record_id, taskStatus=task_status,

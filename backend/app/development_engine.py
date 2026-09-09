@@ -237,5 +237,5 @@ def execute(run_id):
             output=direct_resource_output(request,analysis,pool) if direct else call(config,'plan',{'request':minimal,'analysis':analysis,'candidates':pool},AdviceOutput,blocked)
         payload=assemble(output,request,analysis,pool,run['owner_user_id'])
         stage='persistence';life.complete(run_id,run['execution_token'],payload,deps,validate_dependencies)
-    except Exception:life.finish_failure(run_id,run['execution_token'],stage)
+    except Exception as exc:life.finish_failure(run_id,run['execution_token'],stage,error=exc)
     finally:watchdog.cancel()

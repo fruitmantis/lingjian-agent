@@ -151,3 +151,15 @@ def test_explicit_read_transaction_keeps_consistent_snapshot(client):
         assert reader.execute('SELECT intro FROM partners WHERE id=?', (partner['id'],)).fetchone()[0] == before
     with get_db() as fresh:
         assert fresh.execute('SELECT intro FROM partners WHERE id=?', (partner['id'],)).fetchone()[0] == 'synthetic concurrent change'
+
+
+def test_pre_diagnostics_v12_snapshot_remains_importable(tmp_path):
+    source=tmp_path/'legacy-v12.db'
+    with sqlite3.connect(DATABASE_PATH) as src,sqlite3.connect(source) as dst:src.backup(dst)
+    with sqlite3.connect(source) as conn:conn.execute('ALTER TABLE match_records DROP COLUMN last_error_details')
+    before=sha(source)
+    with empty_postgres_schema() as target:
+        assert import_snapshot(source,target)['row_value_reconciliation']=='PASS'
+        with engine_for(target).connect() as conn:
+            assert 'last_error_details' in {c['name'] for c in inspect(conn).get_columns('match_records')}
+    assert sha(source)==before

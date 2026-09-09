@@ -135,12 +135,14 @@ def ensure_execution(run_id, token):
             fail(409, '运行已失效或超时')
 
 
-def finish_failure(run_id,token,stage,status='failed'):
+def finish_failure(run_id,token,stage,status='failed',error=None):
+    from .task_failures import failure
+    message=failure(stage,error)['message']
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         row=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
         if not row or row['execution_token']!=token or row['status']!='running':return
-        conn.execute('UPDATE development_runs SET status=?,ended_at=?,error_stage=?,safe_error_message=? WHERE id=?',(status,now(),stage,'本次处理未完成，旧版本保持不变。请重试或联系管理员。',run_id))
+        conn.execute('UPDATE development_runs SET status=?,ended_at=?,error_stage=?,safe_error_message=? WHERE id=?',(status,now(),stage,message,run_id))
         conn.execute('UPDATE development_plans SET active_run_id=NULL,updated_at=? WHERE id=? AND active_run_id=?',(now(),row['plan_id'],run_id))
 
 
@@ -200,3 +202,24 @@ def recover(startup=False,owner_user_id=None,plan_id=None):
         for row in rows:
             conn.execute("UPDATE development_runs SET status='interrupted',ended_at=?,safe_error_message='执行已中断，旧版本保持不变',error_stage='interrupted' WHERE id=?",(now(),row['id']))
             conn.execute('UPDATE development_plans SET active_run_id=NULL WHERE id=? AND active_run_id=?',(row['plan_id'],row['id']))
+
+
+def retry(plan_id,payload,user):
+    digest=fingerprint({'plan_id':plan_id,'retry_run_id':payload.run_id,**payload.model_dump()})
+    with get_db() as conn:
+        plan=authorize(conn,plan_id,user)
+        replay=duplicate(conn,user,payload.submission_id,digest)
+        if replay:return replay
+        original=conn.execute('SELECT * FROM development_runs WHERE id=? AND plan_id=?',(payload.run_id,plan_id)).fetchone()
+        if not original:fail(404,'运行记录不存在')
+        snapshot=json.loads(original['input_snapshot'])
+    data=checked_request(DevelopmentRequest.model_validate({k:v for k,v in snapshot['request'].items() if k in DevelopmentRequest.model_fields}),user)
+    with get_db() as conn:
+        conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
+        replay=duplicate(conn,user,payload.submission_id,digest)
+        if replay:return replay
+        writable(plan,payload.based_on_version_id)
+        latest=conn.execute('SELECT * FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(plan_id,)).fetchone()
+        if latest['id']!=payload.run_id or latest['status'] not in ('failed','partial','interrupted'):fail(409,'运行状态已变化，请重新载入')
+        if latest['based_on_version_id']!=payload.based_on_version_id:fail(409,'版本冲突：请基于当前建议重新提出调整')
+        return insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction']},latest['run_type'],digest)

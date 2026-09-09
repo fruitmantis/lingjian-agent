@@ -69,7 +69,7 @@ def _completion_content(data: dict) -> str:
 def chat_completion(messages: list[dict], timeout: int | None = None, scene: str = "default") -> str:
     cfg = resolve_model_config(scene)
     if not cfg.api_key:
-        raise RuntimeError("LLM_API_KEY is not configured (checked DB and env)")
+        raise ModelConfigurationError("LLM_API_KEY is not configured (checked DB and env)")
 
     url = f"{cfg.base_url.rstrip('/')}/chat/completions"
     headers = {"Authorization": f"Bearer {cfg.api_key}", "Content-Type": "application/json"}

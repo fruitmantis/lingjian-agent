@@ -118,5 +118,7 @@ def verify_schema(url):
         found=set(inspect(conn).get_table_names())
         if set(metadata.tables)-found:
             raise RuntimeError('PostgreSQL schema is incomplete; explicit migration required')
+        if 'last_error_details' not in {c['name'] for c in inspect(conn).get_columns('match_records')}:
+            raise RuntimeError('Task failure detail column missing; run explicit additive migration')
         if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='12':
             raise RuntimeError('PostgreSQL schema version is not 12; refusing automatic changes')
