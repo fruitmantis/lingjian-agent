@@ -1,7 +1,9 @@
 export type ApiRequestInit = RequestInit & { timeoutMs?: number };
 
 function requestPath(input: RequestInfo | URL): string {
-  return new URL(input instanceof Request ? input.url : String(input), "http://localhost").pathname;
+  const path = new URL(input instanceof Request ? input.url : String(input), "http://localhost").pathname;
+  // Optional frontend proxy preserves the same backend request budgets.
+  return path.replace(/^\/api(?=\/)/, "");
 }
 
 export function requestTimeoutMs(input: RequestInfo | URL, method = "GET"): number {

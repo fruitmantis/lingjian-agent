@@ -32,6 +32,7 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: replay ? "**/*.spec.ts" : [
     "**/business-taxonomy.spec.ts", "**/partner-delete.spec.ts", "**/model-boundary.spec.ts",
+    "**/arm-runtime.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,

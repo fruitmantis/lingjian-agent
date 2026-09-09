@@ -18,7 +18,7 @@ type PendingTask = NavigationTask & { taskStatus: "submitting" | "unconfirmed" }
 export function tasksChanged(task?: NavigationTask) {
   window.dispatchEvent(new CustomEvent(TASKS_CHANGED, { detail: task }));
 }
-function newTaskId(): string {
+export function newTaskId(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   // getRandomValues also works on internal HTTP origins without randomUUID.
   const bytes = crypto.getRandomValues(new Uint8Array(16));
