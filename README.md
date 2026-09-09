@@ -1,162 +1,111 @@
 # 伴飞 Agent
 
-伴飞 Agent 面向公司内部业务人员，提供“项目找伙伴”和“能力发展”两条主线。当前主干为 `main`，正式工作区为 `/home/yuan/project/lingjian-agent-enablement`。工程名、模块名、API 和 `LINGJIAN_*` 环境变量保留原技术标识。
+面向公司内部人员的伙伴智能助手，提供“项目找伙伴”和“能力发展”两条主线。正式工作目录为 `/home/yuan/project/lingjian-agent-enablement`，直接在 `main` 开发。工程名、模块名、API 和 `LINGJIAN_*` 环境变量保留技术标识。
 
-## 当前入口与能力
+## 主要功能与入口
 
-左侧导航：开启新任务、场景广场、伙伴洞察、资源中心、全部任务与历史任务、个人中心、管理后台。
-
-- **开启新任务**：两个显式 Tab“项目找伙伴 / 能力发展”，不自动猜测业务模式。
-- **项目找伙伴**：输入项目需求，自动使用伙伴已有能力标签、标准行业/区域、AI 画像摘要、案例标题/简短摘要和交付物名称。缺资料时降级，不要求人工补录；现有交付物没有独立摘要字段，不读取原附件或增加字段。画像截取上限 3000 字符、单案例摘要上限 500 字符。输出推荐、匹配分、理由、归属校验后的证据和风险，并沉淀需求画像、项目机会。
-- **能力发展**：伙伴 + 自然语言方向即可生成建议；结合画像和真实候选资源，支持解释、比较和自然语言调整。解释不创建新版本，成功调整创建新 Version；失败不覆盖已有可用建议。历史版本、采用版本、运行记录为二级操作。
-- **场景广场**：“伙伴能力短板分析”直接进入能力发展；伙伴能力/画像/案例查询是伙伴洞察的快捷入口，不是三套新 Agent。需求画像、项目机会随匹配生成。
-- **资源中心**：独立浏览课程、实验、已发布共享案例，提供搜索、筛选、详情与来源跳转；跳转不代表学习完成或能力提升。
-- **统一任务**：项目匹配与能力发展共用任务历史。每个 Plan 只计一项任务，多次 Run 不重复计数。后台累计/本月任务同时给出两类数量，保留归档任务在累计统计中；月份沿用 UTC 创建时间口径。
-- **管理后台**：伙伴及资料维护、案例共享、课程实验发布/人工核验、任务、需求画像、项目机会、现有运营报表、标签、用户、模型和系统状态。
-- **系统状态**：只读检查配置与数据。能力发展使用实际执行的模型选择规则，并读取最近一次 Run 状态和可计算的起止耗时；无记录显示“暂无运行记录”。不主动调用模型，不以历史成功保证当前模型连通。
-
-## 页面
-
-| 路径 | 功能 |
+| 入口 | 当前功能 |
 |---|---|
-| `/login` | 登录；点击“注册”进入公司内部账号申请表 |
-| `/` | 开启新任务：项目找伙伴 / 能力发展 |
-| `/?mode=development` | 直接激活能力发展，可携带伙伴、项目、共享案例上下文 |
-| `/scenes` | 场景快捷入口 |
-| `/partners`、`/partners/{id}` | 伙伴洞察与详情 |
-| `/resources`、`/resources/{type}/{id}` | 资源中心与详情 |
-| `/tasks`、`/tasks/{id}` | 两类任务的统一历史与详情 |
-| `/account`、`/403` | 个人中心、无权限提示 |
-| `/admin`、`/admin/tasks` | 后台概览、全量任务 |
-| `/admin/partners`、`/admin/partners/{id}` | 伙伴、资料、案例、交付物与画像维护 |
-| `/admin/resources` | 课程/实验管理 |
-| `/admin/demands`、`/admin/opportunities`、`/admin/reports` | 需求画像、机会与现有运营统计 |
-| `/admin/tags`、`/admin/users`、`/admin/users/{id}` | 能力标签、用户与审批审计 |
-| `/admin/models`、`/admin/system` | 模型场景绑定、只读系统状态 |
+| `/` 开启新任务 | 显式“项目找伙伴 / 能力发展”两个 Tab；不自动猜测业务模式 |
+| 项目找伙伴 | 项目需求 → 使用现有标签、行业/区域、画像摘要、案例摘要及交付物名称匹配 → 推荐/理由/证据/风险 → 需求画像、项目机会 |
+| `/?mode=development` 能力发展 | 伙伴 + 自然语言方向 → 顾问式建议、资源与缺口 → 解释、比较或自然语言调整 |
+| `/scenes` 场景广场 | 发现并进入已有能力；能力短板分析进入能力发展，伙伴能力/画像/案例查询进入伙伴洞察 |
+| `/partners`、`/partners/{id}` | 伙伴洞察、画像与资料；制定发展建议时带入伙伴上下文 |
+| `/resources`、`/resources/{type}/{id}` | 独立课程/实验/共享案例目录，搜索、筛选、详情和发起来源跳转 |
+| `/tasks`、`/tasks/{id}` | 两类任务共用历史；创建后即出现，真实状态更新，首批 10 条、独立滚动与加载更多 |
+| `/login`、`/account` | 登录、内部账号申请与个人中心 |
+| `/admin/*` | 任务、伙伴/资料/案例共享、资源发布核验、需求画像、项目机会、运营报表、标签、用户、模型、系统状态 |
 
-`/enablement` 只保留书签兼容，跳转至统一任务入口或资源中心，不提供第二套用户工作台。案例共享维护复用伙伴管理中的案例入口。
+伙伴详情、匹配结果和共享案例中的发展入口都汇入统一新任务页，并带入允许的来源上下文。`/enablement` 仅保留兼容跳转，不提供另一套用户工作台。
 
-## 技术与业务边界
+- 匹配资料有多少用多少，不要求人工整理或补齐；交付物使用已有名称，不新增摘要字段。画像上下文最多 3000 字符，单案例摘要最多 500 字符。
+- 能力发展解释/讨论不生成版本；修改成功产生新 Version。草稿可直接查看、打开资源和继续问伴飞。历史、采用版本、运行记录为二级操作，不展示普通用户高级编辑入口。
+- 失败调整保留已有建议；任务原因区分超时、配置、结构、保存和中断等问题。项目机会抽取兼容常见格式差异，无法提取的字段记“未知”，不把未知计为完整信息。机会库支持紧凑多选筛选、重置和展开详情。
+- 伙伴启用/停用保留历史；管理员仅可删除无业务历史的误建伙伴，有关联时返回阻止原因及数量。
+- 行业与区域使用 [唯一标准字典](shared/business-taxonomy.json)，支持多选及同时覆盖国内/海外；未知旧分类保留待确认。
+- 统计同时包含两类任务，一份 Plan 只算一项；系统状态读取配置和最近执行记录，不主动调用模型。
 
-- Next.js 15 / React 19 / TypeScript；FastAPI / Python；PostgreSQL 16 / SQLAlchemy Core / psycopg；本地上传存储；OpenAI-compatible 模型接口。
-- 当前未接入 Embedding、Chroma、RAG、向量检索；Chroma 路径只是历史预留。
-- 不包含 Redis、队列、微服务、复杂 RBAC、多租户或通用 Planner/Multi-Agent。
-- 课程/实验只做目录与跳转，不提供 LMS、实验执行、完成率或能力认证。
-- 健康度仍是临时实现，正式健康度等待外部平台，不自行扩展评分。
-- 黑白灰为主、华为红 `#C7000B` 小面积强调，保留红色图标与“伴飞 Agent”字标。
+## 技术与安全边界
 
-## 权限与数据保护
+Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 12**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
 
-- 仅 `GET /health`、`POST /auth/login`、`POST /auth/user-applications` 为公开业务 API；其他业务接口要求有效 Token，管理写接口在后端校验 admin。
-- 保留 user/admin 两角色。匹配任务归属为 `match_records.owner_user_id`，能力发展归属为 `development_plans.owner_user_id`；普通用户越权访问任务及关联数据返回 404。
-- 系统可见、模型可发送、伙伴可外发分别校验，不互相推导。能力发展原始附件/内部材料默认不发送模型，共享案例只使用当前获授权的已发布共享版本。
-- 伙伴可传递视图只取 confirmed 版本，输出时重新校验授权、版本、资源状态并应用允许字段白名单。撤权不会改写审计历史。
-- Plan / Run / Version、current / confirmed、幂等、并发冲突、事务原子性、超时、中断恢复和失败保留旧版本继续保留。
-- 不删除、清空、重建或替换已有数据库；不清理上传资料。测试仅用 `/tmp` 隔离文件和独立 `banfei_validation` PostgreSQL 临时 schema，不在运行库执行 E2E。
-- 不提交数据库、上传材料、私有快照、`.env`、密钥、Token 或原始敏感日志。
+保留 `user/admin`、后端管理权限和任务 owner 隔离。内部注册仍须管理员审批、首次改密；没有固定默认凭据。系统可见、模型可发送、伙伴可外发分别校验；共享案例使用当前授权共享版本。伙伴可传递视图只取 confirmed 版本并实时重检权限，不输出内部诊断或备注。
 
-## 账号
+Plan / Run / Version、current / confirmed、幂等、版本冲突、事务、超时、中断及撤权保护继续保留。资源跳转不等于学习完成；没有 LMS 或正式能力认证。健康度仍等待外部平台，不自行扩展评分。
 
-登录页默认只展示登录；点击“注册”填写姓名、工号、部门、邮箱、用户名、密码、确认密码，申请说明选填。公司内部账号继续由管理员审批，审批后首次登录必须改密。管理员直接创建的临时密码仅展示一次。
+视觉保持黑白灰 + 华为红 `#C7000B`、现有红色图标和伴飞 Agent 字标；Latin/数字 Web Font 从本地加载，中文按系统 fallback。字体二进制不进 Git，换机器按 [字体来源与复现说明](docs/design/HUAWEI_CLOUD_FONT_SOURCES.md) 获取；不要重新设计 Logo。
 
-保留密码不可逆哈希、审批后清除申请密码哈希、连续 5 次失败锁定 15 分钟、管理员解锁、最后一个有效管理员保护和会话即时失效。没有固定默认登录凭据。`JWT_SECRET_KEY` 必须显式配置且至少 32 位；空库首位管理员仅通过 `BOOTSTRAP_ADMIN_USERNAME` / 强 `BOOTSTRAP_ADMIN_PASSWORD` 引导，已有运行库不要重新引导。
+## 当前本地运行
 
-## 当前本地环境
-
-| 项目 | 当前值 |
+| 项目 | 当前配置 |
 |---|---|
-| 工作区/分支 | `/home/yuan/project/lingjian-agent-enablement` / `main` |
-| 前端 | http://localhost:3000 |
-| 后端 | http://localhost:8000；匿名健康检查 `/health` |
-| 开发模型 | DeepSeek `deepseek-v4-flash`（`api.deepseek.com`）；七个场景显式绑定，本地 mock 停用 |
-| 数据库 | PostgreSQL 16：`banfei_agent`，应用账号 `banfei_app`；连接由私有 `DATABASE_URL` 提供 |
-| SQLite 回退文件 | `.isolation/runtime/dev/app.db`（保留，不参与正常运行） |
-| 上传目录 | `.isolation/runtime/dev/uploads` |
-| 私有运行配置 | `.isolation/runtime/dev/environment.json` |
-| 运行日志 | `.isolation/logs/` |
-
-从当前工作区执行：
+| 系统 / 工作区 / 分支 | WSL Ubuntu 24.04 / `/home/yuan/project/lingjian-agent-enablement` / `main` |
+| 前端 / 后端 | http://localhost:3000 / http://localhost:8000 |
+| 后端健康检查 | `GET /health` |
+| PostgreSQL 库 / 用户 | `banfei_agent` / `banfei_app`（PostgreSQL 16） |
+| 私有配置 | `.isolation/runtime/dev/environment.json`，包含 `DATABASE_URL` |
+| 上传 / 日志 | `.isolation/runtime/dev/uploads` / `.isolation/logs/` |
+| 原 SQLite 与备份 | `.isolation/runtime/dev/app.db`、`.isolation/postgres-migration/`，保留、不参与正常运行 |
 
 ```bash
+cd /home/yuan/project/lingjian-agent-enablement
 bash enablement-dev.sh status
 bash enablement-dev.sh start
+# 需要停止当前服务时：
 bash enablement-dev.sh stop
 ```
 
-启动器继续使用已有私有配置和运行库；不得用通用 `dev.sh` 或手动启动方式绕过当前隔离配置，不重新安装/初始化环境。日常启动不依赖本地 mock 服务，也不创建测试模型数据。
+复用已有 `.venv`、`frontend/node_modules`、配置和运行数据，不重新初始化。legacy 目录、旧 feature 分支及历史 worktree 不得作为正式开发环境，legacy 服务保持停止。
 
-旧环境仅作为 legacy 保留，服务保持停止；保留 `legacy/pre-v1.2-main` 和 `v1.1-legacy`，不修改其目录、数据库或指针。
+同一代码已做 ARM64 兼容：可用 `NEXT_PUBLIC_API_BASE_URL=/api` 配合 `BANFEI_API_PROXY_TARGET` 使用同源代理，`BANFEI_BUILD_CPUS=1` 限制小机器构建并发；本地当前仍直连后端。见 [ARM 验证范围](docs/validation/ARM_VALIDATION_REPORT.md)。Git push 不自动更新 ARM 服务。
 
-当前数据库由私有配置中的 `DATABASE_URL` 显式指定；缺失或连接失败直接报错，不自动回退 SQLite。`LINGJIAN_UPLOADS_DIR` 保留现有上传路径；`LINGJIAN_DATABASE_PATH` 仅供显式 SQLite 兼容测试或人工回退，不是 PostgreSQL 的数据路径。
+## 数据库与迁移
 
-### PostgreSQL 与一次性迁移
+- `DATABASE_URL` 显式选择 PostgreSQL，缺失或连接失败直接报错；不自动回退 SQLite。不要用旧 SQLite 快照覆盖切换后的新增数据。
+- 32 张表的映射位于 [storage_models.py](backend/app/storage_models.py)。保留现有 UUID、外键、JSON 文本、时间和标志字段；当前 schema version 为 12。
+- `match_records.last_error_details` 是 v12 内已落地的可空增量列；当前环境已完成迁移，不因阅读文档再次执行。
+- [SQLite → PostgreSQL 工具](scripts/migrate_sqlite_to_postgres.py) 只用于经授权的一次性迁移：SQLite backup API、原库只读、空目标库、事务导入和逐表对账。
+- [任务错误详情迁移工具](scripts/migrate_task_failure_details.py) 先 `pg_dump`，再事务加列和校验；不能替代业务数据备份策略。
+- 禁止删除、清空、重建、重新 seed、随意替换任何现有数据库、上传目录或私有备份。必要变更须先核验实际目标，提供备份、事务与回退方案。
+- 历史 Pilot 文件工具只兼容 SQLite，不能对当前 PostgreSQL 运行库使用；见 [兼容工具说明](pilot-data/README.md)。
 
-任务错误原因功能为 v12 增加可空的 `match_records.last_error_details` 列。更新旧 PostgreSQL 环境前，先确认无运行中任务并停止当前应用；使用该环境已有的私有 `DATABASE_URL` 执行 `.venv/bin/python scripts/migrate_task_failure_details.py --backup-dir <新的私有备份目录>`，再启动应用。脚本先执行一致性 `pg_dump`，再事务化增加列并校验原有各表内容不变；重复执行不覆盖数据，失败回滚。不重建表、不回填猜测原因。需回退代码时保留该可空列即可兼容旧代码；不要用旧备份覆盖期间新增业务数据。原 v12 SQLite 只读迁移仍支持缺少该列的快照。
+## 模型配置
 
-PostgreSQL 16 来自 Ubuntu 24.04 官方 apt 源，使用专用非超级用户 `banfei_app`。连接串形如 `postgresql+psycopg://banfei_app:<密码>@127.0.0.1:5432/banfei_agent`，实际值仅存在被忽略的私有运行配置中。现有 32 张表由 `backend/app/storage_models.py` 映射；保留 v12 字段、ID、约束、JSON 文本、ISO 时间和 0/1 标志，不引入 Alembic。
+日常业务及人工体验使用已批准的 **`api.deepseek.com` / `deepseek-v4-flash`**。七个场景：`default`、`partner_profile`、`partner_match`、`demand_profile`、`tag_suggestion`、`recommendation_summary`、`partner_development`，均显式绑定现有启用配置。
 
-`scripts/migrate_sqlite_to_postgres.py --source <SQLite路径> --evidence-dir <新的私有证据目录> --apply` 使用进程环境中的 PostgreSQL `DATABASE_URL`，仅接受空目标库。工具先用 SQLite backup API 保存快照，检查完整性/外键，再在一个 PostgreSQL 事务中建表、按依赖导入、校正已有 identity sequence（如有）并逐表对账行数和内容 SHA-256；失败回滚目标事务，不覆盖已有 PostgreSQL 表，不写源 SQLite。当前业务主键都是 UUID 文本，没有需要重新编号的业务 sequence。
+用户已授权按现有权限发送所需伙伴资料/画像、案例说明、项目需求、对话及授权资源，伙伴画像生成包括上传文档提取文本。能力发展仍按最小上下文排除内部附件和案例原文。不擅自改模型、Key、默认绑定或供应商，不自动批量处理业务材料。
 
-SQLite 原文件与 `.isolation/postgres-migration/` 下的一致性备份保留。回退必须先停服务并确认 PostgreSQL 切换后是否产生新增数据，不能直接切回旧快照丢弃新数据。经确认后才可显式设置 `DATABASE_URL=sqlite://` 和指定保留的 SQLite 路径；启动器不会自行回退。
+本地 mock 不参与日常运行；历史配置已停用但因历史 Run 引用保留。仅隔离单元故障注入和显式 replay 使用测试桩。
 
-## 模型
+原匹配等场景保留既有 default/环境兼容回退；显式无效绑定报错。能力发展按场景绑定 → default 场景绑定 → 唯一启用默认模型选择，不取首个启用模型。DeepSeek 当前适配为 `json_object` + 完整 schema 提示，关闭该模型思考输出；最终仍做程序结构、ID/URL、权限及强结论来源校验。不展示 Prompt、原始响应或凭据。
 
-开发测试允许使用经批准的真实模型。启动器根据启用模型的配置，仅放行对应域名、解析地址和端口，保留其他外部网络限制；模型供应商新增或地址变更后重启后端以刷新放行范围。
+真实模型已获授权并已有调用；不沿用早期零调用结论。每次新增验证须限定范围、记录次数；普通 UI/文档工作不调用模型。执行前检查和验证计划见 [模型前检](docs/validation/REAL_MODEL_PRECHECK.md)、[真实模型验证](docs/validation/REAL_MODEL_VALIDATION_PLAN.md)。
 
-当前运行配置：七个场景（伙伴画像、项目匹配、需求画像、标签建议、推荐说明、默认、能力发展）均显式绑定现有 DeepSeek `deepseek-v4-flash`，作为默认模型。本地 mock 已停用、取消默认，18180 不运行；模型记录因历史 Run 引用保留。用户已授权按现有业务权限发送所需伙伴资料/画像、案例说明、项目需求、对话和授权资源字段；伙伴画像生成包含上传文档提取文本。此授权不改变三维权限，也不授权自动批量处理业务数据。
+## 测试
 
-- 原匹配等场景：场景绑定 → 默认场景绑定 → 启用的默认模型 → 首个启用模型 → 环境变量；显式绑定无效时报错。
-- 能力发展：场景绑定 → 默认场景绑定 → 唯一启用的默认模型；没有有效选择时报错，不回退到首个启用模型。不再使用 `LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL` 这一阶段性开关；地址、凭据、结构化输出和权限校验继续有效。
-- 模型候选 ID、版本、URL、权限与结构化输出仍由程序校验。画像摘要不等于新的可信证据，资料缺失不等于没有能力。
-- 不向用户展示 Prompt、原始模型 JSON、密钥或异常堆栈。
-
-## 主要代码与接口
-
-- `backend/app/routers/match.py`：项目匹配、统一任务查询、后台任务统计。
-- `backend/app/development_*.py`：能力发展执行、上下文、版本、权限、超时与模型适配。
-- `backend/app/enablement*.py`：资源、共享案例、发布核验、目录检索与引用。
-- `frontend/lib/scenes.ts` / `skills.ts`：轻量场景和能力描述，不是执行编排平台。
-- `scripts/validate_pilot_data.py` / `import_pilot_data.py`：历史 SQLite Pilot 预检与原子导入工具，不可对当前 PostgreSQL 运行库使用；本轮未扩大这些工具范围。机器导入通过不等于业务签审通过。
-- `POST /agent/tasks`：创建匹配任务；`GET /agent/tasks`：统一任务列表；`GET /agent/tasks/{id}`：任务详情；原同步匹配接口保留兼容。
-- `/development/plans`：能力发展生成、解释/调整、确认、历史与归档。
-- `/enablement/resources`：资源目录；`/admin/dashboard`、`/admin/system/status`：统计与状态。
-- 完整接口契约以当前 FastAPI `/docs`、`/openapi.json` 和代码为准，不沿用历史文档中的接口数量。
-
-## 验证
-
-沿用现有 `.venv` 和 `frontend/node_modules`。单元故障注入使用隔离夹具；真实模型集成测试可以使用已批准的真实服务与合成输入，并记录调用次数。不得把未经批准的业务资料送入批量回归。全量 pytest 的进程恢复测试及 Playwright 共用服务端口；开发服务、构建与 Playwright 共用 `.next`，不能并行运行。
-
-先确认当前项目进程归属，再停止当前前后端和遗留的隔离测试夹具。按顺序执行：
+私有 `BANFEI_TEST_DATABASE_URL` 必须指向本机专用 `banfei_validation`，不能使用运行库连接串。PostgreSQL 用临时 schema；SQLite 兼容/迁移测试和上传夹具仅在 `/tmp`。全量或进程恢复/E2E 测试会占服务端口，先核对并停止当前服务，结束后只恢复 main，不启动 legacy 或遗留模型夹具。
 
 ```bash
-.venv/bin/python -m pytest -q
-cd frontend
-npm run typecheck
-npm run build
-cd ..
+# 私有 BANFEI_TEST_DATABASE_URL 已由环境提供后，在仓库根目录：
+.venv/bin/python scripts/run_postgres_validation.py backend -q
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
+
+# 无模型的默认 UI 子集（不是完整浏览器套件）：
 .venv/bin/python scripts/run_postgres_validation.py browser
+
+# 完整隔离生命周期/故障回放：
+PLAYWRIGHT_MODEL_MODE=replay .venv/bin/python scripts/run_postgres_validation.py browser
 ```
 
-后端全量测试中，普通业务测试使用 PostgreSQL 临时 schema；原 SQLite 原生迁移、Pilot 文件工具和 SQLite 故障注入测试保留临时 SQLite，JUnit 标记实际后端。直接运行 pytest 未配置验证库时只覆盖 SQLite 兼容路径，不能据此声称 PostgreSQL 验收通过。
+- 开发、build、Playwright 不得同时写同一 `.next`；可在独立构建目录验证。
+- 默认 UI 子集以 [Playwright 配置](frontend/playwright.config.ts) 的 `testMatch` 为准，不在文档写固定数量。`opportunity-ui.spec.ts` 已单独验证，尚不在默认子集中；完整 replay 会包含它。
+- 未配置 PostgreSQL 验证库的普通 pytest 可能仅验证 SQLite 兼容路径，不能据此宣布 PostgreSQL 全量通过。
+- 真实接口 smoke 使用现有 `scripts/verify_real_model.py`，最多两次合成请求；不读伙伴附件，不建业务任务。故障回放与真实供应商测试分别记录。
+- 版本化测试记录仅证明对应提交/范围；工程、真实模型兼容、真实资源与业务验收分别判断，不相互替代。业务样例填写 [现行业务验收模板](docs/validation/REAL_BUSINESS_ACCEPTANCE_TEMPLATE.md)，不由工具代填结论。
 
-Playwright 使用独立 PostgreSQL 临时 schema，`/tmp/lingjian-enablement-e2e` 仅存合成数据中间文件、临时凭据与上传。验证脚本仅接受本机 `banfei_validation`，为浏览器创建独立 schema 并在退出后清理该 schema，不触碰 `banfei_agent`。必须启动测试库对应的服务，不复用日常运行库。测试服务器仅允许 `/tmp` 数据目录及专用验证库，不能使用日常运行配置启动。验证完成后只恢复当前 main 的 3000/8000，不恢复测试模型服务，不启动 legacy。
+## 文档边界
 
-## 模型测试分工
+[AGENTS.md](AGENTS.md) 是当前开发约束；`docs/validation/` 是当前验证方法/模板及明确标注基线的兼容记录，`docs/design/` 是设计与字体取证。`docs/archive/v1.1/` 保存早期 MVP、Phase A–D、RC/Pilot 历史；`docs/archive/v1.2/` 保存 V1.2 改版与归档记录。历史中的品牌、端口、分支、数据库、授权与测试数字不是当前状态，旧报告生成脚本也不是现行运行入口。
 
-- 日常业务和人工体验：使用场景显式绑定的 DeepSeek 真实模型，不使用假模型补位。
-- 无模型 UI 回归：`npm run test:e2e` 默认只运行分类表单、伙伴删除和登录/导航/目录检查（5 项），不启动 18180，不启用测试模型。这不是原全量浏览器套件。
-- 隔离生命周期/故障回放：`npm run test:e2e:replay` 显式运行原浏览器套件，夹具包含构造失败前所需的成功结果；不作为真实供应商或业务效果验证。PostgreSQL 回放使用 `PLAYWRIGHT_MODEL_MODE=replay .venv/bin/python scripts/run_postgres_validation.py browser`。单元故障注入继续保留。
-- 真实接口验证：`scripts/verify_real_model.py --environment <私有配置> --model-config-id <已批准配置ID> --output <新审计文件> --execute` 最多 2 次合成请求，可用 `--stage analyze` 限为 1 次。不修改绑定、不读取伙伴/附件业务内容、不创建任务、不重试；输出调用时间、服务、模型、耗时、usage 和校验结果，不记录密钥或原始响应。
-- DeepSeek 当前实测：拒绝 `json_schema` 参数，因此仅该官方端点使用 `json_object` 并传入完整 schema；程序仍严格校验额外字段、enum、引用、权限和强结论来源。`deepseek-v4-flash` 显式使用非推理输出模式，避免思考耗尽额度导致空结果。其他服务保持原参数。
-- 测试种子与假模型服务自身拒绝运行库：只允许 `/tmp` 数据路径及显式 SQLite 测试库或本机 `banfei_validation`。历史手工种子不再读取日常环境私有配置。
-
-## 交付状态与历史资料
-
-两条主业务线及资源/权限/版本底座已实现；真实业务资源、真实模型效果和业务验收需分别确认，不能用合成测试数据或 mock 结果代替。历史阶段报告仅记录当时的状态与验证，不是当前配置说明。
-
-- [V1.2 交付记录](V12_REFACTOR_DELIVERY_REPORT.md)
-- [Phase D 工程记录](PHASE_D_DELIVERY_REPORT.md)
-- [Pilot 导入准备](PILOT_IMPORT_READINESS_REPORT.md)
-- [最早 MVP 说明](docs/product-spec.md)（历史范围）
-
-本地直接在 main 迭代。未经明确要求不提交、不 push、不部署，不创建分支或 worktree。
+默认只在 main 做最小改动；未经明确要求不 commit、push、部署、创建分支或 worktree，不丢弃已有修改，不提交数据或凭据。

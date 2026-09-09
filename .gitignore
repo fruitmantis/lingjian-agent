@@ -36,17 +36,18 @@ frontend/app/**/page.ts
 # Isolated development data, configuration, evidence and logs
 .isolation/
 
-# Generated delivery report embeds final HEAD; versioned source lives in docs/enablement.
+# Historical generated reports may contain private runtime details.
+# Keep both former generator destinations and their archive copies ignored.
+# Versioned report bodies live in docs/archive/v1.1/enablement/.
 /PHASE_B_DELIVERY_REPORT.md
 /PHASE_C_DELIVERY_REPORT.md
-
 /PHASE_D_DELIVERY_REPORT.md
-
-# Generated after final RC commit; versioned body and renderer are retained.
 /RC_PREPARATION_REPORT.md
-
-# Generated after the intake commit; source and renderer remain versioned.
 /PILOT_DATA_INTAKE_REPORT.md
-
-# Final import readiness report; versioned body and renderer are retained.
 /PILOT_IMPORT_READINESS_REPORT.md
+/docs/archive/v1.1/PHASE_B_DELIVERY_REPORT.md
+/docs/archive/v1.1/PHASE_C_DELIVERY_REPORT.md
+/docs/archive/v1.1/PHASE_D_DELIVERY_REPORT.md
+/docs/archive/v1.1/RC_PREPARATION_REPORT.md
+/docs/archive/v1.1/PILOT_DATA_INTAKE_REPORT.md
+/docs/archive/v1.1/PILOT_IMPORT_READINESS_REPORT.md
