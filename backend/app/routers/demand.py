@@ -374,7 +374,7 @@ def calculate_opportunity_completeness(values: dict) -> tuple[int, list[str]]:
     missing = []
     for field, _ in _OPPORTUNITY_FIELDS:
         value = values.get(field)
-        if not isinstance(value, str) or not value.strip() or value.strip() == "未识别":
+        if not isinstance(value, str) or not value.strip() or value.strip() in {"未识别", "未知", "未提供", "暂无", "unknown", "null", "n/a"}:
             missing.append(field)
     return round((len(_OPPORTUNITY_FIELDS) - len(missing)) / len(_OPPORTUNITY_FIELDS) * 100), missing
 

@@ -11,6 +11,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, s
 from pydantic import field_validator, BaseModel, Field
 
 from ..task_failures import failure, public_failures, PublicTaskError
+from ..opportunity_extraction import normalize_opportunity
 from ..ai_client import chat_completion, model_error_message
 from ..model_resolver import ModelConfigurationError
 from ..business_taxonomy import canonical, classify, project_partner, taxonomy_prompt
@@ -745,20 +746,19 @@ def _extract_project_opportunity(
         from ..ai_client import chat_completion
         rec_names = ", ".join([r.partnerName for r in recommendations[:5]])
         raw = chat_completion([
-            {"role": "system", "content": taxonomy_prompt() + "从项目需求中抽取结构化项目信息。返回JSON含: customerName(客户名称),projectName(项目名称),industry(行业),region(区域),projectStage(项目阶段如需求调研/方案设计/招投标/实施交付),businessNeeds(业务诉求),technicalNeeds(技术诉求),deliveryNeeds(交付诉求),qualificationRequirements(资质要求),caseRequirements(案例要求),onsiteRequirement(驻场要求),timelineRequirement(时间要求),cloudPlatformPreference(云平台偏好),followUpQuestions(建议补充问题,数组)。无法识别的字段填'未识别'。只返回JSON。"},
+            {"role": "system", "content": taxonomy_prompt() + "从项目需求中抽取结构化项目信息。返回JSON含: customerName(客户名称),projectName(项目名称),industry(行业),region(区域),projectStage(项目阶段如需求调研/方案设计/招投标/实施交付),businessNeeds(业务诉求),technicalNeeds(技术诉求),deliveryNeeds(交付诉求),qualificationRequirements(资质要求),caseRequirements(案例要求),onsiteRequirement(驻场要求),timelineRequirement(时间要求),cloudPlatformPreference(云平台偏好),followUpQuestions(建议补充问题,数组)。本次返回一个项目对象。industry、region是文本字段：多选标准值用逗号分隔，不要返回分组对象。其他字段为字符串，followUpQuestions为字符串数组。信息缺失填'未知'，保留能提取的其他信息，不猜测。只返回JSON。"},
             {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴: {rec_names}"}
         ], timeout=60, scene="demand_profile")
-        clean = raw.strip()
-        if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
-        if clean.endswith("```"): clean = clean[:-3]
-        clean = clean.strip()
-        if clean.startswith("json"): clean = clean[4:].strip()
-        if not clean:
-            raise ValueError("Empty opportunity output")
-        data = json.loads(clean)
-        if not isinstance(data,dict):raise ValueError("Invalid opportunity object")
-
         if strict:
+            clean = raw.strip()
+            if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+            if clean.endswith("```"): clean = clean[:-3]
+            clean = clean.strip()
+            if clean.startswith("json"): clean = clean[4:].strip()
+            if not clean:
+                raise ValueError("Empty opportunity output")
+            data = json.loads(clean)
+            if not isinstance(data,dict):raise ValueError("Invalid opportunity object")
             _validate_repair_fields(data, (
                 "customerName", "projectName", "industry", "region", "projectStage",
                 "businessNeeds", "technicalNeeds", "deliveryNeeds", "qualificationRequirements",
@@ -768,8 +768,10 @@ def _extract_project_opportunity(
             if not isinstance(questions, list) or any(not isinstance(q, str) for q in questions):
                 raise ValueError("Invalid follow-up questions")
 
-        data["industry"] = canonical(data.get("industry"),"industry") or "未识别"
-        data["region"] = canonical(data.get("region"),"region") or "未识别"
+            data["industry"] = canonical(data.get("industry"),"industry") or "未识别"
+            data["region"] = canonical(data.get("region"),"region") or "未识别"
+        else:
+            data = normalize_opportunity(raw)
         # Calculate completeness
         completeness, missing = calculate_opportunity_completeness(data)
 
