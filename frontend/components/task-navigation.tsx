@@ -243,7 +243,12 @@ function UserTaskSidebar({ pathname, selectedId }: { pathname: string; selectedI
 
   function row(task: NavigationTask) {
     return <Link key={task.id} href={`/tasks/${task.id}`} data-task-id={task.id} className={`sidebar-task-item ${selectedId === task.id ? "active" : ""}`} aria-current={selectedId === task.id ? "page" : undefined} title={task.requirement}>
-      <strong>{task.requirement}</strong><span>{task.task_type === "development_plan" && task.planPresentation ? <PlanStatus value={task.planPresentation}/> : <em className={`task-state task-${task.taskStatus}`}>{task.task_type === "development_plan" && ["matching","enriching"].includes(task.taskStatus) ? "生成中" : taskLabels[task.taskStatus] || "状态待确认"}</em>}<time>{new Date(task.createdAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" })}</time></span>
+      <strong>{task.requirement}</strong>
+      <span className="sidebar-task-meta">
+        {task.task_type === "development_plan" && task.planPresentation ? <PlanStatus value={task.planPresentation} compact/> :
+          <span className="sidebar-task-summary"><span>{task.task_type === "development_plan" ? "能力发展" : "项目找伙伴"}</span><span aria-hidden="true"> · </span><em className={`task-state task-${task.taskStatus}`}>{task.task_type === "development_plan" && ["matching","enriching"].includes(task.taskStatus) ? "生成中" : taskLabels[task.taskStatus] || "状态待确认"}</em></span>}
+        <time dateTime={task.createdAt}>{new Date(task.createdAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" })}</time>
+      </span>
     </Link>;
   }
   return <div className="sidebar-task-section">

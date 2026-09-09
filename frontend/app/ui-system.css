@@ -258,3 +258,38 @@
 .ui-report-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; margin-top:16px; }
 .classification-regions [data-region-type=overseas] .classification-options > div { grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); }
 @media(max-width:800px) { .ui-report-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* Partner discovery: a compact search row above the existing card grid. */
+.partner-search-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px 24px; margin-bottom:20px; }
+.partner-search-toolbar .partner-search { flex:0 1 460px; min-width:0; }
+.partner-search-toolbar .partner-search input { width:100%; min-width:0; }
+.partner-search-toolbar .result-count { margin-left:auto; }
+@media(max-width:600px) {
+  .partner-search-toolbar .partner-search { flex-basis:100%; }
+}
+
+/* History is navigation: clear titles, quiet metadata and no floating cards. */
+.workspace-layout .sidebar-task-section { gap:8px; }
+.workspace-layout .sidebar-task-list { gap:4px; scrollbar-color:rgb(0 0 0 / 8%) transparent; }
+.workspace-layout .sidebar-task-list:hover,.workspace-layout .sidebar-task-list:focus-within { scrollbar-color:var(--border-strong) transparent; }
+.workspace-layout .sidebar-task-item { position:relative; padding:10px 12px; border-radius:8px; font-weight:var(--font-weight-body); }
+.workspace-layout .sidebar-task-item strong { font-size:14px; font-weight:var(--font-weight-heading); line-height:1.5; }
+.workspace-layout .sidebar-task-item.active { background:var(--bg-selected); box-shadow:none; font-weight:var(--font-weight-body); }
+.workspace-layout .sidebar-task-item.active::before { content:""; position:absolute; top:14px; bottom:14px; left:0; width:2px; border-radius:2px; background:var(--brand-primary); }
+.workspace-layout .sidebar-task-item > span { align-items:flex-start; gap:8px; margin-top:6px; font-size:12px; line-height:1.5; font-weight:var(--font-weight-body); }
+.workspace-layout .sidebar-task-summary { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.workspace-layout .sidebar-task-item time { font-size:12px; font-weight:var(--font-weight-body); font-variant-numeric:tabular-nums; }
+.workspace-layout .sidebar-task-item .plan-status-compact { flex:1; min-width:0; font-size:12px; line-height:1.5; gap:3px; }
+.workspace-layout .sidebar-task-item .plan-status-compact .plan-summary { white-space:nowrap; }
+.workspace-layout .sidebar-task-item .plan-status-compact .plan-primary { display:inline; padding:0; border-radius:0; background:transparent; color:var(--text-tertiary); font-weight:var(--font-weight-body); }
+.workspace-layout .sidebar-task-item .plan-status-compact .plan-generation_failed { color:var(--danger); }
+.workspace-layout .sidebar-task-item .plan-status-compact .plan-version { color:var(--text-tertiary); font-size:11px; }
+.workspace-layout .sidebar-task-item .plan-status-compact .plan-run { font-size:11px; }
+@media(forced-colors:active) {
+  .workspace-layout .sidebar-task-item.active { outline:1px solid Highlight; outline-offset:-1px; }
+}
+
+/* Match composer shares the scene grid width and grows with a resized input. */
+.unified-task-page .assistant-composer { width:100%; max-width:none; height:auto; min-height:0; margin-inline:0; }
+.unified-task-page .assistant-composer textarea { height:104px; min-height:80px; flex:0 0 auto; resize:vertical; overflow:auto; }
+.unified-task-page .assistant-composer-footer { flex-shrink:0; }
