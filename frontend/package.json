@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:replay": "PLAYWRIGHT_MODEL_MODE=replay playwright test"
   },
   "dependencies": {
     "docx-preview": "^0.3.7",

@@ -113,12 +113,21 @@ def test_revocation_during_model_call_prevents_save(scenario,monkeypatch):
     _,run,version=execute(scenario);assert run['status']=='failed' and version is None
 
 
-def test_explicit_model_selection_and_real_network_guard(prepared,monkeypatch):
-    monkeypatch.delenv('LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL',raising=False)
+def test_explicit_model_selection_and_external_provider_transport(prepared,monkeypatch):
     with get_db() as conn:conn.execute('UPDATE model_configs SET is_default=0');conn.execute('UPDATE model_usage_configs SET model_config_id=NULL')
     with pytest.raises(ModelConfigurationError):model.configuration()
     with get_db() as conn:
         row=conn.execute('SELECT id FROM model_configs LIMIT 1').fetchone();conn.execute("UPDATE model_usage_configs SET model_config_id=? WHERE scene_key='partner_development'",(row[0],))
     chosen=model.configuration();assert chosen['id']==row[0]
     chosen['base_url']='https://api.deepseek.com/v1'
-    with pytest.raises(ModelConfigurationError):model.completion(chosen,[],{})
+    import httpx
+    requests=[]
+    async def handle(request):
+        requests.append(request)
+        return httpx.Response(200,json={'choices':[{'message':{'content':'{"ok":true}'},'finish_reason':'stop'}]})
+    original=httpx.AsyncClient
+    monkeypatch.setattr(model.httpx,'AsyncClient',lambda **kw:original(transport=httpx.MockTransport(handle),**kw))
+    assert model.completion(chosen,[{'role':'user','content':'transport validation'}],{})=='{"ok":true}'
+    assert len(requests)==1 and requests[0].url.host=='api.deepseek.com'
+    for invalid in ['file:///tmp/model','https://user:password@model.invalid/v1']:
+        with pytest.raises(ModelConfigurationError):model.completion(dict(chosen,base_url=invalid),[],{})

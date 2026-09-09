@@ -68,7 +68,7 @@
 | 工作区/分支 | `/home/yuan/project/lingjian-agent-enablement` / `main` |
 | 前端 | http://localhost:3000 |
 | 后端 | http://localhost:8000；匿名健康检查 `/health` |
-| 本地 mock | `127.0.0.1:18180` |
+| 开发模型 | DeepSeek `deepseek-v4-flash`（`api.deepseek.com`）；七个场景显式绑定，本地 mock 停用 |
 | 数据库 | PostgreSQL 16：`banfei_agent`，应用账号 `banfei_app`；连接由私有 `DATABASE_URL` 提供 |
 | SQLite 回退文件 | `.isolation/runtime/dev/app.db`（保留，不参与正常运行） |
 | 上传目录 | `.isolation/runtime/dev/uploads` |
@@ -83,7 +83,7 @@ bash enablement-dev.sh start
 bash enablement-dev.sh stop
 ```
 
-启动器继续使用已有私有配置和运行库；不得用通用 `dev.sh` 或手动启动方式绕过当前隔离配置，不重新安装/初始化环境。启动前确认本地 mock 可用；启动器不负责重新创建 mock 数据。
+启动器继续使用已有私有配置和运行库；不得用通用 `dev.sh` 或手动启动方式绕过当前隔离配置，不重新安装/初始化环境。日常启动不依赖本地 mock 服务，也不创建测试模型数据。
 
 旧环境仅作为 legacy 保留，服务保持停止；保留 `legacy/pre-v1.2-main` 和 `v1.1-legacy`，不修改其目录、数据库或指针。
 
@@ -99,10 +99,12 @@ SQLite 原文件与 `.isolation/postgres-migration/` 下的一致性备份保留
 
 ## 模型
 
-当前开发环境使用本地 mock，隔离启动器阻止外部模型网络请求。没有新的明确授权，不调用真实模型、不更改场景绑定或真实模型配置。
+开发测试允许使用经批准的真实模型。启动器根据启用模型的配置，仅放行对应域名、解析地址和端口，保留其他外部网络限制；模型供应商新增或地址变更后重启后端以刷新放行范围。
+
+当前运行配置：七个场景（伙伴画像、项目匹配、需求画像、标签建议、推荐说明、默认、能力发展）均显式绑定现有 DeepSeek `deepseek-v4-flash`，作为默认模型。本地 mock 已停用、取消默认，18180 不运行；模型记录因历史 Run 引用保留。用户已授权按现有业务权限发送所需伙伴资料/画像、案例说明、项目需求、对话和授权资源字段；伙伴画像生成包含上传文档提取文本。此授权不改变三维权限，也不授权自动批量处理业务数据。
 
 - 原匹配等场景：场景绑定 → 默认场景绑定 → 启用的默认模型 → 首个启用模型 → 环境变量；显式绑定无效时报错。
-- 能力发展：场景绑定 → 默认场景绑定 → 唯一启用的默认模型；没有有效选择时报错，不回退到首个启用模型。外部调用另受 `LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL` 门禁约束，不能擅自开启。
+- 能力发展：场景绑定 → 默认场景绑定 → 唯一启用的默认模型；没有有效选择时报错，不回退到首个启用模型。不再使用 `LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL` 这一阶段性开关；地址、凭据、结构化输出和权限校验继续有效。
 - 模型候选 ID、版本、URL、权限与结构化输出仍由程序校验。画像摘要不等于新的可信证据，资料缺失不等于没有能力。
 - 不向用户展示 Prompt、原始模型 JSON、密钥或异常堆栈。
 
@@ -120,9 +122,9 @@ SQLite 原文件与 `.isolation/postgres-migration/` 下的一致性备份保留
 
 ## 验证
 
-沿用现有 `.venv` 和 `frontend/node_modules`。测试必须使用合成数据与 mock，不调用真实模型。全量 pytest 的进程恢复测试及 Playwright 共用服务端口；开发服务、构建与 Playwright 共用 `.next`，不能并行运行。
+沿用现有 `.venv` 和 `frontend/node_modules`。单元故障注入使用隔离夹具；真实模型集成测试可以使用已批准的真实服务与合成输入，并记录调用次数。不得把未经批准的业务资料送入批量回归。全量 pytest 的进程恢复测试及 Playwright 共用服务端口；开发服务、构建与 Playwright 共用 `.next`，不能并行运行。
 
-先确认当前项目进程归属，再停止当前前后端和测试端口上的本地 mock。按顺序执行：
+先确认当前项目进程归属，再停止当前前后端和遗留的隔离测试夹具。按顺序执行：
 
 ```bash
 .venv/bin/python -m pytest -q
@@ -135,7 +137,16 @@ cd ..
 
 后端全量测试中，普通业务测试使用 PostgreSQL 临时 schema；原 SQLite 原生迁移、Pilot 文件工具和 SQLite 故障注入测试保留临时 SQLite，JUnit 标记实际后端。直接运行 pytest 未配置验证库时只覆盖 SQLite 兼容路径，不能据此声称 PostgreSQL 验收通过。
 
-Playwright 使用独立 PostgreSQL 临时 schema，`/tmp/lingjian-enablement-e2e` 仅存合成数据中间文件、临时凭据与上传。验证脚本仅接受本机 `banfei_validation`，为浏览器创建独立 schema 并在退出后清理该 schema，不触碰 `banfei_agent`。必须启动测试库对应的服务，不复用日常运行库。验证完成后恢复本地 mock 和当前 main 的 3000/8000，不启动 legacy。
+Playwright 使用独立 PostgreSQL 临时 schema，`/tmp/lingjian-enablement-e2e` 仅存合成数据中间文件、临时凭据与上传。验证脚本仅接受本机 `banfei_validation`，为浏览器创建独立 schema 并在退出后清理该 schema，不触碰 `banfei_agent`。必须启动测试库对应的服务，不复用日常运行库。测试服务器仅允许 `/tmp` 数据目录及专用验证库，不能使用日常运行配置启动。验证完成后只恢复当前 main 的 3000/8000，不恢复测试模型服务，不启动 legacy。
+
+## 模型测试分工
+
+- 日常业务和人工体验：使用场景显式绑定的 DeepSeek 真实模型，不使用假模型补位。
+- 无模型 UI 回归：`npm run test:e2e` 默认只运行分类表单、伙伴删除和登录/导航/目录检查（5 项），不启动 18180，不启用测试模型。这不是原全量浏览器套件。
+- 隔离生命周期/故障回放：`npm run test:e2e:replay` 显式运行原浏览器套件，夹具包含构造失败前所需的成功结果；不作为真实供应商或业务效果验证。PostgreSQL 回放使用 `PLAYWRIGHT_MODEL_MODE=replay .venv/bin/python scripts/run_postgres_validation.py browser`。单元故障注入继续保留。
+- 真实接口验证：`scripts/verify_real_model.py --environment <私有配置> --model-config-id <已批准配置ID> --output <新审计文件> --execute` 最多 2 次合成请求，可用 `--stage analyze` 限为 1 次。不修改绑定、不读取伙伴/附件业务内容、不创建任务、不重试；输出调用时间、服务、模型、耗时、usage 和校验结果，不记录密钥或原始响应。
+- DeepSeek 当前实测：拒绝 `json_schema` 参数，因此仅该官方端点使用 `json_object` 并传入完整 schema；程序仍严格校验额外字段、enum、引用、权限和强结论来源。`deepseek-v4-flash` 显式使用非推理输出模式，避免思考耗尽额度导致空结果。其他服务保持原参数。
+- 测试种子与假模型服务自身拒绝运行库：只允许 `/tmp` 数据路径及显式 SQLite 测试库或本机 `banfei_validation`。历史手工种子不再读取日常环境私有配置。
 
 ## 交付状态与历史资料
 

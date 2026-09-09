@@ -5,11 +5,11 @@
 - 项目：伴飞 Agent，交付伙伴智能匹配与需求运营平台。
 - 运行环境：WSL Ubuntu-24.04；项目路径：`/home/yuan/project/lingjian-agent-enablement`。
 - 当前本地代码、Git 状态和实际配置高于旧对话上下文。
-- 前端：Next.js；后端：FastAPI；数据库：PostgreSQL 16（Ubuntu 官方 apt 源），当前库 `banfei_agent` / 专用用户 `banfei_app`，通过私有 `DATABASE_URL` 连接；原 SQLite `.isolation/runtime/dev/app.db` 保留为回退、不参与运行；上传目录 `.isolation/runtime/dev/uploads`，由私有 `.isolation/runtime/dev/environment.json` 配置。前端 3000，后端 8000，本地 mock 18180。
+- 前端：Next.js；后端：FastAPI；数据库：PostgreSQL 16（Ubuntu 官方 apt 源），当前库 `banfei_agent` / 专用用户 `banfei_app`，通过私有 `DATABASE_URL` 连接；原 SQLite `.isolation/runtime/dev/app.db` 保留为回退、不参与运行；上传目录 `.isolation/runtime/dev/uploads`，由私有 `.isolation/runtime/dev/environment.json` 配置。前端 3000，后端 8000；日常开发不运行本地 mock 服务。
 - 产品仅面向公司内部人员，当前不开放公司外部伙伴注册或访问。
 - 页面已分为普通用户工作区和 `/admin/*` 管理后台；现有 `user` / `admin` 两角色及任务所有权隔离是必须保留的安全基线。
 - 当前未接入 Chroma、Embedding、RAG 或向量检索，相关历史目录仅预留，不因早期规划自行接入。
-- 支持 OpenAI 兼容接口，当前开发环境仅使用本地 mock，外网模型调用被阻止；未经本轮明确授权不得调用真实模型；不得擅自修改模型 API 地址、模型名、API Key、默认模型或业务场景绑定。
+- 支持 OpenAI 兼容接口；七个场景及默认模型已绑定 `api.deepseek.com` 的 `deepseek-v4-flash`。用户明确授权按现有业务权限发送所需伙伴资料/画像、案例说明、项目需求、对话及授权资源字段，伙伴画像生成包含上传文档提取文本；不改变三维权限，不自动批量处理业务数据。不擅自改模型地址、模型名、API Key 或切换其他供应商。运行器仅放行启用模型的配置端点与本机服务，仍限制无关外部网络。
 
 ## 产品与 MVP 边界
 
@@ -69,7 +69,7 @@
 
 ## 模型调用与标签
 
-- 当前开发和自动化测试仅使用 mock；真实模型调用须获得本轮明确授权，禁止用历史授权自动开启。静态检查和普通 UI 修改不调用模型。
+- 开发与真实模型集成测试可以调用已批准的真实服务；先限定场景、测试输入和调用次数，不自动批量发送业务材料。静态检查和普通 UI 修改不调用模型。单元测试保留隔离故障注入，不把测试桩注册成日常开发模型。
 - 批量模型调用、批量画像生成、批量匹配或可能产生明显费用时，执行前说明调用范围和影响。
 - 模型调用必须使用正确的业务场景配置，不得擅自变更配置。
 - 最终用户不得看到 Prompt、原始模型 JSON、调试日志或模型内部过程；模型解析失败时也不得直接返回原始模型输出。
@@ -95,7 +95,7 @@
 - 修改完成后只执行与本次变更直接相关的验证，不扩大验证范围。
 - Next.js 开发服务、生产构建和 Playwright 会共用 `frontend/.next`；执行 `npm run build` 或发布 E2E 前先停止正在运行的前端开发服务，验证结束后再按需恢复，避免并行写入造成构建缓存损坏。
 - 当前服务生命周期使用 `bash enablement-dev.sh start|stop|status`，沿用现有独立运行库和私有配置，不重新初始化环境；停止服务前确认进程归属。
-- 全量 pytest/Playwright 会使用 8000/3000/18180；先停止当前服务，SQLite/上传测试文件只能位于 `/tmp`，PostgreSQL 只能使用专用验证库临时 schema，测试完成恢复当前 main 和本地 mock，不启动 legacy。
+- 全量 pytest 和显式 Playwright replay 的隔离回归夹具会使用 8000/3000/18180；默认 Playwright UI 子集不运行模型服务；先停止当前服务，SQLite/上传测试文件只能位于 `/tmp`，PostgreSQL 只能使用专用验证库临时 schema，测试完成只恢复当前 main 的 3000/8000，不恢复本地模型夹具、不启动 legacy。
 
 - PostgreSQL 全量验证使用 `scripts/run_postgres_validation.py backend|browser`，连接通过私有 `BANFEI_TEST_DATABASE_URL` 传入。原 SQLite 文件迁移/维护工具仅用于显式兼容测试或经授权的回退，不得用来替换 PostgreSQL 运行库。
 

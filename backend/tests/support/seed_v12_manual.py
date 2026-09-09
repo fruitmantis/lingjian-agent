@@ -3,16 +3,12 @@ import os,json,sys,sqlite3
 from pathlib import Path
 from datetime import datetime,timezone
 ROOT=Path(__file__).resolve().parents[3]
-DEV=ROOT/'.isolation/runtime/dev'
 
 
 def main():
-    db=DEV/'app.db'
-    if ROOT.name!='lingjian-agent-enablement' or db.is_symlink() or db.stat().st_nlink!=1 or db.resolve()!=db:
-        raise SystemExit('Only the isolated manual development database is allowed')
-    env=json.loads((DEV/'environment.json').read_text())
-    if Path(env['LINGJIAN_DATABASE_PATH'])!=db:raise SystemExit('Development DB mismatch')
-    os.environ.update(env);sys.path.insert(0,str(ROOT))
+    from backend.tests.support.model_test_boundary import require_test_database
+    require_test_database()
+    sys.path.insert(0,str(ROOT))
     from backend.app.database import get_db
     from backend.app import enablement as service
     stamp=datetime.now(timezone.utc).isoformat()

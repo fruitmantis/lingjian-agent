@@ -42,6 +42,8 @@ def start():
         raise SystemExit('Isolated services already managed; use status')
     for port in (3000,8000):
         with socket.socket() as s:
+            # A stopped HTTP service can leave TIME_WAIT sockets; still reject live listeners.
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try: s.bind(('127.0.0.1',port))
             except OSError: raise SystemExit(f'Port {port} busy; no process stopped')
     expected='NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000'
@@ -70,7 +72,7 @@ def start():
                         if response.status==200: break
                 except Exception: time.sleep(0.5)
             else: raise RuntimeError('Isolated service did not become healthy')
-        print('Isolated snapshot ready at http://127.0.0.1:3000; backend 8000; external model access blocked')
+        print('Current main ready at http://127.0.0.1:3000; backend 8000; only enabled model endpoints allowed')
     except Exception:
         stop(); raise
 

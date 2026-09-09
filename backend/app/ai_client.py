@@ -1,7 +1,15 @@
 """OpenAI-compatible LLM client using httpx."""
 
 import httpx
+from urllib.parse import urlsplit
 from .model_resolver import ModelConfigurationError, resolve_model_config
+
+
+def provider_request_options(base_url: str, model: str) -> dict:
+    # Verified current provider mode: return business content, not a reasoning-only budget.
+    if urlsplit(base_url).hostname == "api.deepseek.com" and model == "deepseek-v4-flash":
+        return {"thinking": {"type": "disabled"}}
+    return {}
 
 
 class ModelResponseError(RuntimeError):
@@ -72,6 +80,7 @@ def chat_completion(messages: list[dict], timeout: int | None = None, scene: str
         "top_p": cfg.top_p,
         "max_tokens": cfg.max_tokens,
     }
+    payload.update(provider_request_options(cfg.base_url, cfg.model))
     actual_timeout = cfg.timeout_seconds if timeout is None else timeout
 
     with httpx.Client(timeout=actual_timeout) as client:

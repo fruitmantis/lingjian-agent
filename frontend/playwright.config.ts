@@ -1,5 +1,11 @@
 import { defineConfig } from "@playwright/test";
 
+// Default: UI-only checks, no model service. Explicit replay is engineering regression,
+// never a claim that a real supplier or real business output passed validation.
+const replay = process.env.PLAYWRIGHT_MODEL_MODE === "replay";
+if (process.env.PLAYWRIGHT_MODEL_MODE && !["ui", "replay"].includes(process.env.PLAYWRIGHT_MODEL_MODE)) {
+  throw new Error("Use the bounded real-model smoke tool for real provider validation");
+}
 const validationDatabase = process.env.PLAYWRIGHT_DATABASE_URL || "sqlite://";
 if (validationDatabase.startsWith("postgresql")) {
   const url = new URL(validationDatabase);
@@ -18,12 +24,15 @@ const validationEnvironment = {
   TASK_STALE_SECONDS: process.env.TASK_STALE_SECONDS || "60",
   USER_APPLICATION_RATE_LIMIT: "1000",
   USER_APPLICATION_PENDING_LIMIT: "200",
-  VALIDATION_FAKE_LLM_BASE_URL: "http://127.0.0.1:18180/v1",
+  VALIDATION_FAKE_LLM_BASE_URL: replay ? "http://127.0.0.1:18180/v1" : "",
   CORS_ORIGINS: "http://127.0.0.1:3000,http://localhost:3000",
 };
 
 export default defineConfig({
   testDir: "./e2e",
+  testMatch: replay ? "**/*.spec.ts" : [
+    "**/business-taxonomy.spec.ts", "**/partner-delete.spec.ts", "**/model-boundary.spec.ts",
+  ],
   fullyParallel: false,
   workers: 1,
   timeout: 45_000,
@@ -36,14 +45,14 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: [
-    {
+    ...(replay ? [{
       command: ".venv/bin/python -m uvicorn backend.tests.support.fake_llm_server:app --host 127.0.0.1 --port 18180",
       cwd: "..",
       url: "http://127.0.0.1:18180/health",
       env: validationEnvironment,
       reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
       timeout: 30_000,
-    },
+    }] : []),
     {
       command: ".venv/bin/python -m backend.tests.support.prepare_e2e && .venv/bin/python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000",
       cwd: "..",

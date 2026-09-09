@@ -1,12 +1,12 @@
 """Strict scene selection and guarded OpenAI-compatible adapter for Phase C."""
-import os
 import asyncio
+import json
 from .development_deadlines import model_timeout
 from urllib.parse import urlsplit
 import httpx
 from .database import get_db, get_readonly_db
 from .model_resolver import ModelConfigurationError,_resolve_api_key
-from .ai_client import _completion_content
+from .ai_client import _completion_content, provider_request_options
 
 
 def configuration(*, read_only=False):
@@ -28,9 +28,11 @@ def configuration(*, read_only=False):
 def completion(config,messages,schema):
     parsed=urlsplit(config['base_url'])
     if parsed.username or parsed.password or parsed.scheme not in ('http','https'):raise ModelConfigurationError('Invalid model endpoint')
-    # Fail closed by default. The real adapter exists but this phase never enables it.
-    if parsed.hostname not in ('127.0.0.1','localhost','::1') and os.getenv('LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL')!='1':
-        raise ModelConfigurationError('Real development model calls are disabled')
+    # DeepSeek rejects json_schema. Keep the same schema and strict program validation.
+    response_format={'type':'json_schema','json_schema':{'name':'development_output','strict':True,'schema':schema}}
+    if parsed.hostname == 'api.deepseek.com':
+        response_format={'type':'json_object'}
+        messages=[*messages, {'role':'system','content':'Return a JSON object matching this exact JSON schema. No extra fields: '+json.dumps(schema,ensure_ascii=False)}]
     limit=model_timeout()
     async def send():
         # Wall-clock cancellation also bounds slow/chunked responses that keep resetting read timeouts.
@@ -38,7 +40,8 @@ def completion(config,messages,schema):
             async with httpx.AsyncClient(timeout=limit,follow_redirects=False,trust_env=False) as client:
                 response=await client.post(config['base_url'].rstrip('/')+'/chat/completions',headers={'Authorization':'Bearer '+_resolve_api_key(config)},json={
                     'model':config['model_name'],'temperature':0.2,'max_tokens':min(config.get('max_tokens') or 8192,16384),
-                    'messages':messages,'response_format':{'type':'json_schema','json_schema':{'name':'development_output','strict':True,'schema':schema}}})
+                    'messages':messages,'response_format':response_format,
+                    **provider_request_options(config['base_url'],config['model_name'])})
                 response.raise_for_status()
                 return _completion_content(response.json())
     # Development execution already runs in the existing worker threads, outside the API event loop.

@@ -7,6 +7,10 @@ import os
 from fastapi import FastAPI
 
 
+# This is an isolated regression/fault fixture, never a selectable development model.
+# A runtime DATABASE_URL or runtime data directory must fail before a server opens.
+from backend.tests.support.model_test_boundary import require_test_database
+require_test_database()
 app = FastAPI()
 _delayed_stages: set[str] = set()
 

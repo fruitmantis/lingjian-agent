@@ -158,9 +158,6 @@ def _check_development() -> tuple[ServiceStatus, AbnormalModule | None]:
         endpoint = _safe_endpoint(cfg['base_url'])
         if not endpoint or urlparse(cfg['base_url']).username or urlparse(cfg['base_url']).password or not _resolve_api_key(cfg):
             raise ModelConfigurationError('Invalid configuration')
-        host = urlparse(endpoint).hostname
-        if host not in ('localhost', '127.0.0.1', '::1') and os.getenv('LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL') != '1':
-            error = '当前配置为外部模型，能力发展真实模型调用尚未获准启用'
     except Exception:
         error = '能力发展模型配置不可用，请检查场景绑定、模型启用状态和凭据'
     detail = '暂无运行记录'

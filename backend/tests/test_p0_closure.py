@@ -123,9 +123,8 @@ def test_invalid_run_timestamps_never_invent_duration(prepared, client, safe_sta
     assert '耗时' not in status_data(client, safe_status)['detail']
 
 
-def test_status_respects_development_real_model_gate(client, safe_status, monkeypatch):
-    monkeypatch.delenv('LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL', raising=False)
+def test_status_accepts_configured_external_model_without_probing(client, safe_status):
     with get_db() as conn:
         conn.execute("UPDATE model_configs SET base_url='https://model.invalid/v1'")
     d = status_data(client,safe_status)
-    assert d['status'] == 'error' and '尚未获准' in d['message']
+    assert d['status'] != 'error' and '模型配置可用' in d['message']

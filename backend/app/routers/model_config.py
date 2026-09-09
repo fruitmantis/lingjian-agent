@@ -191,7 +191,9 @@ def test_connection(mc_id: str) -> TestResult:
         start = time.time()
         url = f"{base_url.rstrip('/')}/chat/completions"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        from ..ai_client import provider_request_options
         payload = {"model": model, "messages": [{"role": "user", "content": "只回复ok"}], "temperature": 0, "max_tokens": 10}
+        payload.update(provider_request_options(base_url, model))
         with httpx.Client(timeout=30) as client:
             resp = client.post(url, headers=headers, json=payload)
             resp.raise_for_status()

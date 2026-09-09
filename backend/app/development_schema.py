@@ -56,7 +56,7 @@ def migrate_to_v12(conn: sqlite3.Connection):
     try:
         conn.execute('BEGIN IMMEDIATE')
         for sql in DDL:conn.execute(sql)
-        conn.execute("INSERT OR IGNORE INTO model_usage_configs(scene_key,scene_name,model_config_id,description,updated_at) VALUES ('partner_development','伙伴能力发展',NULL,'需明确绑定模型或配置唯一默认模型；本轮仅 mock 验证',datetime('now'))")
+        conn.execute("INSERT OR IGNORE INTO model_usage_configs(scene_key,scene_name,model_config_id,description,updated_at) VALUES ('partner_development','伙伴能力发展',NULL,'需明确绑定模型或配置唯一默认模型',datetime('now'))")
         conn.execute("UPDATE app_metadata SET value='12' WHERE key='schema_version'")
         conn.commit()
     except Exception:

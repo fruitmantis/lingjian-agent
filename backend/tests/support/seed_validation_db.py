@@ -30,6 +30,8 @@ def recommendation() -> list[dict]:
 
 
 def seed() -> None:
+    from backend.tests.support.model_test_boundary import require_test_database
+    require_test_database()
     initialize_storage()
     now = datetime.now(timezone.utc).isoformat()
     password_hash = hash_password(PASSWORD)
@@ -91,7 +93,11 @@ def seed() -> None:
                    VALUES (?, ?, ?, ?, ?, 80, ?, ?)""",
                 (f"opportunity-{prefix}", f"task-{prefix}-ready", f"{prefix.upper()}-ready", f"客户 {prefix.upper()}", f"项目 {prefix.upper()}", now, now),
             )
-        fake_base_url = __import__("os").getenv("VALIDATION_FAKE_LLM_BASE_URL", "http://127.0.0.1:18080/v1")
+        fake_base_url = __import__("os").getenv("VALIDATION_FAKE_LLM_BASE_URL", "")
+        # UI-only tests have no enabled model and never start a fake service.
+        if not fake_base_url:
+            conn.execute("UPDATE model_configs SET enabled=0,is_default=0")
+            return
         conn.execute(
             """UPDATE model_configs SET base_url = ?, api_key = 'validation-only-key',
                       api_key_source = 'db', model_name = 'validation-fake', enabled = 1, is_default = 1""",
