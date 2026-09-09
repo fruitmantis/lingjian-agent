@@ -2,8 +2,10 @@
 import {ClassificationFilter, ClassificationNotice} from "@/components/business-taxonomy";
 
 
-import { useState, useEffect } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { fetchWithTimeout } from "../lib/api-request";
+
+import {OpportunityFilter, OpportunityDetails, opportunityStyles as oppStyles, type Opportunity} from "./opportunity-ui";
 
 type DemandProfile = { classification_pending?:Record<string,string[]>;
   id: string; matchRecordId: string | null; requirementText: string;
@@ -98,7 +100,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
   const [filterIndustry, setFilterIndustry] = useState("");
   const [filterRegion, setFilterRegion] = useState("");
   const [filterCapability, setFilterCapability] = useState("");
-  const [opps, setOpps] = useState<any[]>([]);
+  const [opps, setOpps] = useState<Opportunity[]>([]);
   const [oppLoading, setOppLoading] = useState(false);
   const [oppError, setOppError] = useState<string | null>(null);
   const [oppKeyword, setOppKeyword] = useState("");
@@ -133,7 +135,9 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
   }
   useEffect(() => { if (subTab === "report") loadReport(); }, [subTab, filterDays, filterIndustry, filterRegion, filterCapability]);
 
+  const oppRequest = useRef(0);
   async function loadOpps() {
+    const request = ++oppRequest.current;
     setOppLoading(true); setOppError(null);
     try {
       const p = new URLSearchParams();
@@ -143,8 +147,9 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
       if (oppStage) p.set("stage", oppStage);
       const r = await fetch(`${apiBaseUrl}/admin/opportunities?${p}`, { cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setOpps(await r.json());
-    } catch (e) { setOppError(e instanceof Error ? e.message : "加载失败"); } finally { setOppLoading(false); }
+      const result = await r.json();
+      if (request === oppRequest.current) setOpps(result);
+    } catch (e) { if (request === oppRequest.current) setOppError(e instanceof Error ? e.message : "加载失败"); } finally { if (request === oppRequest.current) setOppLoading(false); }
   }
   useEffect(() => { if (subTab === "opportunities") loadOpps(); }, [subTab, oppKeyword, oppIndustry, oppRegion, oppStage]);
 
@@ -332,16 +337,17 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
 
       {subTab === "opportunities" && (
         <section className="card">
-          <h2 className="section-title">项目机会库</h2>
-          <div className="ui-filter-row">
-            <input type="text" placeholder="搜索项目名称/客户..." value={oppKeyword} onChange={(e) => setOppKeyword(e.target.value)} style={{ flex: "1 1 180px" }} />
-            <ClassificationFilter kind="industry" label="行业" value={oppIndustry} onChange={setOppIndustry}/>
-            <ClassificationFilter kind="region" label="区域" value={oppRegion} onChange={setOppRegion}/>
-            <input type="text" placeholder="阶段" value={oppStage} onChange={(e) => setOppStage(e.target.value)} style={{ width: "100px" }} />
+          <div className={oppStyles.toolbar} aria-label="项目机会筛选">
+            <label className={oppStyles.field}>搜索项目<input type="search" placeholder="项目名称 / 客户 / 需求关键词" value={oppKeyword} onChange={e => {setOppKeyword(e.target.value); setOppPage(1);}} /></label>
+            <OpportunityFilter kind="industry" value={oppIndustry} onChange={value => {setOppIndustry(value); setOppPage(1);}} />
+            <OpportunityFilter kind="region" value={oppRegion} onChange={value => {setOppRegion(value); setOppPage(1);}} />
+            <label className={oppStyles.field}>项目阶段<input type="text" placeholder="全部阶段" value={oppStage} onChange={e => {setOppStage(e.target.value); setOppPage(1);}} /></label>
+            <button className="secondary-btn" onClick={() => {setOppKeyword(""); setOppIndustry(""); setOppRegion(""); setOppStage(""); setOppPage(1);}}>重置</button>
           </div>
           {oppError && <p className="error-text">{oppError}</p>}
           {oppLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : opps.length === 0 ? <div style={{ textAlign: "center", padding: "40px 20px" }}><p style={{ fontSize: "15px", color: "var(--muted)", marginBottom: "16px" }}>暂无项目机会。</p><p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "20px" }}>项目机会信息由 Agent 工作台智能匹配后自动抽取生成。</p><a href="/" className="btn-primary-lg" style={{ display: "inline-block", fontSize: "14px", padding: "10px 28px", textDecoration: "none" }}>前往智能匹配</a></div> : (
-            <div className="table-wrap"><table className="data-table" style={{ marginTop: "12px" }}>
+            <div className="table-wrap"><table className={`data-table ${oppStyles.table}`} style={{ marginTop: "12px" }}>
+              <colgroup>{[24,14,12,10,10,8,13,9].map((width,i) => <col key={i} style={{width:`${width}%`}} />)}</colgroup>
               <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>
                 <th style={{ textAlign: "left", whiteSpace: "nowrap" }}>项目名称</th>
                 <th style={{ textAlign: "left" }}>客户</th>
@@ -357,7 +363,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                   const isExp = expandedOpp === o.id;
                   const badge = o.supplyStatus === "gap" ? { l: "明显缺口", c: "var(--danger)", bg: "#fef2f2", bd: "#fecaca" } : o.supplyStatus === "partial" ? { l: "部分满足", c: "#e8a317", bg: "#fffbeb", bd: "#fde68a" } : { l: "基本满足", c: "var(--success)", bg: "#f0fdf4", bd: "#bbf7d0" };
                   return (
-                    <tr key={o.id} style={{ borderBottom: "1px solid var(--line)" }}>
+                    <Fragment key={o.id}><tr style={{ borderBottom: "1px solid var(--line)" }}>
                       <td >{o.projectName || "未识别"}</td>
                       <td >{o.customerName || "未识别"}</td>
                       <td >{o.industry || "-"}<ClassificationNotice pending={o.classification_pending}/></td>
@@ -365,8 +371,10 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                       <td >{o.projectStage || "-"}</td>
                       <td style={{ color: o.completenessScore >= 80 ? "var(--success)" : o.completenessScore >= 50 ? "#e8a317" : "var(--danger)" }}>{o.completenessScore}%</td>
                       <td ><span className="ui-status-badge" style={{ background: badge.bg, color: badge.c, border: `1px solid ${badge.bd}` }}>{badge.l}</span></td>
-                      <td style={{ whiteSpace: "nowrap" }}><button onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" >{isExp ? "收起" : "详情"}</button></td>
+                      <td style={{ whiteSpace: "nowrap" }}><button aria-expanded={isExp} aria-controls={`opportunity-${o.id}`} onClick={() => setExpandedOpp(isExp ? null : o.id)} className="secondary-btn" >{isExp ? "收起" : "详情"}</button></td>
                     </tr>
+                    {isExp && <tr className={oppStyles.detailRow}><td colSpan={8}><OpportunityDetails opportunity={o}/></td></tr>}
+                    </Fragment>
                   );
                 })}
               </tbody>
