@@ -109,7 +109,7 @@ def test_migration_success_and_immutable_source():
     before=sha(DATABASE_PATH)
     with empty_postgres_schema() as target:
         result=import_snapshot(DATABASE_PATH,target)
-        assert result['table_count']==32 and result['row_value_reconciliation']=='PASS'
+        assert result['table_count']==34 and result['row_value_reconciliation']=='PASS'
         with engine_for(target).connect() as conn:assert inspect(conn).get_foreign_keys('cases')
         with pytest.raises(RuntimeError,match='empty'):import_snapshot(DATABASE_PATH,target)
     assert sha(DATABASE_PATH)==before
@@ -153,10 +153,15 @@ def test_explicit_read_transaction_keeps_consistent_snapshot(client):
         assert fresh.execute('SELECT intro FROM partners WHERE id=?', (partner['id'],)).fetchone()[0] == 'synthetic concurrent change'
 
 
-def test_pre_diagnostics_v12_snapshot_remains_importable(tmp_path):
+@pytest.mark.parametrize('without_feedback', [False, True])
+def test_pre_diagnostics_v12_snapshot_remains_importable(tmp_path, without_feedback):
     source=tmp_path/'legacy-v12.db'
     with sqlite3.connect(DATABASE_PATH) as src,sqlite3.connect(source) as dst:src.backup(dst)
     with sqlite3.connect(source) as conn:conn.execute('ALTER TABLE match_records DROP COLUMN last_error_details')
+    if without_feedback:
+        with sqlite3.connect(source) as conn:
+            conn.execute('DROP TABLE feedback_attachment')
+            conn.execute('DROP TABLE feedback_issue')
     before=sha(source)
     with empty_postgres_schema() as target:
         assert import_snapshot(source,target)['row_value_reconciliation']=='PASS'

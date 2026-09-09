@@ -365,4 +365,6 @@ def initialize_storage() -> None:
         from .development_schema import migrate_to_v12
         migrate_to_v12(connection)
         _ensure_column(connection, "match_records", "last_error_details", "TEXT")
+        from .feedback_schema import initialize_feedback_fixture
+        initialize_feedback_fixture(connection)
         connection.commit()

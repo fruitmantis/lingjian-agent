@@ -45,10 +45,13 @@ def source_inventory(source):
         if c.execute('PRAGMA integrity_check').fetchall()!=[('ok',)]:raise RuntimeError('Source integrity check failed')
         if c.execute('PRAGMA foreign_key_check').fetchall():raise RuntimeError('Source has foreign-key violations; no import allowed')
         names={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
-        if names!=set(metadata.tables):raise RuntimeError('Source table set differs from the v12 mapping')
+        if names-set(metadata.tables) or set(metadata.tables)-names-{'feedback_issue','feedback_attachment'}:raise RuntimeError('Source table set differs from the v12 mapping')
         if c.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()!=('12',):raise RuntimeError('Only schema v12 is supported')
         inventory={}
         for table in metadata.tables.values():
+            if table.name not in names:
+                inventory[table.name]={'count':0,'sha256':digest([])}
+                continue
             actual=[row[1] for row in c.execute('PRAGMA table_info("'+table.name+'")')]
             expected=list(table.c.keys())
             legacy_errors=(table.name=='match_records' and actual==[name for name in expected if name!='last_error_details'])
@@ -85,7 +88,9 @@ def import_snapshot(source,url,*,fault=None):
         conn.exec_driver_sql('SET CONSTRAINTS ALL DEFERRED')
         with closing(sqlite3.connect(Path(source).resolve().as_uri()+'?mode=ro',uri=True)) as src:
             src.row_factory=sqlite3.Row
+            source_tables={r[0] for r in src.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             for table in ordered_tables():
+                if table.name not in source_tables:continue
                 cursor=src.execute('SELECT * FROM "'+table.name+'"')
                 while batch:=cursor.fetchmany(500):conn.execute(table.insert(),[dict(row) for row in batch])
                 if fault:fault(table.name)

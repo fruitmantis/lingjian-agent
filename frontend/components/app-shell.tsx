@@ -33,6 +33,7 @@ const adminNav: { group: string; items: NavItem[] }[] = [
     { label: "用户管理", href: "/admin/users", icon: "user" },
     { label: "模型配置", href: "/admin/models", icon: "grid" },
     { label: "系统状态", href: "/admin/system", icon: "settings" },
+    { label: "问题反馈", href: "/admin/feedback", icon: "file" },
   ] },
 ];
 
@@ -85,6 +86,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </nav>
         <div className="sidebar-footer">
+          {!isAdmin && <Link href="/feedback" className={`sidebar-footer-link ${pathname === "/feedback" ? "active" : ""}`} aria-current={pathname === "/feedback" ? "page" : undefined}><UiIcon name="file" size={18} /><span>问题反馈</span></Link>}
           <Link href="/account" className={`sidebar-footer-link ${!isAdmin && pathname === "/account" ? "active" : ""}`} aria-current={pathname === "/account" ? "page" : undefined}><UiIcon name="user" size={18} /><span>个人中心</span></Link>
           {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回伴飞 Agent</span></Link> : user?.role === "admin" ? <Link href="/admin" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link> : null}
           <button type="button" onClick={logout} className="sidebar-footer-link sidebar-logout"><UiIcon name="logout" size={18} /><span>退出登录</span></button>

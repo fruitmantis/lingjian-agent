@@ -531,3 +531,31 @@ def create_postgres_schema(connection):
                            ('development_version_items','development_item_immutable'),
                            ('development_diagnoses','development_diagnosis_immutable')]:
         connection.exec_driver_sql(f'CREATE TRIGGER {trigger} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION banfei_immutable_version()')
+
+
+# Additive feedback storage; existing v12 business tables remain unchanged.
+feedback_issue = Table('feedback_issue', metadata,
+    Column('id', Text, primary_key=True),
+    Column('submitter_id', Text, nullable=False),
+    Column('description', Text, nullable=False),
+    Column('status', Text, nullable=False, server_default=text("'pending'")),
+    Column('created_at', Text, nullable=False),
+    Column('updated_at', Text, nullable=False),
+    CheckConstraint("status IN ('pending','resolved')", name='ck_feedback_status'),
+    CheckConstraint('length(description) BETWEEN 1 AND 5000', name='ck_feedback_description'),
+    ForeignKeyConstraint(['submitter_id'], ['users.id'], name='fk_feedback_submitter'),
+)
+Index('idx_feedback_created', feedback_issue.c.created_at, feedback_issue.c.id)
+feedback_attachment = Table('feedback_attachment', metadata,
+    Column('id', Text, primary_key=True),
+    Column('issue_id', Text, nullable=False),
+    Column('filename', Text, nullable=False),
+    Column('storage_name', Text, nullable=False),
+    Column('content_type', Text, nullable=False),
+    Column('size_bytes', Integer, nullable=False),
+    Column('created_at', Text, nullable=False),
+    CheckConstraint('size_bytes > 0 AND size_bytes <= 5242880', name='ck_feedback_attachment_size'),
+    UniqueConstraint('storage_name', name='uq_feedback_storage_name'),
+    ForeignKeyConstraint(['issue_id'], ['feedback_issue.id'], name='fk_feedback_attachment_issue'),
+)
+Index('idx_feedback_attachment_issue', feedback_attachment.c.issue_id)

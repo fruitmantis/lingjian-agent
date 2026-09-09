@@ -1,0 +1,81 @@
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { test, expect } from '@playwright/test';
+const API = 'http://127.0.0.1:8000';
+// Synthetic 8x8 PNG. No business images or runtime credentials.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFUlEQVR4nGP8//8/AzbAhFV00EoAAFbUAw037MyjAAAAAElFTkSuQmCC', 'base64');
+
+for (const width of [1366, 1920]) test(`feedback paste upload review and status ${width}`, async ({ page, request }) => {
+  expect(process.env.PLAYWRIGHT_REUSE_SERVER).not.toBe('1');
+  const admin = JSON.parse(readFileSync('/tmp/lingjian-enablement-e2e/visual-session.json', 'utf8'));
+  expect(admin.database).toBe('postgresql:banfei_validation');
+  const login = await request.post(`${API}/auth/login`, { data: { username: 'user_a', password: 'ValidationPass123' } });
+  expect(login.ok()).toBeTruthy();
+  const user = await login.json();
+  await page.addInitScript(session => { localStorage.setItem('token', session.access_token); localStorage.setItem('user', JSON.stringify(session.user)); }, user);
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto('/account');
+  await page.locator('.sidebar-footer').getByRole('link', { name: '问题反馈', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '问题反馈', exact: true })).toBeVisible();
+  const description = `Synthetic feedback ${randomUUID()}\n页面显示不完整，请检查。`;
+  await page.getByLabel('问题描述').fill(description);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.evaluate(async bytes => {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(bytes)], { type: 'image/png' }) })]);
+  }, [...PNG]);
+  await page.getByLabel('问题描述').focus();
+  await page.keyboard.press('Control+V');
+  await expect(page.getByRole('img', { name: '截图 1', exact: true })).toBeVisible();
+  await page.getByLabel('上传截图').setInputFiles({ name: 'uploaded.png', mimeType: 'image/png', buffer: PNG });
+  await expect(page.locator('.feedback-thumbnail')).toHaveCount(2);
+  await page.getByRole('button', { name: '删除截图 2', exact: true }).click();
+  await expect(page.locator('.feedback-thumbnail')).toHaveCount(1);
+  await page.getByLabel('上传截图').setInputFiles({ name: 'second.png', mimeType: 'image/png', buffer: PNG });
+  const response = page.waitForResponse(r => r.url() === `${API}/feedback` && r.request().method() === 'POST');
+  await page.getByRole('button', { name: '提交问题', exact: true }).click();
+  expect((await response).status()).toBe(201);
+  await expect(page.getByRole('status')).toHaveText('问题已提交');
+  await expect(page.locator('.feedback-thumbnail')).toHaveCount(0);
+  await expect(page.getByLabel('问题描述')).toHaveValue('');
+  expect((await request.get(`${API}/admin/feedback`, { headers: { Authorization: `Bearer ${user.access_token}` } })).status()).toBe(403);
+  // Switch this page's session without reloading the user init script.
+  await page.evaluate(session => { localStorage.setItem('token', session.access_token); localStorage.setItem('user', JSON.stringify(session.user)); }, admin);
+  await page.getByRole('link', { name: '个人中心', exact: true }).click();
+  await page.locator('.sidebar-footer').getByRole('link', { name: '管理后台', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await page.locator('.sidebar-nav').getByRole('link', { name: '问题反馈', exact: true }).click();
+  const row = page.getByRole('row').filter({ hasText: description.split('\n')[0] });
+  await expect(row).toContainText('用户 A');
+  await expect(row.getByRole('cell', { name: '2', exact: true })).toBeVisible();
+  await row.getByRole('link').click();
+  await expect(page.locator('.feedback-description')).toHaveText(description);
+  await expect(page.locator('.feedback-thumbnail img')).toHaveCount(2);
+  await expect.poll(() => page.locator('.feedback-thumbnail img').evaluateAll(images => images.every(image => (image as HTMLImageElement).naturalWidth > 0))).toBeTruthy();
+  await page.getByRole('button', { name: '标记为已处理', exact: true }).click();
+  await expect(page.locator('.feedback-status')).toHaveText('已处理');
+  await page.getByRole('button', { name: '恢复为待处理', exact: true }).click();
+  await expect(page.locator('.feedback-status')).toHaveText('待处理');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.screenshot({ path: `/tmp/banfei-feedback-admin-${width}.png`, fullPage: true });
+});
+
+test('feedback validates images and preserves draft after submission failure', async ({ page, request }) => {
+  const login = await request.post(`${API}/auth/login`, { data: { username: 'user_a', password: 'ValidationPass123' } });
+  const user = await login.json();
+  await page.addInitScript(session => { localStorage.setItem('token', session.access_token); localStorage.setItem('user', JSON.stringify(session.user)); }, user);
+  await page.goto('/feedback');
+  await page.getByLabel('上传截图').setInputFiles({ name: 'bad.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
+  await expect(page.locator('.feedback-error[role=alert]')).toContainText('仅支持');
+  await page.getByLabel('上传截图').setInputFiles({ name: 'large.png', mimeType: 'image/png', buffer: Buffer.alloc(5 * 1024 * 1024 + 1) });
+  await expect(page.locator('.feedback-error[role=alert]')).toContainText('5 MB');
+  await page.getByLabel('上传截图').setInputFiles(Array.from({ length: 6 }, (_, i) => ({ name: `${i}.png`, mimeType: 'image/png', buffer: PNG })));
+  await expect(page.locator('.feedback-error[role=alert]')).toContainText('最多上传 5 张');
+  await page.getByLabel('上传截图').setInputFiles({ name: 'valid.png', mimeType: 'image/png', buffer: PNG });
+  await page.getByLabel('问题描述').fill('保留这个描述');
+  await page.route(`${API}/feedback`, route => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ detail: '问题提交失败，请稍后重试' }) }));
+  await page.getByRole('button', { name: '提交问题', exact: true }).click();
+  await expect(page.locator('.feedback-error[role=alert]')).toContainText('问题提交失败');
+  await expect(page.getByLabel('问题描述')).toHaveValue('保留这个描述');
+  await expect(page.locator('.feedback-thumbnail')).toHaveCount(1);
+  await page.screenshot({ path: '/tmp/banfei-feedback-form.png', fullPage: true });
+});

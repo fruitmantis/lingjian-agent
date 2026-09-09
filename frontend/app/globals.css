@@ -1377,3 +1377,31 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .task-failure-copy p { margin:7px 0 0; font-size:14px; line-height:1.6; overflow-wrap:anywhere; }
 .task-failure-actions { display:flex; align-items:center; gap:14px; flex-shrink:0; }
 @media(max-width:760px) { .task-failure-notice { align-items:flex-start; flex-direction:column; padding:18px; } }
+
+
+/* Feedback uses the existing workspace controls and restrained brand palette. */
+.feedback-page { max-width: 960px; margin: 0 auto; }
+.feedback-page h1, .feedback-admin h1 { margin-bottom: 24px; }
+.feedback-form { display: flex; flex-direction: column; gap: 24px; }
+.feedback-form textarea { width: 100%; resize: vertical; }
+.feedback-upload > p { margin: 0 0 10px; }
+.feedback-images { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.feedback-images:empty { display: none; }
+.feedback-thumbnail { margin: 16px 0 0; min-width: 0; border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px; overflow: hidden; }
+.feedback-thumbnail img { display: block; width: 100%; height: 150px; object-fit: contain; background: #f7f8fa; }
+.feedback-thumbnail figcaption { padding: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; overflow-wrap: anywhere; }
+.feedback-thumbnail figcaption > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feedback-error { color: #b42318; overflow-wrap: anywhere; }
+.feedback-success { color: #16794b; }
+.feedback-table-wrap { overflow-x: auto; }
+.feedback-admin table { width: 100%; border-collapse: collapse; }
+.feedback-admin th, .feedback-admin td { text-align: left; padding: 14px 12px; border-bottom: 1px solid #eee; }
+.feedback-admin th { font-weight: 500; background: #f7f8fa; white-space: nowrap; }
+.feedback-summary { min-width: 200px; max-width: 500px; overflow-wrap: anywhere; }
+.feedback-summary a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.feedback-status { display: inline-block; padding: 3px 9px; border-radius: 4px; background: #f2f3f5; color: #555; white-space: nowrap; font-size: 12px; }
+.feedback-status.resolved { background: #edf7f1; color: #16794b; }
+.feedback-pagination, .feedback-detail-heading { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.feedback-pagination { justify-content: flex-end; margin-top: 20px; }
+.feedback-detail-heading { justify-content: space-between; }
+.feedback-description { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; line-height: 1.8; }

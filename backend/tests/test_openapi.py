@@ -19,8 +19,8 @@ def test_openapi_contains_only_three_public_operations():
             operations.append((method, path))
             if not operation.get("security"):
                 public.add((method, path))
-    assert len(schema["paths"]) == 87
-    assert len(operations) == 103  # Includes the previously added administrator partner deletion.
+    assert len(schema["paths"]) == 92
+    assert len(operations) == 109  # Current task endpoints plus five authenticated feedback operations.
     assert schema['paths']['/partners/{partner_id}']['delete']['security']
     assert public == PUBLIC_OPERATIONS
 

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from .config import get_jwt_secret_key
 from .database import initialize_storage, get_db, recover_stale_tasks
-from .routers import partners, cases, profile, match, documents, users, demand, capability_tags, system, model_config, enablement, enablement_workspace, development
+from .routers import feedback, partners, cases, profile, match, documents, users, demand, capability_tags, system, model_config, enablement, enablement_workspace, development
 from .auth import get_bootstrap_admin
 
 
@@ -71,3 +71,6 @@ app.include_router(enablement.router)
 app.include_router(enablement_workspace.router)
 
 app.include_router(development.router)
+
+app.include_router(feedback.router)
+app.include_router(feedback.admin_router)

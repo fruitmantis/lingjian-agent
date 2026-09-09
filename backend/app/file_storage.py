@@ -14,10 +14,10 @@ def max_upload_size() -> int:
         return 20 * 1024 * 1024
 
 
-async def save_upload_limited(upload: UploadFile, destination: Path) -> int:
+async def save_upload_limited(upload: UploadFile, destination: Path, *, size_limit: int | None = None) -> int:
     """Stream an upload to disk and remove partial data when it exceeds the limit."""
     destination.parent.mkdir(parents=True, exist_ok=True)
-    limit = max_upload_size()
+    limit = min(max_upload_size(), size_limit) if size_limit is not None else max_upload_size()
     total = 0
     try:
         with destination.open("xb") as output:

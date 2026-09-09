@@ -13,6 +13,8 @@
 | `/partners`、`/partners/{id}` | 伙伴洞察、画像与资料；制定发展建议时带入伙伴上下文 |
 | `/resources`、`/resources/{type}/{id}` | 独立课程/实验/共享案例目录，搜索、筛选、详情和发起来源跳转 |
 | `/tasks`、`/tasks/{id}` | 两类任务共用历史；创建后即出现，真实状态更新，首批 10 条、独立滚动与加载更多 |
+| `/feedback` | 问题描述与可选截图提交；支持 Ctrl+V 粘贴、多图预览和提交前删除 |
+| `/admin/feedback` | 管理员查看全部反馈及截图，切换待处理／已处理 |
 | `/login`、`/account` | 登录、内部账号申请与个人中心 |
 | `/admin/*` | 任务、伙伴/资料/案例共享、资源发布核验、需求画像、项目机会、运营报表、标签、用户、模型、系统状态 |
 
@@ -62,12 +64,30 @@ bash enablement-dev.sh stop
 ## 数据库与迁移
 
 - `DATABASE_URL` 显式选择 PostgreSQL，缺失或连接失败直接报错；不自动回退 SQLite。不要用旧 SQLite 快照覆盖切换后的新增数据。
-- 32 张表的映射位于 [storage_models.py](backend/app/storage_models.py)。保留现有 UUID、外键、JSON 文本、时间和标志字段；当前 schema version 为 12。
+- 34 张表（含两张增量反馈表）的映射位于 [storage_models.py](backend/app/storage_models.py)。保留现有 UUID、外键、JSON 文本、时间和标志字段；当前 schema version 为 12。
 - `match_records.last_error_details` 是 v12 内已落地的可空增量列；当前环境已完成迁移，不因阅读文档再次执行。
 - [SQLite → PostgreSQL 工具](scripts/migrate_sqlite_to_postgres.py) 只用于经授权的一次性迁移：SQLite backup API、原库只读、空目标库、事务导入和逐表对账。
 - [任务错误详情迁移工具](scripts/migrate_task_failure_details.py) 先 `pg_dump`，再事务加列和校验；不能替代业务数据备份策略。
 - 禁止删除、清空、重建、重新 seed、随意替换任何现有数据库、上传目录或私有备份。必要变更须先核验实际目标，提供备份、事务与回退方案。
 - 历史 Pilot 文件工具只兼容 SQLite，不能对当前 PostgreSQL 运行库使用；见 [兼容工具说明](pilot-data/README.md)。
+
+## 问题反馈
+
+普通用户在左侧个人区域进入“问题反馈”，只填写描述（1—5000 字）和可选截图，提交人由当前登录身份确定。支持 Ctrl+V 粘贴与点击上传、即时缩略图、多图及提交前删除；最多 5 张，每张 5 MB，支持 PNG/JPEG/WebP/GIF，后端校验真实格式及像素上限（2500 万像素）。成功仅提示“问题已提交”。
+
+管理员在 `/admin/feedback` 查看分页清单、完整描述和截图，仅有“待处理／已处理”两个状态。普通用户没有反馈查询、状态更新或截图读取权限。截图通过管理员 Bearer 鉴权接口读取，不生成公开链接，不调用模型。
+
+PostgreSQL 保存 `feedback_issue`、`feedback_attachment`，图片位于现有上传目录的 `feedback/` 子目录，数据库只存文件元数据。提交失败时回滚记录并清理本次新文件，保留已有文件。
+
+已有 v12 环境升级需要显式运行 [增量迁移](scripts/migrate_feedback.py)，不会在启动时自动修改 PostgreSQL。先使用现有私有配置提供 `DATABASE_URL`，然后执行：
+
+```bash
+.venv/bin/python scripts/migrate_feedback.py --backup-dir <新的私有备份目录>
+```
+
+工具仅允许本机 `banfei_agent`：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和 schema version 12。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。旧 v12 SQLite 快照缺少反馈表时仍可用于原有显式导入工具，目标反馈表初始化为空；日常运行继续使用 PostgreSQL。
+
+相关验证：`run_postgres_validation.py backend -q -k feedback`；`run_postgres_validation.py browser feedback.spec.ts`。均须使用专用验证库及 `/tmp` 上传目录，不能对业务库执行测试。验证范围与结果见 [反馈验证记录](docs/validation/FEEDBACK_VALIDATION.md)。
 
 ## 模型配置
 
