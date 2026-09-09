@@ -111,7 +111,7 @@ export const SCENE_REGISTRY: readonly SceneDefinition[] = [
   {
     id: "partner-capability-query",
     name: "伙伴能力查询",
-    description: "查询指定伙伴的核心能力和能力标签",
+    description: "在伙伴洞察中查看已有核心能力和能力标签",
     category: "伙伴洞察",
     skillId: "partner_profile",
     exampleQueries: ["XX伙伴有哪些 AI 能力？"],
@@ -125,7 +125,7 @@ export const SCENE_REGISTRY: readonly SceneDefinition[] = [
   {
     id: "partner-ai-profile",
     name: "伙伴AI画像",
-    description: "查看和分析伙伴当前AI能力画像",
+    description: "在伙伴洞察中查看已有 AI 能力画像",
     category: "伙伴洞察",
     skillId: "partner_capability_analysis",
     exampleQueries: ["查看 XX 伙伴当前的 AI 能力画像"],
@@ -139,7 +139,7 @@ export const SCENE_REGISTRY: readonly SceneDefinition[] = [
   {
     id: "partner-case-query",
     name: "伙伴案例查询",
-    description: "查询伙伴已有项目案例和行业实践",
+    description: "在伙伴洞察中查看已有项目案例和行业实践",
     category: "伙伴洞察",
     skillId: "partner_case_search",
     exampleQueries: ["查看 XX 伙伴在制造行业的项目案例"],
@@ -153,15 +153,16 @@ export const SCENE_REGISTRY: readonly SceneDefinition[] = [
   {
     id: "partner-capability-gap-analysis",
     name: "伙伴能力短板分析",
-    description: "分析伙伴承接目标项目存在的能力缺口",
+    description: "结合伙伴画像和目标方向，在现有能力发展中分析建议重点",
     category: "能力发展",
     skillId: "partner_gap_analysis",
     exampleQueries: ["XX伙伴承接制造知识库项目有哪些能力短板？"],
     tags: ["能力短板", "差距分析", "发展建议"],
     enabled: true,
     sortOrder: 70,
-    availability: "building",
-    actionLabel: "能力建设中",
+    availability: "ready",
+    actionHref: "/?mode=development",
+    actionLabel: "开始分析",
   },
   {
     id: "project-demand-profile",

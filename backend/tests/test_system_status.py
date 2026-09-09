@@ -17,10 +17,11 @@ def synthetic_configuration(client, monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "")
     with get_db() as conn:
         conn.execute("UPDATE model_usage_configs SET model_config_id = NULL")
-        conn.execute("UPDATE model_configs SET api_key = 'synthetic-db-key', api_key_source = 'db', base_url = 'https://model.invalid/v1', model_name = 'synthetic-model', enabled = 1")
+        conn.execute("UPDATE model_configs SET api_key = 'synthetic-db-key', api_key_source = 'db', base_url = 'http://127.0.0.1:18180/v1', model_name = 'synthetic-model', enabled = 1")
     def must_not_call(*args, **kwargs):
         pytest.fail("read-only system status called a model")
     monkeypatch.setattr(httpx.Client, "post", must_not_call)
+    monkeypatch.setattr(httpx.AsyncClient, "post", must_not_call)
 
 
 def test_repeated_status_does_not_write_database_or_call_model(client):

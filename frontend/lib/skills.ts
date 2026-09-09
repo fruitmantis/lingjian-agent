@@ -84,12 +84,12 @@ export const SKILL_REGISTRY: readonly SkillDefinition[] = [
   {
     id: "partner_gap_analysis",
     name: "伙伴能力短板分析",
-    description: "面向目标项目独立分析伙伴能力缺口。",
+    description: "复用能力发展流程，结合伙伴画像与目标方向分析建议重点。",
     category: "能力发展",
     tags: ["能力短板", "差距分析", "发展建议"],
-    enabled: false,
-    capabilityReference: "暂无独立接口；当前仅在 /agent/match 推荐结果中提供风险或缺口提示",
-    inputDefinition: "伙伴、目标项目与能力要求",
+    enabled: true,
+    capabilityReference: "复用 POST /development/plans；入口 /?mode=development",
+    inputDefinition: "伙伴 + 自然语言发展方向（可描述目标项目）",
   },
   {
     id: "demand_profile",

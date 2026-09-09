@@ -4,13 +4,13 @@ import asyncio
 from .development_deadlines import model_timeout
 from urllib.parse import urlsplit
 import httpx
-from .database import get_db
+from .database import get_db, get_readonly_db
 from .model_resolver import ModelConfigurationError,_resolve_api_key
 from .ai_client import _completion_content
 
 
-def configuration():
-    with get_db() as conn:
+def configuration(*, read_only=False):
+    with (get_readonly_db() if read_only else get_db()) as conn:
         selected=conn.execute("SELECT model_config_id FROM model_usage_configs WHERE scene_key='partner_development'").fetchone()
         config_id=selected[0] if selected else None
         if not config_id:

@@ -425,6 +425,7 @@ export function SystemStatusTab() {
               <div>
                 <span style={{ fontSize: "14px", fontWeight: 600 }}>{item.name}</span>
                 <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "8px" }}>{item.message}</span>
+                {item.detail && <p className="muted" style={{ margin: "4px 0 0", fontSize: "13px" }}>{item.detail}</p>}
               </div>
               {statusBadge(item.status)}
             </div>
@@ -682,7 +683,7 @@ export default function AdminPage() {
     <main className="page">
       <p className="eyebrow">Administration</p><h1>后台概览</h1><p className="lead">查看平台用户、伙伴、任务和运营待办。</p>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={loadData}>重试</button></div>}
-      <section className="admin-metric-grid">{cards.map(([label, key]) => <div className="card admin-metric-card" key={key}><span>{label}</span><strong>{data ? data[key] ?? 0 : "--"}</strong></div>)}</section>
+      <section className="admin-metric-grid">{cards.map(([label, key]) => <div className="card admin-metric-card" key={key}><span>{label}</span><strong>{data ? data[key] ?? 0 : "--"}</strong>{data && (key === "tasks" || key === "monthTasks") && <small className="muted">项目找伙伴 {data[key === "tasks" ? "partnerMatchTasks" : "monthPartnerMatchTasks"] ?? 0} · 能力发展 {data[key === "tasks" ? "developmentTasks" : "monthDevelopmentTasks"] ?? 0}</small>}</div>)}</section>
       <section className="card"><h2>管理重点</h2><div className="admin-shortcuts"><a href="/admin/users?tab=applications">审批账号申请</a><a href="/admin/partners">完善伙伴资料</a><a href="/admin/tasks">查看全量任务</a><a href="/admin/tags">处理标签建议</a></div></section>
     </main>
   );

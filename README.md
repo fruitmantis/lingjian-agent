@@ -1,271 +1,93 @@
-# 灵鉴 Agent
+# 伴飞 Agent
 
-> 当前 `main` 正式工作区：`/home/yuan/project/lingjian-agent-enablement`；本地基线为前端 **3000**、后端 **8000**，本地 mock 仍为 **18180**。
->
-> 使用 `bash enablement-dev.sh start|stop|status` 管理当前独立运行环境。启动器读取已有私有 `.isolation/runtime/dev/environment.json`，通过私有 `DATABASE_URL` 使用 PostgreSQL 16 和原上传目录；`.isolation/runtime/dev/app.db` 仅保留为回退，不初始化或替换数据库。不要用下文通用 `dev.sh` 或手动 uvicorn 绕过当前隔离启动器。
->
-> legacy 原目录、数据库、分支 `legacy/pre-v1.2-main` 和标签 `v1.1-legacy` 保留，旧服务已停用。阶段报告中的 3100/8100 是历史取证端口，不是当前启动配置。模型外网阻断保持，真实业务试点状态不因端口调整改变。
+伴飞 Agent 面向公司内部业务人员，提供“项目找伙伴”和“能力发展”两条主线。当前主干为 `main`，正式工作区为 `/home/yuan/project/lingjian-agent-enablement`。工程名、模块名、API 和 `LINGJIAN_*` 环境变量保留原技术标识。
 
+## 当前入口与能力
 
-灵鉴 Agent 是面向公司内部人员的伙伴能力洞察与项目需求匹配平台。普通用户可以提交项目需求、获得有证据支撑的伙伴推荐并持续跟进自己的任务；管理员在独立后台维护伙伴、用户、需求运营数据、能力标签、模型配置和系统状态。
+左侧导航：开启新任务、场景广场、伙伴洞察、资源中心、全部任务与历史任务、个人中心、管理后台。
 
-当前版本为单机 MVP，运行于 WSL Ubuntu，采用 Next.js + FastAPI + PostgreSQL 16，不包含面向外部伙伴的开放访问能力。
+- **开启新任务**：两个显式 Tab“项目找伙伴 / 能力发展”，不自动猜测业务模式。
+- **项目找伙伴**：输入项目需求，自动使用伙伴已有能力标签、标准行业/区域、AI 画像摘要、案例标题/简短摘要和交付物名称。缺资料时降级，不要求人工补录；现有交付物没有独立摘要字段，不读取原附件或增加字段。画像截取上限 3000 字符、单案例摘要上限 500 字符。输出推荐、匹配分、理由、归属校验后的证据和风险，并沉淀需求画像、项目机会。
+- **能力发展**：伙伴 + 自然语言方向即可生成建议；结合画像和真实候选资源，支持解释、比较和自然语言调整。解释不创建新版本，成功调整创建新 Version；失败不覆盖已有可用建议。历史版本、采用版本、运行记录为二级操作。
+- **场景广场**：“伙伴能力短板分析”直接进入能力发展；伙伴能力/画像/案例查询是伙伴洞察的快捷入口，不是三套新 Agent。需求画像、项目机会随匹配生成。
+- **资源中心**：独立浏览课程、实验、已发布共享案例，提供搜索、筛选、详情与来源跳转；跳转不代表学习完成或能力提升。
+- **统一任务**：项目匹配与能力发展共用任务历史。每个 Plan 只计一项任务，多次 Run 不重复计数。后台累计/本月任务同时给出两类数量，保留归档任务在累计统计中；月份沿用 UTC 创建时间口径。
+- **管理后台**：伙伴及资料维护、案例共享、课程实验发布/人工核验、任务、需求画像、项目机会、现有运营报表、标签、用户、模型和系统状态。
+- **系统状态**：只读检查配置与数据。能力发展使用实际执行的模型选择规则，并读取最近一次 Run 状态和可计算的起止耗时；无记录显示“暂无运行记录”。不主动调用模型，不以历史成功保证当前模型连通。
 
-## 当前能力
-
-- **灵鉴助手工作台**：输入自然语言项目需求，生成伙伴推荐、匹配分、推荐理由、支撑案例、支撑交付物及风险或缺口。
-- **用户级任务隔离**：普通用户只能查看和操作自己创建的任务及其需求画像、项目机会；管理员可以查看全部用户任务。
-- **任务导航**：提交后立即显示任务，侧栏与详情自动查询真实状态；最近任务首批 10 条、每次追加 10 条，任务区独立滚动，并保留“全部任务”入口。首页仅展示本次任务进度和结果。
-- **任务生命周期**：支持匹配中、信息补全中、已完成、部分完成、失败状态，以及归档、恢复和失败重试。
-- **场景广场**：提供按行业找伙伴、按能力找伙伴、伙伴能力查询、伙伴案例查询等预置入口。
-- **伙伴洞察**：普通用户只读查看伙伴资料、AI 能力画像、案例和交付证据。
-- **独立管理后台**：集中管理伙伴、任务、需求画像、项目机会、运营报表、能力标签、用户、模型和系统状态。
-- **完整用户管理**：支持登录页申请账号、管理员审批或驳回、管理员直接创建、角色与状态管理、密码重置、账号解锁和审计日志。
-- **运行安全加固**：强制 JWT 密钥、首次改密、登录失败锁定、会话失效、上传大小限制、文件类型校验和异常任务恢复。
-
-## 技术栈
-
-- Frontend：Next.js 15、React 19、TypeScript
-- Backend：FastAPI、Python 3.11+
-- Database：PostgreSQL 16 / SQLAlchemy Core / psycopg（私有 `DATABASE_URL`，不引入 Alembic）
-- File Storage：本地目录（默认 `data/uploads`）
-- AI：OpenAI 兼容接口，由 `httpx` 调用，支持按业务场景绑定模型
-- Test：pytest、Playwright
-
-## 页面与角色
-
-### 公共页面
+## 页面
 
 | 路径 | 功能 |
 |---|---|
-| `/login` | 账号登录、公司内部账号申请 |
-| `/403` | 无权限提示 |
+| `/login` | 登录；点击“注册”进入公司内部账号申请表 |
+| `/` | 开启新任务：项目找伙伴 / 能力发展 |
+| `/?mode=development` | 直接激活能力发展，可携带伙伴、项目、共享案例上下文 |
+| `/scenes` | 场景快捷入口 |
+| `/partners`、`/partners/{id}` | 伙伴洞察与详情 |
+| `/resources`、`/resources/{type}/{id}` | 资源中心与详情 |
+| `/tasks`、`/tasks/{id}` | 两类任务的统一历史与详情 |
+| `/account`、`/403` | 个人中心、无权限提示 |
+| `/admin`、`/admin/tasks` | 后台概览、全量任务 |
+| `/admin/partners`、`/admin/partners/{id}` | 伙伴、资料、案例、交付物与画像维护 |
+| `/admin/resources` | 课程/实验管理 |
+| `/admin/demands`、`/admin/opportunities`、`/admin/reports` | 需求画像、机会与现有运营统计 |
+| `/admin/tags`、`/admin/users`、`/admin/users/{id}` | 能力标签、用户与审批审计 |
+| `/admin/models`、`/admin/system` | 模型场景绑定、只读系统状态 |
 
-### 普通用户工作区
+`/enablement` 只保留书签兼容，跳转至统一任务入口或资源中心，不提供第二套用户工作台。案例共享维护复用伙伴管理中的案例入口。
 
-| 路径 | 功能 |
+## 技术与业务边界
+
+- Next.js 15 / React 19 / TypeScript；FastAPI / Python；PostgreSQL 16 / SQLAlchemy Core / psycopg；本地上传存储；OpenAI-compatible 模型接口。
+- 当前未接入 Embedding、Chroma、RAG、向量检索；Chroma 路径只是历史预留。
+- 不包含 Redis、队列、微服务、复杂 RBAC、多租户或通用 Planner/Multi-Agent。
+- 课程/实验只做目录与跳转，不提供 LMS、实验执行、完成率或能力认证。
+- 健康度仍是临时实现，正式健康度等待外部平台，不自行扩展评分。
+- 黑白灰为主、华为红 `#C7000B` 小面积强调，保留红色图标与“伴飞 Agent”字标。
+
+## 权限与数据保护
+
+- 仅 `GET /health`、`POST /auth/login`、`POST /auth/user-applications` 为公开业务 API；其他业务接口要求有效 Token，管理写接口在后端校验 admin。
+- 保留 user/admin 两角色。匹配任务归属为 `match_records.owner_user_id`，能力发展归属为 `development_plans.owner_user_id`；普通用户越权访问任务及关联数据返回 404。
+- 系统可见、模型可发送、伙伴可外发分别校验，不互相推导。能力发展原始附件/内部材料默认不发送模型，共享案例只使用当前获授权的已发布共享版本。
+- 伙伴可传递视图只取 confirmed 版本，输出时重新校验授权、版本、资源状态并应用允许字段白名单。撤权不会改写审计历史。
+- Plan / Run / Version、current / confirmed、幂等、并发冲突、事务原子性、超时、中断恢复和失败保留旧版本继续保留。
+- 不删除、清空、重建或替换已有数据库；不清理上传资料。测试仅用 `/tmp` 隔离文件和独立 `banfei_validation` PostgreSQL 临时 schema，不在运行库执行 E2E。
+- 不提交数据库、上传材料、私有快照、`.env`、密钥、Token 或原始敏感日志。
+
+## 账号
+
+登录页默认只展示登录；点击“注册”填写姓名、工号、部门、邮箱、用户名、密码、确认密码，申请说明选填。公司内部账号继续由管理员审批，审批后首次登录必须改密。管理员直接创建的临时密码仅展示一次。
+
+保留密码不可逆哈希、审批后清除申请密码哈希、连续 5 次失败锁定 15 分钟、管理员解锁、最后一个有效管理员保护和会话即时失效。没有固定默认登录凭据。`JWT_SECRET_KEY` 必须显式配置且至少 32 位；空库首位管理员仅通过 `BOOTSTRAP_ADMIN_USERNAME` / 强 `BOOTSTRAP_ADMIN_PASSWORD` 引导，已有运行库不要重新引导。
+
+## 当前本地环境
+
+| 项目 | 当前值 |
 |---|---|
-| `/` | 开启新的伙伴匹配任务 |
-| `/scenes` | 浏览和进入业务场景 |
-| `/tasks` | 查看、筛选、归档和恢复自己的任务 |
-| `/tasks/{id}` | 查看自己的推荐结果、需求画像和项目机会，处理失败重试 |
-| `/partners` | 只读浏览伙伴能力与画像 |
-| `/partners/{id}` | 只读查看伙伴详情、案例与交付物摘要 |
-| `/account` | 查看账号信息、修改显示名称和密码、注销全部会话 |
+| 工作区/分支 | `/home/yuan/project/lingjian-agent-enablement` / `main` |
+| 前端 | http://localhost:3000 |
+| 后端 | http://localhost:8000；匿名健康检查 `/health` |
+| 本地 mock | `127.0.0.1:18180` |
+| 数据库 | PostgreSQL 16：`banfei_agent`，应用账号 `banfei_app`；连接由私有 `DATABASE_URL` 提供 |
+| SQLite 回退文件 | `.isolation/runtime/dev/app.db`（保留，不参与正常运行） |
+| 上传目录 | `.isolation/runtime/dev/uploads` |
+| 私有运行配置 | `.isolation/runtime/dev/environment.json` |
+| 运行日志 | `.isolation/logs/` |
 
-### 管理后台
-
-| 路径 | 功能 |
-|---|---|
-| `/admin` | 管理概览 |
-| `/admin/tasks` | 查看全部用户任务 |
-| `/admin/partners` | 伙伴资料管理 |
-| `/admin/partners/{id}` | 伙伴详情、案例、交付物、文档和 AI 画像维护 |
-| `/admin/demands` | 全量需求画像 |
-| `/admin/opportunities` | 项目机会运营 |
-| `/admin/reports` | 运营报表 |
-| `/admin/tags` | 能力标签、分类和 AI 标签建议 |
-| `/admin/users` | 用户、账号申请和审计日志管理 |
-| `/admin/users/{id}` | 用户详情 |
-| `/admin/models` | 模型连接与业务场景绑定 |
-| `/admin/system` | 数据库、模型和业务能力状态 |
-
-管理员也可以返回普通用户工作区使用灵鉴助手；普通用户访问 `/admin/*` 时会被拒绝。
-
-## 权限与数据隔离
-
-- 除健康检查、登录和账号申请外，所有 API 都要求 Bearer Token。
-- 所有 `/admin/*` API 都在后端执行管理员权限校验，前端隐藏菜单不是安全边界。
-- 匹配任务通过 `owner_user_id` 归属用户；普通用户的列表、详情、归档、恢复、重试及项目机会更新均校验所有权。
-- 普通用户越权访问其他用户任务时返回 404，避免泄露任务是否存在；管理员可通过后台查看全量数据。
-- 普通用户只能读取启用状态的伙伴及其案例、交付物摘要；伙伴、案例、交付物、文档和画像写操作仅限管理员。
-- 用户停用、角色变更、密码修改、管理员重置密码或“注销全部会话”后，旧 Token 会立即失效。
-- 连续 5 次密码错误会锁定账号 15 分钟，管理员可在用户管理中解锁。
-- 系统禁止管理员停用或降级自己，也禁止停用或降级最后一个有效管理员。
-
-## 账号申请与首次登录
-
-1. 公司内部人员在 `/login` 切换到“申请账号”，填写姓名、用户名、部门、企业邮箱或工号及密码。
-2. 系统只保存密码的不可逆哈希，并限制同一来源的申请频率、重复用户名或联系方式以及待审批总量。
-3. 管理员在“用户管理 → 账号申请”中批准或驳回申请。
-4. 审批通过后，申请人使用申请时设置的密码登录，并按提示完成一次密码更新。
-5. 管理员也可以直接创建账号；系统仅在创建结果中展示一次临时密码，用户首次登录后必须修改。
-
-## 项目结构
-
-```text
-.
-├── backend/
-│   ├── app/
-│   │   ├── main.py                 # FastAPI 入口、CORS、启动初始化
-│   │   ├── config.py               # JWT、数据库与存储路径配置
-│   │   ├── auth.py                 # 密码、JWT、用户与管理员依赖
-│   │   ├── database.py             # 数据库连接、SQLite 兼容迁移与中断任务恢复
-│   │   ├── ai_client.py            # OpenAI 兼容模型客户端
-│   │   ├── model_resolver.py       # 业务场景模型解析（数据库优先、环境变量回退）
-│   │   ├── file_storage.py         # 流式上传、大小和文件内容校验
-│   │   ├── doc_extractor.py        # PDF、DOCX、PPTX、XLSX 文本抽取
-│   │   ├── models.py               # Pydantic 数据模型
-│   │   └── routers/                # 认证、伙伴、匹配、需求和管理接口
-│   ├── tests/                      # 后端、权限、迁移、文件与故障恢复测试
-│   ├── scripts/                    # 测试支持与伙伴种子数据脚本
-│   ├── requirements.txt
-│   └── requirements-dev.txt
-├── frontend/
-│   ├── app/                        # 普通用户、登录和 /admin 管理页面
-│   ├── components/                 # 导航、认证、任务列表和后台面板
-│   ├── e2e/                        # Playwright 发布验收用例
-│   ├── lib/scenes.ts               # 场景注册表
-│   ├── lib/skills.ts               # 业务能力注册表
-│   ├── package.json
-│   └── playwright.config.ts
-├── data/
-│   ├── app.db                      # 历史 SQLite 文件，请勿覆盖；不再参与正常运行
-│   ├── uploads/                    # 上传文件，请勿清理
-│   └── chroma/                     # 预留目录，当前未接入 Chroma
-├── docs/
-│   ├── product-spec.md
-│   └── validation/                 # 发布验证计划与报告
-├── artifacts/validation/           # 多分辨率界面验收截图
-├── dev.sh                          # 本地服务生命周期脚本
-├── pytest.ini
-└── AGENTS.md
-```
-
-## 环境要求
-
-- WSL Ubuntu 24.04 或兼容 Linux 环境
-- Node.js 18.18 或更高版本
-- npm 9 或更高版本
-- Python 3.11 或更高版本
-- `curl`、`fuser`、`setsid`（使用 `dev.sh` 时需要）
-
-## 首次配置
-
-以下仅适用于全新安装；当前工作区已有依赖、私有配置和运行库，直接沿用，不要重新安装、复制配置或初始化数据库。
-
-### 1. 安装依赖
+从当前工作区执行：
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r backend/requirements.txt
-
-cd frontend
-npm install
-cd ..
+bash enablement-dev.sh status
+bash enablement-dev.sh start
+bash enablement-dev.sh stop
 ```
 
-### 2. 创建环境文件
+启动器继续使用已有私有配置和运行库；不得用通用 `dev.sh` 或手动启动方式绕过当前隔离配置，不重新安装/初始化环境。启动前确认本地 mock 可用；启动器不负责重新创建 mock 数据。
 
-```bash
-cp .env.example .env
-cp frontend/.env.local.example frontend/.env.local
-```
+旧环境仅作为 legacy 保留，服务保持停止；保留 `legacy/pre-v1.2-main` 和 `v1.1-legacy`，不修改其目录、数据库或指针。
 
-`.env` 至少需要配置 `DATABASE_URL`、安全的 JWT 密钥和实际使用的模型连接信息；当前运行环境从私有配置读取：
-
-```dotenv
-DATABASE_URL=postgresql+psycopg://banfei_app:<password>@127.0.0.1:5432/banfei_agent
-JWT_SECRET_KEY=使用安全随机源生成的至少32位密钥
-LLM_API_KEY=你的模型API密钥
-LLM_BASE_URL=https://your-openai-compatible-endpoint/v1
-LLM_MODEL=模型名称
-```
-
-可以使用下面的命令生成 JWT 密钥：
-
-```bash
-openssl rand -hex 32
-```
-
-不得提交 `.env` 或任何真实 API Key。项目会拒绝空值、短于 32 位或历史默认值形式的 `JWT_SECRET_KEY`。
-
-### 3. 仅为空数据库创建首位管理员
-
-仅当 `users` 表完全为空时，在 `.env` 中临时配置：
-
-```dotenv
-BOOTSTRAP_ADMIN_USERNAME=admin
-BOOTSTRAP_ADMIN_PASSWORD=至少12位且同时包含字母和数字的强密码
-```
-
-后端首次初始化后会创建管理员并要求首次改密。已有用户的数据库不需要这两个变量，项目也不再内置固定管理员密码。
-
-## 启动与停止
-
-当前正式工作区使用 `bash enablement-dev.sh start|stop|status`。本地 mock 18180 沿用现有配置；端口调整不修改模型绑定。下面的 `dev.sh` 命令仅说明通用启动器，已有独立运行环境不要切换到该入口：
-
-```bash
-bash dev.sh start
-bash dev.sh status
-bash dev.sh logs
-bash dev.sh restart
-bash dev.sh stop
-```
-
-`bash dev.sh` 等价于 `bash dev.sh start`。脚本只复用或停止工作目录属于本项目的 3000/8000 端口进程，不会直接清理其他项目进程。
-
-启动成功后访问：
-
-- 前端：http://localhost:3000
-- 后端健康检查：http://localhost:8000/health
-- Swagger API 文档：http://localhost:8000/docs
-
-也可以分别启动：
-
-```bash
-source .venv/bin/activate
-python -m uvicorn app.main:app --app-dir backend --reload --host 0.0.0.0 --port 8000
-```
-
-另开终端：
-
-```bash
-cd frontend
-npm run dev
-```
-
-> 在受限沙箱中，端口绑定或本机健康检查可能被禁止；这属于运行环境限制，并不代表应用启动失败。应在允许本机网络访问的 WSL 会话中运行服务。
-
-## 主要 API
-
-FastAPI 的 `/docs` 和 `/openapi.json` 是完整接口清单。当前接口按职责分为：
-
-| 范围 | 主要接口 | 权限 |
-|---|---|---|
-| 健康检查 | `GET /health` | 公开 |
-| 登录与申请 | `POST /auth/login`、`POST /auth/user-applications` | 公开 |
-| 个人账号 | `GET/PATCH /auth/me`、`POST /auth/change-password`、`POST /auth/logout-all` | 已登录用户 |
-| 个人任务 | `POST /agent/tasks`（即时创建）、`POST /agent/match`（同步兼容）、`GET /agent/tasks`、任务详情、重试、归档、恢复、机会更新 | 本人或管理员 |
-| 伙伴洞察 | `GET /partners`、`GET /partners/{id}`、`GET /partners/profiles`、案例与交付物查询 | 已登录用户 |
-| 全量运营 | `/admin/dashboard`、`/admin/tasks`、`/admin/demand-profiles`、`/admin/opportunities`、`/admin/reports` | 管理员 |
-| 用户管理 | `/admin/users`、`/admin/user-applications`、`/admin/user-audit-logs` | 管理员 |
-| 伙伴维护 | 伙伴写接口、案例与交付物写接口、文档接口、AI 画像生成 | 管理员 |
-| 系统配置 | `/admin/capability-tags`、`/admin/model-configs`、`/admin/system/status` | 管理员 |
-
-当前 OpenAPI 公开面严格限定为 `GET /health`、`POST /auth/login` 和 `POST /auth/user-applications`。
-
-## 数据与运行配置
-
-默认运行数据位于：
-
-- 数据库：PostgreSQL 16，`banfei_agent` / `banfei_app`，由私有 `DATABASE_URL` 指定；缺失或连接失败不回退 SQLite
-- SQLite 回退文件：`.isolation/runtime/dev/app.db`，保留且不参与正常运行
-- 上传文件：`data/uploads`
-- Chroma 预留目录：`data/chroma`
-
-测试或隔离环境可以通过以下变量覆盖路径，不应指向真实运行数据：
-
-```dotenv
-# 仅显式 SQLite 兼容测试使用；PostgreSQL 测试使用 banfei_validation。
-DATABASE_URL=sqlite://
-LINGJIAN_DATABASE_PATH=/tmp/lingjian-test/app.db
-LINGJIAN_UPLOADS_DIR=/tmp/lingjian-test/uploads
-LINGJIAN_CHROMA_DIR=/tmp/lingjian-test/chroma
-```
-
-其他可调参数见 `.env.example`，包括 CORS、上传上限、中断任务判定时间、账号申请频率和待审批数量上限。默认上传上限为 20 MiB；伙伴文档支持 PDF、DOCX、PPTX 和 XLSX。
+当前数据库由私有配置中的 `DATABASE_URL` 显式指定；缺失或连接失败直接报错，不自动回退 SQLite。`LINGJIAN_UPLOADS_DIR` 保留现有上传路径；`LINGJIAN_DATABASE_PATH` 仅供显式 SQLite 兼容测试或人工回退，不是 PostgreSQL 的数据路径。
 
 ### PostgreSQL 与一次性迁移
 
@@ -275,23 +97,39 @@ PostgreSQL 16 来自 Ubuntu 24.04 官方 apt 源，使用专用非超级用户 `
 
 SQLite 原文件与 `.isolation/postgres-migration/` 下的一致性备份保留。回退必须先停服务并确认 PostgreSQL 切换后是否产生新增数据，不能直接切回旧快照丢弃新数据。经确认后才可显式设置 `DATABASE_URL=sqlite://` 和指定保留的 SQLite 路径；启动器不会自行回退。
 
+## 模型
 
-## 自动化验证
+当前开发环境使用本地 mock，隔离启动器阻止外部模型网络请求。没有新的明确授权，不调用真实模型、不更改场景绑定或真实模型配置。
 
-### 后端
+- 原匹配等场景：场景绑定 → 默认场景绑定 → 启用的默认模型 → 首个启用模型 → 环境变量；显式绑定无效时报错。
+- 能力发展：场景绑定 → 默认场景绑定 → 唯一启用的默认模型；没有有效选择时报错，不回退到首个启用模型。外部调用另受 `LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL` 门禁约束，不能擅自开启。
+- 模型候选 ID、版本、URL、权限与结构化输出仍由程序校验。画像摘要不等于新的可信证据，资料缺失不等于没有能力。
+- 不向用户展示 Prompt、原始模型 JSON、密钥或异常堆栈。
 
-后端测试使用 pytest 临时目录，不会修改 `data/app.db` 或 `data/uploads`：
+## 主要代码与接口
+
+- `backend/app/routers/match.py`：项目匹配、统一任务查询、后台任务统计。
+- `backend/app/development_*.py`：能力发展执行、上下文、版本、权限、超时与模型适配。
+- `backend/app/enablement*.py`：资源、共享案例、发布核验、目录检索与引用。
+- `frontend/lib/scenes.ts` / `skills.ts`：轻量场景和能力描述，不是执行编排平台。
+- `scripts/validate_pilot_data.py` / `import_pilot_data.py`：历史 SQLite Pilot 预检与原子导入工具，不可对当前 PostgreSQL 运行库使用；本轮未扩大这些工具范围。机器导入通过不等于业务签审通过。
+- `POST /agent/tasks`：创建匹配任务；`GET /agent/tasks`：统一任务列表；`GET /agent/tasks/{id}`：任务详情；原同步匹配接口保留兼容。
+- `/development/plans`：能力发展生成、解释/调整、确认、历史与归档。
+- `/enablement/resources`：资源目录；`/admin/dashboard`、`/admin/system/status`：统计与状态。
+- 完整接口契约以当前 FastAPI `/docs`、`/openapi.json` 和代码为准，不沿用历史文档中的接口数量。
+
+## 验证
+
+沿用现有 `.venv` 和 `frontend/node_modules`。测试必须使用合成数据与 mock，不调用真实模型。全量 pytest 的进程恢复测试及 Playwright 共用服务端口；开发服务、构建与 Playwright 共用 `.next`，不能并行运行。
+
+先确认当前项目进程归属，再停止当前前后端和测试端口上的本地 mock。按顺序执行：
 
 ```bash
-source .venv/bin/activate
-pip install -r backend/requirements-dev.txt
-pytest -q
-```
-
-PostgreSQL 回归需先私下配置 `BANFEI_TEST_DATABASE_URL`，然后执行：
-
-```bash
-.venv/bin/python scripts/run_postgres_validation.py backend -q
+.venv/bin/python -m pytest -q
+cd frontend
+npm run typecheck
+npm run build
+cd ..
 .venv/bin/python scripts/run_postgres_validation.py browser
 ```
 
@@ -299,68 +137,13 @@ PostgreSQL 回归需先私下配置 `BANFEI_TEST_DATABASE_URL`，然后执行：
 
 Playwright 使用独立 PostgreSQL 临时 schema，`/tmp/lingjian-enablement-e2e` 仅存合成数据中间文件、临时凭据与上传。验证脚本仅接受本机 `banfei_validation`，为浏览器创建独立 schema 并在退出后清理该 schema，不触碰 `banfei_agent`。必须启动测试库对应的服务，不复用日常运行库。验证完成后恢复本地 mock 和当前 main 的 3000/8000，不启动 legacy。
 
+## 交付状态与历史资料
 
-### 前端
+两条主业务线及资源/权限/版本底座已实现；真实业务资源、真实模型效果和业务验收需分别确认，不能用合成测试数据或 mock 结果代替。历史阶段报告仅记录当时的状态与验证，不是当前配置说明。
 
-```bash
-cd frontend
-npm run typecheck
-npm run build
-npx playwright install chromium   # 首次运行 Playwright 时执行
-npm run test:e2e
-```
+- [V1.2 交付记录](V12_REFACTOR_DELIVERY_REPORT.md)
+- [Phase D 工程记录](PHASE_D_DELIVERY_REPORT.md)
+- [Pilot 导入准备](PILOT_IMPORT_READINESS_REPORT.md)
+- [最早 MVP 说明](docs/product-spec.md)（历史范围）
 
-当前 main 的生产构建和开发服务共用 `frontend/.next`。执行构建或 Playwright 前，先在正式工作区执行 `bash enablement-dev.sh stop`；legacy 服务保持停止。验证结束后恢复当前 main 的 3000/8000，不启动 legacy。
-
-当前 main Playwright 使用 3000/8000/18180（前端/后端/本地 mock）测试端口，并将合成隔离数据写入 `/tmp/lingjian-enablement-e2e`。发布验证不会写入真实数据库或上传目录。全量 pytest 的进程恢复测试与 Playwright 共用 8000，必须先停止运行服务，按 pytest → typecheck/build → Playwright 串行执行；完成后恢复 main。
-
-2026-09-04 的发布前验证结果：
-
-- pytest：50/50 通过
-- Playwright E2E：12/12 通过
-- TypeScript 类型检查、Next.js 生产构建、FastAPI 启动和健康检查通过
-- OpenAPI：60 paths / 71 operations，仅 3 个公开操作
-- A/B 用户隔离、管理员权限、迁移回放、任务故障恢复、文件安全和真实模型受控 E2E 通过
-
-详细范围与证据：
-
-- [发布验证计划](docs/validation/VALIDATION_PLAN.md)
-- [发布验证报告](docs/validation/RELEASE_VALIDATION_REPORT.md)
-
-2026-09-05 分批修复记录（自动化使用隔离数据；第四批另经明确授权执行真实数据补齐）：
-
-- [第一批：任务权限、画像保护与运营统计](docs/validation/BATCH_1_FIXES.md)
-- [第二批：模型配置、场景调用与请求异常处理](docs/validation/BATCH_2_FIXES.md)
-- [第三批：推荐证据、只读状态检查与错误展示](docs/validation/BATCH_3_FIXES.md)
-- [第四批：历史治理清单、受控补齐与验证记录](docs/validation/BATCH_4_REVIEW.md)
-
-2026-09-05 任务导航调整：提交后立即显示、自动查询状态、首批 10 条和游标追加；当前 OpenAPI 为 60 paths / 72 operations。详见[任务导航实现与验证](docs/validation/TASK_NAVIGATION.md)。
-
-## 伙伴服务能力发展中心（Phase B）
-
-本分支新增 `/enablement` 前台：能力发展助手可选择伙伴、查看经过鉴权的来源上下文并在页面内整理诉求；资源中心检索课程、实验和当前已发布共享案例。伙伴详情、匹配结果和共享案例提供上下文入口；统一任务列表展示并筛选真实任务类型。
-
-当前 **不生成发展方案、不保存诉求草稿、不调用真实模型**。已下架、撤权或过期共享版本不可通过前台接口读取或发起跳转；“发起跳转”不代表外部访问或学习完成。现有两个角色与任务所有权不变。
-
-[Phase B 设计](docs/enablement/PHASE_B_STARTUP.md) · [前台批次](docs/enablement/PHASE_B_FRONTEND.md) · [验收与回归记录](docs/enablement/PHASE_B_VALIDATION.md)。本地完整报告为 `PHASE_B_DELIVERY_REPORT.md`，可用 `.venv/bin/python backend/scripts/write_phase_b_report.py` 从已提交记录重建。该报告包含最终 HEAD，因此生成件不纳入 Git；报告源、生成脚本和合成截图已版本化。
-
-## AI 规则
-
-- 推荐必须包含匹配伙伴、匹配分、推荐理由、支撑案例、支撑交付物以及风险或缺口。
-- 新生成的推荐会过滤身份冲突、无效分数和空理由，按分数排序、按伙伴去重，最多返回 5 家；案例与交付物只展示通过伙伴归属校验的引用，匹配标签仅保留伙伴资料已有项。
-- 证据不足时明确说明缺失内容，不生成无依据结论。
-- 正式能力标签由管理员维护；AI 只生成“待采纳”建议，管理员采纳后才进入正式标签。
-- 业务场景优先使用显式绑定；未绑定时依次使用默认场景绑定、启用的默认模型、首个启用模型、环境变量。显式绑定无效时不会改用其他模型。不得在前端展示 Prompt、原始模型 JSON 或调试过程。
-- 系统状态页仅执行只读查询和配置检查，不写数据库、不自动调用模型；配置具备与运行成功分开展示。模型连接验证由管理员在模型配置页手动触发，空内容或截断响应不会报成功。
-- 上游错误按类别显示固定提示，不返回响应正文、请求地址、密钥或原始异常。画像正文若返回结构化内容，会拒绝保存并提示重试。
-
-## MVP 边界与已知限制
-
-- 当前仅面向公司内部人员，不开放外部伙伴注册或访问。
-- 使用 PostgreSQL 16 和本地文件存储，不包含 Docker、Redis、消息队列、微服务或生产部署编排。
-- `data/chroma` 只是预留目录，当前未接入 Chroma 或向量检索；匹配仍会汇总伙伴摘要进入模型上下文，伙伴规模扩大后需重新设计检索链路。
-- 账号申请限流为单进程内存实现，未处理多实例共享限流或可信代理 IP；这符合当前单机 MVP 范围。
-- 伙伴健康度仍为临时展示能力，正式健康度后续由外部平台提供。
-- “伙伴能力短板分析”尚无独立执行接口，目前仅在匹配结果中提供风险或缺口提示。
-- 推荐证据校验确认的是已登记资料及其伙伴归属，不等于交付能力认证，也不保证推荐理由的全部业务判断正确；最终项目适配仍需人工复核。历史推荐及重试时复用的旧结果保留原数据，不在本批自动回写。
-- 23 个历史任务的缺失衍生数据已受控补齐（3 条需求画像、20 条项目机会）；48 个任务现均各有一条画像和机会，原推荐与所有权保留。真实结果已通过结构、重复执行及隔离回退验证，具体业务信息仍需人工复核。
+本地直接在 main 迭代。未经明确要求不提交、不 push、不部署，不创建分支或 worktree。

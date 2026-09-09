@@ -1,6 +1,7 @@
 """System status monitoring router."""
 
 import math
+import os
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
@@ -11,6 +12,8 @@ from ..database import get_readonly_db
 from ..ai_client import model_error_message
 from ..model_resolver import ModelConfigurationError, resolve_model_config
 from ..auth import require_admin
+from .. import development_model
+from ..model_resolver import _resolve_api_key
 
 
 router = APIRouter(prefix="/admin/system", tags=["system"], dependencies=[Depends(require_admin)])
@@ -140,7 +143,51 @@ def _check_business() -> tuple[list[ServiceStatus], list[AbnormalModule]]:
                 module=name, status="error", message=error_msg,
                 impact=f"可能影响{name}", suggestion="请在模型配置页检查该业务场景绑定及模型参数",
             ))
+    development, abnormal = _check_development()
+    items.append(development)
+    if abnormal:
+        abnormals.append(abnormal)
     return items, abnormals
+
+
+def _check_development() -> tuple[ServiceStatus, AbnormalModule | None]:
+    # Use the same selection rules as actual execution, without probing the model.
+    error = ''
+    try:
+        cfg = development_model.configuration(read_only=True)
+        endpoint = _safe_endpoint(cfg['base_url'])
+        if not endpoint or urlparse(cfg['base_url']).username or urlparse(cfg['base_url']).password or not _resolve_api_key(cfg):
+            raise ModelConfigurationError('Invalid configuration')
+        host = urlparse(endpoint).hostname
+        if host not in ('localhost', '127.0.0.1', '::1') and os.getenv('LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL') != '1':
+            error = '当前配置为外部模型，能力发展真实模型调用尚未获准启用'
+    except Exception:
+        error = '能力发展模型配置不可用，请检查场景绑定、模型启用状态和凭据'
+    detail = '暂无运行记录'
+    run_status = 'unknown'
+    try:
+        with get_readonly_db() as conn:
+            row = conn.execute("""SELECT status, run_type, started_at, ended_at
+                FROM development_runs ORDER BY created_at DESC, id DESC LIMIT 1""").fetchone()
+        if row:
+            labels = {'pending': '等待执行', 'running': '执行中', 'ready': '已完成',
+                      'partial': '部分完成', 'failed': '失败', 'interrupted': '已中断'}
+            detail = f"最近运行：{'调整' if row['run_type'] == 'revise' else '生成'} · {labels.get(row['status'], '未知')}"
+            run_status = 'normal' if row['status'] == 'ready' else ('warning' if row['status'] in ('partial', 'failed', 'interrupted') else 'unknown')
+            if row['started_at'] and row['ended_at']:
+                try:
+                    seconds = (datetime.fromisoformat(row['ended_at']) - datetime.fromisoformat(row['started_at'])).total_seconds()
+                    if math.isfinite(seconds) and seconds >= 0:
+                        detail += f'；耗时 {seconds:.1f} 秒'
+                except (TypeError, ValueError, OverflowError):
+                    pass  # Legacy malformed timestamps are not a duration measurement.
+    except Exception:
+        detail = '运行记录暂不可读取'
+    item = ServiceStatus(name='能力发展', status='error' if error else run_status,
+                         message=error or '模型配置可用（未主动探测）', detail=detail)
+    abnormal = AbnormalModule(module='能力发展', status='error', message=error,
+                             impact='能力发展任务可能无法执行', suggestion='检查现有模型配置和调用授权，不需要重新创建任务流程') if error else None
+    return item, abnormal
 
 
 @router.get("/status", response_model=SystemStatusResponse)
