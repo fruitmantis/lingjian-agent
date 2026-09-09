@@ -5,7 +5,7 @@
 - 项目：灵鉴 Agent，交付伙伴智能匹配与需求运营平台。
 - 运行环境：WSL Ubuntu-24.04；项目路径：`/home/yuan/project/lingjian-agent`。
 - 当前本地代码、Git 状态和实际配置高于旧对话上下文。
-- 前端：Next.js；后端：FastAPI；数据库：SQLite（`data/app.db`）；上传文件：`data/uploads`。
+- 前端：Next.js；后端：FastAPI；数据库：PostgreSQL 16（Ubuntu 官方 apt 源），当前库 `banfei_agent` / 专用用户 `banfei_app`，通过私有 `DATABASE_URL` 连接；原 SQLite `.isolation/runtime/dev/app.db` 保留为回退、不参与运行；上传文件：`data/uploads`。
 - 产品仅面向公司内部人员，当前不开放公司外部伙伴注册或访问。
 - 页面已分为普通用户工作区和 `/admin/*` 管理后台；现有 `user` / `admin` 两角色及任务所有权隔离是必须保留的安全基线。
 - Chroma 是否实际接入必须以现有代码为准，不得依据早期规划判断。
@@ -63,7 +63,7 @@
 - 不得删除或覆盖 `data/app.db`，不得删除或覆盖 `data/uploads` 现有文件。
 - 数据库结构变更前，说明影响范围、兼容方式和回退方案。
 - 不擅自清理被忽略文件、上传文件、数据库文件或运行数据。
-- 自动化测试、迁移回放、故障注入和 E2E 必须使用 `/tmp` 或 pytest 临时目录中的隔离数据库与上传目录；真实数据库原则上只做只读检查。
+- 自动化测试、迁移回放、故障注入和 E2E 必须使用 `/tmp` 或 pytest 临时目录中的隔离数据库与上传目录；真实数据库原则上只做只读检查。PostgreSQL 测试必须使用本机专用 `banfei_validation` 及自动创建的临时 schema，不得使用 `banfei_agent`。
 - 不得将 API Key、Token、密码、客户数据或其他敏感信息写入代码、日志、报告或界面；回复中不得输出完整密钥。
 
 ## 模型调用与标签
@@ -84,7 +84,7 @@
 
 ## 架构限制
 
-除非用户明确要求，不引入 Docker、PostgreSQL、Redis、微服务、消息队列、复杂 RBAC、大规模状态管理框架、新数据库迁移框架或无关基础设施。不得以“简化权限”为由移除当前两角色和用户级任务隔离。
+当前使用 PostgreSQL 16 / SQLAlchemy Core / psycopg，v12 数据模型保持不变，不引入 Alembic；`DATABASE_URL` 必填，不允许静默回退 SQLite。除非用户明确要求，不引入 Docker、Redis、微服务、消息队列、复杂 RBAC、大规模状态管理框架、新数据库迁移框架或无关基础设施。不得以“简化权限”为由移除当前两角色和用户级任务隔离。
 
 ## 任务执行与验证
 
@@ -94,6 +94,8 @@
 - 修改完成后只执行与本次变更直接相关的验证，不扩大验证范围。
 - Next.js 开发服务、生产构建和 Playwright 会共用 `frontend/.next`；执行 `npm run build` 或发布 E2E 前先停止正在运行的前端开发服务，验证结束后再按需恢复，避免并行写入造成构建缓存损坏。
 - 服务生命周期优先使用 `bash dev.sh start|stop|restart|status|logs`；停止服务前必须确认端口进程属于当前项目。
+
+- PostgreSQL 全量验证使用 `scripts/run_postgres_validation.py backend|browser`，连接通过私有 `BANFEI_TEST_DATABASE_URL` 传入。原 SQLite 文件迁移/维护工具仅用于显式兼容测试或经授权的回退，不得用来替换 PostgreSQL 运行库。
 
 ## 交付汇报
 

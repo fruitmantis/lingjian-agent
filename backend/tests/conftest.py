@@ -19,6 +19,7 @@ TEST_CHROMA = TEST_ROOT / "chroma"
 TEST_JWT_SECRET = "validation-secret-a-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 BOOTSTRAP_PASSWORD = "BootstrapPass12345"
 
+os.environ["DATABASE_URL"] = "sqlite://"  # Explicit legacy test backend; never inherit runtime PostgreSQL.
 os.environ["LINGJIAN_DATABASE_PATH"] = str(TEST_DB)
 os.environ["LINGJIAN_UPLOADS_DIR"] = str(TEST_UPLOADS)
 os.environ["LINGJIAN_CHROMA_DIR"] = str(TEST_CHROMA)
@@ -46,18 +47,42 @@ def cleanup_test_root():
 
 
 @pytest.fixture(autouse=True)
-def fresh_database(monkeypatch):
+def fresh_database(monkeypatch, request):
     monkeypatch.setenv("JWT_SECRET_KEY", TEST_JWT_SECRET)
     monkeypatch.setenv("BOOTSTRAP_ADMIN_USERNAME", "bootstrap_admin")
     monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", BOOTSTRAP_PASSWORD)
     monkeypatch.setenv("USER_APPLICATION_RATE_LIMIT", "1000")
     monkeypatch.setenv("USER_APPLICATION_PENDING_LIMIT", "200")
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
     if DATABASE_PATH.exists():
         DATABASE_PATH.unlink()
     shutil.rmtree(UPLOADS_DIR, ignore_errors=True)
     users_router._APPLICATION_ATTEMPTS.clear()
     initialize_storage()
-    yield
+    # Migration/maintenance/fault-injection tests intentionally exercise native
+    # SQLite files and triggers. All other tests run on PostgreSQL when requested.
+    sqlite_modules = {
+        "test_migration", "test_enablement_migration", "test_development_migration",
+        "test_process_recovery", "test_phase_d_process", "test_pilot_import", "test_pilot_intake",
+        "test_historical_repair", "test_system_status", "test_business_taxonomy",
+        "test_applications", "test_enablement", "test_enablement_workspace",
+        "test_development_lifecycle", "test_phase_d_reliability", "test_partner_delete",
+    }
+    module = request.module.__name__.rsplit(".", 1)[-1]
+    if os.environ.get("BANFEI_TEST_DATABASE_URL") and module not in sqlite_modules:
+        import sqlite3
+        from .postgres_support import empty_postgres_schema
+        from scripts.migrate_sqlite_to_postgres import import_snapshot
+        with sqlite3.connect(DATABASE_PATH) as legacy_fixture:
+            legacy_fixture.execute("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER)")
+        with empty_postgres_schema() as url:
+            import_snapshot(DATABASE_PATH, url)
+            monkeypatch.setenv("DATABASE_URL", url)
+            request.node.user_properties.append(("database_backend", "postgresql"))
+            yield
+    else:
+        request.node.user_properties.append(("database_backend", "sqlite-legacy"))
+        yield
 
 
 @pytest.fixture

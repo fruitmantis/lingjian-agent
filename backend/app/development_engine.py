@@ -96,7 +96,7 @@ def profile_context(conn,request):
     profile['case_count']=conn.execute('SELECT count(*) FROM cases WHERE partner_id=?',(row['id'],)).fetchone()[0]
     profile['deliverable_count']=conn.execute('SELECT count(*) FROM deliverables d JOIN cases c ON c.id=d.case_id WHERE c.partner_id=?',(row['id'],)).fetchone()[0]
     profile['shared_evidence']=[]
-    for case in conn.execute('SELECT c.id,s.published_version FROM cases c JOIN case_share_configs s ON s.case_id=c.id WHERE c.partner_id=? AND s.status="published"',(row['id'],)):
+    for case in conn.execute("SELECT c.id,s.published_version FROM cases c JOIN case_share_configs s ON s.case_id=c.id WHERE c.partner_id=? AND s.status='published'",(row['id'],)):
         try:
             data=resources.resolve_reference(conn,'case',case[0],case[1],'model')
             guard(data,blocked);profile['shared_evidence'].append(data)

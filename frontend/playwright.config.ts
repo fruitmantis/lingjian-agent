@@ -1,6 +1,14 @@
 import { defineConfig } from "@playwright/test";
 
+const validationDatabase = process.env.PLAYWRIGHT_DATABASE_URL || "sqlite://";
+if (validationDatabase.startsWith("postgresql")) {
+  const url = new URL(validationDatabase);
+  if (url.pathname !== "/banfei_validation" || !["127.0.0.1", "localhost"].includes(url.hostname)) {
+    throw new Error("Playwright requires the dedicated local PostgreSQL validation database");
+  }
+}
 const validationEnvironment = {
+  DATABASE_URL: validationDatabase,
   LINGJIAN_DATABASE_PATH: "/tmp/lingjian-enablement-e2e/app.db",
   LINGJIAN_UPLOADS_DIR: "/tmp/lingjian-enablement-e2e/uploads",
   LINGJIAN_CHROMA_DIR: "/tmp/lingjian-enablement-e2e/chroma",

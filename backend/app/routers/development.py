@@ -7,7 +7,7 @@ from .. import development_lifecycle as life,development_engine as engine,develo
 from ..development_types import DevelopmentRequest,Submit,Revise,Edit,VersionAction,Conversation
 
 router=APIRouter(prefix='/development',tags=['development'])
-# In-process execution; SQLite owns concurrency/idempotency. Restart recovery interrupts unfinished runs.
+# In-process execution; Database transactions own concurrency/idempotency. Restart recovery interrupts unfinished runs.
 executor=ThreadPoolExecutor(max_workers=4,thread_name_prefix='development')
 
 def private(response:Response):response.headers['Cache-Control']='no-store'

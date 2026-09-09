@@ -2,14 +2,14 @@
 
 > 当前 `main` 正式工作区：`/home/yuan/project/lingjian-agent-enablement`；本地基线为前端 **3000**、后端 **8000**，本地 mock 仍为 **18180**。
 >
-> 使用 `bash enablement-dev.sh start|stop|status` 管理当前独立运行环境。启动器读取已有私有 `.isolation/runtime/dev/environment.json`，继续使用 `.isolation/runtime/dev/app.db` 和原上传目录；不初始化或替换数据库。不要用下文通用 `dev.sh` 或手动 uvicorn 绕过当前隔离启动器。
+> 使用 `bash enablement-dev.sh start|stop|status` 管理当前独立运行环境。启动器读取已有私有 `.isolation/runtime/dev/environment.json`，通过私有 `DATABASE_URL` 使用 PostgreSQL 16 和原上传目录；`.isolation/runtime/dev/app.db` 仅保留为回退，不初始化或替换数据库。不要用下文通用 `dev.sh` 或手动 uvicorn 绕过当前隔离启动器。
 >
 > legacy 原目录、数据库、分支 `legacy/pre-v1.2-main` 和标签 `v1.1-legacy` 保留，旧服务已停用。阶段报告中的 3100/8100 是历史取证端口，不是当前启动配置。模型外网阻断保持，真实业务试点状态不因端口调整改变。
 
 
 灵鉴 Agent 是面向公司内部人员的伙伴能力洞察与项目需求匹配平台。普通用户可以提交项目需求、获得有证据支撑的伙伴推荐并持续跟进自己的任务；管理员在独立后台维护伙伴、用户、需求运营数据、能力标签、模型配置和系统状态。
 
-当前版本为单机 MVP，运行于 WSL Ubuntu，采用 Next.js + FastAPI + SQLite，不包含面向外部伙伴的开放访问能力。
+当前版本为单机 MVP，运行于 WSL Ubuntu，采用 Next.js + FastAPI + PostgreSQL 16，不包含面向外部伙伴的开放访问能力。
 
 ## 当前能力
 
@@ -27,7 +27,7 @@
 
 - Frontend：Next.js 15、React 19、TypeScript
 - Backend：FastAPI、Python 3.11+
-- Database：SQLite（默认 `data/app.db`）
+- Database：PostgreSQL 16 / SQLAlchemy Core / psycopg（私有 `DATABASE_URL`，不引入 Alembic）
 - File Storage：本地目录（默认 `data/uploads`）
 - AI：OpenAI 兼容接口，由 `httpx` 调用，支持按业务场景绑定模型
 - Test：pytest、Playwright
@@ -100,7 +100,7 @@
 │   │   ├── main.py                 # FastAPI 入口、CORS、启动初始化
 │   │   ├── config.py               # JWT、数据库与存储路径配置
 │   │   ├── auth.py                 # 密码、JWT、用户与管理员依赖
-│   │   ├── database.py             # SQLite schema、迁移与中断任务恢复
+│   │   ├── database.py             # 数据库连接、SQLite 兼容迁移与中断任务恢复
 │   │   ├── ai_client.py            # OpenAI 兼容模型客户端
 │   │   ├── model_resolver.py       # 业务场景模型解析（数据库优先、环境变量回退）
 │   │   ├── file_storage.py         # 流式上传、大小和文件内容校验
@@ -120,7 +120,7 @@
 │   ├── package.json
 │   └── playwright.config.ts
 ├── data/
-│   ├── app.db                      # 真实 SQLite 数据库，请勿覆盖
+│   ├── app.db                      # 历史 SQLite 文件，请勿覆盖；不再参与正常运行
 │   ├── uploads/                    # 上传文件，请勿清理
 │   └── chroma/                     # 预留目录，当前未接入 Chroma
 ├── docs/
@@ -163,9 +163,10 @@ cp .env.example .env
 cp frontend/.env.local.example frontend/.env.local
 ```
 
-`.env` 至少需要配置安全的 JWT 密钥和实际使用的模型连接信息：
+`.env` 至少需要配置 `DATABASE_URL`、安全的 JWT 密钥和实际使用的模型连接信息；当前运行环境从私有配置读取：
 
 ```dotenv
+DATABASE_URL=postgresql+psycopg://banfei_app:<password>@127.0.0.1:5432/banfei_agent
 JWT_SECRET_KEY=使用安全随机源生成的至少32位密钥
 LLM_API_KEY=你的模型API密钥
 LLM_BASE_URL=https://your-openai-compatible-endpoint/v1
@@ -249,19 +250,31 @@ FastAPI 的 `/docs` 和 `/openapi.json` 是完整接口清单。当前接口按�
 
 默认运行数据位于：
 
-- 数据库：`data/app.db`
+- 数据库：PostgreSQL 16，`banfei_agent` / `banfei_app`，由私有 `DATABASE_URL` 指定；缺失或连接失败不回退 SQLite
+- SQLite 回退文件：`.isolation/runtime/dev/app.db`，保留且不参与正常运行
 - 上传文件：`data/uploads`
 - Chroma 预留目录：`data/chroma`
 
 测试或隔离环境可以通过以下变量覆盖路径，不应指向真实运行数据：
 
 ```dotenv
+# 仅显式 SQLite 兼容测试使用；PostgreSQL 测试使用 banfei_validation。
+DATABASE_URL=sqlite://
 LINGJIAN_DATABASE_PATH=/tmp/lingjian-test/app.db
 LINGJIAN_UPLOADS_DIR=/tmp/lingjian-test/uploads
 LINGJIAN_CHROMA_DIR=/tmp/lingjian-test/chroma
 ```
 
 其他可调参数见 `.env.example`，包括 CORS、上传上限、中断任务判定时间、账号申请频率和待审批数量上限。默认上传上限为 20 MiB；伙伴文档支持 PDF、DOCX、PPTX 和 XLSX。
+
+### PostgreSQL 与一次性迁移
+
+PostgreSQL 16 来自 Ubuntu 24.04 官方 apt 源，使用专用非超级用户 `banfei_app`。连接串形如 `postgresql+psycopg://banfei_app:<密码>@127.0.0.1:5432/banfei_agent`，实际值仅存在被忽略的私有运行配置中。现有 32 张表由 `backend/app/storage_models.py` 映射；保留 v12 字段、ID、约束、JSON 文本、ISO 时间和 0/1 标志，不引入 Alembic。
+
+`scripts/migrate_sqlite_to_postgres.py --source <SQLite路径> --evidence-dir <新的私有证据目录> --apply` 使用进程环境中的 PostgreSQL `DATABASE_URL`，仅接受空目标库。工具先用 SQLite backup API 保存快照，检查完整性/外键，再在一个 PostgreSQL 事务中建表、按依赖导入、校正已有 identity sequence（如有）并逐表对账行数和内容 SHA-256；失败回滚目标事务，不覆盖已有 PostgreSQL 表，不写源 SQLite。当前业务主键都是 UUID 文本，没有需要重新编号的业务 sequence。
+
+SQLite 原文件与 `.isolation/postgres-migration/` 下的一致性备份保留。回退必须先停服务并确认 PostgreSQL 切换后是否产生新增数据，不能直接切回旧快照丢弃新数据。经确认后才可显式设置 `DATABASE_URL=sqlite://` 和指定保留的 SQLite 路径；启动器不会自行回退。
+
 
 ## 自动化验证
 
@@ -274,6 +287,18 @@ source .venv/bin/activate
 pip install -r backend/requirements-dev.txt
 pytest -q
 ```
+
+PostgreSQL 回归需先私下配置 `BANFEI_TEST_DATABASE_URL`，然后执行：
+
+```bash
+.venv/bin/python scripts/run_postgres_validation.py backend -q
+.venv/bin/python scripts/run_postgres_validation.py browser
+```
+
+后端全量测试中，普通业务测试使用 PostgreSQL 临时 schema；原 SQLite 原生迁移、Pilot 文件工具和 SQLite 故障注入测试保留临时 SQLite，JUnit 标记实际后端。直接运行 pytest 未配置验证库时只覆盖 SQLite 兼容路径，不能据此声称 PostgreSQL 验收通过。
+
+Playwright 使用独立 PostgreSQL 临时 schema，`/tmp/lingjian-enablement-e2e` 仅存合成数据中间文件、临时凭据与上传。验证脚本仅接受本机 `banfei_validation`，为浏览器创建独立 schema 并在退出后清理该 schema，不触碰 `banfei_agent`。必须启动测试库对应的服务，不复用日常运行库。验证完成后恢复本地 mock 和当前 main 的 3000/8000，不启动 legacy。
+
 
 ### 前端
 
@@ -332,11 +357,10 @@ npm run test:e2e
 ## MVP 边界与已知限制
 
 - 当前仅面向公司内部人员，不开放外部伙伴注册或访问。
-- 使用单机 SQLite 和本地文件存储，不包含 Docker、PostgreSQL、Redis、消息队列、微服务或生产部署编排。
+- 使用 PostgreSQL 16 和本地文件存储，不包含 Docker、Redis、消息队列、微服务或生产部署编排。
 - `data/chroma` 只是预留目录，当前未接入 Chroma 或向量检索；匹配仍会汇总伙伴摘要进入模型上下文，伙伴规模扩大后需重新设计检索链路。
 - 账号申请限流为单进程内存实现，未处理多实例共享限流或可信代理 IP；这符合当前单机 MVP 范围。
 - 伙伴健康度仍为临时展示能力，正式健康度后续由外部平台提供。
 - “伙伴能力短板分析”尚无独立执行接口，目前仅在匹配结果中提供风险或缺口提示。
 - 推荐证据校验确认的是已登记资料及其伙伴归属，不等于交付能力认证，也不保证推荐理由的全部业务判断正确；最终项目适配仍需人工复核。历史推荐及重试时复用的旧结果保留原数据，不在本批自动回写。
-- 真实数据库中保留两条历史案例外键孤儿记录；发布验证确认迁移未新增外键异常，且不影响任务所有权隔离链路。
 - 23 个历史任务的缺失衍生数据已受控补齐（3 条需求画像、20 条项目机会）；48 个任务现均各有一条画像和机会，原推荐与所有权保留。真实结果已通过结构、重复执行及隔离回退验证，具体业务信息仍需人工复核。

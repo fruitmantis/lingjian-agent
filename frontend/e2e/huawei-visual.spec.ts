@@ -17,6 +17,7 @@ async function isolatedSession() {
       if (!command.includes('uvicorn') || !command.includes('8000')) continue;
       const environment = (await readFile(`/proc/${pid}/environ`, 'utf8')).split('\0');
       if (!environment.includes(`LINGJIAN_DATABASE_PATH=${temporaryDatabase}`)) throw new Error('Unexpected backend database');
+      if (process.env.PLAYWRIGHT_DATABASE_URL && !environment.includes(`DATABASE_URL=${process.env.PLAYWRIGHT_DATABASE_URL}`)) throw new Error('Unexpected backend database');
       isolatedBackend = true;
     } catch (error) {
       if ((error as Error).message === 'Unexpected backend database') throw error;
@@ -24,7 +25,7 @@ async function isolatedSession() {
   }
   if (!isolatedBackend) throw new Error('Cannot verify isolated backend');
   const session = JSON.parse(await readFile('/tmp/lingjian-enablement-e2e/visual-session.json', 'utf8'));
-  if (session.database !== temporaryDatabase) throw new Error('Unexpected fixture database');
+  if (session.database !== (process.env.PLAYWRIGHT_DATABASE_URL?.startsWith('postgresql') ? 'postgresql:banfei_validation' : temporaryDatabase)) throw new Error('Unexpected fixture database');
   return session;
 }
 

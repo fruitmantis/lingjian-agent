@@ -41,3 +41,13 @@ def uploads_path() -> Path:
 def chroma_path() -> Path:
     configured = os.getenv("LINGJIAN_CHROMA_DIR", "").strip()
     return Path(configured).expanduser().resolve() if configured else PROJECT_ROOT / "data" / "chroma"
+
+
+def database_url() -> str:
+    """Explicit backend selection; never silently fall back from PostgreSQL to SQLite."""
+    value = os.getenv("DATABASE_URL", "").strip()
+    if not value:
+        raise RuntimeError("DATABASE_URL is required; no automatic SQLite fallback")
+    if not value.startswith(("postgresql://", "postgresql+psycopg://", "sqlite://")):
+        raise RuntimeError("Unsupported DATABASE_URL database type")
+    return value

@@ -21,7 +21,7 @@ POOL = '''WITH candidates AS (
  WHERE s.status='published' AND s.system_visible=1 AND s.authorization_epoch=v.authorization_epoch
  AND p.status='active' AND p.id=json_extract(v.payload_json,'$.contributor_id')
 ), visible AS (
- SELECT * FROM candidates WHERE json_extract(payload_json,'$._permissions.system_visible')=1
+ SELECT * FROM candidates WHERE CAST(json_extract(payload_json,'$._permissions.system_visible') AS TEXT) IN ('1','true')
  AND json_array_length(payload_json,'$.capability_tag_ids')>0
  AND NOT EXISTS (SELECT 1 FROM json_each(payload_json,'$.capability_tag_ids') j
  LEFT JOIN capability_tags t ON t.id=j.value AND t.enabled=1 WHERE t.id IS NULL)
@@ -54,7 +54,7 @@ def public_detail(conn, source_type, source_id, version=None):
 
 def catalog(source_type=None, q=None, capability_tag_id=None, contributor_id=None, status='published', page=1, page_size=12, **filters):
     conditions=[]; params=[]
-    if status != 'published': conditions.append('0')
+    if status != 'published': conditions.append('1=0')
     if source_type: conditions.append('source_type=?');params.append(source_type)
     if q:
         fields=('title','summary','target_capability','methods','product_direction','audience')

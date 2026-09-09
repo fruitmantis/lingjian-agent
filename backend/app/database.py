@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
-from .config import PROJECT_ROOT, chroma_path, database_path, uploads_path
+from .config import PROJECT_ROOT, chroma_path, database_path, uploads_path, database_url
 
 
 DATABASE_PATH = database_path()
@@ -130,6 +130,11 @@ def _migrate_to_v9(connection: sqlite3.Connection) -> None:
 @contextmanager
 def get_readonly_db() -> Iterator[sqlite3.Connection]:
     """Open existing storage without creating a database or allowing writes."""
+    if database_url().startswith('postgresql'):
+        from .postgres_storage import connect
+        with connect(database_url(), readonly=True) as connection:
+            yield connection
+        return
     connection = sqlite3.connect(f"{DATABASE_PATH.resolve().as_uri()}?mode=ro", uri=True, timeout=30)
     connection.row_factory = sqlite3.Row
     try:
@@ -140,6 +145,11 @@ def get_readonly_db() -> Iterator[sqlite3.Connection]:
 
 @contextmanager
 def get_db() -> Iterator[sqlite3.Connection]:
+    if database_url().startswith('postgresql'):
+        from .postgres_storage import connect
+        with connect(database_url()) as connection:
+            yield connection
+        return
     connection = sqlite3.connect(DATABASE_PATH, timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
@@ -185,6 +195,10 @@ def recover_stale_tasks(
 
 
 def initialize_storage() -> None:
+    if database_url().startswith('postgresql'):
+        from .postgres_storage import verify_schema
+        verify_schema(database_url())
+        return
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     CHROMA_DIR.mkdir(parents=True, exist_ok=True)
