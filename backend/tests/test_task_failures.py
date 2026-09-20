@@ -79,8 +79,9 @@ def test_failed_revise_retry_preserves_input_and_confirmed_version(prepared):
 def test_additive_migration_idempotence_and_rollback(client):
  from scripts.migrate_task_failure_details import migrate
  from backend.app.postgres_storage import engine_for
+ from backend.tests.support.model_test_boundary import POSTGRES_TEST_DATABASES
  engine=engine_for(os.environ['DATABASE_URL'])
- assert '/banfei_validation' in os.environ['DATABASE_URL']
+ assert engine.url.database in POSTGRES_TEST_DATABASES
  user=make_user('migration-errors');make_partner();task=make_task(user,'retained')
  with engine.begin() as conn:conn.exec_driver_sql('ALTER TABLE match_records DROP COLUMN last_error_details')
  with pytest.raises(RuntimeError):

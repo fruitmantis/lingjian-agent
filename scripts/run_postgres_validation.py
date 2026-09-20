@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from sqlalchemy.engine import make_url
 from backend.tests.postgres_support import empty_postgres_schema
+from backend.tests.support.model_test_boundary import POSTGRES_TEST_DATABASES
 
 
 def main():
@@ -23,7 +24,7 @@ def main():
     if not value:
         raise SystemExit('Private BANFEI_TEST_DATABASE_URL is required')
     parsed = make_url(value)
-    if parsed.database != 'banfei_validation' or parsed.host not in ('127.0.0.1', 'localhost'):
+    if parsed.database not in POSTGRES_TEST_DATABASES or parsed.host not in ('127.0.0.1', 'localhost'):
         raise SystemExit('Only the dedicated local PostgreSQL validation database is allowed')
     environment = dict(os.environ)
     if args.suite == 'backend':

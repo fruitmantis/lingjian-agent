@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAuth } from "./auth-provider";
+import { PASSWORD_CHANGE_PATH, useAuth } from "./auth-provider";
 import { LingjianMark, UiIcon, type IconName } from "./ui-icons";
 
 import { NEW_TASK, TaskSidebar } from "./task-navigation";
@@ -49,16 +49,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [health, setHealth] = useState<boolean | null>(null);
-  const isPublic = pathname === "/login" || pathname === "/403";
+  const isStandalone = pathname === "/login" || pathname === "/403" || pathname === PASSWORD_CHANGE_PATH;
   const isAdmin = pathname.startsWith("/admin");
 
   useEffect(() => {
-    if (isPublic) return;
+    if (isStandalone) return;
     const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
     fetch(`${base}/health`).then(r => r.ok).then(setHealth).catch(() => setHealth(false));
-  }, [isPublic]);
+  }, [isStandalone]);
 
-  if (isPublic) return <>{children}</>;
+  if (isStandalone) return <>{children}</>;
 
   return (
     <div className={`app-layout ${isAdmin ? "admin-layout" : "workspace-layout"}`}>

@@ -94,13 +94,14 @@ test("E2E-002 application approval and forced first-login password change", asyn
   const firstLoginContext = await browser.newContext();
   const firstLogin = await firstLoginContext.newPage();
   await loginInBrowser(firstLogin, "e2e_applicant", "ApplicantPass123");
-  await expect(firstLogin).toHaveURL(/\/account\?changePassword=1/);
-  await expect(firstLogin.getByText("首次登录必须修改临时密码", { exact: false })).toBeVisible();
-  await firstLogin.locator("#currentPassword").fill("ApplicantPass123");
-  await firstLogin.locator("#newPassword").fill("ApplicantChanged456");
-  await firstLogin.locator("#confirmPassword").fill("ApplicantChanged456");
-  await firstLogin.getByRole("button", { name: "修改密码" }).click();
-  await expect(firstLogin.getByText("密码已修改，其他登录状态已失效")).toBeVisible();
+  await expect(firstLogin).toHaveURL(/\/change-password/);
+  await expect(firstLogin.getByRole("heading", { name: "请先修改密码", exact: true })).toBeVisible();
+  await firstLogin.getByLabel("当前密码", { exact: true }).fill("ApplicantPass123");
+  await firstLogin.getByLabel("新密码", { exact: true }).fill("ApplicantChanged456");
+  await firstLogin.getByLabel("确认新密码", { exact: true }).fill("ApplicantChanged456");
+  await firstLogin.getByRole("button", { name: "修改密码并进入", exact: true }).click();
+  await expect(firstLogin).toHaveURL(/\/$/);
+  await expect(firstLogin.getByRole("heading", { name: "开启新任务", exact: true })).toBeVisible();
   await firstLoginContext.close();
 });
 

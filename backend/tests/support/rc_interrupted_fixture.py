@@ -10,10 +10,11 @@ def main():
  assert db.resolve()==db and db.is_file() and not db.is_symlink()
  from backend.app.database import get_db
  from sqlalchemy.engine import make_url
+ from backend.tests.support.model_test_boundary import POSTGRES_TEST_DATABASES
  target=os.getenv('DATABASE_URL','sqlite://')
  if target.startswith('postgresql'):
   parsed=make_url(target)
-  assert parsed.database=='banfei_validation' and parsed.host in ('127.0.0.1','localhost')
+  assert parsed.database in POSTGRES_TEST_DATABASES and parsed.host in ('127.0.0.1','localhost')
  else:
   os.environ['DATABASE_URL']='sqlite://';os.environ['LINGJIAN_DATABASE_PATH']=str(db)
  connection=get_db() if target.startswith('postgresql') else sqlite3.connect(db)

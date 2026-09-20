@@ -4,6 +4,7 @@ import os
 import json
 import shutil
 from pathlib import Path
+from backend.tests.support.model_test_boundary import POSTGRES_TEST_DATABASES
 
 
 def main() -> None:
@@ -20,7 +21,7 @@ def main() -> None:
     if target.startswith("postgresql"):
         from sqlalchemy.engine import make_url
         parsed = make_url(target)
-        if parsed.database != "banfei_validation" or parsed.host not in ("127.0.0.1", "localhost"):
+        if parsed.database not in POSTGRES_TEST_DATABASES or parsed.host not in ("127.0.0.1", "localhost"):
             raise RuntimeError("E2E requires the dedicated PostgreSQL validation database")
         import sqlite3
         with sqlite3.connect(database) as staged_fixture:
@@ -33,7 +34,7 @@ def main() -> None:
     from backend.app.database import get_db
     with get_db() as conn:
         user = dict(conn.execute("SELECT id, username, display_name, department, role, status, must_change_password, token_version FROM users WHERE username = 'admin1'").fetchone())
-    session = {"database": "postgresql:banfei_validation" if target.startswith("postgresql") else str(database), "access_token": create_token(user["id"], user["username"], user["role"], user["token_version"]), "user": user}
+    session = {"database": f"postgresql:{parsed.database}" if target.startswith("postgresql") else str(database), "access_token": create_token(user["id"], user["username"], user["role"], user["token_version"]), "user": user}
     with os.fdopen(os.open(validation_root / "visual-session.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:
         json.dump(session, stream)
 

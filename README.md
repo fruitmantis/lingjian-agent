@@ -15,7 +15,7 @@
 | `/tasks`、`/tasks/{id}` | 两类任务共用历史；创建后即出现，真实状态更新，首批 10 条、独立滚动与加载更多 |
 | `/feedback` | 问题描述与可选截图提交；支持 Ctrl+V 粘贴、多图预览和提交前删除 |
 | `/admin/feedback` | 管理员查看全部反馈及截图，切换待处理／已处理 |
-| `/login`、`/account` | 登录、内部账号申请与个人中心 |
+| `/login`、`/change-password`、`/account` | 登录、内部账号申请、首次登录独立改密页与个人中心 |
 | `/admin/*` | 任务、伙伴/资料/案例共享、资源发布核验、需求画像、项目机会、运营报表、标签、用户、模型、系统状态 |
 
 伙伴详情、匹配结果和共享案例中的发展入口都汇入统一新任务页，并带入允许的来源上下文。`/enablement` 仅保留兼容跳转，不提供另一套用户工作台。
@@ -103,7 +103,7 @@ PostgreSQL 保存 `feedback_issue`、`feedback_attachment`，图片位于现有�
 
 ## 测试
 
-私有 `BANFEI_TEST_DATABASE_URL` 必须指向本机专用 `banfei_validation`，不能使用运行库连接串。PostgreSQL 用临时 schema；SQLite 兼容/迁移测试和上传夹具仅在 `/tmp`。全量或进程恢复/E2E 测试会占服务端口，先核对并停止当前服务，结束后只恢复 main，不启动 legacy 或遗留模型夹具。
+私有 `BANFEI_TEST_DATABASE_URL` 必须指向本机专用 `banfei_agent_test` 或兼容的 `banfei_validation`，不能使用运行库连接串。当前本机验证配置保存于 Git 忽略的 `.isolation/runtime/dev/validation-environment.json`，运行前将其中的变量加载到当前测试进程，不输出连接串。PostgreSQL 用临时 schema；SQLite 兼容/迁移测试和上传夹具仅在 `/tmp`。全量或进程恢复/E2E 测试会占服务端口，先核对并停止当前服务，结束后只恢复 main，不启动 legacy 或遗留模型夹具。
 
 ```bash
 # 私有 BANFEI_TEST_DATABASE_URL 已由环境提供后，在仓库根目录：

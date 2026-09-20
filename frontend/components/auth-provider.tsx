@@ -29,6 +29,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 const publicPaths = new Set(["/login"]);
+export const PASSWORD_CHANGE_PATH = "/change-password";
 
 export function getToken(): string | null {
   return typeof window === "undefined" ? null : localStorage.getItem("token");
@@ -88,9 +89,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const nextUser = await response.json() as CurrentUser;
       localStorage.setItem("user", JSON.stringify(nextUser));
       setUser(nextUser);
-      if (pathname.startsWith("/admin") && nextUser.role !== "admin") router.replace("/403");
-      else if (nextUser.must_change_password && pathname !== "/account") router.replace("/account?changePassword=1");
-      else if (pathname === "/login") router.replace("/");
+      if (nextUser.must_change_password) {
+        if (pathname !== PASSWORD_CHANGE_PATH) router.replace(PASSWORD_CHANGE_PATH);
+      } else if (pathname.startsWith("/admin") && nextUser.role !== "admin") router.replace("/403");
+      else if (pathname === "/login" || pathname === PASSWORD_CHANGE_PATH) router.replace("/");
     } catch {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
@@ -104,7 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const value = useMemo(() => ({ user, loading, refresh, saveSession, logout }), [user, loading, refresh, saveSession, logout]);
-  if (loading && !publicPaths.has(pathname)) return <div className="auth-loading">正在验证登录状态...</div>;
+  // Do not mount business pages while a password change or redirect is required.
+  const changingPassword = !!user?.must_change_password;
+  const redirecting = (changingPassword && pathname !== PASSWORD_CHANGE_PATH)
+    || (pathname === PASSWORD_CHANGE_PATH && !changingPassword);
+  if ((loading && !publicPaths.has(pathname)) || (!user && !publicPaths.has(pathname)) || redirecting) {
+    return <div className="auth-loading" role="status">正在验证登录状态...</div>;
+  }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

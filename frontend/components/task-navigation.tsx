@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { apiFetch, useAuth } from "./auth-provider";
+import { apiFetch, PASSWORD_CHANGE_PATH, useAuth } from "./auth-provider";
 
 export const TASKS_CHANGED = "lingjian:tasks-changed";
 export const NEW_TASK = "lingjian:new-task";
@@ -40,8 +40,10 @@ export function useTaskNavigation() {
 
 export function TaskNavigationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  // Remount on identity changes so late responses cannot populate another user's sidebar.
-  return <UserTaskNavigation key={user?.id || "anonymous"} userId={user?.id}>{children}</UserTaskNavigation>;
+  const pathname = usePathname();
+  const userId = user && !user.must_change_password && pathname !== PASSWORD_CHANGE_PATH ? user.id : undefined;
+  // Remount when identity or task access changes; keep saved tasks untouched until access resumes.
+  return <UserTaskNavigation key={userId || "anonymous"} userId={userId}>{children}</UserTaskNavigation>;
 }
 function UserTaskNavigation({ userId, children }: { userId?: string; children: React.ReactNode }) {
   const [pending, setPending] = useState<PendingTask[]>([]);
@@ -56,6 +58,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
     try { if (key) sessionStorage.setItem(key, JSON.stringify(next.map(({ id, createdAt }) => ({ id, createdAt })))); } catch { /* storage is optional */ }
   }
   async function check(id: string): Promise<boolean> {
+    if (!key || !alive.current) return false;
     try {
       const response = await apiFetch(`/agent/tasks/${id}`, { cache: "no-store" });
       if (!response.ok) return false;
@@ -83,6 +86,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
   }, [key]);
 
   async function submit(requirement: string) {
+    if (!key || !alive.current) throw new Error("请完成登录和密码修改后再提交任务。");
     const id = newTaskId();
     const task: PendingTask = { id, requirement: requirement.trim(), createdAt: new Date().toISOString(), taskStatus: "submitting" };
     update([task, ...pendingRef.current]);

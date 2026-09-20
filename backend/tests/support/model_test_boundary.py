@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
+POSTGRES_TEST_DATABASES = frozenset({"banfei_validation", "banfei_agent_test"})
+
 
 def require_test_database():
     path = Path(os.environ.get("LINGJIAN_DATABASE_PATH", "")).resolve()
@@ -11,7 +13,7 @@ def require_test_database():
     target = os.environ.get("DATABASE_URL", "")
     if target.startswith("postgresql"):
         parsed = urlsplit(target)
-        if parsed.hostname not in ("localhost", "127.0.0.1") or parsed.path != "/banfei_validation":
+        if parsed.hostname not in ("localhost", "127.0.0.1") or parsed.path not in {f"/{name}" for name in POSTGRES_TEST_DATABASES}:
             raise RuntimeError("Test fixtures require the dedicated local validation database")
     elif target != "sqlite://":
         raise RuntimeError("Test fixtures require an explicit isolated database")

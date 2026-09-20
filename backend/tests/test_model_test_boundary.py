@@ -4,8 +4,12 @@ from backend.tests.support.model_test_boundary import require_test_database
 @pytest.mark.parametrize("url,path,valid", [
     ("sqlite://", "/tmp/fixture/app.db", True),
     ("postgresql://u:p@localhost/banfei_validation", "/tmp/fixture/app.db", True),
+    ("postgresql://u:p@localhost/banfei_agent_test", "/tmp/fixture/app.db", True),
+    ("postgresql://u:p@127.0.0.1/banfei_agent_test", "/tmp/fixture/app.db", True),
     ("postgresql://u:p@localhost/banfei_agent", "/tmp/fixture/app.db", False),
     ("postgresql://u:p@remote/banfei_validation", "/tmp/fixture/app.db", False),
+    ("postgresql://u:p@remote/banfei_agent_test", "/tmp/fixture/app.db", False),
+    ("postgresql://u:p@localhost/banfei_agent_test_copy", "/tmp/fixture/app.db", False),
     ("sqlite://", "/home/runtime/app.db", False),
     ("", "/tmp/fixture/app.db", False),
 ])

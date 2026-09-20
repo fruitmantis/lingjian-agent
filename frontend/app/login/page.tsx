@@ -3,7 +3,7 @@
 import { LingjianMark } from "../../components/ui-icons";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CurrentUser, useAuth } from "../../components/auth-provider";
+import { CurrentUser, PASSWORD_CHANGE_PATH, useAuth } from "../../components/auth-provider";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -42,7 +42,7 @@ export default function LoginPage() {
       }
       const data = await response.json();
       saveSession(data.access_token, data.user as CurrentUser);
-      router.push(data.user.must_change_password ? "/account?changePassword=1" : "/");
+      router.replace(data.user.must_change_password ? PASSWORD_CHANGE_PATH : "/");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "登录失败");
     } finally {

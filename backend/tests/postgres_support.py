@@ -5,14 +5,15 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from backend.app.postgres_storage import engine_for
+from backend.tests.support.model_test_boundary import POSTGRES_TEST_DATABASES
 
 
 @contextmanager
 def empty_postgres_schema():
     base=os.environ['BANFEI_TEST_DATABASE_URL']
     parsed=make_url(base)
-    if parsed.database!='banfei_validation' or parsed.host not in ('127.0.0.1','localhost'):
-        raise RuntimeError('Tests require the dedicated local banfei_validation database')
+    if parsed.database not in POSTGRES_TEST_DATABASES or parsed.host not in ('127.0.0.1','localhost'):
+        raise RuntimeError('Tests require a dedicated local PostgreSQL validation database')
     name='validation_'+uuid.uuid4().hex
     engine=engine_for(base)
     with engine.begin() as conn:conn.execute(text('CREATE SCHEMA '+name))

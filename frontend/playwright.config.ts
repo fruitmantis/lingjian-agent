@@ -9,7 +9,7 @@ if (process.env.PLAYWRIGHT_MODEL_MODE && !["ui", "replay"].includes(process.env.
 const validationDatabase = process.env.PLAYWRIGHT_DATABASE_URL || "sqlite://";
 if (validationDatabase.startsWith("postgresql")) {
   const url = new URL(validationDatabase);
-  if (url.pathname !== "/banfei_validation" || !["127.0.0.1", "localhost"].includes(url.hostname)) {
+  if (!["/banfei_validation", "/banfei_agent_test"].includes(url.pathname) || !["127.0.0.1", "localhost"].includes(url.hostname)) {
     throw new Error("Playwright requires the dedicated local PostgreSQL validation database");
   }
 }
@@ -32,7 +32,7 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: replay ? "**/*.spec.ts" : [
     "**/business-taxonomy.spec.ts", "**/partner-delete.spec.ts", "**/model-boundary.spec.ts",
-    "**/arm-runtime.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts",
+    "**/arm-runtime.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts", "**/first-login.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,

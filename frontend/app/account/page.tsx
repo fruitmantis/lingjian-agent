@@ -51,8 +51,7 @@ export default function AccountPage() {
     <main className="page">
       <p className="eyebrow">Account</p>
       <h1>个人中心</h1>
-      <p className="lead">{user?.must_change_password ? "当前使用的是临时密码，请先设置新密码。" : "查看账号信息并维护个人登录安全。"}</p>
-      {user?.must_change_password && <div className="notice-warning">首次登录必须修改临时密码，完成后才能使用其他功能。</div>}
+      <p className="lead">查看账号信息并维护个人登录安全。</p>
       <div className="content-grid-two">
         <section className="card">
           <h2>账号信息</h2>
@@ -76,7 +75,7 @@ export default function AccountPage() {
             <div className="form-row"><label htmlFor="confirmPassword">确认新密码</label><input id="confirmPassword" type="password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} minLength={8} required /></div>
             <button disabled={saving}>修改密码</button>
           </form>
-          {!user?.must_change_password && <button type="button" className="secondary-btn danger-outline" onClick={logoutAll}>注销全部登录状态</button>}
+          <button type="button" className="secondary-btn danger-outline" onClick={logoutAll}>注销全部登录状态</button>
         </section>
       </div>
       {message && <p className="success-text">{message}</p>}
