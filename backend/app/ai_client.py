@@ -67,24 +67,34 @@ def _completion_content(data: dict) -> str:
 
 
 def chat_completion(messages: list[dict], timeout: int | None = None, scene: str = "default") -> str:
-    cfg = resolve_model_config(scene)
-    if not cfg.api_key:
-        raise ModelConfigurationError("LLM_API_KEY is not configured (checked DB and env)")
+    from .error_diagnostics import bind_context, register_secret, model_response, record_error, current_stage
+    stage = current_stage(scene)
+    bind_context(stage=stage, model=None, http_status=None, response_excerpt=None)
+    try:
+        cfg = resolve_model_config(scene)
+        register_secret(cfg.api_key)
+        bind_context(model=cfg.model)
+        if not cfg.api_key:
+            raise ModelConfigurationError("LLM_API_KEY is not configured (checked DB and env)")
 
-    url = f"{cfg.base_url.rstrip('/')}/chat/completions"
-    headers = {"Authorization": f"Bearer {cfg.api_key}", "Content-Type": "application/json"}
-    payload = {
-        "model": cfg.model,
-        "messages": messages,
-        "temperature": cfg.temperature,
-        "top_p": cfg.top_p,
-        "max_tokens": cfg.max_tokens,
-    }
-    payload.update(provider_request_options(cfg.base_url, cfg.model))
-    actual_timeout = cfg.timeout_seconds if timeout is None else timeout
+        url = f"{cfg.base_url.rstrip('/')}/chat/completions"
+        headers = {"Authorization": f"Bearer {cfg.api_key}", "Content-Type": "application/json"}
+        payload = {
+            "model": cfg.model,
+            "messages": messages,
+            "temperature": cfg.temperature,
+            "top_p": cfg.top_p,
+            "max_tokens": cfg.max_tokens,
+        }
+        payload.update(provider_request_options(cfg.base_url, cfg.model))
+        actual_timeout = cfg.timeout_seconds if timeout is None else timeout
 
-    with httpx.Client(timeout=actual_timeout) as client:
-        resp = client.post(url, headers=headers, json=payload)
-        resp.raise_for_status()
-        data = resp.json()
-        return _completion_content(data)
+        with httpx.Client(timeout=actual_timeout) as client:
+            resp = client.post(url, headers=headers, json=payload)
+            model_response(resp, cfg.model)
+            resp.raise_for_status()
+            data = resp.json()
+            return _completion_content(data)
+    except Exception as error:
+        record_error(error, stage)
+        raise

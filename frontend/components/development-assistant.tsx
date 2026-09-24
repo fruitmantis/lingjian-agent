@@ -6,6 +6,7 @@ import {PlanStatus,type PlanPresentation} from "./plan-status";
 import {useEffect,useState,useRef} from "react";
 import {useRouter,usePathname} from "next/navigation";
 import {apiFetch} from "./auth-provider";
+import {ApiResponseError,responseError} from "../lib/api-request";
 import {tasksChanged,newTaskId} from "./task-navigation";
 
 type Item={source_type:string;source_id:string;source_version:number;capability_tag_id:string;focus?:string;reason:string;estimated_hours:number;note:string;title?:string;prerequisites?:string;availability?:string;conditions?:Record<string,string|number>};
@@ -19,7 +20,7 @@ function ResourceAdvice({item:i}:{item:Item}){
  const duration=Number(i.conditions?.duration_minutes);
  return <article className="advisor-resource" data-testid="resource-advice"><div className="advisor-resource-title"><UiIcon name={i.source_type==="lab"?"settings":i.source_type==="case"?"users":"file"} size={18}/><span className="advisor-resource-type">{names[i.source_type]}</span><h4>{i.title}</h4></div><p>{i.reason}</p><dl className="advisor-conditions"><div><dt>时长</dt><dd>{Number.isFinite(duration)&&duration>0?`${duration/60} 小时`:"未知"}</dd></div><div><dt>费用</dt><dd>{display(i.conditions?.cost)}</dd></div><div><dt>账号</dt><dd>{display(i.conditions?.account_requirement)}</dd></div><div><dt>环境</dt><dd>{display(i.conditions?.environment_requirement)}</dd></div><div><dt>语言 / 站点</dt><dd>{display(i.conditions?.language)} / {display(i.conditions?.site)}</dd></div><div><dt>先修</dt><dd>{i.prerequisites||"未知"}</dd></div></dl>{i.availability==="available"?<Link href={`/resources/${i.source_type}/${i.source_id}?source_version=${i.source_version}`}>查看来源与发起跳转 →</Link>:<p className="muted">当前资源不可用，历史引用保留。</p>}</article>;
 }
-async function request<T>(url:string,body?:unknown,method?:string):Promise<T>{const res=await apiFetch(url,{method:method||(body?"POST":"GET"),headers:{"Content-Type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});if(!res.ok){const data=await res.json().catch(()=>({}));throw new Error(typeof data.detail==="string"?data.detail:"暂时无法完成操作，请刷新后重试");}return res.status===204?undefined as T:res.json();}
+async function request<T>(url:string,body?:unknown,method?:string):Promise<T>{const res=await apiFetch(url,{method:method||(body?"POST":"GET"),headers:{"Content-Type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});if(!res.ok)throw await responseError(res);return res.status===204?undefined as T:res.json();}
 
 export function DevelopmentRequestForm({partnerId,sourceTask=null,sourceCase=null,sourceVersion=null}:{partnerId:string;sourceTask?:string|null;sourceCase?:string|null;sourceVersion?:number|null}){
  const router=useRouter(),[direction,setDirection]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState("");const submission=useRef(newTaskId());
@@ -32,7 +33,7 @@ export function DevelopmentPlanDetail({id}:{id:string}){
  const [panel,setPanel]=useState<"history"|"runs"|null>(null);
  useEffect(()=>{if(panel)document.getElementById(`advisor-${panel}`)?.scrollIntoView({behavior:"smooth",block:"start"});},[panel]);
  const sequence=useRef(0),submission=useRef(newTaskId());
- async function load(){const seq=++sequence.current;try{const next=await request<Detail>(`/development/plans/${id}${selected?`?version_id=${encodeURIComponent(selected)}`:""}`);if(seq===sequence.current){setData(next);if(next.hidden)setPreview("");}}catch(e){if(seq===sequence.current){setData(null);setPreview("");setError((e as Error).message);}}}
+ async function load(){const seq=++sequence.current;try{const next=await request<Detail>(`/development/plans/${id}${selected?`?version_id=${encodeURIComponent(selected)}`:""}`);if(seq===sequence.current){setData(next);setError("");if(next.hidden)setPreview("");}}catch(e){if(seq===sequence.current){if(e instanceof ApiResponseError&&[401,403,404].includes(e.status)){setData(null);setPreview("");}setError((e as Error).message);}}}
  useEffect(()=>{void load();const timer=setInterval(()=>void load(),2000);return()=>{clearInterval(timer);sequence.current++;};},[id,selected]);
  useEffect(()=>{setPreview("");},[data?.plan.confirmed_version_id,data?.hidden]);
  useEffect(()=>{if(!preview)return;let live=true;async function refresh(){try{const r=await request<{text:string}>(`/development/plans/${id}/transferable`);if(live)setPreview(r.text);}catch{if(live)setPreview("");}}const t=setInterval(()=>void refresh(),10000);window.addEventListener("focus",refresh);return()=>{live=false;clearInterval(t);window.removeEventListener("focus",refresh);};},[id,!!preview]);

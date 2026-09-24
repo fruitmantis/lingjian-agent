@@ -8,6 +8,7 @@ import {DevelopmentPlanDetail} from "./development-assistant";
 import { FormEvent, use, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { apiFetch } from "./auth-provider";
+import {responseError} from "../lib/api-request";
 
 import { tasksChanged } from "./task-navigation";
 
@@ -98,13 +99,13 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     setError(null);
     try {
       const response = await apiFetch(`/agent/tasks/${id}`, { cache: "no-store" });
-      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "任务加载失败");
+      if (!response.ok) throw await responseError(response);
       const data = await response.json() as TaskDetail;
       if (version !== loadVersion.current) return;
       setTask(data);
       if (data.opportunity && (!quiet || formOpportunityId.current !== data.opportunity.id)) setForm(Object.fromEntries(editableFields.map(field => [field.key, data.opportunity?.[field.key] == null ? "" : String(data.opportunity[field.key])])));
       formOpportunityId.current = data.opportunity?.id || null;
-    } catch (reason) { if (version === loadVersion.current) setError(quiet ? "状态更新暂不可用，将自动重试查询。" : reason instanceof Error ? reason.message : "任务加载失败"); } finally { if (version === loadVersion.current) setLoading(false); }
+    } catch (reason) { if (version === loadVersion.current) setError(quiet ? "暂未确认结果，请刷新查看。" : reason instanceof Error ? reason.message : "任务加载失败"); } finally { if (version === loadVersion.current) setLoading(false); }
   }
 
   useEffect(() => {
@@ -141,7 +142,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
     setRetrying(true); setError(null);
     try {
       const response = await apiFetch(`/agent/tasks/${id}/retry`, { method: "POST" });
-      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "重试失败");
+      if (!response.ok) throw await responseError(response);
       await load();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "重试失败");
@@ -161,7 +162,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       {(task.task_type || "partner_match") === "partner_match" ? <>
       {(task.taskStatus === "partial" || task.taskStatus === "failed") ? <FailureNotice details={task.failureDetails} stages={task.lastErrorStage} partial={task.recommendations.length>0} title={task.recommendations.length>0?"部分完成 · 伙伴推荐可用":"本次匹配未完成"} impact={task.recommendations.length>0?"已保存的伙伴推荐可继续查看。重试将补充未完成的步骤。":"项目需求已保留，可重新执行。"}><button onClick={()=>void retryTask()} disabled={retrying||!!task.archivedAt}>{retrying?"重试中…":"重试"}</button></FailureNotice> : task.taskStatus!=="ready" && <div className="notice-warning task-status-notice"><strong>{taskStatusText[task.taskStatus]}</strong></div>}
       <section className="card"><h2>项目需求</h2><p className="requirement-block">{task.requirement}</p></section>
-      <section className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">暂未生成推荐结果。</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
+      <section className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">{task.taskStatus==="ready"||task.taskStatus==="partial"?"没有匹配项，可调整需求后重新匹配。":"暂未生成推荐结果。"}</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
         <article className="recommendation-item" key={item.partnerId}>
           <div className="recommendation-title"><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><Link href={`/partners/${item.partnerId}`} className="secondary-btn">查看伙伴</Link></div>
           <div className="evidence-grid"><div><strong>匹配能力</strong><p>{text(item.matchedCapabilities)}</p></div><div><strong>行业经验</strong><p>{text(item.matchedIndustries)}</p></div><div><strong>覆盖区域</strong><p>{text(item.matchedRegions)}</p></div><div><strong>推荐理由</strong><p>{text(item.recommendationReason)}</p></div><div><strong>支撑案例</strong><p>{text(item.evidenceCases)}</p></div><div><strong>支撑交付物</strong><p>{text(item.evidenceDeliverables)}</p></div></div>

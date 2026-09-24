@@ -11,6 +11,7 @@ export const taskLabels: Record<string, string> = {
   matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "失败",
   submitting: "提交中", unconfirmed: "提交未确认",
 };
+import {responseError} from "../lib/api-request";
 import {PlanStatus,type PlanPresentation} from "./plan-status";
 
 export type NavigationTask = { planPresentation?: PlanPresentation | null; task_type?: string; id: string; requirement: string; createdAt: string; taskStatus: string; archivedAt?: string | null };
@@ -95,7 +96,8 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
       const response = await apiFetch("/agent/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: id, requirement: task.requirement }) });
       if (!response.ok) {
         rejected = response.status >= 400 && response.status < 500 && response.status !== 408;
-        throw new Error("任务提交失败，请检查输入或稍后重试。");
+        const error = await responseError(response);
+        throw error;
       }
       const result = await response.json();
       if (alive.current) {
@@ -110,7 +112,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
       }
       if (await check(id)) return id;
       update(pendingRef.current.map(item => item.id === id ? { ...item, taskStatus: "unconfirmed" } : item));
-      throw new Error("提交结果暂未确认，请在左侧核对原任务，避免重复提交。");
+      throw new Error("暂未确认结果，请刷新查看。");
     }
   }
   return <NavigationContext.Provider value={{ pending, submit, confirm: async id => { await check(id); } }}>{children}</NavigationContext.Provider>;
@@ -200,7 +202,7 @@ function UserTaskSidebar({ pathname, selectedId }: { pathname: string; selectedI
         setMore(data.total > state.current.items.length);
       }
       setError("");
-    } catch { if (alive.current) setError("任务列表暂未更新，已保留上次状态。"); }
+    } catch { if (alive.current) setError("暂未确认结果，请刷新查看。"); }
     finally { state.current.busy = false; if (alive.current) setBusy(false); }
   }
   useEffect(() => {

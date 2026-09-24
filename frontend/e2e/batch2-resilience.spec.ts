@@ -81,7 +81,7 @@ test("submission timeout advises checking the original task without resubmission
   await page.goto("/");
   await page.locator("#requirement").fill("超时验证：寻找制造业知识库伙伴");
   await page.getByRole("button", { name: "开始匹配", exact: true }).click();
-  await expect(page.locator(".assistant-error")).toContainText("提交结果暂未确认");
+  await expect(page.locator(".assistant-error")).toContainText("暂未确认结果，请刷新查看。");
   await expect(page.getByRole("button", { name: "开始匹配", exact: true })).toBeEnabled();
   await expect(page.locator("#requirement")).toHaveValue("超时验证：寻找制造业知识库伙伴");
   expect(attempts).toBe(1);
@@ -95,7 +95,7 @@ test("partner save, upload, profile and case failures release busy state", async
   await page.goto("/admin/partners/partner-1");
   const save = page.getByRole("button", { name: "保存伙伴信息", exact: true });
   await save.click();
-  await expect(page.locator(".error-text")).toContainText("网络连接中断");
+  await expect(page.locator(".error-text")).toContainText("暂未确认结果，请刷新查看。");
   await expect(save).toBeEnabled();
   await page.locator('input[type="file"]').first().setInputFiles({ name: "synthetic.pdf", mimeType: "application/pdf", buffer: Buffer.from("synthetic isolated upload") });
   await expect(save).toBeEnabled();
@@ -147,7 +147,7 @@ test("user creation and status network errors are caught and inputs retained", a
   await form.locator("input").nth(0).fill("batch2_new_user");
   await form.locator("input").nth(1).fill("模拟用户");
   await create.click();
-  await expect(page.locator(".error-text")).toContainText("网络连接中断");
+  await expect(page.locator(".error-text")).toContainText("暂未确认结果，请刷新查看。");
   await expect(create).toBeEnabled();
   await expect(form.locator("input").nth(0)).toHaveValue("batch2_new_user");
   const row = page.locator("tbody tr").filter({ hasText: "user_a" });
@@ -163,10 +163,10 @@ test("task archive and retry network errors remain actionable", async ({ page, r
   await page.goto("/tasks");
   const row = page.locator("tbody tr").filter({ hasText: "A-failed" });
   await row.getByRole("button", { name: "归档", exact: true }).click();
-  await expect(page.locator(".error-text")).toContainText("网络连接中断");
+  await expect(page.locator(".error-text")).toContainText("暂未确认结果，请刷新查看。");
   page.once("dialog", dialog => dialog.accept());
   await row.getByRole("button", { name: "重试", exact: true }).click();
-  await expect(page.locator(".error-text")).toContainText("请先到“我的任务”查看任务状态");
+  await expect(page.locator(".error-text")).toContainText("暂未确认结果，请刷新查看。");
   await expect(row.getByRole("button", { name: "重试", exact: true })).toBeEnabled();
 });
 
@@ -176,6 +176,6 @@ test("manual tag scan error clears scanning state", async ({ page, request }) =>
   await page.goto("/admin/tags");
   await page.getByRole("button", { name: "标签建议", exact: false }).click();
   await page.getByRole("button", { name: "扫描需求", exact: true }).click();
-  await expect(page.locator(".error-text")).toContainText("网络连接中断");
+  await expect(page.locator(".error-text")).toContainText("暂未确认结果，请刷新查看。");
   await expect(page.getByRole("button", { name: "扫描需求", exact: true })).toBeEnabled();
 });

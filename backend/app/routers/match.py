@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import field_validator, BaseModel, Field
 
+from ..error_diagnostics import diagnostic_scope, bind_context, record_error
 from ..task_failures import failure, public_failures, PublicTaskError
 from ..opportunity_extraction import normalize_opportunity
 from ..ai_client import chat_completion, model_error_message
@@ -285,7 +286,6 @@ def get_admin_dashboard(_: dict = Depends(require_admin)) -> dict:
         return {
             "users": conn.execute("SELECT COUNT(*) FROM users").fetchone()[0],
             "disabledUsers": conn.execute("SELECT COUNT(*) FROM users WHERE status = 'disabled'").fetchone()[0],
-            "pendingUserApplications": conn.execute("SELECT COUNT(*) FROM user_applications WHERE status = 'pending'").fetchone()[0],
             "partners": conn.execute("SELECT COUNT(*) FROM partners WHERE status = 'active'").fetchone()[0],
             "partnersWithoutProfile": conn.execute("SELECT COUNT(*) FROM partners WHERE status = 'active' AND (ai_profile IS NULL OR ai_profile = '')").fetchone()[0],
             "tasks": matching['total'] + development['total'],
@@ -371,35 +371,45 @@ def _verified_references(value, rows: list[dict], label_field: str) -> list[dict
     return list(selected.values())
 
 
-def _validated_recommendations(items: list, partners: list[dict], cases: dict, deliverables: dict) -> list[PartnerRecommendation]:
+def _validated_recommendations(items: list, partners: list[dict], cases: dict, deliverables: dict, rejections: list[str] | None = None) -> list[PartnerRecommendation]:
     by_id = {partner["id"]: partner for partner in partners}
     by_name: dict[str, list[dict]] = {}
     for partner in partners:
         by_name.setdefault(partner["name"], []).append(partner)
     valid: list[PartnerRecommendation] = []
-    for item in items:
+    rejected = rejections if rejections is not None else []
+    for index, item in enumerate(items):
         if not isinstance(item, dict):
+            rejected.append(f'推荐第 {index + 1} 项不是对象')
             continue
         partner_id = _model_value(item, "partnerId")
         partner_name = _model_value(item, "partnerName")
         if partner_id:
             partner = by_id.get(partner_id) if isinstance(partner_id, str) else None
             if partner and partner_name and partner_name != partner["name"]:
+                rejected.append(f'推荐第 {index + 1} 项的 partnerId 与 partnerName 不一致')
                 continue
         else:
             names = by_name.get(partner_name, []) if isinstance(partner_name, str) else []
             partner = names[0] if len(names) == 1 else None
         if partner is None:
+            rejected.append(f'推荐第 {index + 1} 项无法对应启用的候选伙伴（partnerId/partnerName）')
             continue
         score_value = _model_value(item, "matchScore")
         if isinstance(score_value, bool) or not isinstance(score_value, (str, float, int)):
+            rejected.append(f'推荐第 {index + 1} 项 matchScore 类型无效')
             continue
         try:
             score = float(score_value)
         except (TypeError, ValueError, OverflowError):
+            rejected.append(f'推荐第 {index + 1} 项 matchScore 无法解析为数字')
             continue
         reason = _model_value(item, "recommendationReason")
-        if not math.isfinite(score) or not 0 <= score <= 100 or not isinstance(reason, str) or not reason.strip():
+        if not math.isfinite(score) or not 0 <= score <= 100:
+            rejected.append(f'推荐第 {index + 1} 项 matchScore 必须是 0～100 的有限数字')
+            continue
+        if not isinstance(reason, str) or not reason.strip():
+            rejected.append(f'推荐第 {index + 1} 项 recommendationReason 为空或不是文本')
             continue
         pid = partner["id"]
         gaps = []
@@ -540,11 +550,12 @@ def _perform_partner_match(requirement: str) -> list[PartnerRecommendation]:
         if not isinstance(items, list):
             raise ValueError("返回内容不是推荐数组")
 
-        recs = _validated_recommendations(items, partner_dicts, partner_cases, partner_deliverables)
-        if not recs:
-            raise ValueError("返回内容未包含有效候选伙伴")
+        rejections: list[str] = []
+        recs = _validated_recommendations(items, partner_dicts, partner_cases, partner_deliverables, rejections)
+        if items and not recs:
+            raise ValueError('所有推荐均未通过校验：' + '；'.join(rejections[:10]))
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-        raise PublicTaskError(ValueError('Invalid recommendation structure')) from None
+        raise PublicTaskError(exc) from None
     return recs
 
 
@@ -619,6 +630,7 @@ def _run_task_enrichment(
     failed_stages: list[str] = []
     failures: list[dict] = []
     if not demand_exists:
+        bind_context(stage="demand_profile")
         try:
             _generate_demand_profile(record_id, requirement, recommendations, created_at)
             demand_exists = True
@@ -628,14 +640,17 @@ def _run_task_enrichment(
             print(f"[WARN] demand profile generation failed for task {record_id}", flush=True)
 
     if include_tag_suggestions:
+        bind_context(stage="tag_suggestion")
         if not _generate_tag_suggestions(requirement, record_id):
             print(f"[WARN] tag suggestion generation failed for task {record_id}", flush=True)
 
     if not opportunity_exists:
+        bind_context(stage="project_opportunity")
         opportunity_exists = _extract_project_opportunity(requirement, record_id, recommendations, failures=failures)
         if not opportunity_exists:
             failed_stages.append("project_opportunity")
 
+    bind_context(stage="persistence")
     final_status = "ready" if demand_exists and opportunity_exists else "partial"
     _set_task_state(record_id, final_status, ",".join(failed_stages) or None, failures=failures)
     return final_status
@@ -654,26 +669,34 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
                    VALUES (?, ?, '[]', ?, ?, ?, 'matching', NULL, ?)""",
                 (record_id, req.requirement, now, user["username"], user["id"], now),
             )
-    except Exception:
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="项目需求保存失败，请稍后重试")
+    except Exception as error:
+        record_error(error, "submission", task_id=record_id)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="服务异常，请联系管理员。")
 
     return _execute_match(record_id, req.requirement, now)
 
 
 def _execute_match(record_id: str, requirement: str, created_at: str) -> MatchResponse:
+    with diagnostic_scope(task_id=record_id, stage='partner_match'):
+        return _execute_match_inner(record_id, requirement, created_at)
+
+
+def _execute_match_inner(record_id: str, requirement: str, created_at: str) -> MatchResponse:
 
     try:
         recs = _perform_partner_match(requirement)
     except HTTPException as exc:
         try:
             _set_task_state(record_id, "failed", "partner_match", failures=[failure("partner_match",exc)])
-        except Exception:
+        except Exception as persistence_error:
+            record_error(persistence_error, "persistence", task_id=record_id)
             print(f"[WARN] failed to persist failure state for task {record_id}", flush=True)
         raise
     except Exception as exc:
         try:
             _set_task_state(record_id, "failed", "partner_data", failures=[failure("partner_data",exc)])
-        except Exception:
+        except Exception as persistence_error:
+            record_error(persistence_error, "persistence", task_id=record_id)
             print(f"[WARN] failed to persist failure state for task {record_id}", flush=True)
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -685,13 +708,15 @@ def _execute_match(record_id: str, requirement: str, created_at: str) -> MatchRe
         task_status = _run_task_enrichment(
             record_id, requirement, recs, created_at, include_tag_suggestions=True,
         )
-    except DeletedMatchPartnerError:
+    except DeletedMatchPartnerError as error:
+        record_error(error, "persistence", task_id=record_id)
         _set_task_state(record_id, "failed", "partner_data")
         raise HTTPException(409, "推荐伙伴已删除，请重试匹配")
     except Exception as exc:
         try:
             _set_task_state(record_id, "partial", "persistence", failures=[failure("persistence",exc)])
-        except Exception:
+        except Exception as persistence_error:
+            record_error(persistence_error, "persistence", task_id=record_id)
             print(f"[WARN] failed to persist partial state for task {record_id}", flush=True)
         raise HTTPException(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -713,6 +738,7 @@ def _process_created_task(record_id: str, requirement: str, created_at: str) -> 
 
 @router.post("/tasks", response_model=TaskAccepted, status_code=status.HTTP_202_ACCEPTED)
 def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks, user: dict = Depends(require_active_user)) -> TaskAccepted:
+    bind_context(task_id=str(req.requestId), request_id=str(req.requestId), stage="submission")
     requirement = req.requirement.strip()
     if not requirement:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="请输入项目需求")
@@ -790,6 +816,7 @@ def _extract_project_opportunity(
             )
         return True
     except Exception as exc:
+        record_error(exc, "project_opportunity", task_id=match_record_id)
         if failures is not None:failures.append(failure("project_opportunity",exc))
         print(f"[WARN] project opportunity extraction failed for task {match_record_id}", flush=True)
         return False
@@ -827,7 +854,8 @@ def _generate_tag_suggestions(requirement: str, match_record_id: str) -> bool:
                     )
             existing_sugs.add(name)
         return True
-    except Exception:
+    except Exception as error:
+        record_error(error, "tag_suggestion", task_id=match_record_id)
         return False
 
 
@@ -906,7 +934,8 @@ def _generate_demand_profile(
         project_keywords = data.get("projectKeywords", "")
         llm_supply_status = data.get("supplyStatus", supply_status)
         gap_analysis = data.get("gapAnalysis", "")
-    except Exception:
+    except Exception as error:
+        record_error(error, "demand_profile", task_id=match_record_id)
         if strict:
             raise
         # Fallback: simple keyword extraction
@@ -928,6 +957,7 @@ def _generate_demand_profile(
 
 @router.post("/tasks/{record_id}/retry", response_model=MatchResponse)
 def retry_match_record(record_id: str, user: dict = Depends(require_active_user)) -> MatchResponse:
+    bind_context(task_id=record_id, stage="partner_match")
     _recover_accessible_task(record_id, user)
     with get_db() as conn:
         row = conn.execute(
@@ -963,12 +993,14 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
         except HTTPException as exc:
             _set_task_state(record_id, "failed", "partner_match", failures=[failure("partner_match",exc)])
             raise
-        except Exception:
+        except Exception as error:
+            record_error(error, "partner_data", task_id=record_id)
             _set_task_state(record_id, "failed", "partner_data")
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="伙伴数据读取失败，请稍后再试")
         try:
             _set_task_state(record_id, "enriching", recommendations=recommendations)
-        except DeletedMatchPartnerError:
+        except DeletedMatchPartnerError as error:
+            record_error(error, "persistence", task_id=record_id)
             _set_task_state(record_id, "failed", "partner_data")
             raise HTTPException(409, "推荐伙伴已删除，请重试匹配")
 

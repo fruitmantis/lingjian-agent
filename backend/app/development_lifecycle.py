@@ -8,6 +8,7 @@ from .database import get_db
 from . import enablement_catalog
 from .development_deadlines import run_timeout
 from .development_types import DevelopmentRequest
+from .error_diagnostics import record_error, bind_context
 
 
 def now():return datetime.now(timezone.utc).isoformat()
@@ -137,11 +138,14 @@ def ensure_execution(run_id, token):
 
 def finish_failure(run_id,token,stage,status='failed',error=None):
     from .task_failures import failure
-    message=failure(stage,error)['message']
+    if error is not None:record_error(error,stage,run_id=run_id)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         row=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
         if not row or row['execution_token']!=token or row['status']!='running':return
+        bind_context(task_id=row['plan_id'], run_id=run_id)
+        record_error(error or RuntimeError('Execution exceeded the configured run deadline' if stage=='run_timeout' else 'Execution interrupted'), stage, task_id=row['plan_id'], run_id=run_id, request_id=row['submission_id'])
+        message=dump([failure(stage,error)])
         conn.execute('UPDATE development_runs SET status=?,ended_at=?,error_stage=?,safe_error_message=? WHERE id=?',(status,now(),stage,message,run_id))
         conn.execute('UPDATE development_plans SET active_run_id=NULL,updated_at=? WHERE id=? AND active_run_id=?',(now(),row['plan_id'],run_id))
 
@@ -200,6 +204,7 @@ def recover(startup=False,owner_user_id=None,plan_id=None):
         threshold=(datetime.now(timezone.utc)-timedelta(seconds=run_timeout())).isoformat()
         rows=conn.execute("SELECT id,plan_id FROM development_runs WHERE status IN ('pending','running') AND (?=1 OR COALESCE(started_at,created_at)<?) AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(int(startup),threshold,owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
         for row in rows:
+            record_error(RuntimeError('Service restart interrupted unfinished execution' if startup else 'Stale execution exceeded the recovery deadline'), 'interrupted', task_id=row['plan_id'], run_id=row['id'])
             conn.execute("UPDATE development_runs SET status='interrupted',ended_at=?,safe_error_message='执行已中断，旧版本保持不变',error_stage='interrupted' WHERE id=?",(now(),row['id']))
             conn.execute('UPDATE development_plans SET active_run_id=NULL WHERE id=? AND active_run_id=?',(row['plan_id'],row['id']))
 

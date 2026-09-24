@@ -26,21 +26,20 @@ export async function fetchWithTimeout(input: RequestInfo | URL, init: ApiReques
     return await fetch(input, { ...options, signal });
   } catch (reason) {
     const timedOut = signal.reason?.name === "TimeoutError" || (reason instanceof Error && reason.name === "TimeoutError");
-    const path = requestPath(input);
-    const taskRequest = options.method?.toUpperCase() === "POST"
-      && (path === "/agent/match" || /^\/agent\/tasks\/[^/]+\/retry$/.test(path));
-    if (taskRequest) {
-      throw new Error(`${timedOut ? "等待匹配结果超时" : "匹配请求连接中断"}，请先到“我的任务”查看任务状态，再决定是否重新提交。`);
-    }
     if (signal.aborted && !timedOut) throw new Error("请求已取消");
-    const prefix = timedOut ? "请求等待超时" : "网络连接中断";
-    const isWrite = !["GET", "HEAD"].includes((options.method ?? "GET").toUpperCase());
-    throw new Error(`${prefix}，${isWrite ? "操作结果尚未确认，请刷新页面核实后再试。" : "请检查网络后重试。"}`);
+    throw new Error("暂未确认结果，请刷新查看。");
   }
 }
 
-export async function responseError(response: Response, fallback = "操作失败"): Promise<Error> {
+export class ApiResponseError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+export async function responseError(response: Response, fallback = "本次处理失败，请重试。"): Promise<ApiResponseError> {
   const data = await response.json().catch(() => ({}));
   const detail = typeof data?.detail === "string" ? data.detail : null;
-  return new Error(detail || (response.status === 422 ? "输入参数无效，请检查数值范围和必填项" : `${fallback}（HTTP ${response.status}）`));
+  const message = response.status >= 500
+    ? (detail === "本次处理失败，请重试。" ? detail : "服务异常，请联系管理员。")
+    : response.status === 401 ? "登录已过期，请重新登录。"
+    : detail || (response.status === 422 ? "输入参数无效，请检查数值范围和必填项" : fallback);
+  return new ApiResponseError(message, response.status);
 }

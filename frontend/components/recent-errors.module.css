@@ -1,0 +1,16 @@
+.panel { margin-block: 24px; min-width: 0; }
+.heading, .actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.heading p { margin: 8px 0 0; }
+.list { margin-top: 20px; }
+.entry { border-top: 1px solid var(--line); }
+.entry summary { display: flex; align-items: baseline; gap: 16px; padding: 16px 4px; cursor: pointer; }
+.entry summary::before { content: "›"; color: var(--muted); }
+.entry[open] summary::before { content: "⌄"; }
+.entry summary:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.entry time { flex-shrink: 0; color: var(--muted); font-size: 13px; }
+.stage { flex-shrink: 0; font-weight: 600; }
+.reason { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail { padding: 0 12px 20px; }
+.actions { margin-block: 8px 16px; overflow-wrap: anywhere; }
+.detail pre { margin: 0; padding: 16px; background: var(--bg-hover); border: 1px solid var(--line); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 560px; overflow-y: auto; font-size: 13px; line-height: 1.7; }
+@media (max-width: 640px) { .entry summary { flex-wrap: wrap; gap: 8px; }.reason { flex-basis: 100%; }.detail { padding-inline: 0; } }

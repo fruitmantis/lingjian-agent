@@ -191,4 +191,7 @@ def test_invalid_binding_returns_actionable_error_without_calling_model(client, 
     bind(scene, "missing-config")
     response = client.post(path, headers=auth_headers(admin), json={"requirement": "寻找测试伙伴"})
     assert response.status_code == 503
-    assert "请管理员检查模型配置" in response.json()["detail"]
+    assert response.json()["detail"] == "服务异常，请联系管理员。"
+    from backend.app.error_diagnostics import recent_errors
+    errors=recent_errors()
+    assert any('模型不存在或已停用' in item['message'] for item in errors)

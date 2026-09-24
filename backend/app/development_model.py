@@ -26,23 +26,32 @@ def configuration(*, read_only=False):
 
 
 def completion(config,messages,schema):
-    parsed=urlsplit(config['base_url'])
-    if parsed.username or parsed.password or parsed.scheme not in ('http','https'):raise ModelConfigurationError('Invalid model endpoint')
-    # DeepSeek rejects json_schema. Keep the same schema and strict program validation.
-    response_format={'type':'json_schema','json_schema':{'name':'development_output','strict':True,'schema':schema}}
-    if parsed.hostname == 'api.deepseek.com':
-        response_format={'type':'json_object'}
-        messages=[*messages, {'role':'system','content':'Return a JSON object matching this exact JSON schema. No extra fields: '+json.dumps(schema,ensure_ascii=False)}]
-    limit=model_timeout()
-    async def send():
-        # Wall-clock cancellation also bounds slow/chunked responses that keep resetting read timeouts.
-        async with asyncio.timeout(limit):
-            async with httpx.AsyncClient(timeout=limit,follow_redirects=False,trust_env=False) as client:
-                response=await client.post(config['base_url'].rstrip('/')+'/chat/completions',headers={'Authorization':'Bearer '+_resolve_api_key(config)},json={
-                    'model':config['model_name'],'temperature':0.2,'max_tokens':min(config.get('max_tokens') or 8192,16384),
-                    'messages':messages,'response_format':response_format,
-                    **provider_request_options(config['base_url'],config['model_name'])})
-                response.raise_for_status()
-                return _completion_content(response.json())
-    # Development execution already runs in the existing worker threads, outside the API event loop.
-    return asyncio.run(send())
+    from .error_diagnostics import bind_context, register_secret, model_response, record_error
+    bind_context(model=config.get('model_name'), http_status=None, response_excerpt=None)
+    try:
+        api_key=_resolve_api_key(config)
+        register_secret(api_key)
+        parsed=urlsplit(config['base_url'])
+        if parsed.username or parsed.password or parsed.scheme not in ('http','https'):raise ModelConfigurationError('Invalid model endpoint')
+        # DeepSeek rejects json_schema. Keep the same schema and strict program validation.
+        response_format={'type':'json_schema','json_schema':{'name':'development_output','strict':True,'schema':schema}}
+        if parsed.hostname == 'api.deepseek.com':
+            response_format={'type':'json_object'}
+            messages=[*messages, {'role':'system','content':'Return a JSON object matching this exact JSON schema. No extra fields: '+json.dumps(schema,ensure_ascii=False)}]
+        limit=model_timeout()
+        async def send():
+            # Wall-clock cancellation also bounds slow/chunked responses that keep resetting read timeouts.
+            async with asyncio.timeout(limit):
+                async with httpx.AsyncClient(timeout=limit,follow_redirects=False,trust_env=False) as client:
+                    response=await client.post(config['base_url'].rstrip('/')+'/chat/completions',headers={'Authorization':'Bearer '+api_key},json={
+                        'model':config['model_name'],'temperature':0.2,'max_tokens':min(config.get('max_tokens') or 8192,16384),
+                        'messages':messages,'response_format':response_format,
+                        **provider_request_options(config['base_url'],config['model_name'])})
+                    model_response(response, config['model_name'])
+                    response.raise_for_status()
+                    return _completion_content(response.json())
+        # Development execution already runs in the existing worker threads, outside the API event loop.
+        return asyncio.run(send())
+    except Exception as error:
+        record_error(error)
+        raise

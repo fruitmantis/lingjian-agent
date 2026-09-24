@@ -1,4 +1,4 @@
-"""Fixed public failure diagnostics. Never persist exception strings or provider bodies."""
+"""Public task reasons; private diagnostic history lives in the server error log."""
 import json,sqlite3
 import httpx
 from fastapi import HTTPException
@@ -8,7 +8,7 @@ from .model_resolver import ModelConfigurationError
 from .ai_client import ModelResponseError
 
 STAGES={'partner_match':'伙伴匹配','partner_data':'伙伴数据读取','demand_profile':'需求画像','project_opportunity':'项目机会','recommendation_data':'推荐结果','persistence':'结果保存','interrupted':'执行中断','configuration':'模型配置','analysis':'方向分析','retrieval':'资源检索','generation':'建议生成','run_timeout':'执行时限'}
-REASONS={
+LEGACY_REASONS={
  'timeout':('模型响应超时，本次处理未完成','稍后重试'),
  'rate_limit':('模型服务当前繁忙或请求受限','稍后重试'),
  'configuration':('当前模型配置不可用','联系管理员检查模型配置'),
@@ -21,8 +21,20 @@ REASONS={
  'run_timeout':('本次处理超过执行时限，已中断','重试'),
  'unknown':('具体原因未记录','重试或联系管理员'),
 }
+GENERAL_FAILURE='本次处理失败，请重试。'
+SERVICE_FAILURE='服务异常，请联系管理员。'
+UNCERTAIN_RESULT='暂未确认结果，请刷新查看。'
+SERVICE_CODES={'configuration','authentication','connection','provider','persistence'}
+REASONS={code:(SERVICE_FAILURE if code in SERVICE_CODES else GENERAL_FAILURE, '') for code in LEGACY_REASONS}
+
+def user_message(error):
+ return REASONS[classify(error)][0]
+
 class PublicTaskError(HTTPException):
  def __init__(self,error,status_code=502):
+  from .error_diagnostics import record_error
+  self.original_error=error
+  record_error(error)
   self.failure_code=classify(error)
   super().__init__(status_code,REASONS[self.failure_code][0])
 
@@ -40,6 +52,9 @@ def classify(error=None,stage=None):
  return 'unknown'
 
 def failure(stage,error=None,code=None):
+ if error is not None:
+  from .error_diagnostics import record_error
+  record_error(error,stage)
  code=code if code in REASONS else classify(error,stage)
  return {'stage':stage if stage in STAGES else 'unknown','stageLabel':STAGES.get(stage,'后续处理'),'code':code,'message':REASONS[code][0],'action':REASONS[code][1]}
 
@@ -52,6 +67,6 @@ def public_failures(stages,stored=None):
  result=[]
  for stage in filter(None,stages):
   code=next((r.get('code') for r in records if isinstance(r,dict) and r.get('stage')==stage),None)
-  if code not in REASONS:code=next((k for k,(message,_) in REASONS.items() if message==stored),None)
+  if code not in REASONS:code=next((k for k,(message,_) in LEGACY_REASONS.items() if message==stored),None)
   result.append(failure(stage,code=code))
  return result or [failure('unknown')]

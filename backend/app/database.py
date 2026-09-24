@@ -188,10 +188,14 @@ def recover_stale_tasks(
         cursor = conn.execute(
             f"""UPDATE match_records
                     SET task_status = 'failed', last_error_stage = 'interrupted', last_error_details = NULL, updated_at = ?
-                  WHERE {' AND '.join(conditions)}""",
+                  WHERE {' AND '.join(conditions)} RETURNING id""",
             [now, *params],
         )
-        return cursor.rowcount
+        rows = cursor.fetchall()
+        from .error_diagnostics import record_error
+        for row in rows:
+            record_error(RuntimeError('Unfinished matching exceeded the recovery deadline'), 'interrupted', task_id=row['id'])
+        return len(rows)
 
 
 def initialize_storage() -> None:

@@ -47,7 +47,7 @@ def test_invalid_score_cannot_be_a_recommendation(monkeypatch, score):
     with pytest.raises(HTTPException) as exc:
         match._perform_partner_match("测试需求")
     assert exc.value.status_code == 502
-    assert "结果处理失败" in exc.value.detail
+    assert exc.value.failure_code == "invalid_result"
 
 
 @pytest.mark.parametrize("score,expected", [(0, "0"), (100, "100"), (" 83.5 ", "83.5")])

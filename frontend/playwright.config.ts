@@ -16,6 +16,7 @@ if (validationDatabase.startsWith("postgresql")) {
 }
 const validationEnvironment = {
   DATABASE_URL: validationDatabase,
+  BANFEI_ERROR_LOG_PATH: "/tmp/lingjian-enablement-e2e/errors.jsonl",
   BANFEI_IDENTITY_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
   LINGJIAN_DATABASE_PATH: "/tmp/lingjian-enablement-e2e/app.db",
   LINGJIAN_UPLOADS_DIR: "/tmp/lingjian-enablement-e2e/uploads",

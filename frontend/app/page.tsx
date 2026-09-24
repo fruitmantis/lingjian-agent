@@ -1,4 +1,5 @@
 "use client";
+import {failureMessage} from "@/components/task-failure";
 
 import Link from "next/link";
 import { DevelopmentEntry } from "@/components/enablement-workspace";
@@ -156,14 +157,14 @@ function ProjectMatchTask({active}:{active:boolean}) {
         const response = await apiFetch(`/agent/tasks/${activeTaskId}`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]) });
         if (!response.ok) {
           if (response.status === 404) running = false;
-          throw new Error(response.status === 404 ? "任务不存在或无权访问。" : "暂未获取最新状态，将自动重试查询。");
+          throw new Error(response.status === 404 ? "任务不存在或无权访问。" : "暂未确认结果，请刷新查看。");
         }
         const task = await response.json();
         if (cancelled) return;
         running = task.taskStatus === "matching" || task.taskStatus === "enriching";
         setSubmittedRequirement(task.requirement); setRecommendations(task.recommendations || []);
         setHasSearched(true); setTaskStatus(task.taskStatus); setLoading(running);
-        setError(task.taskStatus === "failed" ? "匹配未完成，需求已保存，可进入任务详情重试。" : null);
+        setError(task.taskStatus === "failed" ? failureMessage(task.failureDetails) : null);
       } catch (reason) {
         if (!cancelled) { setError(reason instanceof Error ? reason.message : "状态更新暂不可用"); if (!running) setLoading(false); }
       }

@@ -180,11 +180,16 @@ def test_connection(mc_id: str) -> TestResult:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
 
     import os
+    from ..error_diagnostics import bind_context, register_secret, model_response, record_error
+    bind_context(stage="model_test")
     api_key = _resolve_api_key(row)
+    register_secret(api_key)
     base_url = row["base_url"] or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
     model = row["model_name"] or os.getenv("LLM_MODEL", "gpt-4o")
 
+    bind_context(model=model)
     if not api_key:
+        record_error(ValueError("Model API credential is not configured"))
         return TestResult(success=False, message="API Key 未配置")
 
     try:
@@ -196,11 +201,13 @@ def test_connection(mc_id: str) -> TestResult:
         payload.update(provider_request_options(base_url, model))
         with httpx.Client(timeout=30) as client:
             resp = client.post(url, headers=headers, json=payload)
+            model_response(resp, model)
             resp.raise_for_status()
             _completion_content(resp.json())
         elapsed = int((time.time() - start) * 1000)
         return TestResult(success=True, message="连接成功", latencyMs=elapsed)
     except Exception as e:
+        record_error(e)
         return TestResult(success=False, message=model_error_message(e))
 
 

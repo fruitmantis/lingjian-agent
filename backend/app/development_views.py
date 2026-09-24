@@ -1,5 +1,6 @@
 """Live authorization for historical snapshots; immutable storage stays untouched."""
-from .task_failures import public_failures
+from .task_failures import public_failures, user_message
+from .error_diagnostics import bind_context, record_error
 import copy,json,re
 from fastapi import HTTPException
 from .database import get_db
@@ -67,6 +68,7 @@ def detail(plan_id,user,version_id=None):
         request=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
         versions=[dict(r) for r in conn.execute('SELECT id,version_no,based_on_version_id,created_by,created_at FROM development_versions WHERE plan_id=? ORDER BY version_no DESC',(plan_id,))]
         runs=[dict(r) for r in conn.execute('SELECT id,run_type,based_on_version_id,status,model_config_id,created_at,started_at,ended_at,error_stage,safe_error_message FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC',(plan_id,))]
+        latest_failure=public_failures(runs[0]['error_stage'],runs[0]['safe_error_message']) if runs and runs[0]['status'] in ('failed','partial','interrupted') else []
         # Historical failure text is untrusted too; expose only current safe messages.
         for run in runs:
             if run['status'] in ('failed','partial','interrupted'):
@@ -90,7 +92,7 @@ def detail(plan_id,user,version_id=None):
         conversation.sort(key=lambda m:m['created_at'])
         # Source-sensitive user text is also withheld after revocation, including original demand.
         if hidden:request={k:v for k,v in request.items() if k in ('target_partner_id','request_source','targets')};request['targets']=[]
-        return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':public_failures(runs[0]['error_stage'],runs[0]['safe_error_message']) if runs and runs[0]['status'] in ('failed','partial','interrupted') else [],'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
+        return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
 
 def confirm(plan_id,version_id,user):
     with get_db() as conn:
@@ -163,6 +165,7 @@ def converse(plan_id,body,user):
     """
     from .development_types import ConversationOutput,Revise
     from . import development_model as model
+    bind_context(task_id=plan_id, stage='conversation')
     digest=life.fingerprint(body.model_dump())
     with get_db() as conn:
         conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user)
@@ -202,7 +205,9 @@ def converse(plan_id,body,user):
             raise engine.InvalidOutput('Explanation cannot modify a version')
         if response['target_partner_id']!=plan['target_partner_id']:raise engine.InvalidOutput('Invented partner')
         if not {engine.key(ref) for ref in response['references']}<={engine.key(ref) for ref in pool}:raise engine.InvalidOutput('Invented reference')
-    except Exception:life.fail(422,'本次交流未完成，建议版本保持不变，请重试')
+    except Exception as error:
+        record_error(error, 'conversation', task_id=plan_id)
+        life.fail(422,user_message(error))
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');fresh=life.authorize(conn,plan_id,user);life.writable(fresh,body.based_on_version_id)
         if protected(conn,version_row(conn,fresh)):life.fail(409,REVOKED)

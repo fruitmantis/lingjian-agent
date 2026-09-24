@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 
 from ..database import get_readonly_db
@@ -123,7 +123,7 @@ def _check_llm() -> tuple[list[ServiceStatus], bool, str]:
         ServiceStatus(name="模型配置", status="error" if error_msg else "normal", message=error_msg or "基础配置已具备，实际调用尚未验证"),
         ServiceStatus(name="模型调用状态", status="unknown", message="本页不调用模型；可在模型配置页手动测试连接"),
         ServiceStatus(name="最近调用耗时", status="unknown", message="未采集调用耗时"),
-        ServiceStatus(name="最近错误信息", status="unknown", message="未采集模型调用日志"),
+        ServiceStatus(name="最近错误信息", status="unknown", message="失败诊断见本页最近错误"),
     ]
     return items, bool(error_msg), error_msg
 
@@ -244,3 +244,10 @@ def get_system_status() -> SystemStatusResponse:
         businessCapabilities=biz_items,
         recentErrors=[a.message for a in all_abnormals[:3]],
     )
+
+
+@router.get('/errors')
+def get_recent_errors(response: Response, limit: int = Query(50, ge=1, le=100)) -> dict:
+    from ..error_diagnostics import recent_errors
+    response.headers['Cache-Control'] = 'no-store'
+    return {'items': recent_errors(limit)}

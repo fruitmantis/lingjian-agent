@@ -2,6 +2,10 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import JSONResponse
+from .error_diagnostics import ErrorDiagnosticsMiddleware, record_error
+from .task_failures import SERVICE_FAILURE
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -49,9 +53,19 @@ class HealthResponse(BaseModel):
 
 
 app = FastAPI(title="伴飞 Agent API", description="交付伙伴智能匹配智能体 MVP API", version="0.1.0", lifespan=lifespan)
+app.add_middleware(ErrorDiagnosticsMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=get_cors_origins(), allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
+@app.exception_handler(StarletteHTTPException)
+async def public_http_error(request, error):
+    if error.status_code >= 500:
+        record_error(error)
+        detail = error.detail if getattr(error, 'failure_code', None) else SERVICE_FAILURE
+    else:
+        detail = error.detail
+    body = {'detail': detail}
+    return JSONResponse(body, status_code=error.status_code, headers=error.headers)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["system"])

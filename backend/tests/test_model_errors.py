@@ -59,7 +59,7 @@ def test_profile_failure_preserves_data_without_exposing_exception(client, monke
     monkeypatch.setattr(profile, "chat_completion", fail)
     response = client.post("/partners/partner-1/profile", headers=auth_headers(admin))
     assert response.status_code == 502
-    assert "模型调用失败" in response.json()["detail"]
+    assert response.json()["detail"] == "服务异常，请联系管理员。"
     for text in ("synthetic-secret", "raw-model-JSON", "internal-prompt"):
         assert text not in response.text
     with get_db() as conn:

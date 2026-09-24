@@ -20,6 +20,7 @@ TEST_CHROMA = TEST_ROOT / "chroma"
 TEST_JWT_SECRET = "validation-secret-a-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 BOOTSTRAP_PASSWORD = "BootstrapPass12345"
 
+os.environ["BANFEI_ERROR_LOG_PATH"] = str(TEST_ROOT / "errors.jsonl")
 os.environ["DATABASE_URL"] = "sqlite://"  # Explicit legacy test backend; never inherit runtime PostgreSQL.
 os.environ["LINGJIAN_DATABASE_PATH"] = str(TEST_DB)
 os.environ["LINGJIAN_UPLOADS_DIR"] = str(TEST_UPLOADS)
@@ -49,7 +50,8 @@ def cleanup_test_root():
 
 
 @pytest.fixture(autouse=True)
-def fresh_database(monkeypatch, request):
+def fresh_database(monkeypatch, request, tmp_path):
+    monkeypatch.setenv("BANFEI_ERROR_LOG_PATH", str(tmp_path / "errors.jsonl"))
     monkeypatch.setenv("JWT_SECRET_KEY", TEST_JWT_SECRET)
     monkeypatch.setenv("BOOTSTRAP_ADMIN_USERNAME", "bootstrap_admin")
     monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", BOOTSTRAP_PASSWORD)

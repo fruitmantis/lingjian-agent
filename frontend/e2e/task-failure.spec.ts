@@ -25,21 +25,20 @@ async function fixture(page:Page){
  return writes;
 }
 
-test("list reasons work by click, keyboard and legacy fallback",async({page})=>{
+test("ordinary list shows simple messages including legacy failures",async({page})=>{
  await fixture(page);await page.goto("/tasks");
  const row=page.getByRole("row").filter({hasText:"合成验收：部分完成"});
- await row.getByRole("button",{name:"查看原因"}).click();
- const dialog=page.getByRole("dialog",{name:"任务失败原因"});
- await expect(dialog).toBeVisible();await expect(dialog).toContainText("模型响应超时");await expect(dialog.getByRole("link",{name:"进入任务详情"})).toHaveAttribute("href","/tasks/partial-fixture");
- await page.keyboard.press("Escape");await expect(dialog).toBeHidden();
- const legacy=page.getByRole("row").filter({hasText:"合成验收：历史失败"}).getByRole("button",{name:"查看原因"});
- await legacy.focus();await page.keyboard.press("Enter");await expect(page.getByRole("dialog",{name:"任务失败原因"})).toContainText("具体原因未记录");
+ await expect(row).toContainText("本次处理失败，请重试。");
+ await expect(row).not.toContainText("模型响应超时");
+ await expect(row.getByRole("link",{name:"查看任务",exact:true})).toHaveAttribute("href","/tasks/partial-fixture");
+ await expect(page.getByRole("row").filter({hasText:"合成验收：历史失败"})).toContainText("本次处理失败，请重试。");
+ await expect(page.getByRole("button",{name:"查看原因"})).toHaveCount(0);
 });
 
 for(const width of [1366,1920])test(`partial and failed revise preserve useful results at ${width}`,async({page})=>{
  await page.setViewportSize({width,height:width===1366?768:1080});const writes=await fixture(page);
  await page.goto("/tasks/partial-fixture");const notice=page.getByRole("region",{name:"任务未完成说明"});
- await expect(notice).toContainText("伙伴推荐可用");await expect(notice).toContainText("项目机会未完成");await expect(notice).toContainText("模型响应超时");
+ await expect(notice).toContainText("已保存的伙伴推荐可继续查看");await expect(notice).toContainText("本次处理失败，请重试。");await expect(notice).not.toContainText("模型响应超时");
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  if(process.env.TASK_FAILURE_SCREENSHOTS)await page.screenshot({path:`${process.env.TASK_FAILURE_SCREENSHOTS}/partial-${width}.png`});
  await page.goto("/tasks/plan-fixture");await expect(page.getByRole("heading",{name:"能力发展建议",exact:true})).toBeVisible();
@@ -52,14 +51,69 @@ for(const width of [1366,1920])test(`partial and failed revise preserve useful r
 });
 
 
-test("initial failure explains cause without claiming recommendations are available",async({page})=>{
+test("configuration failure asks for admin without technical detail",async({page})=>{
  await fixture(page);await page.goto("/tasks/failed-fixture");
  const notice=page.getByRole("region",{name:"任务未完成说明"});
- await expect(notice).toContainText("本次匹配未完成");
- await expect(notice).toContainText("模型服务认证失败");
+ await expect(notice).toContainText("服务异常，请联系管理员。");
+ await expect(notice).not.toContainText("模型服务认证失败");
+ await expect(notice).toContainText("项目需求已保留");
  await expect(notice).not.toContainText("伙伴推荐可用");
- await notice.getByRole("button",{name:"查看原因"}).click();
- await expect(page.getByRole("dialog",{name:"任务失败原因"})).toContainText("联系管理员");
- await page.getByRole("heading",{name:"任务详情",exact:true}).click();
- await expect(page.getByRole("dialog",{name:"任务失败原因"})).toBeHidden();
+});
+
+test("failed refresh preserves existing development advice",async({page})=>{
+ await fixture(page);await page.goto("/tasks/plan-fixture");
+ await expect(page.getByRole("heading",{name:"能力发展建议",exact:true})).toBeVisible();
+ await page.route("**/development/plans/plan-fixture",route=>route.fulfill({status:503,json:{detail:"synthetic internal failure"}}));
+ await expect(page.locator(".advisor-detail").getByRole("alert")).toHaveText("服务异常，请联系管理员。");
+ await expect(page.getByRole("heading",{name:"能力发展建议",exact:true})).toBeVisible();
+ await expect(page.getByTestId("advisor-status")).toContainText("建议可用");
+ await expect(page.locator("body")).not.toContainText("synthetic internal failure");
+});
+
+test("empty match is a normal outcome",async({page})=>{
+ await fixture(page);
+ await page.route("**/agent/tasks/empty-fixture",route=>route.fulfill({json:{...summary,id:"empty-fixture",taskStatus:"ready",failureDetails:[],recommendations:[],demandProfile:null,opportunity:null}}));
+ await page.goto("/tasks/empty-fixture");
+ await expect(page.getByText("没有匹配项，可调整需求后重新匹配。")).toBeVisible();
+ await expect(page.getByRole("region",{name:"任务未完成说明"})).toHaveCount(0);
+});
+
+test("unconfirmed submission uses simple wording and keeps pending task",async({page})=>{
+ await fixture(page);
+ await page.route("**/agent/tasks",route=>route.request().method()==="POST"?route.abort():route.fallback());
+ await page.route(/\/agent\/tasks\/[a-f0-9-]{36}$/,route=>route.fulfill({status:404,json:{detail:"not yet confirmed"}}));
+ await page.goto("/");
+ await page.getByPlaceholder(/例如：寻找/).fill("隔离验证需求");
+ await page.getByRole("button",{name:/开始匹配|匹配伙伴|开始分析/}).click();
+ await expect(page.getByText("暂未确认结果，请刷新查看。",{exact:true})).toBeVisible();
+ await expect(page.getByRole("button",{name:"核对任务"})).toBeVisible();
+});
+
+test("admin recent errors expand and copy redacted details",async({page,context})=>{
+ const admin={...user,id:"fixture-admin",role:"admin"};
+ await page.addInitScript(({admin})=>{localStorage.setItem("banfei:admin:token","isolated-admin");localStorage.setItem("banfei:admin:user",JSON.stringify(admin));},{admin});
+ const latest={id:"error-latest",time:"2026-09-25T01:02:00Z",request_id:"req-2",task_id:"task-2",run_id:null,stage:"partner_match",exception_type:"ValueError",message:"推荐第 1 项 matchScore 无法解析为数字 <script>alert(1)</script>",model:"test-model",http_status:200,response_excerpt:'{"api_key":"[REDACTED]","matchScore":"92分"}',traceback:"File match.py: parse\nValueError: invalid matchScore"};
+ await page.route("**/*",route=>{
+  const url=new URL(route.request().url());if(!url.pathname.startsWith("/api/")&&url.port!=="8000")return route.continue();
+  const path=url.pathname.replace(/^\/api/,"");
+  if(path==="/auth/me")return route.fulfill({json:admin});
+  if(path==="/health")return route.fulfill({json:{status:"ok"}});
+  if(path==="/admin/system/errors")return route.fulfill({json:{items:[latest,{...latest,id:"error-older",time:"2026-09-25T01:01:00Z",task_id:null,request_id:"req-1",message:"database is unavailable",stage:"submission"}]}});
+  if(path==="/admin/system/status")return route.fulfill({json:{overallStatus:"unknown",checkedAt:stamp,summary:{normalCount:0,warningCount:0,errorCount:0,unknownCount:0,abnormalModules:[]},services:[],database:[],llm:[],businessCapabilities:[],recentErrors:[]}});
+  return route.fulfill({status:404,json:{detail:"Fixture route not defined"}});
+ });
+ await context.grantPermissions(["clipboard-read","clipboard-write"]);
+ await page.goto("/admin/system");
+ const panel=page.getByRole("region",{name:"最近错误"});
+ const entries=panel.locator("details");await expect(entries).toHaveCount(2);
+ await expect(entries.first()).toContainText("matchScore 无法解析为数字");
+ await expect(entries.first().getByLabel("错误完整详情")).toBeHidden();
+ await entries.first().locator("summary").click();
+ const detail=entries.first().getByLabel("错误完整详情");
+ await expect(detail).toContainText("task-2");await expect(detail).toContainText("test-model");await expect(detail).toContainText("HTTP 状态码：200");await expect(detail).toContainText("[REDACTED]");
+ await entries.first().getByRole("button",{name:"复制错误详情"}).click();
+ await expect(panel.getByRole("status")).toContainText("已复制错误详情");
+ expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(await detail.textContent());
+ await entries.nth(1).locator("summary").click();await expect(entries.nth(1)).toContainText("请求 req-1");
+ for(const width of [1366,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();if(process.env.TASK_FAILURE_SCREENSHOTS)await page.screenshot({path:`${process.env.TASK_FAILURE_SCREENSHOTS}/admin-errors-${width}.png`,fullPage:true});}
 });
