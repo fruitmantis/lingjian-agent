@@ -65,6 +65,13 @@ def health():
 async def completions(payload: dict):
     messages=payload.get('messages') or []
     system=' '.join(m.get('content','') for m in messages if m.get('role')=='system')
+    if 'Scope Gate' in system:
+        # Explicit replay fixture only; this is NOT production classification or
+        # evidence of real-model stability. Unknown synthetic business text passes.
+        text=json.loads(next(m['content'] for m in messages if m['role']=='user'))['message']
+        off_topic={'明天天气怎么样？','帮我安排三天旅游行程','写一个 Python 快速排序函数','写一首关于月亮的诗'}
+        content=json.dumps({'in_scope':text not in off_topic})
+        return {'choices':[{'message':{'content':content},'finish_reason':'stop'}]}
     if 'partner_development:' in system:
         from backend.tests.support.development_mock import response
         if 'C_SLOW' in json.dumps(messages,ensure_ascii=False):await asyncio.sleep(3)

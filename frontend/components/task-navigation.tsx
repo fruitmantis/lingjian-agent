@@ -97,6 +97,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
       if (!response.ok) {
         rejected = response.status >= 400 && response.status < 500 && response.status !== 408;
         const error = await responseError(response);
+        rejected ||= error.submissionAccepted === false;
         throw error;
       }
       const result = await response.json();

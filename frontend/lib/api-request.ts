@@ -32,7 +32,7 @@ export async function fetchWithTimeout(input: RequestInfo | URL, init: ApiReques
 }
 
 export class ApiResponseError extends Error {
-  constructor(message: string, readonly status: number) { super(message); }
+  constructor(message: string, readonly status: number, readonly submissionAccepted?: boolean) { super(message); }
 }
 export async function responseError(response: Response, fallback = "本次处理失败，请重试。"): Promise<ApiResponseError> {
   const data = await response.json().catch(() => ({}));
@@ -41,5 +41,5 @@ export async function responseError(response: Response, fallback = "本次处理
     ? (detail === "本次处理失败，请重试。" ? detail : "服务异常，请联系管理员。")
     : response.status === 401 ? "登录已过期，请重新登录。"
     : detail || (response.status === 422 ? "输入参数无效，请检查数值范围和必填项" : fallback);
-  return new ApiResponseError(message, response.status);
+  return new ApiResponseError(message, response.status, typeof data?.submissionAccepted === "boolean" ? data.submissionAccepted : undefined);
 }

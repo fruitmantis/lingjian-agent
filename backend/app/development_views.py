@@ -1,4 +1,5 @@
 """Live authorization for historical snapshots; immutable storage stays untouched."""
+from .scope_gate import require_scope
 from .task_failures import public_failures, user_message
 from .error_diagnostics import bind_context, record_error
 import copy,json,re
@@ -165,7 +166,7 @@ def converse(plan_id,body,user):
     """
     from .development_types import ConversationOutput,Revise
     from . import development_model as model
-    bind_context(task_id=plan_id, stage='conversation')
+    bind_context(task_id=plan_id, request_id=body.submission_id, stage='conversation')
     digest=life.fingerprint(body.model_dump())
     with get_db() as conn:
         conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user)
@@ -180,6 +181,11 @@ def converse(plan_id,body,user):
         if run:
             if json.loads(run['input_snapshot']).get('instruction')!=body.message or run['based_on_version_id']!=body.based_on_version_id:life.fail(409,'同一消息标识不能用于不同内容')
             return {'kind':'revise','plan_id':plan_id,'run_id':run['id'],'replayed':True}
+        life.writable(plan,body.based_on_version_id)
+    require_scope('partner_development',body.message,context=stored.get('development_direction') or stored.get('development_goal',''))
+    bind_context(stage='conversation')
+    with get_db() as conn:
+        conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user)
         life.writable(plan,body.based_on_version_id)
         row=version_row(conn,plan);payload=readable_payload(conn,row)
         if payload is None:life.fail(409,REVOKED)
@@ -222,5 +228,5 @@ def converse(plan_id,body,user):
             conn.execute('UPDATE development_requests SET payload_json=? WHERE id=?',(life.dump(stored),fresh['request_id']))
             life.audit(conn,plan_id,user['id'],'conversation_explained',body.based_on_version_id)
             return {'kind':'explain','answer':response['answer']}
-    result=life.revise(plan_id,Revise(submission_id=body.submission_id,based_on_version_id=body.based_on_version_id,instruction=body.message),user)
+    result=life.revise(plan_id,Revise(submission_id=body.submission_id,based_on_version_id=body.based_on_version_id,instruction=body.message),user,scope_checked=True)
     return {'kind':'revise',**result}

@@ -5,7 +5,7 @@ import {responseError} from "../lib/api-request";
 import styles from "./recent-errors.module.css";
 
 type ErrorEntry={id:string;time:string;request_id:string;task_id:string|null;run_id:string|null;stage:string;exception_type:string;message:string;model:string|null;http_status:number|null;response_excerpt:string|null;traceback:string};
-const stages:Record<string,string>={partner_match:"伙伴匹配",partner_data:"伙伴数据读取",demand_profile:"需求画像",project_opportunity:"项目机会",tag_suggestion:"标签建议",configuration:"模型配置",analysis:"方向分析",retrieval:"资源检索",generation:"建议生成",conversation:"继续问伴飞",persistence:"结果保存",interrupted:"执行中断",run_timeout:"执行时限",model_test:"模型连接测试",submission:"任务提交"};
+const stages:Record<string,string>={scope_gate:"业务范围判断",partner_match:"伙伴匹配",partner_data:"伙伴数据读取",demand_profile:"需求画像",project_opportunity:"项目机会",tag_suggestion:"标签建议",configuration:"模型配置",analysis:"方向分析",retrieval:"资源检索",generation:"建议生成",conversation:"继续问伴飞",persistence:"结果保存",interrupted:"执行中断",run_timeout:"执行时限",model_test:"模型连接测试",submission:"任务提交"};
 function errorText(item:ErrorEntry){
  return [`时间：${item.time}`,`错误 ID：${item.id}`,`任务 ID：${item.task_id||"—"}`,`请求 ID：${item.request_id}`,`运行 ID：${item.run_id||"—"}`,`失败环节：${stages[item.stage]||item.stage}`,`异常类型：${item.exception_type}`,`实际原因：${item.message}`,`模型：${item.model||"—"}`,`HTTP 状态码：${item.http_status??"未收到响应 / 不适用"}`,`返回片段：\n${item.response_excerpt||"—"}`,`堆栈：\n${item.traceback||"—"}`].join("\n");
 }

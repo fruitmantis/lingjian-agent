@@ -1,4 +1,4 @@
-"""Transactional Plan/Run/Version lifecycle. No model or network dependencies."""
+"""Transactional Plan/Run/Version lifecycle. Scope checks run outside transactions."""
 import hashlib
 import json
 import uuid
@@ -8,6 +8,7 @@ from .database import get_db
 from . import enablement_catalog
 from .development_deadlines import run_timeout
 from .development_types import DevelopmentRequest
+from .scope_gate import require_scope
 from .error_diagnostics import record_error, bind_context
 
 
@@ -41,10 +42,12 @@ def audit(conn,plan_id,actor,action,version_id=None):
     conn.execute('INSERT INTO development_audit_events VALUES (?,?,?,?,?,?)',(uid(),plan_id,version_id,actor,action,now()))
 
 
-def checked_request(payload,user):
+def checked_request(payload,user,*,instruction="",scope_checked=False):
     result=clarify(payload)
     if result['missing_fields']:fail(422,{'message':'请选择伙伴并描述发展方向','missing_fields':result['missing_fields']})
     data=result['request']
+    if not scope_checked:
+        require_scope('partner_development',instruction or data['development_direction'],context=data['development_direction'] if instruction else '')
     context=enablement_catalog.context(user,data['target_partner_id'],data['source_task_id'],data['source_case_id'],data['source_case_version'])
     if context['shared_case']:data['source_case_version']=context['shared_case']['source_version']
     return data
@@ -69,6 +72,7 @@ def insert_run(conn,plan_id,user,submission_id,base,payload,run_type,request_has
 
 
 def create(payload,user):
+    bind_context(request_id=payload.submission_id,stage='submission')
     digest=fingerprint(payload.model_dump())
     with get_db() as conn:
         replay=duplicate(conn,user,payload.submission_id,digest)
@@ -90,7 +94,8 @@ def writable(plan,base):
     if plan['current_version_id']!=base:fail(409,'版本冲突：当前版本已变化，请重新载入后编辑')
 
 
-def revise(plan_id,payload,user):
+def revise(plan_id,payload,user,*,scope_checked=False):
+    bind_context(task_id=plan_id,request_id=payload.submission_id,stage='submission')
     digest=fingerprint({'plan_id':plan_id,**payload.model_dump()})
     with get_db() as conn:
         authorize(conn,plan_id,user)
@@ -104,8 +109,8 @@ def revise(plan_id,payload,user):
                 saved=json.loads(conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(plan['current_version_id'],)).fetchone()[0])
                 data.update(saved.get('effective_request',{}))
             data={k:v for k,v in data.items() if k in DevelopmentRequest.model_fields}
-        data=checked_request(DevelopmentRequest.model_validate(data),user)
-    else:data=checked_request(payload.request,user)
+        data=checked_request(DevelopmentRequest.model_validate(data),user,instruction=payload.instruction,scope_checked=scope_checked)
+    else:data=checked_request(payload.request,user,instruction=payload.instruction,scope_checked=scope_checked)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)
@@ -210,6 +215,7 @@ def recover(startup=False,owner_user_id=None,plan_id=None):
 
 
 def retry(plan_id,payload,user):
+    bind_context(task_id=plan_id,request_id=payload.submission_id,stage='submission')
     digest=fingerprint({'plan_id':plan_id,'retry_run_id':payload.run_id,**payload.model_dump()})
     with get_db() as conn:
         plan=authorize(conn,plan_id,user)
@@ -218,7 +224,7 @@ def retry(plan_id,payload,user):
         original=conn.execute('SELECT * FROM development_runs WHERE id=? AND plan_id=?',(payload.run_id,plan_id)).fetchone()
         if not original:fail(404,'运行记录不存在')
         snapshot=json.loads(original['input_snapshot'])
-    data=checked_request(DevelopmentRequest.model_validate({k:v for k,v in snapshot['request'].items() if k in DevelopmentRequest.model_fields}),user)
+    data=checked_request(DevelopmentRequest.model_validate({k:v for k,v in snapshot['request'].items() if k in DevelopmentRequest.model_fields}),user,instruction=snapshot['instruction'])
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)

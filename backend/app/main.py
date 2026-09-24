@@ -65,6 +65,8 @@ async def public_http_error(request, error):
     else:
         detail = error.detail
     body = {'detail': detail}
+    if getattr(error, 'submission_accepted', None) is False:
+        body['submissionAccepted'] = False
     return JSONResponse(body, status_code=error.status_code, headers=error.headers)
 
 

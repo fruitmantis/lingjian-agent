@@ -25,7 +25,7 @@ def configuration(*, read_only=False):
         return dict(row)
 
 
-def completion(config,messages,schema):
+def completion(config,messages,schema,*,temperature=0.2,timeout=None):
     from .error_diagnostics import bind_context, register_secret, model_response, record_error
     bind_context(model=config.get('model_name'), http_status=None, response_excerpt=None)
     try:
@@ -38,13 +38,13 @@ def completion(config,messages,schema):
         if parsed.hostname == 'api.deepseek.com':
             response_format={'type':'json_object'}
             messages=[*messages, {'role':'system','content':'Return a JSON object matching this exact JSON schema. No extra fields: '+json.dumps(schema,ensure_ascii=False)}]
-        limit=model_timeout()
+        limit=model_timeout() if timeout is None else min(timeout,model_timeout())
         async def send():
             # Wall-clock cancellation also bounds slow/chunked responses that keep resetting read timeouts.
             async with asyncio.timeout(limit):
                 async with httpx.AsyncClient(timeout=limit,follow_redirects=False,trust_env=False) as client:
                     response=await client.post(config['base_url'].rstrip('/')+'/chat/completions',headers={'Authorization':'Bearer '+api_key},json={
-                        'model':config['model_name'],'temperature':0.2,'max_tokens':min(config.get('max_tokens') or 8192,16384),
+                        'model':config['model_name'],'temperature':temperature,'max_tokens':min(config.get('max_tokens') or 8192,16384),
                         'messages':messages,'response_format':response_format,
                         **provider_request_options(config['base_url'],config['model_name'])})
                     model_response(response, config['model_name'])

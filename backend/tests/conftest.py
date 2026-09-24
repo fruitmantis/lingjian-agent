@@ -90,6 +90,13 @@ def fresh_database(monkeypatch, request, tmp_path):
         yield
 
 
+@pytest.fixture(autouse=True)
+def isolated_scope_model(monkeypatch, request):
+    # Existing business/lifecycle regressions use synthetic inputs and never call a
+    # live classifier. Dedicated scope tests exercise the real gate and transport.
+    if request.module.__name__.rsplit('.', 1)[-1] != 'test_scope_gate':
+        from backend.app import scope_gate
+        monkeypatch.setattr(scope_gate, '_complete', lambda *args: '{"in_scope":true}')
 
 
 @pytest.fixture
