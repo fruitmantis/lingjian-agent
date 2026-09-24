@@ -244,32 +244,6 @@ function ProjectMatchTask({active}:{active:boolean}) {
         </form>
       </section>
 
-      <section className="assistant-section" aria-labelledby="featured-heading">
-        <h2 className="sr-only" id="featured-heading">猜你想做</h2>
-        <div className="assistant-category-row">
-          <div className="assistant-category-tabs" role="tablist" aria-label="推荐场景分类">
-            {HOME_CATEGORIES.map(item => <button key={item} type="button" role="tab" aria-selected={selectedCategory === item} className={selectedCategory === item ? "active" : ""} onClick={() => { setSelectedCategory(item); setSceneOffset(0); }}>{item}</button>)}
-          </div>
-          <button type="button" className="assistant-refresh" onClick={() => setSceneOffset(current => scenePool.length ? (current + 4) % scenePool.length : 0)}><UiIcon name="refresh" size={16} /><span>换一批</span></button>
-        </div>
-        <div className="featured-scene-grid">
-          {visibleScenes.map((scene) => {
-            const content = (
-              <>
-                <div className="featured-scene-heading">
-                  <span className={`scene-line-icon scene-tone-${sceneTone(scene.category)}`}><UiIcon name={sceneIcon(scene.category)} size={20} /></span>
-                  <h3>{scene.name}</h3>
-                </div>
-                <p>{scene.description}</p>
-                <ul className="featured-scene-queries">{scene.exampleQueries.slice(0, 2).map(query => <li key={query}>{query}</li>)}</ul>
-                <div className="featured-scene-action">{scene.actionLabel}<UiIcon name="send" size={15} /></div>
-              </>
-            );
-            return scene.actionHref ? <Link className="featured-scene-card" href={scene.actionHref} key={scene.id}>{content}</Link> : <article className="featured-scene-card disabled" key={scene.id}>{content}</article>;
-          })}
-        </div>
-      </section>
-
       {error && <p className="error-text assistant-error">{error}</p>}
 
       {/* 本次项目需求卡片 - only show after submit */}
@@ -390,6 +364,32 @@ function ProjectMatchTask({active}:{active:boolean}) {
           </section>
         </>
       )}
+
+      <section className="assistant-section" aria-labelledby="featured-heading">
+        <h2 className="sr-only" id="featured-heading">猜你想做</h2>
+        <div className="assistant-category-row">
+          <div className="assistant-category-tabs" role="tablist" aria-label="推荐场景分类">
+            {HOME_CATEGORIES.map(item => <button key={item} type="button" role="tab" aria-selected={selectedCategory === item} className={selectedCategory === item ? "active" : ""} onClick={() => { setSelectedCategory(item); setSceneOffset(0); }}>{item}</button>)}
+          </div>
+          <button type="button" className="assistant-refresh" onClick={() => setSceneOffset(current => scenePool.length ? (current + 4) % scenePool.length : 0)}><UiIcon name="refresh" size={16} /><span>换一批</span></button>
+        </div>
+        <div className="featured-scene-grid">
+          {visibleScenes.map((scene) => {
+            const content = (
+              <>
+                <div className="featured-scene-heading">
+                  <span className={`scene-line-icon scene-tone-${sceneTone(scene.category)}`}><UiIcon name={sceneIcon(scene.category)} size={20} /></span>
+                  <h3>{scene.name}</h3>
+                </div>
+                <p>{scene.description}</p>
+                <ul className="featured-scene-queries">{scene.exampleQueries.slice(0, 2).map(query => <li key={query}>{query}</li>)}</ul>
+                <div className="featured-scene-action">{scene.actionLabel}<UiIcon name="send" size={15} /></div>
+              </>
+            );
+            return scene.actionHref ? <Link className="featured-scene-card" href={scene.actionHref} key={scene.id}>{content}</Link> : <article className="featured-scene-card disabled" key={scene.id}>{content}</article>;
+          })}
+        </div>
+      </section>
 
     </div>
   );

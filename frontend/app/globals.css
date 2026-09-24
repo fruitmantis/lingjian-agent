@@ -466,6 +466,22 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .inline-search input { min-width: 260px; }
 .inline-search input:focus, .inline-search select:focus, .form-row select:focus { border-color: var(--brand); }
 .result-count { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.user-filter-row { align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 20px; }
+.user-filter-row .inline-search { flex: 1; min-width: 0; flex-wrap: wrap; gap: 12px; }
+.user-filter-search { position: relative; flex: 1 1 240px; max-width: 320px; min-width: 0; }
+.user-filter-search > svg { position: absolute; z-index: 1; top: 50%; left: 12px; transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none; }
+.user-filter-row .user-filter-search input { width: 100%; min-width: 0; height: 40px; padding-left: 38px; }
+.user-filter-row .inline-search select { height: 40px; min-width: 120px; }
+.user-filter-row button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 18px; white-space: nowrap; }
+.user-filter-row .result-count strong { color: var(--text-primary); font-weight: var(--font-weight-heading); font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) {
+  .user-filter-row .result-count { align-self: flex-end; }
+}
+@media (max-width: 600px) {
+  .user-filter-search { flex-basis: 100%; max-width: none; }
+  .user-filter-row .inline-search select { flex: 1; min-width: 0; }
+}
+
 .table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th { padding: 10px 9px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; font-weight:var(--font-weight-heading); text-align: left; white-space: nowrap; }
@@ -500,6 +516,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-span-two { grid-column: 1 / -1; }
 .form-grid textarea { resize: vertical; }
 .danger-outline { border-color: #fecaca !important; color: var(--danger) !important; }
+.account-session-signout { margin-top: 20px; }
 .partner-insight-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .partner-insight-card { display: flex; flex-direction: column; margin: 0; }
 .partner-card-heading, .partner-card-heading > div, .partner-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -547,6 +564,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .application-reason { min-width: 200px; max-width: 320px; line-height: 1.55; }
 .modal-backdrop { position: fixed; z-index: 300; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(25 25 25 / 45%); }
 .modal-card { width: min(480px, 100%); margin: 0; }
+.user-delete-dialog { max-height: calc(100dvh - 40px); overflow-y: auto; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
 /* ===== Login and internal account application ===== */
@@ -899,6 +917,8 @@ button:hover:not(:disabled) { background: var(--primary-hover); }
 .data-table tbody tr { transition: background .14s ease; }
 .data-table tbody tr:hover { background: #fafafa; }
 .data-table td small { color: var(--text-tertiary); }
+.admin-users-table { min-width: 1200px; }
+.admin-identity-key-hint { white-space: nowrap; }
 .table-actions { gap: 6px; }
 .table-actions .secondary-btn { min-height: 30px; padding: 5px 10px; border-radius: 7px; }
 .pagination { gap: 8px; margin-top: 18px; color: var(--text-secondary); }
@@ -1414,3 +1434,42 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .password-change-card .login-heading p { line-height: 1.7; }
 .password-change-account { margin: 0 0 22px; color: var(--muted); overflow-wrap: anywhere; }
 .password-change-card .error-text { margin: 0; overflow-wrap: anywhere; }
+
+.admin-login-return { display: flex; align-items: center; justify-content: center; gap: 8px; width: fit-content; min-height: 40px; margin: 24px auto 0; padding: 8px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-secondary); font-size: 14px; line-height: 1.5; transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+.admin-login-return:hover { background: var(--bg-hover); border-color: var(--border-strong); color: var(--text-primary); }
+.admin-login-return svg { flex-shrink: 0; }
+
+.identity-entry-description { margin: 0 0 24px; color: var(--text-secondary); line-height: 1.7; }
+.identity-entry-card .identity-entry-error { margin: 0 0 20px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--brand-primary-light); line-height: 1.7; }
+.identity-entry-user-reference { display: block; margin-top: 8px; color: var(--text-secondary); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
+.identity-entry-actions { display: flex; flex-direction: column; gap: 12px; }
+.identity-entry-card .identity-entry-actions > button { width: 100%; min-height: 44px; padding: 10px 16px; font-size: 14px; line-height: 22px; }
+.identity-entry-footer { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-default); text-align: center; }
+.identity-entry-admin-link { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 16px; border-radius: var(--radius-md); color: var(--text-secondary); font-size: 14px; line-height: 22px; transition: background-color 150ms ease, color 150ms ease; }
+.identity-entry-admin-link:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.identity-notice { position: fixed; z-index: 1000; bottom: 20px; left: 50%; transform: translateX(-50%); max-width: 90vw; background: #fff; padding: 16px 20px; border: 1px solid #ddd; box-shadow: 0 4px 20px #0002; border-radius: 10px; }
+.identity-notice button { margin-left: 16px; }
+
+/* Personal identity credential: same compact presentation in onboarding/account. */
+.identity-save-dialog { width: min(560px, calc(100vw - 32px)); padding: 28px; border: 1px solid #e5e7eb; border-radius: 16px; box-shadow: 0 24px 80px #0003; color: #222; background: #fff; max-height: calc(100dvh - 40px); overflow-y: auto; }
+.identity-save-dialog::backdrop { background: #0006; }
+.identity-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.identity-dialog-heading h2 { margin: 0; font-size: 22px; }
+.identity-dialog-close { background: transparent; color: #666; border: 0; font-size: 26px; padding: 4px 10px; }
+.identity-dialog-intro { color: #555; margin: 12px 0 20px; }
+.identity-credential > p:not(.success-text):not(.error-text) { color: #666; font-size: 14px; line-height: 1.75; }
+.identity-key-value { overflow-wrap: anywhere; user-select: all; font-family: monospace; font-size: 15px; line-height: 1.8; letter-spacing: .02em; padding: 16px; background: #f7f7f8; border: 1px solid #dedee2; border-radius: 8px; margin: 16px 0; }
+.identity-key-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.identity-key-actions button { min-height: 40px; padding: 8px 16px; }
+.identity-credential > .success-text, .identity-credential > .error-text { margin: 16px 0 0; }
+.identity-save-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid #eee; margin-top: 24px; padding-top: 20px; }
+.identity-key-login-link { padding: 8px 0; border: 0; background: transparent; color: #C7000B; font-size: 14px; }
+.identity-file-import { display: grid; gap: 12px; }
+.identity-import-divider { display: flex; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 12px; }
+.identity-import-divider::before, .identity-import-divider::after { content: ""; flex: 1; height: 1px; background: var(--border-default); }
+.identity-file-import > button { width: 100%; min-height: 44px; }
+.identity-file-import > p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; text-align: center; }
+.identity-entry-new { border-top: 1px solid #eee; margin-top: 24px; padding-top: 20px; }
+.identity-entry-new p { color: #777; font-size: 13px; margin: 0 0 12px; }
+.identity-entry-new button { width: 100%; }

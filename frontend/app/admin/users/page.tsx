@@ -177,7 +177,22 @@ export default function AdminUsersPage() {
           </form>
         </section>
         <section className="card">
-          <div className="user-filter-row"><form onSubmit={event => { event.preventDefault(); void loadUsers(1); }} className="inline-search"><input value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索用户名或姓名" /><select value={role} onChange={event => setRole(event.target.value)}><option value="">全部角色</option><option value="user">普通用户</option><option value="admin">管理员</option></select><select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">全部状态</option><option value="active">启用</option><option value="disabled">停用</option></select><button>筛选</button></form><span className="result-count">共 {total} 个账号</span></div>
+          <div className="user-filter-row">
+            <form onSubmit={event => { event.preventDefault(); void loadUsers(1); }} className="inline-search" aria-label="筛选账号">
+              <label className="user-filter-search">
+                <UiIcon name="search" size={17} />
+                <input aria-label="搜索用户名或姓名" value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索用户名或姓名" />
+              </label>
+              <select aria-label="角色" value={role} onChange={event => setRole(event.target.value)}>
+                <option value="">全部角色</option><option value="user">普通用户</option><option value="admin">管理员</option>
+              </select>
+              <select aria-label="状态" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
+                <option value="">全部状态</option><option value="active">启用</option><option value="disabled">停用</option>
+              </select>
+              <button type="submit"><UiIcon name="filter" size={16} />筛选</button>
+            </form>
+            <span className="result-count">共 <strong>{total}</strong> 个账号</span>
+          </div>
           {loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table admin-users-table"><thead><tr><th>用户</th><th>部门</th><th>角色</th><th scope="col">鉴权方式</th><th scope="col">Key 标识</th><th>状态</th><th>首次改密</th><th>最近登录</th><th>操作</th></tr></thead><tbody>{users.map(user => { const locked = Boolean(user.locked_until && new Date(user.locked_until) > new Date()); return <tr key={user.id}><td><Link href={`/admin/users/${user.id}`}><strong>{user.display_name || user.username}</strong></Link><small>{user.username}</small></td><td>{user.department || "-"}</td><td>{user.role === "admin" ? "管理员" : "普通用户"}</td><td>{formatAuthMethods(user.auth_methods)}</td><td><code className="admin-identity-key-hint" title="随机部分前 2 位及末 5 位">{formatIdentityKeyHint(user)}</code></td><td><span className={`status-badge ${locked ? "locked" : user.status}`}>{locked ? "已锁定" : user.status === "active" ? "启用" : "停用"}</span></td><td>{user.role === "user" ? "无需密码" : user.must_change_password ? "待修改" : "已完成"}</td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("zh-CN") : "未登录"}</td><td><div className="table-actions"><button className="secondary-btn" onClick={() => startEdit(user)}>编辑</button><button disabled={busy} className="secondary-btn" onClick={() => toggleStatus(user)}>{user.status === "active" ? "停用" : "启用"}</button>{user.role === "admin" && <button disabled={busy} className="secondary-btn" onClick={() => resetPassword(user)}>重置密码</button>}{user.role === "user" && user.auth_methods?.some(method => method === "browser" || method === "passkey" || method === "key") && <UserDeleteButton userId={user.id} onDeleted={() => { setMessage("用户已删除"); void loadUsers(1); }} />}{user.role === "admin" && locked && <button disabled={busy} className="secondary-btn" onClick={() => unlock(user)}>解锁</button>}</div></td></tr>; })}</tbody></table></div>}
           <div className="pagination"><button className="secondary-btn" disabled={page <= 1} onClick={() => loadUsers(page - 1)}>上一页</button><span>第 {page} / {Math.max(1, Math.ceil(total / 20))} 页</span><button className="secondary-btn" disabled={page * 20 >= total} onClick={() => loadUsers(page + 1)}>下一页</button></div>
         </section>
