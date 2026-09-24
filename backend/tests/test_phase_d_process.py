@@ -34,7 +34,7 @@ def test_development_kill_restart_retry_and_http_creation(tmp_path,record_proper
             wait_health(f'http://127.0.0.1:{fake_port}/health',fake)
             def launch():return subprocess.Popen([sys.executable,'-m','uvicorn','app.main:app','--app-dir','backend','--host','127.0.0.1','--port','8000'],cwd=PROJECT_ROOT,env=env,stdout=bl,stderr=subprocess.STDOUT)
             backend=launch();base='http://127.0.0.1:8000';wait_health(base+'/health',backend)
-            token=jwt.encode({'sub':'user-a-id','username':'user_a','role':'user','ver':0,'iat':datetime.now(timezone.utc),'exp':datetime.now(timezone.utc)+timedelta(hours=1)},PROCESS_SECRET,algorithm='HS256')
+            token=jwt.encode({'sub':'user-a-id','username':'user_a','role':'user','ver':0,'amr':'key','sid':'fixture-session-user-a-id','iat':datetime.now(timezone.utc),'exp':datetime.now(timezone.utc)+timedelta(hours=1)},PROCESS_SECRET,algorithm='HS256')
             request={'target_partner_id':'partner-1','raw_demand':'合成可靠性验证','development_goal':'数据库交付',
                 'trainee_role':'工程师','trainee_count':3,'known_baseline':'入门','duration_weeks':4,'hours_per_week':3,
                 'constraints':dict.fromkeys(['language','site','account','network','environment','cost','budget'],'无要求'),

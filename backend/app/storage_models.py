@@ -3,7 +3,7 @@
 Column types intentionally preserve existing TEXT JSON/ISO timestamps and INTEGER flags.
 No business model redesign or runtime schema creation occurs.
 """
-from sqlalchemy import MetaData, Table, Column, Text, Integer, Float, LargeBinary, Identity, ForeignKeyConstraint, UniqueConstraint, CheckConstraint, Index, text
+from sqlalchemy import BigInteger, MetaData, Table, Column, Text, Integer, Float, LargeBinary, Identity, ForeignKeyConstraint, UniqueConstraint, CheckConstraint, Index, text
 
 metadata = MetaData()
 
@@ -500,7 +500,7 @@ Index('idx_user_audit_created', user_audit_logs.c.created_at.desc(), unique=0)
 users = Table('users', metadata,
     Column('id', Text, primary_key=True, nullable=False),
     Column('username', Text, primary_key=False, nullable=False),
-    Column('hashed_password', Text, primary_key=False, nullable=False),
+    Column('hashed_password', Text, primary_key=False, nullable=True),
     Column('display_name', Text, primary_key=False, nullable=True),
     Column('role', Text, primary_key=False, nullable=True, server_default=text("'user'")),
     Column('created_at', Text, primary_key=False, nullable=False),
@@ -514,11 +514,42 @@ users = Table('users', metadata,
     Column('password_changed_at', Text, primary_key=False, nullable=True),
     Column('created_by', Text, primary_key=False, nullable=True),
     Column('updated_at', Text, primary_key=False, nullable=True),
+    Column('last_active_at', Text, nullable=True),
     UniqueConstraint('username', name='uq_users_0'),
+    CheckConstraint("role != 'admin' OR hashed_password IS NOT NULL", name='ck_admin_password'),
 )
 
 Index('idx_users_status_role', users.c.status, users.c.role, unique=0)
 
+
+identity_credentials = Table('identity_credentials', metadata,
+    Column('id', Text, primary_key=True), Column('user_id', Text, nullable=False),
+    Column('kind', Text, nullable=False), Column('credential_id', Text, unique=True),
+    Column('public_key', Text), Column('sign_count', BigInteger, nullable=False, server_default=text('0')),
+    Column('secret_hash', Text, unique=True), Column('created_at', Text, nullable=False),
+    ForeignKeyConstraint(['user_id'], ['users.id']),
+    CheckConstraint("kind IN ('passkey','browser')"),
+    CheckConstraint("(kind='passkey' AND credential_id IS NOT NULL AND public_key IS NOT NULL AND secret_hash IS NULL) OR (kind='browser' AND secret_hash IS NOT NULL AND credential_id IS NULL AND public_key IS NULL)"),
+)
+Index('idx_identity_user', identity_credentials.c.user_id)
+identity_challenges = Table('identity_challenges', metadata,
+    Column('id', Text, primary_key=True), Column('challenge', Text, nullable=False),
+    Column('binding_hash', Text, nullable=False), Column('purpose', Text, nullable=False),
+    Column('user_id', Text), Column('expires_at', Text, nullable=False),
+    CheckConstraint("purpose IN ('register','authenticate')"),
+)
+Index('idx_identity_expiry', identity_challenges.c.expires_at)
+
+user_identity_keys = Table('user_identity_keys', metadata,
+    Column('user_id', Text, primary_key=True), Column('key_hash', Text, nullable=False, unique=True),
+    Column('encrypted_key', Text, nullable=False), Column('created_at', Text, nullable=False),
+    ForeignKeyConstraint(['user_id'], ['users.id']),
+)
+
+# Deleted credentials retain no owner, secret or business data.
+revoked_identity_keys = Table('revoked_identity_keys', metadata,
+    Column('key_hash', Text, primary_key=True), Column('revoked_at', Text, nullable=False),
+)
 
 def create_postgres_schema(connection):
     """Explicit setup/import only. Runtime must find a migrated schema already present."""

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from cryptography.fernet import Fernet
 
 
 TEST_ROOT = Path(tempfile.mkdtemp(prefix="lingjian-pytest-"))
@@ -24,6 +25,7 @@ os.environ["LINGJIAN_DATABASE_PATH"] = str(TEST_DB)
 os.environ["LINGJIAN_UPLOADS_DIR"] = str(TEST_UPLOADS)
 os.environ["LINGJIAN_CHROMA_DIR"] = str(TEST_CHROMA)
 os.environ["JWT_SECRET_KEY"] = TEST_JWT_SECRET
+os.environ["BANFEI_IDENTITY_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 os.environ["BOOTSTRAP_ADMIN_USERNAME"] = "bootstrap_admin"
 os.environ["BOOTSTRAP_ADMIN_PASSWORD"] = BOOTSTRAP_PASSWORD
 os.environ["USER_APPLICATION_RATE_LIMIT"] = "1000"
@@ -57,7 +59,8 @@ def fresh_database(monkeypatch, request):
     if DATABASE_PATH.exists():
         DATABASE_PATH.unlink()
     shutil.rmtree(UPLOADS_DIR, ignore_errors=True)
-    users_router._APPLICATION_ATTEMPTS.clear()
+    from backend.app.routers.local_identity import _ATTEMPTS
+    _ATTEMPTS.clear()
     initialize_storage()
     # Migration/maintenance/fault-injection tests intentionally exercise native
     # SQLite files and triggers. All other tests run on PostgreSQL when requested.
@@ -83,6 +86,8 @@ def fresh_database(monkeypatch, request):
     else:
         request.node.user_properties.append(("database_backend", "sqlite-legacy"))
         yield
+
+
 
 
 @pytest.fixture
@@ -158,7 +163,16 @@ def make_user(
 
 
 def auth_headers(user: dict, *, token_version: int = 0) -> dict[str, str]:
-    token = create_token(user["id"], user["username"], user["role"], token_version)
+    session_id = None
+    if user['role'] == 'user':
+        # Synthetic isolated identities for existing owner/permission regressions.
+        from backend.app.identity_keys import create_identity_key
+        from backend.app.routers.local_identity import add_browser_session
+        with get_db() as conn:
+            if not conn.execute('SELECT 1 FROM user_identity_keys WHERE user_id=?', (user['id'],)).fetchone():
+                create_identity_key(conn, user['id'])
+            session_id, _ = add_browser_session(conn, user['id'])
+    token = create_token(user["id"], user["username"], user["role"], token_version, session_id=session_id)
     return {"Authorization": f"Bearer {token}"}
 
 

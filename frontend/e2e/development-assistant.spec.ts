@@ -1,11 +1,12 @@
+import {fixtureLogin} from "./identity-fixture";
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {evidenceRoot} from './evidence-path';
 import {randomUUID} from 'node:crypto';
-const API='http://127.0.0.1:8000';
+const API='http://localhost:8000';
 let admin:Record<string,string>,user:Record<string,string>,tag:string;
-async function login(r:APIRequestContext,name:string,page?:Page){const res=await r.post(API+'/auth/login',{data:{username:name,password:'ValidationPass123'}});expect(res.ok()).toBeTruthy();const s=await res.json();if(page)await page.addInitScript(s=>{localStorage.setItem('token',s.access_token);localStorage.setItem('user',JSON.stringify(s.user));},s);return {Authorization:`Bearer ${s.access_token}`};}
+async function login(r:APIRequestContext,name:string,page?:Page){const res=await fixtureLogin(r, name, 'ValidationPass123');expect(res.ok()).toBeTruthy();const s=await res.json();if(page)await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},s);return {Authorization:`Bearer ${s.access_token}`};}
 async function ok(res:Awaited<ReturnType<APIRequestContext['get']>>){expect(res.ok(),await res.text()).toBeTruthy();return res.status()===204?null:res.json();}
 async function publish(r:APIRequestContext,url:string,row:{revision:number}){row=await ok(await r.patch(url+'/permissions',{headers:admin,data:{base_revision:row.revision,system_visible:true,model_allowed:true,partner_allowed:true,reason:"V1.2 合成测试授权"}}));await ok(await r.post(url+'/review',{headers:admin,data:{base_revision:row.revision,link_status:'available',content_checked:true,authorization_checked:true}}));return ok(await r.post(url+'/publish',{headers:admin,data:{base_revision:row.revision}}));}
 test.beforeAll(async({request:r})=>{

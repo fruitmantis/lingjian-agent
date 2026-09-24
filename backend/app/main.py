@@ -20,6 +20,8 @@ def get_cors_origins() -> list[str]:
 def initialize_application() -> None:
     """Validate runtime security and initialize persistent application state."""
     get_jwt_secret_key()
+    from .identity_keys import cipher
+    cipher()
     initialize_storage()
     with get_db() as conn:
         existing = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
@@ -49,6 +51,8 @@ app = FastAPI(title="伴飞 Agent API", description="交付伙伴智能匹配智
 app.add_middleware(CORSMiddleware, allow_origins=get_cors_origins(), allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
+
+
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 async def health() -> HealthResponse:
     return HealthResponse(status="ok", service="lingjian-agent-api")
@@ -74,3 +78,6 @@ app.include_router(development.router)
 
 app.include_router(feedback.router)
 app.include_router(feedback.admin_router)
+
+from .routers import local_identity
+app.include_router(local_identity.router)

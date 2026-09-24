@@ -1,18 +1,19 @@
+import {fixtureLogin} from "./identity-fixture";
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-const API = 'http://127.0.0.1:8000';
+const API = 'http://localhost:8000';
 // Synthetic 8x8 PNG. No business images or runtime credentials.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFUlEQVR4nGP8//8/AzbAhFV00EoAAFbUAw037MyjAAAAAElFTkSuQmCC', 'base64');
 
 for (const width of [1366, 1920]) test(`feedback paste upload review and status ${width}`, async ({ page, request }) => {
   expect(process.env.PLAYWRIGHT_REUSE_SERVER).not.toBe('1');
   const admin = JSON.parse(readFileSync('/tmp/lingjian-enablement-e2e/visual-session.json', 'utf8'));
-  expect(admin.database).toBe('postgresql:banfei_validation');
-  const login = await request.post(`${API}/auth/login`, { data: { username: 'user_a', password: 'ValidationPass123' } });
+  expect(['postgresql:banfei_validation','postgresql:banfei_agent_test']).toContain(admin.database);
+  const login = await fixtureLogin(request, 'user_a', 'ValidationPass123');
   expect(login.ok()).toBeTruthy();
   const user = await login.json();
-  await page.addInitScript(session => { localStorage.setItem('token', session.access_token); localStorage.setItem('user', JSON.stringify(session.user)); }, user);
+  await page.addInitScript(session => { localStorage.setItem(`banfei:${session.user.role}:token`, session.access_token); localStorage.setItem(`banfei:${session.user.role}:user`, JSON.stringify(session.user)); }, user);
   await page.setViewportSize({ width, height: 900 });
   await page.goto('/account');
   await page.locator('.sidebar-footer').getByRole('link', { name: '问题反馈', exact: true }).click();
@@ -39,7 +40,7 @@ for (const width of [1366, 1920]) test(`feedback paste upload review and status 
   await expect(page.getByLabel('问题描述')).toHaveValue('');
   expect((await request.get(`${API}/admin/feedback`, { headers: { Authorization: `Bearer ${user.access_token}` } })).status()).toBe(403);
   // Switch this page's session without reloading the user init script.
-  await page.evaluate(session => { localStorage.setItem('token', session.access_token); localStorage.setItem('user', JSON.stringify(session.user)); }, admin);
+  await page.evaluate(session => { localStorage.setItem(`banfei:${session.user.role}:token`, session.access_token); localStorage.setItem(`banfei:${session.user.role}:user`, JSON.stringify(session.user)); }, admin);
   await page.getByRole('link', { name: '个人中心', exact: true }).click();
   await page.locator('.sidebar-footer').getByRole('link', { name: '管理后台', exact: true }).click();
   await expect(page).toHaveURL(/\/admin$/);
@@ -60,9 +61,9 @@ for (const width of [1366, 1920]) test(`feedback paste upload review and status 
 });
 
 test('feedback validates images and preserves draft after submission failure', async ({ page, request }) => {
-  const login = await request.post(`${API}/auth/login`, { data: { username: 'user_a', password: 'ValidationPass123' } });
+  const login = await fixtureLogin(request, 'user_a', 'ValidationPass123');
   const user = await login.json();
-  await page.addInitScript(session => { localStorage.setItem('token', session.access_token); localStorage.setItem('user', JSON.stringify(session.user)); }, user);
+  await page.addInitScript(session => { localStorage.setItem(`banfei:${session.user.role}:token`, session.access_token); localStorage.setItem(`banfei:${session.user.role}:user`, JSON.stringify(session.user)); }, user);
   await page.goto('/feedback');
   await page.getByLabel('上传截图').setInputFiles({ name: 'bad.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
   await expect(page.locator('.feedback-error[role=alert]')).toContainText('仅支持');

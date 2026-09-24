@@ -1,8 +1,9 @@
+import {fixtureLogin} from "./identity-fixture";
 import {test,expect} from '@playwright/test';
 import standard from '../../shared/business-taxonomy.json';
-const API='http://127.0.0.1:8000';
+const API='http://localhost:8000';
 for(const width of [1366,1920])test(`standard industry and grouped regions ${width}`,async({page,request})=>{
- const login=await request.post(API+'/auth/login',{data:{username:'admin1',password:'ValidationPass123'}});expect(login.ok()).toBeTruthy();const session=await login.json();const headers={Authorization:`Bearer ${session.access_token}`};await page.addInitScript(s=>localStorage.setItem('token',s.access_token),session);await page.setViewportSize({width,height:width===1366?768:1080});
+ const login=await fixtureLogin(request, 'admin1', 'ValidationPass123');expect(login.ok()).toBeTruthy();const session=await login.json();const headers={Authorization:`Bearer ${session.access_token}`};await page.addInitScript(s=>localStorage.setItem('banfei:admin:token',s.access_token),session);await page.setViewportSize({width,height:width===1366?768:1080});
  await page.goto('/admin/partners');const section=page.locator('section').filter({has:page.getByRole('heading',{name:'新增伙伴',exact:true})});
  const name=`合成分类测试-${width}-${Date.now()}`;await section.getByPlaceholder('伙伴名称').fill(name);
  const industry=section.getByRole('group',{name:'行业经验（多选）',exact:true});await expect(industry.getByRole('checkbox')).toHaveCount(12);expect(await industry.locator('label').allTextContents()).toEqual(standard.industries);

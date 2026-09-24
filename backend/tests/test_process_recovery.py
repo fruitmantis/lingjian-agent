@@ -112,7 +112,7 @@ def test_real_process_crash_recovers_task_and_allows_retry(tmp_path, crash_stage
         wait_health(f"http://127.0.0.1:{backend_port}/health", backend)
         token = jwt.encode(
             {
-                "sub": "user-a-id", "username": "user_a", "role": "user", "ver": 0,
+                "sub": "user-a-id", "username": "user_a", "role": "user", "ver": 0, "amr": "key", "sid": "fixture-session-user-a-id",
                 "iat": datetime.now(timezone.utc), "exp": datetime.now(timezone.utc) + timedelta(hours=1),
             },
             PROCESS_SECRET, algorithm="HS256",

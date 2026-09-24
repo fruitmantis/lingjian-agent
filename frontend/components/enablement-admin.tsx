@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { apiFetch } from "./auth-provider";
+import { adminApiFetch as apiFetch } from "./auth-provider";
 import styles from "./enablement-admin.module.css";
 
 type Metadata = { title: string; summary: string; source_platform: string; source_url: string; capability_tag_ids: string[]; [key: string]: string | string[] | number | null };

@@ -4,7 +4,7 @@ import {ClassificationFields} from "@/components/business-taxonomy";
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { apiFetch } from "../../../components/auth-provider";
+import { adminApiFetch as apiFetch } from "../../../components/auth-provider";
 
 type Partner = { id: string; name: string; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; status: "active" | "disabled"; created_at: string };
 

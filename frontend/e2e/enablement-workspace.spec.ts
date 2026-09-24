@@ -1,14 +1,15 @@
+import {fixtureLogin} from "./identity-fixture";
 import {evidenceRoot} from "./evidence-path";
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
-const API='http://127.0.0.1:8000';
+const API='http://localhost:8000';
 test.describe.configure({mode:'serial'});
 let adminHeaders:Record<string,string>;let course:string;let lab:string;let sharedCase:string;
 async function login(request:APIRequestContext,username='user_a',page?:Page){
-  const response=await request.post(API+'/auth/login',{data:{username,password:'ValidationPass123'}});
+  const response=await fixtureLogin(request, username, 'ValidationPass123');
   expect(response.ok()).toBeTruthy();const session=await response.json();
-  if(page)await page.addInitScript(s=>{localStorage.setItem('token',s.access_token);localStorage.setItem('user',JSON.stringify(s.user));},session);
+  if(page)await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},session);
   return {Authorization:`Bearer ${session.access_token}`};
 }
 async function checked(response:Awaited<ReturnType<APIRequestContext['get']>>){expect(response.ok(),`Unexpected API status ${response.status()}`).toBeTruthy();return response.json();}

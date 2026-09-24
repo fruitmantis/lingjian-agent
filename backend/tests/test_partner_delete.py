@@ -18,8 +18,12 @@ def admin(client):
     return make_user('delete-admin', role='admin')
 
 
-def snapshot():
+def snapshot(ignore_user_activity=False):
     with get_db() as conn:
+        if ignore_user_activity:
+            tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
+            return {table: [{key: row[key] for key in row.keys() if table != 'users' or key != 'last_active_at'}
+                            for row in conn.execute(f'SELECT * FROM "{table}"')] for table in tables}
         return '\n'.join(conn.iterdump())
 
 
@@ -50,13 +54,17 @@ def test_unused_partner_and_derived_profile_deleted_but_global_tags_preserved(cl
 
 def test_delete_is_admin_only(client, admin):
     make_partner()
-    before = snapshot()
+    before = snapshot(ignore_user_activity=True)
     assert client.delete('/partners/partner-1').status_code == 401
     user = make_user('delete-user')
-    before = snapshot()
-    assert client.delete('/partners/partner-1', headers=auth_headers(user)).status_code == 403
-    assert client.delete('/partners/missing', headers=auth_headers(user)).status_code == 403
-    assert snapshot() == before
+    headers = auth_headers(user)
+    before = snapshot(ignore_user_activity=True)
+    assert client.delete('/partners/partner-1', headers=headers).status_code == 403
+    assert client.delete('/partners/missing', headers=headers).status_code == 403
+    assert snapshot(ignore_user_activity=True) == before
+
+    with get_db() as conn:
+        assert conn.execute('SELECT last_active_at FROM users WHERE id=?', (user['id'],)).fetchone()[0]
 
 
 @pytest.mark.parametrize('kind', ['cases', 'deliverables', 'documents'])

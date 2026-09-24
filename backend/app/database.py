@@ -220,7 +220,7 @@ def initialize_storage() -> None:
             file_type TEXT NOT NULL, doc_category TEXT, extracted_text TEXT, created_at TEXT NOT NULL,
             FOREIGN KEY (partner_id) REFERENCES partners(id))""")
         connection.execute("""CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, hashed_password TEXT NOT NULL,
+            id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, hashed_password TEXT,
             display_name TEXT, role TEXT DEFAULT 'user', created_at TEXT NOT NULL)""")
         _ensure_column(connection, "users", "department", "TEXT")
         _ensure_column(connection, "users", "status", "TEXT NOT NULL DEFAULT 'active'")
@@ -364,6 +364,8 @@ def initialize_storage() -> None:
         migrate_to_v11(connection)
         from .development_schema import migrate_to_v12
         migrate_to_v12(connection)
+        from .identity_schema import initialize_identity_schema
+        initialize_identity_schema(connection)
         _ensure_column(connection, "match_records", "last_error_details", "TEXT")
         from .feedback_schema import initialize_feedback_fixture
         initialize_feedback_fixture(connection)

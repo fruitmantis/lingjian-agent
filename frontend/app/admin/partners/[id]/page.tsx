@@ -4,7 +4,7 @@ import {ClassificationFields, ClassificationNotice} from "@/components/business-
 
 import Link from "next/link";
 import { FormEvent, use, useEffect, useState } from "react";
-import { apiFetch } from "../../../../components/auth-provider";
+import { adminApiFetch as apiFetch } from "../../../../components/auth-provider";
 
 type Partner = { classification_pending?: Record<string,string[]>; id: string; name: string; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; status: "active" | "disabled" };
 type Document = { id: string; filename: string; file_type: string; extracted_text: string | null; created_at: string };

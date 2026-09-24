@@ -1,14 +1,15 @@
+import {fixtureLogin} from "./identity-fixture";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
-const API = "http://127.0.0.1:8000";
+const API = "http://localhost:8000";
 type Task = { id: string; requirement: string; createdAt: string; taskStatus: string; recommendations: unknown[]; archivedAt: null; opportunity: null };
 async function login(page: Page, request: APIRequestContext) {
-  const response = await request.post(`${API}/auth/login`, { data: { username: "user_a", password: "ValidationPass123" } });
+  const response = await fixtureLogin(request, "user_a", "ValidationPass123");
   expect(response.ok()).toBeTruthy();
   const session = await response.json();
   await page.addInitScript(({ token, user }) => {
-    localStorage.setItem("token", token); localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem(`banfei:${user.role}:token`, token); localStorage.setItem(`banfei:${user.role}:user`, JSON.stringify(user));
   }, { token: session.access_token, user: session.user });
   return { Authorization: `Bearer ${session.access_token}` };
 }
@@ -217,7 +218,7 @@ test("starting a blank task during submission keeps the previous job in navigati
   await rows(page).click();
   await expect(page.getByText("正在匹配伙伴，状态会自动更新。", { exact: true })).toBeVisible();
   records[0].taskStatus = "failed";
-  await expect(page.getByRole("button", { name: "重试任务", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "重试", exact: true })).toBeVisible();
 });
 
 test("detail polling preserves unsaved opportunity fields", async ({ page, request }) => {

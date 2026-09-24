@@ -44,6 +44,14 @@ def seed() -> None:
                    VALUES (?, ?, ?, ?, '验证部门', ?, ?, ?, 0, 0, ?, ?, ?)""",
                 (user_id, username, password_hash, name, role, user_status, must_change, locked_until, now, now),
             )
+        from backend.app.identity_keys import create_identity_key
+        from backend.app.routers.local_identity import add_browser_session
+        for user_id, _, _, role, *_ in USERS:
+            if role == 'user':
+                create_identity_key(conn, user_id)
+                session_id, _ = add_browser_session(conn, user_id)
+                # Stable test-only session ID for subprocess bearer fixtures.
+                conn.execute('UPDATE identity_credentials SET id=? WHERE id=?', ('fixture-session-'+user_id, session_id))
         conn.execute(
             """INSERT INTO partners
                (id, name, intro, capabilities, service_areas, industries, ai_profile, status, created_at, updated_at)

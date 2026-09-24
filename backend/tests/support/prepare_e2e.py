@@ -35,6 +35,23 @@ def main() -> None:
     with get_db() as conn:
         user = dict(conn.execute("SELECT id, username, display_name, department, role, status, must_change_password, token_version FROM users WHERE username = 'admin1'").fetchone())
     session = {"database": f"postgresql:{parsed.database}" if target.startswith("postgresql") else str(database), "access_token": create_token(user["id"], user["username"], user["role"], user["token_version"]), "user": user}
+    with get_db() as conn:
+        fixture_users = [dict(row) for row in conn.execute("SELECT * FROM users")]
+    from backend.app.identity_keys import create_identity_key
+    from backend.app.routers.local_identity import add_browser_session
+    sessions = {}
+    with get_db() as conn:
+        for u in fixture_users:
+            sid = None
+            if u['role'] == 'user':
+                sid = 'fixture-session-'+u['id']
+            u['identity_method'] = 'password' if u['role'] == 'admin' else 'key'
+            sessions[u['username']] = {'access_token': create_token(u['id'], u['username'], u['role'], u['token_version'], session_id=sid), 'user': u}
+    # Never persist password hashes in frontend fixture material.
+    for value in sessions.values():
+        value['user'].pop('hashed_password', None)
+    with os.fdopen(os.open(validation_root / "identity-sessions.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:
+        json.dump(sessions, stream)
     with os.fdopen(os.open(validation_root / "visual-session.json", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as stream:
         json.dump(session, stream)
 

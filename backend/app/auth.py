@@ -31,8 +31,10 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_token(user_id: str, username: str, role: str, token_version: int = 0) -> str:
-    payload = {"sub": user_id, "username": username, "role": role, "ver": token_version, "exp": datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRE_HOURS), "iat": datetime.now(timezone.utc)}
+def create_token(user_id: str, username: str, role: str, token_version: int = 0, *, auth_method: str | None = None, session_id: str | None = None) -> str:
+    payload = {"amr": auth_method or ("password" if role == "admin" else "key"), "sub": user_id, "username": username, "role": role, "ver": token_version, "exp": datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRE_HOURS), "iat": datetime.now(timezone.utc)}
+    if session_id:
+        payload["sid"] = session_id
     return jwt.encode(payload, get_jwt_secret_key(), algorithm=ALGORITHM)
 
 
@@ -66,19 +68,33 @@ def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(secu
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="未登录或 token 已过期", headers={"WWW-Authenticate": "Bearer"})
     from .database import get_db
     with get_db() as conn:
+        # Serialize activity with cleanup and credential writes across processes.
+        conn.execute('BEGIN IMMEDIATE')
         row = conn.execute(
             "SELECT id, username, display_name, department, role, status, must_change_password, token_version, created_at, updated_at, last_login_at, locked_until FROM users WHERE id = ?",
             (payload.get("sub"),),
         ).fetchone()
-    if row is None or row["status"] != "active":
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="账号不存在或已停用")
-    if int(payload.get("ver", 0)) != int(row["token_version"] or 0):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效，请重新登录")
-    return dict(row)
+        if row is None or row["status"] != "active":
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="账号不存在或已停用")
+        if int(payload.get("ver", 0)) != int(row["token_version"] or 0):
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效，请重新登录")
+        method = payload.get("amr")
+        if (row["role"] == "admin" and method != "password") or (row["role"] == "user" and method != "key"):
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="登录方式已失效，请重新进入")
+        if row["role"] == "user":
+            credential = conn.execute("""SELECT c.id FROM identity_credentials c
+                JOIN user_identity_keys k ON k.user_id=c.user_id
+                WHERE c.id=? AND c.user_id=? AND c.kind='browser' AND c.created_at>?""",
+                (payload.get('sid'), row['id'], (datetime.now(timezone.utc) - timedelta(days=365)).isoformat())).fetchone()
+            if not credential:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效，请使用身份 Key 登录")
+            conn.execute("UPDATE users SET last_active_at=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), row["id"]))
+        return {**dict(row), "identity_method": method}
+
 
 
 def require_active_user(user: dict = Depends(require_user)) -> dict:
-    if user.get("must_change_password"):
+    if user.get("role") == "admin" and user.get("must_change_password"):
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="请先修改临时密码")
     return user
 

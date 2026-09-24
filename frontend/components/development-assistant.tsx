@@ -4,7 +4,7 @@ import Link from "next/link";
 import {UiIcon} from "./ui-icons";
 import {PlanStatus,type PlanPresentation} from "./plan-status";
 import {useEffect,useState,useRef} from "react";
-import {useRouter} from "next/navigation";
+import {useRouter,usePathname} from "next/navigation";
 import {apiFetch} from "./auth-provider";
 import {tasksChanged,newTaskId} from "./task-navigation";
 
@@ -27,6 +27,7 @@ export function DevelopmentRequestForm({partnerId,sourceTask=null,sourceCase=nul
  return <section className="card development-form"><h2>发展方向</h2><label className="enablement-field">你希望这个伙伴往什么方向发展？<textarea aria-label="发展方向" rows={5} maxLength={4000} value={direction} onChange={e=>{setDirection(e.target.value);submission.current=newTaskId();}} placeholder="例如：希望未来能够独立承担企业级 Agent 和 RAG 项目交付。也可以问：这个伙伴下一步适合往哪里发展？"/></label>{error&&<p role="alert" className="notice-neutral">{error}</p>}<div className="development-form-actions"><p className="muted">点击生成，即允许本次分析使用你填写的方向、当前伙伴的最小画像摘要及页面带入的来源上下文。内部附件与案例原文不发送；学习资源仅用于准备，交付能力仍需真实项目验证。</p><button disabled={busy} onClick={()=>void submit()}>{busy?"正在创建任务…":"生成能力发展建议"}</button></div></section>;
 }
 export function DevelopmentPlanDetail({id}:{id:string}){
+ const pathname=usePathname();
  const [data,setData]=useState<Detail|null>(null),[error,setError]=useState(""),[selected,setSelected]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[preview,setPreview]=useState("");
  const [panel,setPanel]=useState<"history"|"runs"|null>(null);
  useEffect(()=>{if(panel)document.getElementById(`advisor-${panel}`)?.scrollIntoView({behavior:"smooth",block:"start"});},[panel]);
@@ -45,7 +46,7 @@ export function DevelopmentPlanDetail({id}:{id:string}){
  const latest=data.runs[0],failed=latest&&["failed","partial","interrupted"].includes(latest.status);
  const summary=data.presentation.state==="archived"?"已归档":data.hidden?"部分内容已受限":payload?"建议可用":running?"正在整理建议":"暂未生成建议";
  function suggest(text:string){setMessage(text);submission.current=newTaskId();document.getElementById("advisor-chat")?.scrollIntoView({behavior:"smooth",block:"center"});}
- return <div className="page development-detail advisor-detail"><Link href="/tasks">← 全部任务</Link>
+ return <div className="page development-detail advisor-detail"><Link href={pathname.startsWith("/admin") ? "/admin/tasks" : "/tasks"}>← 全部任务</Link>
  <header className="advisor-heading"><div><p className="eyebrow">{data.partner_name}</p><h1>能力发展建议</h1><p className="advisor-status" data-testid="advisor-status">{summary}</p></div><details className="advisor-more"><summary>更多</summary><div className="advisor-menu" onClick={e=>{if((e.target as HTMLElement).closest("button"))e.currentTarget.closest("details")?.removeAttribute("open");}}><button className="secondary-btn" onClick={()=>setPanel(panel==="history"?null:"history")}>历史版本</button><button className="secondary-btn" disabled={locked||!payload||historical} onClick={()=>void action(async()=>{await request(`/development/plans/${id}/confirm`,{version_id:plan.current_version_id});})}>设为当前采用版本</button><button className="secondary-btn" disabled={busy||!plan.confirmed_version_id||data.hidden||plan.status==="archived"} onClick={()=>void action(async()=>{setPreview((await request<{text:string}>(`/development/plans/${id}/transferable`)).text);})}>伙伴可传递视图预览</button><button className="secondary-btn" onClick={()=>setPanel(panel==="runs"?null:"runs")}>运行记录</button><button className="secondary-btn" disabled={busy||running} onClick={()=>void action(async()=>{await request(`/agent/tasks/${id}/${plan.status==="archived"?"restore":"archive"}`,{},"PATCH");})}>{plan.status==="archived"?"恢复方案":"归档方案"}</button></div></details></header>
  {error&&<p role="alert" className="notice-neutral">{error}</p>}{running&&<p role="status" className="notice-neutral">伴飞正在整理建议，你可以继续查看已有内容。</p>}{failed&&<div data-testid="advisor-run-notice"><FailureNotice details={data.failureDetails} partial={!!payload} title={payload?"最近处理未完成，已有建议仍可使用":"本次建议生成未完成"} impact={payload?"本次执行未生成新版本，当前建议和已采用版本保持不变。":"发展诉求已保留，可重新生成。"}>{!running&&<button className="secondary-btn" disabled={busy||plan.status==="archived"||historical} onClick={()=>void action(async()=>{await request(`/development/plans/${id}/retry`,{submission_id:submission.current,based_on_version_id:plan.current_version_id,run_id:latest.id});submission.current=newTaskId();})}>重试</button>}</FailureNotice></div>}{data.notice&&<p className="notice-neutral">{data.notice}</p>}
  {panel==="history"&&<section className="card advisor-secondary" id="advisor-history" data-testid="version-history"><h2>历史版本</h2><PlanStatus value={data.presentation}/><label className="enablement-field">查看版本<select value={selected} onChange={e=>setSelected(e.target.value)}><option value="">最新建议</option>{data.versions.map(v=><option key={v.id} value={v.id}>V{v.version_no}{v.id===plan.confirmed_version_id?" · 当前采用":" · 历史快照"}</option>)}</select></label><button className="secondary-btn" onClick={()=>setPanel(null)}>收起历史版本</button></section>}

@@ -1,16 +1,17 @@
+import {fixtureLogin} from "./identity-fixture";
 import {test,expect,type APIResponse} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {evidenceRoot} from './evidence-path';
-const API='http://127.0.0.1:8000';
+const API='http://localhost:8000';
 async function ok(res:APIResponse){expect(res.ok(),await res.text()).toBeTruthy();return res.status()===204?null:res.json();}
 for(const width of [1366,1920])test(`RC plan availability, list, sidebar and detail ${width}`,async({page,request:r})=>{
  test.setTimeout(180000);
- const session=await ok(await r.post(API+'/auth/login',{data:{username:'user_a',password:'ValidationPass123'}}));
+ const session=await ok(await fixtureLogin(r, 'user_a', 'ValidationPass123'));
  const headers={Authorization:`Bearer ${session.access_token}`};
- await page.addInitScript(s=>{localStorage.setItem('token',s.access_token);localStorage.setItem('user',JSON.stringify(s.user));},session);
+ await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},session);
  await page.setViewportSize({width,height:width===1366?768:1080});
  const tags=await ok(await r.get(API+'/development/capabilities',{headers}));
  const demand={target_partner_id:'partner-1',raw_demand:'仅用于 RC 状态合成验证',development_goal:`RC 状态合成验证 ${width}`,trainee_role:'交付工程师',trainee_count:3,known_baseline:'需进行人员基础评估',duration_weeks:4,hours_per_week:3,constraints:Object.fromEntries(['language','site','account','network','environment','cost','budget'].map(k=>[k,'无要求'])),accepted_assumptions:{},targets:[{capability_tag_id:tags[0].id,requirement:'独立实施',confirmed_gap:false}],model_input_allowed:true,partner_goal_allowed:true};

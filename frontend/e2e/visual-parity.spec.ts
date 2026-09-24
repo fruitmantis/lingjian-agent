@@ -1,14 +1,15 @@
+import {fixtureLogin} from "./identity-fixture";
 import { expect, test, type APIRequestContext, type Browser } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "http://localhost:8000";
 const DEFAULT_PASSWORD = "ValidationPass123";
 
 type LoginResult = { access_token: string; user: Record<string, unknown> };
 
 async function apiLogin(request: APIRequestContext, username: string): Promise<LoginResult> {
-  const response = await request.post(`${API_BASE}/auth/login`, { data: { username, password: DEFAULT_PASSWORD } });
+  const response = await fixtureLogin(request, username, DEFAULT_PASSWORD);
   expect(response.ok(), `API login failed for ${username}: ${response.status()}`).toBeTruthy();
   return await response.json() as LoginResult;
 }
@@ -39,8 +40,7 @@ test("capture cloudbao visual parity pages and validate browser health", async (
     const context = await browser.newContext({ viewport: route.viewport });
     const session = sessions.get(route.user)!;
     await context.addInitScript(({ token, user }) => {
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem(`banfei:${user.role}:token`, token); localStorage.setItem(`banfei:${user.role}:user`, JSON.stringify(user));
     }, { token: session.access_token, user: session.user });
     const page = await context.newPage();
     const pageErrors: string[] = [];

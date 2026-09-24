@@ -49,7 +49,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [health, setHealth] = useState<boolean | null>(null);
-  const isStandalone = pathname === "/login" || pathname === "/403" || pathname === PASSWORD_CHANGE_PATH;
+  const isStandalone = pathname === "/admin/login" || pathname === "/login" || pathname === "/403" || pathname === PASSWORD_CHANGE_PATH;
   const isAdmin = pathname.startsWith("/admin");
 
   useEffect(() => {
@@ -87,9 +87,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="sidebar-footer">
           {!isAdmin && <Link href="/feedback" className={`sidebar-footer-link ${pathname === "/feedback" ? "active" : ""}`} aria-current={pathname === "/feedback" ? "page" : undefined}><UiIcon name="file" size={18} /><span>问题反馈</span></Link>}
-          <Link href="/account" className={`sidebar-footer-link ${!isAdmin && pathname === "/account" ? "active" : ""}`} aria-current={pathname === "/account" ? "page" : undefined}><UiIcon name="user" size={18} /><span>个人中心</span></Link>
-          {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回伴飞 Agent</span></Link> : user?.role === "admin" ? <Link href="/admin" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link> : null}
-          <button type="button" onClick={logout} className="sidebar-footer-link sidebar-logout"><UiIcon name="logout" size={18} /><span>退出登录</span></button>
+          <Link href={isAdmin ? "/admin/account" : "/account"} className={`sidebar-footer-link ${!isAdmin && pathname === "/account" ? "active" : ""}`} aria-current={pathname === "/account" ? "page" : undefined}><UiIcon name="user" size={18} /><span>个人中心</span></Link>
+          {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回伴飞 Agent</span></Link> : <Link href="/admin/login" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link>}
+          <button type="button" onClick={logout} className="sidebar-footer-link sidebar-logout"><UiIcon name="logout" size={18} /><span>{isAdmin ? "退出登录" : "退出"}</span></button>
         </div>
       </aside>
       <div className="main-area">
@@ -98,7 +98,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="topbar-right">
             <span className={`status-dot-new ${health === true ? "online" : health === false ? "offline" : ""}`} />
             <span className="status-label-new">{health === true ? "系统正常" : health === false ? "系统异常" : "检测中"}</span>
-            <Link href="/account" className="topbar-user"><UiIcon name="user" size={17} /><span>{user?.display_name || user?.username || "账号"}</span></Link>
+            <Link href={isAdmin ? "/admin/account" : "/account"} className="topbar-user"><UiIcon name="user" size={17} /><span>{user?.display_name || user?.username || "账号"}</span></Link>
           </div>
         </header>
         <main className="page-content">{children}</main>

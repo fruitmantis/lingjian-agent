@@ -64,12 +64,13 @@ def maintenance(tmp_path, monkeypatch, client):
     monkeypatch.setattr(match, "_perform_partner_match", forbid)
     monkeypatch.setattr(match, "_generate_tag_suggestions", forbid)
     monkeypatch.setattr(httpx.Client, "post", forbid)
+    owner_headers, other_headers = auth_headers(owner), auth_headers(other)
     work = tmp_path / "maintenance"
     source_hash = repair.digest(database.DATABASE_PATH)
     plan = repair.prepare(database.DATABASE_PATH, work)
     return {"work": work, "plan": plan, "owner": owner, "other": other,
             "demand": demand_only, "opportunity": opportunity_only, "both": both, "calls": calls,
-            "source_hash": source_hash}
+            "source_hash": source_hash, "owner_headers": owner_headers, "other_headers": other_headers}
 
 
 def snapshot(path):
@@ -120,12 +121,20 @@ def test_roundtrip_preserves_original_rows_and_is_idempotent(maintenance, client
             task = next(t for t in before["match_records"] if t["id"] == row["match_record_id"])
             if row not in before[table]:
                 assert row["requirement_text"] == task["requirement"]
-    own = client.get(f"/agent/tasks/{data['demand']}", headers=auth_headers(data["owner"]))
+    own = client.get(f"/agent/tasks/{data['demand']}", headers=data["owner_headers"])
     assert own.status_code == 200
-    assert client.get(f"/agent/tasks/{data['demand']}", headers=auth_headers(data["other"])).status_code == 404
+    assert client.get(f"/agent/tasks/{data['demand']}", headers=data["other_headers"]).status_code == 404
     assert repair.transfer(data["work"], database.DATABASE_PATH, rollback=True) == 4
     assert repair.transfer(data["work"], database.DATABASE_PATH, rollback=True) == 0
-    assert snapshot(database.DATABASE_PATH) == before
+    restored = snapshot(database.DATABASE_PATH)
+    # The authenticated reads above now record activity; maintenance must preserve it.
+    for row in restored["users"]:
+        if row["id"] in (data["owner"]["id"], data["other"]["id"]):
+            assert row["last_active_at"]
+        row.pop("last_active_at", None)
+    for row in before["users"]:
+        row.pop("last_active_at", None)
+    assert restored == before
 
 
 def test_budget_check_makes_zero_calls(maintenance):

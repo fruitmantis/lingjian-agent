@@ -5,7 +5,7 @@ const reason={stage:"project_opportunity",stageLabel:"项目机会",code:"timeou
 const presentation={state:"available",current_version:1,confirmed_version:1,current_is_confirmed:true,current_available:true,confirmed_available:true,latest_run_status:"failed",latest_run_type:"revise"};
 const summary={id:"partial-fixture",requirement:"合成验收：部分完成",task_type:"partner_match",taskStatus:"partial",lastErrorStage:"project_opportunity",failureDetails:[reason],topPartner:"合成伙伴",partnerCount:1,createdAt:stamp,archivedAt:null,ownerName:"验收用户",department:"测试",completenessScore:null};
 async function fixture(page:Page){
- await page.addInitScript(({user})=>{localStorage.setItem("token","isolated-fixture");localStorage.setItem("user",JSON.stringify(user));},{user});
+ await page.addInitScript(({user})=>{localStorage.setItem(`banfei:${user.role}:token`, "isolated-fixture"); localStorage.setItem(`banfei:${user.role}:user`, JSON.stringify(user));},{user});
  const writes:{path:string;body:Record<string,unknown>}[]=[];
  await page.route("**/*",async route=>{
   const request=route.request(),url=new URL(request.url());

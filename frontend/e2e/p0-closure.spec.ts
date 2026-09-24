@@ -1,13 +1,14 @@
+import {fixtureLogin} from "./identity-fixture";
 import {randomUUID} from 'node:crypto';
 import {test,expect} from '@playwright/test';
-const API='http://127.0.0.1:8000';
+const API='http://localhost:8000';
 
 for (const width of [1366,1920]) test(`P0 scene shortcuts, combined counts and development status ${width}`,async({page,request})=>{
   test.setTimeout(90000);
   await page.setViewportSize({width,height:width===1366?768:1080});
-  const response=await request.post(API+'/auth/login',{data:{username:'admin1',password:'ValidationPass123'}});
+  const response=await fixtureLogin(request, 'admin1', 'ValidationPass123');
   expect(response.ok()).toBeTruthy();const session=await response.json();
-  await page.addInitScript(s=>{localStorage.setItem('token',s.access_token);localStorage.setItem('user',JSON.stringify(s.user));},session);
+  await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},session);
   const headers={Authorization:`Bearer ${session.access_token}`};
   await page.goto('/scenes');
   await page.getByLabel('搜索场景').fill('伙伴能力短板分析');

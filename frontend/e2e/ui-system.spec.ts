@@ -5,14 +5,14 @@ import path from 'node:path';
 // Browser-only fixtures: no authentication, resource mutation or model request reaches the API.
 for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`,async({page})=>{
   await page.setViewportSize({width,height:width===1366?768:1080});
-  await page.addInitScript(()=>localStorage.setItem('token','synthetic-browser-only'));
+  await page.addInitScript(()=>{localStorage.setItem('banfei:user:token','synthetic-user');localStorage.setItem('banfei:admin:token','synthetic-admin');});
   let writes=0;
   await page.route(/https?:\/\/(127\.0\.0\.1|localhost):8000\//,route=>{
     const u=new URL(route.request().url()),p=u.pathname;
     if(route.request().method()!=='GET'){writes++;return route.abort();}
     let json:unknown={items:[],total:0,page:1,pageSize:20,totalPages:0};
     const partner={id:'ui-preview',name:'合成视觉伙伴',capabilities:'数据库 · 系统集成',industries:'金融',service_areas:'广东',intro:'用于界面验证的合成数据。',ai_profile:'数据库交付及应用集成基础。',created_at:'2026-09-01',case_count:1,deliverable_count:1};
-    if(p==='/auth/me')json={id:'ui-admin',username:'ui-admin',role:'admin',status:'active',must_change_password:false};
+    if(p==='/auth/me')json={id:'ui-admin',username:'ui-admin',role:route.request().headers().authorization==='Bearer synthetic-admin'?'admin':'user',status:'active',must_change_password:false};
     else if(p==='/partners'||p==='/partners/profiles')json=[partner];
     else if(p==='/enablement/context')json={partner,evidence:[],project:null,shared_case:null};
     else if(p==='/enablement/resource-filters')json={capabilities:[]};

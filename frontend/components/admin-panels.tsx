@@ -1,20 +1,14 @@
 "use client";
+import { adminApiFetch } from "./auth-provider";
 
 import { useState, useEffect } from "react";
-import { fetchWithTimeout, responseError } from "../lib/api-request";
+import { responseError } from "../lib/api-request";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 function fetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  return fetchWithTimeout(input, { ...init, headers }).then(response => {
-    if (response.status === 401) {
-      localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.assign("/login");
-    }
-    return response;
-  });
+  const path = String(input).slice(apiBaseUrl.length);
+  return adminApiFetch(path, init);
 }
 
 // ============ Capability Tags Tab (inline edit) ============
@@ -674,7 +668,7 @@ export default function AdminPage() {
   }
   useEffect(() => { loadData(); }, []);
   const cards = [
-    ["内部用户", "users"], ["待审批账号", "pendingUserApplications"], ["停用用户", "disabledUsers"], ["启用伙伴", "partners"],
+    ["内部用户", "users"], ["停用用户", "disabledUsers"], ["启用伙伴", "partners"],
     ["待完善画像", "partnersWithoutProfile"], ["累计任务", "tasks"], ["本月任务", "monthTasks"],
     ["项目机会", "opportunities"], ["供给不足", "gapDemands"], ["待采纳建议", "pendingSuggestions"],
   ];
@@ -684,7 +678,7 @@ export default function AdminPage() {
       <p className="eyebrow">Administration</p><h1>后台概览</h1><p className="lead">查看平台用户、伙伴、任务和运营待办。</p>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={loadData}>重试</button></div>}
       <section className="admin-metric-grid">{cards.map(([label, key]) => <div className="card admin-metric-card" key={key}><span>{label}</span><strong>{data ? data[key] ?? 0 : "--"}</strong>{data && (key === "tasks" || key === "monthTasks") && <small className="muted">项目找伙伴 {data[key === "tasks" ? "partnerMatchTasks" : "monthPartnerMatchTasks"] ?? 0} · 能力发展 {data[key === "tasks" ? "developmentTasks" : "monthDevelopmentTasks"] ?? 0}</small>}</div>)}</section>
-      <section className="card"><h2>管理重点</h2><div className="admin-shortcuts"><a href="/admin/users?tab=applications">审批账号申请</a><a href="/admin/partners">完善伙伴资料</a><a href="/admin/tasks">查看全量任务</a><a href="/admin/tags">处理标签建议</a></div></section>
+      <section className="card"><h2>管理重点</h2><div className="admin-shortcuts"><a href="/admin/users">管理用户</a><a href="/admin/partners">完善伙伴资料</a><a href="/admin/tasks">查看全量任务</a><a href="/admin/tags">处理标签建议</a></div></section>
     </main>
   );
 }

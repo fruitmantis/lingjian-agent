@@ -14,7 +14,8 @@ from scripts import validate_pilot_data as v
 
 
 @pytest.fixture(autouse=True)
-def forbid_network_and_model(monkeypatch):
+def forbid_network_and_model(monkeypatch,tmp_path):
+    monkeypatch.setattr(v, "STABLE", tmp_path / "protected-baseline")
     def forbidden(*args, **kwargs): raise AssertionError('Network/model forbidden in intake tests')
     monkeypatch.setattr(socket.socket, 'connect', forbidden)
     monkeypatch.setattr('backend.app.development_model.completion', forbidden)
@@ -22,6 +23,9 @@ def forbid_network_and_model(monkeypatch):
 
 @pytest.fixture
 def package(client, tmp_path):
+    # Historical pilot tooling validates its original v12 snapshot contract.
+    with get_db() as conn:
+        conn.execute("UPDATE app_metadata SET value='12' WHERE key='schema_version'")
     admin = make_user('intake-reviewer', role='admin')
     make_partner()
     with get_db() as conn:

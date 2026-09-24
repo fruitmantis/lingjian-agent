@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {test, expect} from '@playwright/test';
-const API = 'http://127.0.0.1:8000';
+const API = 'http://localhost:8000';
 
 for (const width of [1366, 1920]) test(`admin partner deletion preserves business history ${width}`, async ({page, request}) => {
   // Created by prepare_e2e only in its guarded /tmp fixture directory. No runtime credentials.
@@ -12,7 +12,7 @@ for (const width of [1366, 1920]) test(`admin partner deletion preserves busines
   // The ephemeral fixture token cannot authenticate against the private runtime database.
   expect((await request.get(`${API}/partners`,{headers})).status()).toBe(200);
   await page.setViewportSize({width, height: width === 1366 ? 768 : 1080});
-  await page.addInitScript(s => {localStorage.setItem('token',s.access_token); localStorage.setItem('user',JSON.stringify(s.user));}, session);
+  await page.addInitScript(s => {localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));}, session);
   const unusedName = `Synthetic unused ${randomUUID()}`;
   const usedName = `Synthetic history ${randomUUID()}`;
   async function create(name: string) {

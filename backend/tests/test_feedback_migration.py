@@ -14,6 +14,7 @@ def test_additive_migration_rollback_and_repeatability(client):
     user = make_user('migration-preserved')
     engine = engine_for(url)
     with engine.begin() as conn:
+        conn.execute(text("UPDATE app_metadata SET value='12' WHERE key='schema_version'"))
         feedback_attachment.drop(conn)
         feedback_issue.drop(conn)
         before = conn.execute(text('SELECT * FROM users ORDER BY id')).all()

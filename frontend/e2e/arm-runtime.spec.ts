@@ -26,7 +26,7 @@ test("same-origin proxy preserves direct API model request budgets", () => {
     ["/agent/tasks", "GET", 30_000],
   ];
   for (const [path, method, budget] of cases) {
-    expect(requestTimeoutMs("http://127.0.0.1:8000" + path, method)).toBe(budget);
+    expect(requestTimeoutMs("http://localhost:8000" + path, method)).toBe(budget);
     expect(requestTimeoutMs("/api" + path, method)).toBe(budget);
     expect(requestTimeoutMs("http://app.test:3000/api" + path, method)).toBe(budget);
   }
@@ -36,7 +36,7 @@ test("optional proxy leaves direct development config unchanged", () => {
   const code = `import config from './next.config.mjs'; console.log(JSON.stringify({rules:await config.rewrites(),experimental:config.experimental}));`;
   const run = (extra: Record<string,string>) => JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", code], { cwd: process.cwd(), env: { ...process.env, BANFEI_API_PROXY_TARGET: "", BANFEI_BUILD_CPUS: "", ...extra }, encoding: "utf8" }));
   expect(run({})).toEqual({ rules: [] });
-  const proxy=run({ BANFEI_API_PROXY_TARGET: "http://127.0.0.1:8000", BANFEI_BUILD_CPUS: "1" });
-  expect(proxy.rules).toEqual([{ source: "/api/:path*", destination: "http://127.0.0.1:8000/:path*" }]);
+  const proxy=run({ BANFEI_API_PROXY_TARGET: "http://localhost:8000", BANFEI_BUILD_CPUS: "1" });
+  expect(proxy.rules).toEqual([{ source: "/api/:path*", destination: "http://localhost:8000/:path*" }]);
   expect(proxy.experimental).toEqual({ cpus: 1, proxyTimeout: 420_000 });
 });

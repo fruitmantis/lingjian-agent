@@ -3,14 +3,14 @@ import {mkdir} from 'node:fs/promises';
 
 for(const width of [1366,1920])test(`task history typography and status hierarchy ${width}`,async({page})=>{
   await page.setViewportSize({width,height:width===1366?768:1080});
-  await page.addInitScript(()=>localStorage.setItem('token','synthetic-browser-only'));
+  await page.addInitScript(()=>localStorage.setItem('banfei:user:token','synthetic-browser-only'));
   const presentation={state:'available',current_version:1,confirmed_version:1,current_is_confirmed:true,current_available:true,confirmed_available:true,latest_run_status:'failed',latest_run_type:'revise'};
   const records=Array.from({length:10},(_,index)=>({id:`history-${index}`,requirement:index===1?'合成伙伴 · Agent 应用交付':`华北某医院数据库迁移项目伙伴需求 ${index}`,createdAt:new Date(Date.UTC(2026,8,8-index,10)).toISOString(),taskStatus:index===1?'failed':index===2?'partial':'ready',task_type:index===1?'development_plan':'partner_match',planPresentation:index===1?presentation:null,archivedAt:null,recommendations:[],opportunity:null}));
   let writes=0;const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route(/https?:\/\/(127\.0\.0\.1|localhost):8000\//,route=>{
     if(route.request().method()!=='GET'){writes++;return route.abort();}
     const p=new URL(route.request().url()).pathname;
-    if(p==='/auth/me')return route.fulfill({json:{id:'visual-user',username:'visual-user',role:'admin',status:'active',must_change_password:false}});
+    if(p==='/auth/me')return route.fulfill({json:{id:'visual-user',username:'visual-user',role:'user',status:'active',must_change_password:false}});
     if(p==='/agent/tasks')return route.fulfill({json:{items:records,total:records.length,page:1,pageSize:10,totalPages:1}});
     if(p.startsWith('/agent/tasks/'))return route.fulfill({json:records.find(x=>x.id===p.split('/').pop())});
     return route.fulfill({json:[]});

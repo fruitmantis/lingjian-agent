@@ -16,7 +16,7 @@ def launcher(tmp_path, monkeypatch):
     monkeypatch.setattr(module, 'RUN', tmp_path / '.isolation')
     monkeypatch.setattr(module, 'STATE', tmp_path / '.isolation/services.json')
     (tmp_path / 'frontend').mkdir()
-    (tmp_path / 'frontend/.env.local').write_text('NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000\n')
+    (tmp_path / 'frontend/.env.local').write_text('NEXT_PUBLIC_API_BASE_URL=http://localhost:8000\n')
     return module
 
 
@@ -29,13 +29,14 @@ def test_main_launcher_uses_existing_private_configuration(tmp_path, monkeypatch
     before = database.read_bytes()
     config = {'LINGJIAN_DATABASE_PATH': str(database),
               'CORS_ORIGINS': 'http://127.0.0.1:3000',
-              'NEXT_PUBLIC_API_BASE_URL': 'http://127.0.0.1:8000'}
+              'NEXT_PUBLIC_API_BASE_URL': 'http://localhost:8000'}
     (private / 'environment.json').write_text(json.dumps(config))
     monkeypatch.delenv('LINGJIAN_DATABASE_PATH', raising=False)
     binds = []
     class Socket:
         def __enter__(self): return self
         def __exit__(self, *_): pass
+        def setsockopt(self, *_): pass
         def bind(self, address): binds.append(address)
     monkeypatch.setattr(module.socket, 'socket', Socket)
     launches = []
@@ -67,6 +68,7 @@ def test_busy_main_port_does_not_launch_or_stop_any_process(tmp_path, monkeypatc
     class BusySocket:
         def __enter__(self): return self
         def __exit__(self, *_): pass
+        def setsockopt(self, *_): pass
         def bind(self, address): raise OSError('occupied')
     monkeypatch.setattr(module.socket, 'socket', BusySocket)
     monkeypatch.setattr(module.subprocess, 'Popen', lambda *_a, **_k: pytest.fail('must not spawn'))

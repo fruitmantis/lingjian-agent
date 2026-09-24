@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../../components/auth-provider";
+import { adminApiFetch as apiFetch } from "../../../components/auth-provider";
 import { responseError } from "../../../lib/api-request";
 
 type Issue = { id: string; created_at: string; submitter: string; summary: string; screenshot_count: number; status: "pending" | "resolved" };

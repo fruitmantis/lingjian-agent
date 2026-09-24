@@ -109,7 +109,7 @@ def test_migration_success_and_immutable_source():
     before=sha(DATABASE_PATH)
     with empty_postgres_schema() as target:
         result=import_snapshot(DATABASE_PATH,target)
-        assert result['table_count']==34 and result['row_value_reconciliation']=='PASS'
+        assert result['table_count']==38 and result['row_value_reconciliation']=='PASS'
         with engine_for(target).connect() as conn:assert inspect(conn).get_foreign_keys('cases')
         with pytest.raises(RuntimeError,match='empty'):import_snapshot(DATABASE_PATH,target)
     assert sha(DATABASE_PATH)==before

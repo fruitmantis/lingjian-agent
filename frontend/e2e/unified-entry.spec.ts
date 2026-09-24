@@ -1,12 +1,13 @@
+import {fixtureLogin} from "./identity-fixture";
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {evidenceRoot} from './evidence-path';
-const API='http://127.0.0.1:8000';
+const API='http://localhost:8000';
 for(const width of [1366,1920])test(`Unified task modes, source links and shared history ${width}`,async({page,request})=>{
  test.setTimeout(90000);
- const login=await request.post(API+'/auth/login',{data:{username:'user_a',password:'ValidationPass123'}});expect(login.ok()).toBeTruthy();const session=await login.json();
- await page.addInitScript(s=>{localStorage.setItem('token',s.access_token);localStorage.setItem('user',JSON.stringify(s.user));},session);
+ const login=await fixtureLogin(request, 'user_a', 'ValidationPass123');expect(login.ok()).toBeTruthy();const session=await login.json();
+ await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},session);
  const headers={Authorization:`Bearer ${session.access_token}`};
  await page.setViewportSize({width,height:width===1366?768:1080});
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
@@ -45,8 +46,8 @@ for(const width of [1366,1920])test(`Unified task modes, source links and shared
 
 // A pending matching task remains in shared history, without stealing the mode.
 test('Switching mode during matching acknowledgement preserves explicit intent',async({page,request})=>{
- const res=await request.post(API+'/auth/login',{data:{username:'user_a',password:'ValidationPass123'}});const session=await res.json();
- await page.addInitScript(s=>{localStorage.setItem('token',s.access_token);localStorage.setItem('user',JSON.stringify(s.user));},session);
+ const res=await fixtureLogin(request, 'user_a', 'ValidationPass123');const session=await res.json();
+ await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},session);
  await page.route(API+'/agent/tasks',async route=>{await new Promise(r=>setTimeout(r,1200));await route.continue();});
  await page.goto('/');await page.locator('#requirement').fill('统一入口切换验证项目');
  const pending=page.waitForResponse(r=>r.url()===API+'/agent/tasks'&&r.request().method()==='POST');

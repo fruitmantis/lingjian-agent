@@ -3,7 +3,7 @@ const user = {id:"ui-admin", username:"ui-admin", display_name:"测试管理员"
 const opportunity = {id:"opportunity-fixture", matchRecordId:"match-fixture", projectName:"合成验收：互联网医院云灾备项目", customerName:"合成客户", industry:"教育医疗", region:"上海,北京,广东", projectStage:"方案评估", supplyStatus:"partial", completenessScore:70, requirementText:"需要跨区域容灾，并结合现有系统制定实施方案。", businessNeeds:"保证业务连续性", technicalNeeds:"数据库容灾与恢复演练", deliveryNeeds:"实施与培训", qualificationRequirements:null, caseRequirements:"同类项目经验", onsiteRequirement:null, timelineRequirement:"未知", cloudPlatformPreference:"未知", matchedCapabilityTags:"数据库", unmatchedCapabilitySignals:"异地容灾经验待核实", recommendedPartnerNames:"合成验收伙伴", missingFields:"驻场要求", followUpQuestions:JSON.stringify(["是否需要驻场？"])};
 async function fixture(page:Page) {
   const queries:URLSearchParams[]=[];
-  await page.addInitScript(user=>{localStorage.setItem("token","isolated-ui");localStorage.setItem("user",JSON.stringify(user));},user);
+  await page.addInitScript(user=>{localStorage.setItem(`banfei:${user.role}:token`, "isolated-ui"); localStorage.setItem(`banfei:${user.role}:user`, JSON.stringify(user));},user);
   await page.route("**/*",async route=>{
     const url=new URL(route.request().url());
     if(!url.pathname.startsWith("/api/") && url.port!=="8000") return route.continue();

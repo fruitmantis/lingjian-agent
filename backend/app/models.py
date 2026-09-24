@@ -77,6 +77,7 @@ class UserOut(BaseModel):
     department: str | None = None
     role: Literal["admin", "user"]
     status: Literal["active", "disabled"] = "active"
+    identity_method: str | None = None
     must_change_password: bool = False
     created_at: str
     updated_at: str | None = None

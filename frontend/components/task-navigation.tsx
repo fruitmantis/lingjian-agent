@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { apiFetch, PASSWORD_CHANGE_PATH, useAuth } from "./auth-provider";
+import { userApiFetch as apiFetch, PASSWORD_CHANGE_PATH, useAuth } from "./auth-provider";
 
 export const TASKS_CHANGED = "lingjian:tasks-changed";
 export const NEW_TASK = "lingjian:new-task";
@@ -41,7 +41,7 @@ export function useTaskNavigation() {
 export function TaskNavigationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const pathname = usePathname();
-  const userId = user && !user.must_change_password && pathname !== PASSWORD_CHANGE_PATH ? user.id : undefined;
+  const userId = user?.role === "user" && !pathname.startsWith("/admin") ? user.id : undefined;
   // Remount when identity or task access changes; keep saved tasks untouched until access resumes.
   return <UserTaskNavigation key={userId || "anonymous"} userId={userId}>{children}</UserTaskNavigation>;
 }
@@ -86,7 +86,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
   }, [key]);
 
   async function submit(requirement: string) {
-    if (!key || !alive.current) throw new Error("请完成登录和密码修改后再提交任务。");
+    if (!key || !alive.current) throw new Error("请先登录。");
     const id = newTaskId();
     const task: PendingTask = { id, requirement: requirement.trim(), createdAt: new Date().toISOString(), taskStatus: "submitting" };
     update([task, ...pendingRef.current]);

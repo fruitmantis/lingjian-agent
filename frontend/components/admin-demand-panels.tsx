@@ -1,4 +1,5 @@
 "use client";
+import { adminApiFetch } from "./auth-provider";
 import {ClassificationFilter, ClassificationNotice} from "@/components/business-taxonomy";
 
 
@@ -29,15 +30,8 @@ type DemandResponse = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 function fetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const headers = new Headers(init.headers);
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  return fetchWithTimeout(input, { ...init, headers }).then(response => {
-    if (response.status === 401) {
-      localStorage.removeItem("token"); localStorage.removeItem("user"); window.location.assign("/login");
-    }
-    return response;
-  });
+  const path = String(input).slice(apiBaseUrl.length);
+  return adminApiFetch(path, init);
 }
 
 function supplyBadge(status: string | null) {

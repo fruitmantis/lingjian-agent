@@ -46,7 +46,7 @@ def start():
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try: s.bind(('127.0.0.1',port))
             except OSError: raise SystemExit(f'Port {port} busy; no process stopped')
-    expected='NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000'
+    expected='NEXT_PUBLIC_API_BASE_URL=http://localhost:8000'
     if expected not in (ROOT/'frontend/.env.local').read_text():
         raise SystemExit('Wrong isolated frontend API configuration')
     # Preserve the existing manual-test configuration when restarting this main.
@@ -72,7 +72,7 @@ def start():
                         if response.status==200: break
                 except Exception: time.sleep(0.5)
             else: raise RuntimeError('Isolated service did not become healthy')
-        print('Current main ready at http://127.0.0.1:3000; backend 8000; only enabled model endpoints allowed')
+        print('Current main ready at http://localhost:3000; backend 8000; only enabled model endpoints allowed')
     except Exception:
         stop(); raise
 

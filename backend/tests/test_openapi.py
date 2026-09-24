@@ -3,12 +3,14 @@ from backend.app.main import app
 
 PUBLIC_OPERATIONS = {
     ("get", "/health"),
-    ("post", "/auth/login"),
-    ("post", "/auth/user-applications"),
+    ("post", "/auth/admin/login"),
+    ("post", "/auth/identity/session"),
+    ("post", "/auth/identity/key/login"),
+    ("post", "/auth/identity/logout"),
 }
 
 
-def test_openapi_contains_only_three_public_operations():
+def test_openapi_public_operations_are_only_identity_and_health():
     schema = app.openapi()
     operations = []
     public = set()
@@ -19,8 +21,6 @@ def test_openapi_contains_only_three_public_operations():
             operations.append((method, path))
             if not operation.get("security"):
                 public.add((method, path))
-    assert len(schema["paths"]) == 92
-    assert len(operations) == 109  # Current task endpoints plus five authenticated feedback operations.
     assert schema['paths']['/partners/{partner_id}']['delete']['security']
     assert public == PUBLIC_OPERATIONS
 

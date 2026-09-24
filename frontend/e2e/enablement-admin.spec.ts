@@ -1,12 +1,13 @@
+import {fixtureLogin} from "./identity-fixture";
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-const API='http://127.0.0.1:8000';
+const API='http://localhost:8000';
 
 async function login(page:Page,request:APIRequestContext,username='admin1'){
-  const response=await request.post(`${API}/auth/login`,{data:{username,password:'ValidationPass123'}});
+  const response=await fixtureLogin(request, username, 'ValidationPass123');
   expect(response.ok()).toBeTruthy();const session=await response.json();
-  await page.addInitScript(session=>{localStorage.setItem('token',session.access_token);localStorage.setItem('user',JSON.stringify(session.user));},session);
+  await page.addInitScript(session=>{localStorage.setItem(`banfei:${session.user.role}:token`, session.access_token); localStorage.setItem(`banfei:${session.user.role}:user`, JSON.stringify(session.user));},session);
   return {Authorization:`Bearer ${session.access_token}`};
 }
 async function grant(page:Page){

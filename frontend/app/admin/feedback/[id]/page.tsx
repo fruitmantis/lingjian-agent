@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { apiFetch } from "../../../../components/auth-provider";
+import { adminApiFetch as apiFetch } from "../../../../components/auth-provider";
 import { responseError } from "../../../../lib/api-request";
 
 type Attachment = { id: string; filename: string };

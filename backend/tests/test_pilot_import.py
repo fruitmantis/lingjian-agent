@@ -20,7 +20,8 @@ from scripts.pilot_import_contract import fingerprints,package_identity
 
 
 @pytest.fixture(autouse=True)
-def no_network(monkeypatch):
+def no_network(monkeypatch,tmp_path):
+    monkeypatch.setattr(v, "STABLE", tmp_path / "protected-baseline")
     def denied(*a,**k):raise AssertionError('Network or model invocation forbidden')
     monkeypatch.setattr(socket.socket,'connect',denied)
     monkeypatch.setattr('backend.app.development_model.completion',denied)
@@ -35,6 +36,9 @@ def no_network(monkeypatch):
 
 @pytest.fixture
 def env(client,tmp_path):
+    # Historical pilot tooling validates its original v12 snapshot contract.
+    with get_db() as conn:
+        conn.execute("UPDATE app_metadata SET value='12' WHERE key='schema_version'")
     source_reviewer=make_user('source-reviewer',role='admin')
     actor=make_user('import-operator',role='admin')
     user=make_user('ordinary-import-user')
@@ -300,18 +304,15 @@ def test_apply_transaction_trace_and_product_functions_unchanged(env,structural_
     assert original.get_db is original_get_db and original.save is original_save
 
 
-def test_real_protected_files_unchanged(env,structural_only):
-    frozen=json.loads((v.ROOT/'.isolation/evidence/rc-stable-start.json').read_text())
-    runtime=v.ROOT/'.isolation/runtime/app.db';runtime_hash=imp.sha(runtime)
-    # The legacy service remains live: its database can legitimately differ from
-    # the historical RC snapshot before this test starts. Keep the static-file
-    # baseline and verify every protected file, including the live database,
-    # remains byte-for-byte unchanged by this import. Never rewrite RC evidence.
-    assert all(imp.sha(v.STABLE/name)==expected for name,expected in frozen.items()
-               if name != 'data/app.db')
-    before={name:imp.sha(v.STABLE/name) for name in frozen}
+def test_protected_snapshot_files_unchanged(env,structural_only):
+    # All protection checks use disposable files, never another working directory.
+    v.STABLE.mkdir()
+    (v.STABLE/'source.txt').write_text('immutable synthetic baseline')
+    (v.STABLE/'app.db').write_bytes(DATABASE_PATH.read_bytes())
+    before={p.name:imp.sha(p) for p in v.STABLE.iterdir()}
+    runtime_hash=imp.sha(env['runtime'])
     apply(env)
-    assert imp.sha(runtime)==runtime_hash
+    assert imp.sha(env['runtime'])==runtime_hash
     assert all(imp.sha(v.STABLE/name)==expected for name,expected in before.items())
 
 

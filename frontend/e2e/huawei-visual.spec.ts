@@ -1,10 +1,11 @@
+import {fixtureLogin} from './identity-fixture';
 import { test, expect } from '@playwright/test';
 import { mkdir, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createFontVerification } from './font-verification';
 import { writeFile } from 'node:fs/promises';
 
-const API = 'http://127.0.0.1:8000';
+const API = 'http://localhost:8000';
 const temporaryDatabase = '/tmp/lingjian-enablement-e2e/app.db';
 
 // Fail closed before authentication: this suite must never reuse the manual server.
@@ -25,7 +26,7 @@ async function isolatedSession() {
   }
   if (!isolatedBackend) throw new Error('Cannot verify isolated backend');
   const session = JSON.parse(await readFile('/tmp/lingjian-enablement-e2e/visual-session.json', 'utf8'));
-  if (session.database !== (process.env.PLAYWRIGHT_DATABASE_URL?.startsWith('postgresql') ? 'postgresql:banfei_validation' : temporaryDatabase)) throw new Error('Unexpected fixture database');
+  if (session.database !== (process.env.PLAYWRIGHT_DATABASE_URL?.startsWith('postgresql') ? 'postgresql:'+new URL(process.env.PLAYWRIGHT_DATABASE_URL).pathname.slice(1) : temporaryDatabase)) throw new Error('Unexpected fixture database');
   return session;
 }
 
@@ -59,9 +60,10 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
   test.setTimeout(120_000);
   const session = await isolatedSession();
   const typography = process.env.HUAWEI_FONT_VERIFICATION === '1' ? await createFontVerification(page) : null;
+  const ordinary=await (await fixtureLogin(request,'user_a')).json();
+  await page.addInitScript(value => {localStorage.setItem('banfei:user:token',value.access_token);localStorage.setItem('banfei:user:user',JSON.stringify(value.user));},ordinary);
   await page.addInitScript(value => {
-    localStorage.setItem('token', value.access_token);
-    localStorage.setItem('user', JSON.stringify(value.user));
+    localStorage.setItem(`banfei:${value.user.role}:token`, value.access_token); localStorage.setItem(`banfei:${value.user.role}:user`, JSON.stringify(value.user));
   }, session);
   await page.setViewportSize({ width, height: width === 1366 ? 768 : 1080 });
   const errors: string[] = [];
@@ -130,10 +132,10 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
   }
   const publicContext = await browser.newContext();
   const login = await publicContext.newPage();
-  await login.goto('http://127.0.0.1:3000/login');
+  await login.goto('http://localhost:3000/login');
   await expect(login.getByRole('heading', { name: '伴飞 Agent', exact: true })).toBeVisible();
   await publicContext.close();
-  expect((await request.get('http://127.0.0.1:3000/icon.svg')).status()).toBe(200);
+  expect((await request.get('http://localhost:3000/icon.svg')).status()).toBe(200);
   if (typography) await writeFile(path.join(directory, `font-validation-${width}.json`), JSON.stringify(typography.evidence(), null, 2));
   expect(errors).toEqual([]);
 });

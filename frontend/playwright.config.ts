@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { defineConfig } from "@playwright/test";
 
 // Default: UI-only checks, no model service. Explicit replay is engineering regression,
@@ -15,6 +16,7 @@ if (validationDatabase.startsWith("postgresql")) {
 }
 const validationEnvironment = {
   DATABASE_URL: validationDatabase,
+  BANFEI_IDENTITY_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
   LINGJIAN_DATABASE_PATH: "/tmp/lingjian-enablement-e2e/app.db",
   LINGJIAN_UPLOADS_DIR: "/tmp/lingjian-enablement-e2e/uploads",
   LINGJIAN_CHROMA_DIR: "/tmp/lingjian-enablement-e2e/chroma",
@@ -32,7 +34,7 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: replay ? "**/*.spec.ts" : [
     "**/business-taxonomy.spec.ts", "**/partner-delete.spec.ts", "**/model-boundary.spec.ts",
-    "**/arm-runtime.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts", "**/first-login.spec.ts",
+    "**/arm-runtime.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts", "**/first-login.spec.ts", "**/local-identity.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,
@@ -41,7 +43,7 @@ export default defineConfig({
   reporter: [["line"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   outputDir: "test-results",
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -66,7 +68,7 @@ export default defineConfig({
       command: "npm run dev -- -p 3000",
       cwd: ".",
       url: "http://127.0.0.1:3000/login",
-      env: { NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000" },
+      env: { NEXT_PUBLIC_API_BASE_URL: "http://localhost:8000" },
       reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "1",
       timeout: 60_000,
     },

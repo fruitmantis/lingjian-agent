@@ -1,19 +1,19 @@
+import {fixtureLogin} from "./identity-fixture";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { mkdir, readFile } from "node:fs/promises";
 
-const API = "http://127.0.0.1:8000";
+const API = "http://localhost:8000";
 const screenshotRoot = "/tmp/lingjian-enablement-batch3/screenshots";
 
 async function login(page: Page, request: APIRequestContext, username = "admin1") {
-  const response = await request.post(`${API}/auth/login`, { data: { username, password: "ValidationPass123" } });
+  const response = await fixtureLogin(request, username, "ValidationPass123");
   expect(response.ok()).toBeTruthy();
   const session = await response.json();
   await page.addInitScript(({ token, user }) => {
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem(`banfei:${user.role}:token`, token); localStorage.setItem(`banfei:${user.role}:user`, JSON.stringify(user));
   }, { token: session.access_token, user: session.user });
   return { Authorization: `Bearer ${session.access_token}` };
 }

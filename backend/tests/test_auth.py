@@ -44,10 +44,10 @@ def test_auth_003_missing_or_weak_secret_fails_startup(monkeypatch):
 
 
 def test_auth_004_005_bootstrap_requires_config_and_forces_password_change(client):
-    response = client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+    response = client.post("/auth/admin/login", json={"username": "admin", "password": "admin123"})
     assert response.status_code == 401
     response = client.post(
-        "/auth/login",
+        "/auth/admin/login",
         json={"username": "bootstrap_admin", "password": BOOTSTRAP_PASSWORD},
     )
     assert response.status_code == 200
@@ -65,32 +65,32 @@ def test_auth_005_empty_database_without_bootstrap_password_fails(monkeypatch):
 
 
 def test_auth_010_login_success(client):
-    user = make_user("login_user")
-    response = client.post("/auth/login", json={"username": user["username"], "password": user["password"]})
+    user = make_user("login_user", role="admin")
+    response = client.post("/auth/admin/login", json={"username": user["username"], "password": user["password"]})
     assert response.status_code == 200
     assert response.json()["user"]["username"] == user["username"]
 
 
 def test_auth_011_012_five_failures_lock_account(client):
-    user = make_user("lock_me")
+    user = make_user("lock_me", role="admin")
     for _ in range(5):
-        assert client.post("/auth/login", json={"username": user["username"], "password": "wrong"}).status_code == 401
-    response = client.post("/auth/login", json={"username": user["username"], "password": user["password"]})
+        assert client.post("/auth/admin/login", json={"username": user["username"], "password": "wrong"}).status_code == 401
+    response = client.post("/auth/admin/login", json={"username": user["username"], "password": user["password"]})
     assert response.status_code == 423
 
 
 def test_auth_013_admin_unlock_restores_login(client):
     admin = make_user("unlock_admin", role="admin")
-    user = make_user("unlock_user", locked_until="2999-01-01T00:00:00+00:00")
-    assert client.post("/auth/login", json={"username": user["username"], "password": user["password"]}).status_code == 423
+    user = make_user("unlock_user", role="admin", locked_until="2999-01-01T00:00:00+00:00")
+    assert client.post("/auth/admin/login", json={"username": user["username"], "password": user["password"]}).status_code == 423
     response = client.post(f"/admin/users/{user['id']}/unlock", headers=auth_headers(admin))
     assert response.status_code == 200
-    assert client.post("/auth/login", json={"username": user["username"], "password": user["password"]}).status_code == 200
+    assert client.post("/auth/admin/login", json={"username": user["username"], "password": user["password"]}).status_code == 200
 
 
 def test_auth_014_first_login_cannot_use_business_routes(client):
-    user = make_user("first_login", must_change_password=1)
-    login = client.post("/auth/login", json={"username": user["username"], "password": user["password"]})
+    user = make_user("first_login", role="admin", must_change_password=1)
+    login = client.post("/auth/admin/login", json={"username": user["username"], "password": user["password"]})
     assert login.status_code == 200
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     assert client.get("/agent/tasks", headers=headers).status_code == 403
@@ -98,7 +98,7 @@ def test_auth_014_first_login_cannot_use_business_routes(client):
 
 
 def test_auth_015_password_change_invalidates_old_token(client):
-    user = make_user("change_password")
+    user = make_user("change_password", role="admin")
     old_headers = auth_headers(user)
     response = client.post(
         "/auth/change-password", headers=old_headers,
@@ -112,7 +112,7 @@ def test_auth_015_password_change_invalidates_old_token(client):
 
 def test_auth_016_reset_password_invalidates_old_token(client):
     admin = make_user("reset_admin", role="admin")
-    user = make_user("reset_user")
+    user = make_user("reset_user", role="admin")
     old_headers = auth_headers(user)
     response = client.post(f"/admin/users/{user['id']}/reset-password", headers=auth_headers(admin))
     assert response.status_code == 200
@@ -130,15 +130,12 @@ def test_auth_017_disable_invalidates_old_token(client):
     assert client.get("/auth/me", headers=old_headers).status_code == 401
 
 
-def test_auth_018_role_change_invalidates_old_token(client):
+def test_auth_018_local_identity_cannot_be_promoted(client):
     admin = make_user("role_admin", role="admin")
     user = make_user("role_user")
-    old_headers = auth_headers(user)
-    response = client.patch(
-        f"/admin/users/{user['id']}", headers=auth_headers(admin), json={"role": "admin"},
-    )
-    assert response.status_code == 200
-    assert client.get("/auth/me", headers=old_headers).status_code == 401
+    response = client.patch(f"/admin/users/{user['id']}", headers=auth_headers(admin), json={"role": "admin"})
+    assert response.status_code == 400
+    assert client.get("/admin/users", headers=auth_headers(user)).status_code == 403
 
 
 def test_auth_019_020_admin_cannot_disable_or_demote_self(client):
@@ -156,4 +153,4 @@ def test_auth_021_last_active_admin_is_preserved(client):
     headers = auth_headers(admin)
     assert client.patch(f"/admin/users/{admin['id']}/status", headers=headers, json={"status": "disabled"}).status_code == 400
     assert client.patch(f"/admin/users/{admin['id']}", headers=headers, json={"role": "user"}).status_code == 400
-    assert client.patch(f"/admin/users/{other['id']}", headers=headers, json={"role": "admin"}).status_code == 200
+    assert client.patch(f"/admin/users/{other['id']}", headers=headers, json={"role": "admin"}).status_code == 400
