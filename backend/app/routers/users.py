@@ -11,20 +11,39 @@ from pydantic import BaseModel, Field
 
 from ..auth import create_token, hash_password, record_audit, require_admin, require_user, verify_password
 from ..database import get_db
+from ..identity_keys import masked_identity_key
 from ..models import LoginRequest, TokenResponse, UserCreate, UserOut
 
 
 router = APIRouter(tags=["auth"])
 _USER_COLS = "id, username, display_name, department, role, status, must_change_password, created_at, updated_at, last_login_at, locked_until"
+# Derived read-only projection; only expose methods accepted for the user's role.
+_ADMIN_USER_FROM = "users LEFT JOIN user_identity_keys identity_key ON identity_key.user_id = users.id AND users.role = 'user'"
+_ADMIN_USER_COLS = ", ".join("users." + column for column in _USER_COLS.split(", ")) + """, last_active_at,
+    CASE WHEN users.role = 'admin' AND hashed_password IS NOT NULL AND hashed_password <> ''
+        THEN 1 ELSE 0 END AS auth_password,
+    CASE WHEN users.role = 'user' AND EXISTS (
+        SELECT 1 FROM identity_credentials c WHERE c.user_id = users.id AND c.kind = 'passkey'
+    ) THEN 1 ELSE 0 END AS auth_passkey,
+    CASE WHEN users.role = 'user' AND EXISTS (
+        SELECT 1 FROM identity_credentials c WHERE c.user_id = users.id AND c.kind = 'browser'
+    ) THEN 1 ELSE 0 END AS auth_browser,
+    CASE WHEN identity_key.user_id IS NOT NULL THEN 1 ELSE 0 END AS auth_key,
+    identity_key.key_hash AS identity_key_hash,
+    identity_key.encrypted_key AS identity_key_encrypted"""
 _PASSWORD_MIN_LENGTH = 8
 _MAX_LOGIN_FAILURES = 5
 _LOCK_MINUTES = 15
 
 
+class AdminUserOut(UserOut):
+    auth_methods: list[Literal["password", "passkey", "browser", "key"]]
+    last_active_at: str | None = None
+    identity_key_hint: str | None = None
 
 
 class UserListResponse(BaseModel):
-    items: list[UserOut]
+    items: list[AdminUserOut]
     total: int
     page: int
     pageSize: int
@@ -83,6 +102,14 @@ def _user_out(row) -> UserOut:
     return UserOut(**{column: row[column] for column in _USER_COLS.split(", ")})
 
 
+def _admin_user_out(row) -> AdminUserOut:
+    methods = [method for method in ("password", "passkey", "browser") if row["auth_" + method]]
+    if row["auth_key"]:
+        methods = ["key"]
+    hint = masked_identity_key({'user_id': row['id'], 'key_hash': row['identity_key_hash'],
+                                'encrypted_key': row['identity_key_encrypted']}) if row['auth_key'] else None
+    return AdminUserOut(**_user_out(row).model_dump(), auth_methods=methods,
+                        last_active_at=row["last_active_at"], identity_key_hint=hint)
 
 
 def _validate_password(password: str) -> None:
@@ -197,6 +224,7 @@ def logout_all(request: Request, user: dict = Depends(require_user)) -> Response
 
 @router.get("/admin/users", response_model=UserListResponse)
 def list_users(
+    response: Response,
     keyword: str | None = None,
     role: Literal["admin", "user"] | None = None,
     user_status: Literal["active", "disabled"] | None = Query(None, alias="status"),
@@ -205,6 +233,7 @@ def list_users(
     page_size: int = Query(20, ge=1, le=100, alias="pageSize"),
     _: dict = Depends(require_admin),
 ) -> UserListResponse:
+    response.headers["Cache-Control"] = "no-store"
     conditions: list[str] = []
     params: list[object] = []
     if keyword:
@@ -220,10 +249,10 @@ def list_users(
     with get_db() as conn:
         total = conn.execute(f"SELECT COUNT(*) FROM users{where}", params).fetchone()[0]
         rows = conn.execute(
-            f"SELECT {_USER_COLS} FROM users{where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            f"SELECT {_ADMIN_USER_COLS} FROM {_ADMIN_USER_FROM}{where} ORDER BY users.created_at DESC LIMIT ? OFFSET ?",
             [*params, page_size, (page - 1) * page_size],
         ).fetchall()
-    return UserListResponse(items=[_user_out(row) for row in rows], total=total, page=page, pageSize=page_size)
+    return UserListResponse(items=[_admin_user_out(row) for row in rows], total=total, page=page, pageSize=page_size)
 
 
 @router.post("/admin/users", response_model=UserCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -246,13 +275,14 @@ def create_user(payload: UserCreate, request: Request, admin: dict = Depends(req
     return UserCreateResponse(user=_user_out(row), temporaryPassword=temporary_password)
 
 
-@router.get("/admin/users/{user_id}", response_model=UserOut)
-def get_user(user_id: str, _: dict = Depends(require_admin)) -> UserOut:
+@router.get("/admin/users/{user_id}", response_model=AdminUserOut)
+def get_user(user_id: str, response: Response, _: dict = Depends(require_admin)) -> AdminUserOut:
+    response.headers["Cache-Control"] = "no-store"
     with get_db() as conn:
-        row = conn.execute(f"SELECT {_USER_COLS} FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = conn.execute(f"SELECT {_ADMIN_USER_COLS} FROM {_ADMIN_USER_FROM} WHERE users.id = ?", (user_id,)).fetchone()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
-    return _user_out(row)
+    return _admin_user_out(row)
 
 
 @router.patch("/admin/users/{user_id}", response_model=UserOut)

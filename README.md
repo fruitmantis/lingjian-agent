@@ -15,7 +15,9 @@
 | `/tasks`、`/tasks/{id}` | 两类任务共用历史；创建后即出现，真实状态更新，首批 10 条、独立滚动与加载更多 |
 | `/feedback` | 问题描述与可选截图提交；支持 Ctrl+V 粘贴、多图预览和提交前删除 |
 | `/admin/feedback` | 管理员查看全部反馈及截图，切换待处理／已处理 |
-| `/login`、`/change-password`、`/account` | 登录、内部账号申请、首次登录独立改密页与个人中心 |
+| `/login`、`/account` | 普通身份 Key 登录与个人中心 |
+| `/admin/login`、`/admin/change-password`、`/admin/account` | 独立管理员密码登录、改密与个人中心 |
+| `/admin/tasks/{id}` | 使用管理员会话查看任务，复用原详情组件 |
 | `/admin/*` | 任务、伙伴/资料/案例共享、资源发布核验、需求画像、项目机会、运营报表、标签、用户、模型、系统状态 |
 
 伙伴详情、匹配结果和共享案例中的发展入口都汇入统一新任务页，并带入允许的来源上下文。`/enablement` 仅保留兼容跳转，不提供另一套用户工作台。
@@ -29,9 +31,9 @@
 
 ## 技术与安全边界
 
-Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 12**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
+Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 16**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
 
-保留 `user/admin`、后端管理权限和任务 owner 隔离。内部注册仍须管理员审批、首次改密；没有固定默认凭据。系统可见、模型可发送、伙伴可外发分别校验；共享案例使用当前授权共享版本。伙伴可传递视图只取 confirmed 版本并实时重检权限，不输出内部诊断或备注。
+保留 `user/admin`、后端管理权限和任务 owner 隔离。普通用户首次访问自动建立身份，浏览器记住会话；长期身份 Key 可在其他浏览器恢复同一用户，不再注册、审批、使用密码或 Passkey。管理员通过独立入口保留密码登录和首次改密；没有固定默认凭据。系统可见、模型可发送、伙伴可外发分别校验；共享案例使用当前授权共享版本。伙伴可传递视图只取 confirmed 版本并实时重检权限，不输出内部诊断或备注。
 
 Plan / Run / Version、current / confirmed、幂等、版本冲突、事务、超时、中断及撤权保护继续保留。资源跳转不等于学习完成；没有 LMS 或正式能力认证。健康度仍等待外部平台，不自行扩展评分。
 
@@ -61,10 +63,36 @@ bash enablement-dev.sh stop
 
 同一代码已做 ARM64 兼容：可用 `NEXT_PUBLIC_API_BASE_URL=/api` 配合 `BANFEI_API_PROXY_TARGET` 使用同源代理，`BANFEI_BUILD_CPUS=1` 限制小机器构建并发；本地当前仍直连后端。见 [ARM 验证范围](docs/validation/ARM_VALIDATION_REPORT.md)。Git push 不自动更新 ARM 服务。
 
+## 普通身份 Key 与管理员会话
+
+普通用户首次访问 `/`，自动创建 `users.id` 和一个长期身份 Key，直接进入业务页面。首次弹窗提供复制、下载 `.txt`、稍后保存及“已有 Key？登录原身份”。关闭弹窗后可随时在 `/account` 的“身份凭据”中查看同一个完整 Key。有效会话直接进入；浏览器会话失效后可通过记住的 Cookie 恢复，不重复建用户或换 Key。
+
+`/login` 会优先恢复当前浏览器的有效身份，不自动创建用户；仅在没有有效凭据时显示 Key 表单。主动切换使用 `/login?method=key`，首次弹窗“已有 Key”也进入该显式入口。可粘贴 Key 或点击“导入凭据 .txt 登录”，选择之前下载的凭据文件（也支持只含一个完整 Key 的 .txt）。文件在浏览器本地读取，仅向现有登录接口提交 Key，文件不上传；空文件、格式错误、多 Key 或超过 16 KB 的文件直接提示错误，不创建用户。正确 Key 恢复原 `users.id` 和原有历史，并记住当前浏览器；错误 Key 只报错。换浏览器或清除站点数据后可直接访问此页。如果先访问自动创建入口 `/`，会按首次访问规则建立一个新身份；在首次弹窗选择已有 Key 后切换到原身份，不合并、不删除刚建立的空身份，也不会在 Key 登录时再创建用户。
+
+每个普通用户只有一个由 32 字节随机数生成的 Key，数据库保存 SHA-256 查找摘要和经过 Fernet 认证加密的密文。`BANFEI_IDENTITY_ENCRYPTION_KEY` 与 JWT 签名密钥分开，只放 Git 忽略的私有运行配置。必须随数据库备份妥善保存此配置，否则不能重新展示已有 Key；程序不会自动生成替代密钥或轮换用户 Key。明文只由已认证的本人端点返回，响应禁止缓存，不进入普通用户资料、管理员列表、认证审计或模型上下文。
+
+浏览器仅保存独立的随机会话 Cookie（HttpOnly/SameSite=Strict，HTTPS 下 Secure，最长 365 天）及当前普通 Token，不把长期 Key 写入浏览器存储。普通“退出”撤销旧 Token 和旧 Cookie 的绑定，保留一份新的浏览器凭据，不发放登录 Token，回到身份入口。刷新、重开浏览器仍停留退出页，点击“继续使用当前身份”即可恢复原用户和历史，不需输入 Key，也不创建用户。需要切换身份时可选择“使用其他 Key 登录”。站点凭据已清除或失效时才需要 Key；不能凭设备信息猜测用户。不同浏览器的会话及管理员会话不受影响。
+
+管理员 `/admin/login`、改密、锁定、重置、停用和任务查看保持原实现；普通和管理请求分别使用对应身份，退出互不覆盖，不能相互转换角色。用户管理列表/详情显示鉴权方式及只读“Key 标识”：普通长期 Key 由后端校验现有凭据归属后返回 `bf_` + 随机部分前 2 位 + `…` + 末 5 位，详情同时显示用户 ID，便于辅助核对。管理员或无长期 Key 的旧身份显示“—”，无法校验或解密的凭据显示“暂不可用”。管理员接口不返回完整 Key、密文或摘要；旧凭据记录按原实际类型显示，仅用于历史数据查看。普通注册、审批、密码登录、首次改密和 Passkey 接口均关闭。
+
+本地统一使用 **http://localhost:3000** 和 **http://localhost:8000**。`BANFEI_IDENTITY_ORIGIN` 默认前者；正式运行须配置稳定 HTTPS 内网域名、CORS 与精确匹配的 Origin。当前不部署，不改现有模型配置，也不将网络可访问身份解释为员工实名。
+
+不迁移、合并或删除旧普通用户和历史；旧 Passkey/浏览器凭据不能用于新认证，也不会自动获配 Key。无 Key 找回、MFA、自动轮换或设备管理。
+
+Key 文件格式错误在浏览器内提示；Key 格式错误、未知/旧版失效、身份已删除、身份停用由现有接口返回独立错误类型。删除用户时在同一事务保留 Key 不可逆摘要和删除时间，用于显示“原身份已删除”，不保留 Key 密文、用户关联或业务数据。此前已删除且未留摘要的凭据只能提示“凭据无效或已失效”。被删除身份可点击“创建新身份”，产生新的 user_id 和 Key；不会自动创建、恢复或合并旧身份。停用提示管理员启用，不显示新建快捷操作。尝试已删除/错误 Key 不影响当前浏览器的其他有效身份和管理员会话。
+
+管理员仍可手工删除没有业务历史和公共引用的普通用户，操作前预览关联数量、二次确认、事务化删除并撤销凭据。长期 Key 用户有业务历史时只支持停用，不套用旧浏览器身份过期清理。保留原旧数据规则：纯旧 Browser Identity 的私有历史须连续 `BROWSER_IDENTITY_RETENTION_DAYS=90` 天未使用；旧 Passkey/混合用户有历史不可删。公共/共享/发布/跨用户引用及运行中任务始终阻止删除，管理员不开放删除。无自动清理、回收站或审批。
+
+`users.last_active_at` 由有效普通身份请求刷新；管理员查看不刷新被查看用户。最新实施与验证记录见 [身份 Key 验证记录](docs/validation/IDENTITY_KEY_VALIDATION.md)，[原本机身份记录](docs/validation/LOCAL_IDENTITY_VALIDATION.md) 仅保留历史依据。
+
 ## 数据库与迁移
 
 - `DATABASE_URL` 显式选择 PostgreSQL，缺失或连接失败直接报错；不自动回退 SQLite。不要用旧 SQLite 快照覆盖切换后的新增数据。
-- 34 张表（含两张增量反馈表）的映射位于 [storage_models.py](backend/app/storage_models.py)。保留现有 UUID、外键、JSON 文本、时间和标志字段；当前 schema version 为 12。
+- v12 升级到 v13 使用 `scripts/migrate_local_identity.py --backup-dir <新的私有备份目录>`，由既有私有配置提供 DATABASE_URL。先 pg_dump，后事务新增凭据/challenge 表、放宽普通用户密码列并约束管理员密码；不重建库、不自动删除旧用户。失败回滚；回退须连同认证代码和备份一起评估，不能把 v12 程序直接指向新增无密码身份的数据。
+- v13 升级到 v14 使用 `scripts/migrate_user_activity.py --backup-dir <新的私有备份目录>`，仅增加可空 `users.last_active_at`，不删除业务数据；先备份后事务执行，失败回滚。当前库已迁移，不重复执行。回退应停止服务并协调代码/schema 版本；新增时间列可保留，不需要重建数据库。
+- v14 升级到 v15 使用 `scripts/migrate_identity_keys.py --backup-dir <新的私有备份目录>`，先备份后在单一事务新增 `user_identity_keys`（user_id 主键、唯一 Key 摘要、密文及创建时间），不修改既有用户/凭据/业务行；失败自动回滚。v15 迁移已执行，不重复执行。回退须先停止服务、保留 v15 数据和私有密钥备份，再协调代码/schema；已产生 Key 用户后不可直接回退旧认证或用旧库覆盖新增数据。
+- v15 升级到 v16 使用 `scripts/migrate_revoked_identity_keys.py --backup-dir <新的私有备份目录>`，先 pg_dump，再事务新增 `revoked_identity_keys(key_hash PRIMARY KEY, revoked_at)`，不改既有用户/Key/业务行，不回填历史删除。运行库须显式迁移，不自动升级；失败回滚，重复执行保留已有失效记录。回退须停服并协调代码/schema，保留新增失效记录；不能恢复旧库覆盖后续数据，也不能用旧代码执行会漏记失效摘要的删除。
+- 38 张表（包括保留的旧身份表及新增 Key 映射）的映射位于 [storage_models.py](backend/app/storage_models.py)。保留现有 UUID、外键、JSON 文本、时间和标志字段；当前 schema version 为 16。
 - `match_records.last_error_details` 是 v12 内已落地的可空增量列；当前环境已完成迁移，不因阅读文档再次执行。
 - [SQLite → PostgreSQL 工具](scripts/migrate_sqlite_to_postgres.py) 只用于经授权的一次性迁移：SQLite backup API、原库只读、空目标库、事务导入和逐表对账。
 - [任务错误详情迁移工具](scripts/migrate_task_failure_details.py) 先 `pg_dump`，再事务加列和校验；不能替代业务数据备份策略。
@@ -79,13 +107,13 @@ bash enablement-dev.sh stop
 
 PostgreSQL 保存 `feedback_issue`、`feedback_attachment`，图片位于现有上传目录的 `feedback/` 子目录，数据库只存文件元数据。提交失败时回滚记录并清理本次新文件，保留已有文件。
 
-已有 v12 环境升级需要显式运行 [增量迁移](scripts/migrate_feedback.py)，不会在启动时自动修改 PostgreSQL。先使用现有私有配置提供 `DATABASE_URL`，然后执行：
+历史 v12 环境若尚无反馈表，使用 [增量迁移](scripts/migrate_feedback.py)；当前环境已完成，无需再次执行。该工具不会在启动时自动运行。旧环境先使用现有私有配置提供 `DATABASE_URL`，然后执行：
 
 ```bash
 .venv/bin/python scripts/migrate_feedback.py --backup-dir <新的私有备份目录>
 ```
 
-工具仅允许本机 `banfei_agent`：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和 schema version 12。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。旧 v12 SQLite 快照缺少反馈表时仍可用于原有显式导入工具，目标反馈表初始化为空；日常运行继续使用 PostgreSQL。
+工具仅允许本机 `banfei_agent`：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和当时的 schema version 12；本机身份迁移再将版本升至 13。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。旧 v12 SQLite 快照缺少反馈表时仍可用于原有显式导入工具，目标反馈表初始化为空；日常运行继续使用 PostgreSQL。
 
 相关验证：`run_postgres_validation.py backend -q -k feedback`；`run_postgres_validation.py browser feedback.spec.ts`。均须使用专用验证库及 `/tmp` 上传目录，不能对业务库执行测试。验证范围与结果见 [反馈验证记录](docs/validation/FEEDBACK_VALIDATION.md)。
 

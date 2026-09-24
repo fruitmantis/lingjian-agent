@@ -6,7 +6,7 @@
 - 正式工作目录：`/home/yuan/project/lingjian-agent-enablement`；当前开发分支：`main`。
 - 该目录已升格为正式 main 工作区，不再是独立功能试验环境。legacy 目录、旧 feature 分支和其他历史 worktree 均不得作为正式开发环境；不修改或启动 legacy 服务。
 - WSL Ubuntu 24.04；前端 Next.js 15 / React 19 / TypeScript，端口 **3000**；后端 FastAPI / Python，端口 **8000**。
-- 正式数据库：**PostgreSQL 16，schema version 12**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
+- 正式数据库：**PostgreSQL 16，schema version 16**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
 - 连接由私有 `.isolation/runtime/dev/environment.json` 中 `DATABASE_URL` 指定，缺失或失败直接报错，不自动回退其他数据库。
 - 上传目录 `.isolation/runtime/dev/uploads`，日志 `.isolation/logs/`；原 `.isolation/runtime/dev/app.db` 及迁移备份只作保留，不参与日常运行。
 - 工程、模块、API、字段及 `LINGJIAN_*` 技术标识不因产品更名而重命名。
@@ -29,10 +29,10 @@
 ## 必须保留的业务与安全约束
 
 - 只有 `user` / `admin` 两角色；管理接口在后端校验 admin，不以 UI 隐藏代替授权。
-- 公开业务 API 仅 `GET /health`、`POST /auth/login`、`POST /auth/user-applications`；其他业务接口要求有效 Token。
+- 公开入口仅 `GET /health`、`POST /auth/admin/login` 和 `/auth/identity` 下的 `POST /session`、`POST /key/login`、`POST /logout`；这些接口严格校验配置的前端 Origin，`GET /auth/identity/key` 仅已认证普通本人可访问。其他业务接口要求有效 Token。
 - 匹配归属 `match_records.owner_user_id`，发展方案归属 `development_plans.owner_user_id`。列表、详情、编辑、重试、归档/恢复及关联业务必须校验所有权，普通用户越权访问返回 404。
 - 普通用户只读访问启用伙伴及允许资料；伙伴、附件、案例、交付物与画像写操作仅限管理员。
-- 启用/停用为伙伴正常生命周期。管理员硬删除只允许无业务历史的伙伴；有案例、资料、匹配历史或发展方案等关联时拒绝并返回计数；派生数据可安全清理。不得删除用户或添加回收站等新生命周期。
+- 启用/停用为伙伴正常生命周期。管理员硬删除只允许无业务历史的伙伴；有案例、资料、匹配历史或发展方案等关联时拒绝并返回计数；派生数据可安全清理。普通用户仅允许管理员手工删除：长期 Key、旧 Browser Identity、旧 Passkey 及混合身份无业务历史可删；纯 Browser Identity 仅私有历史须连续 BROWSER_IDENTITY_RETENTION_DAYS（默认 90）天未使用；公共/共享/发布引用、运行中任务阻止删除。长期 Key/旧 Passkey/混合身份有业务历史时仅支持停用，不参与过期清理；管理员不开放删除，不增加回收站或自动清理。
 - 系统可见、允许模型发送、允许伙伴外发三维权限互不推导。共享案例只使用当前获授权的共享版本，不以内部案例原文代替。
 - 伙伴可传递视图只取当前 confirmed 指针，输出时重检权限、版本和撤权状态，应用字段白名单；不得泄漏内部证据、备注或模型内部字段。
 - 保留 Plan / Run / Version、current / confirmed、submission 幂等、并发串行化、版本冲突、事务、超时和中断恢复。失败 Run 不覆盖既有有效版本，也不把仍可用方案表达为整体失败。
@@ -42,9 +42,15 @@
 
 ## 账号安全
 
-- 登录页默认仅登录；“注册”进入内部申请，含姓名、工号、部门、邮箱、用户名、密码、确认密码及可选说明。管理员审批后首次登录必须改密。
-- 密码只存不可逆哈希；申请批准/驳回后清除申请密码哈希；管理员创建的临时密码只展示一次。
-- 保留停用/角色变更/改密/重置/注销全部会话后旧 Token 即时失效；连续 5 次失败锁定 15 分钟、管理员解锁、自停用/自降级和最后有效管理员保护。
+- 普通用户取消注册、审批、密码登录、首次改密和 Passkey。首次访问业务入口自动建立普通用户及一个长期随机身份 Key；当前浏览器自动登录，首次弹窗允许复制/下载/稍后保存/已有 Key 登录。
+- `/login` 优先恢复当前浏览器有效身份，不自动创建用户；`/login?method=key` 显式输入 Key 恢复原 users.id 和历史，支持粘贴 Key 或在浏览器本地读取单份 .txt 凭据后登录，错误不创建用户；个人中心始终展示当前同一个完整 Key。复用 owner 隔离，不接受客户端指定 user_id。不迁移/合并旧用户，不做找回、MFA、自动轮换或设备管理。
+- 删除普通 Key 用户时，同一事务只保留 revoked_identity_keys 中的不可逆摘要及删除时间，不保留 Key 密文或用户关联。Key 登录区分格式错误、未知/旧版失效、已删除和停用；失败不创建用户。已删除提示显式创建新身份，新身份有新的 users.id 和 Key；此前未留摘要的删除不能追溯。
+- Key 用 32 字节随机数生成，摘要用于验证，Fernet 密文用于本人展示；`BANFEI_IDENTITY_ENCRYPTION_KEY` 仅存私有忽略配置并随数据库备份，缺失启动报错。完整 Key 不进入日志、管理员列表、模型上下文或普通 UserOut。管理员用户列表/详情只读显示后端生成的脱敏标识（bf_ + 随机部分前 2 位 + … + 末 5 位），用于辅助对应 users.id，不返回完整 Key、密文或摘要。
+- 浏览器随机会话凭据独立于长期 Key，Cookie HttpOnly/SameSite=Strict；普通 JWT 绑定服务端会话。普通“退出”撤销旧 Token/旧 Cookie 绑定，保留新的浏览器随机凭据但不发放 Token；清除登录状态并返回身份入口，持久退出标记阻止刷新/重开后自动登录或创建。点击“继续使用当前身份”可免 Key 恢复原用户，不识别机器或指纹；Key 和历史、其他浏览器及管理员会话保留。
+- 管理员独立 `/admin/login`，密码、锁定、改密、重置、停用和旧 Token 失效机制保留；管理员和普通身份不能转换角色，共用浏览器时会话互不覆盖。
+- 普通任务恢复仅在普通身份就绪后执行；管理员任务详情使用 `/admin/tasks/{id}`。有效普通请求更新 users.last_active_at，管理员查看不刷新被查看用户。
+- users.hashed_password 对普通身份可为空，管理员必须有密码；密码只存不可逆哈希，管理员临时密码只展示一次。
+- 本地固定前端 `http://localhost:3000`、后端 `http://localhost:8000`；正式运行配置稳定 HTTPS 内网域名和严格匹配 Origin。内网可访问身份不代表员工实名。
 - 无固定默认账号密码；`JWT_SECRET_KEY` 必须显式配置且至少 32 位。已有数据库不重新执行 bootstrap。
 
 ## 模型与测试桩
