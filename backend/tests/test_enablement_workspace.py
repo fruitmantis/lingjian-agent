@@ -17,17 +17,15 @@ def test_catalog_auth_unknown_filters_and_published_snapshot(client,admin,metada
     r=client.get('/enablement/resources',headers=h)
     assert r.status_code==200 and r.headers['cache-control']=='no-store'
     item=r.json()['items'][0]
-    assert item['audience']=='未知' and item['duration_minutes'] is None
-    assert item['status']=='published' and item['review']['content_checked']==1
-    assert item['review']['reviewer_name']=='resource-admin'
-    assert 'reviewer_id' not in item['review']
+    assert item['level']=='basic' and item['duration_minutes'] is None
+    assert item['status']=='published' and 'review' not in item
     assert not {'draft_json','model_allowed','partner_allowed','reviewer_id'} & item.keys()
-    for query,count in [('q=合成',1),('q=不存在',0),('source_type=lab',0),('audience=未知',1),('difficulty=unknown',1),('status=unpublished',0),('page=2',0),('capability_tag_id=missing',0)]:
+    for query,count in [('q=合成',1),('q=不存在',0),('source_type=lab',0),('role_id=role-1',1),('level=advanced',0),('status=unpublished',0),('page=2',0),('capability_tag_id=missing',0)]:
         assert len(client.get('/enablement/resources?'+query,headers=h).json()['items'])==count
     metadata['title']='DRAFT SECRET'
     service.save('resource',row['source_id'],service.ResourceSave(base_revision=row['revision'],metadata=metadata),admin['id'])
     assert 'DRAFT SECRET' not in client.get('/enablement/resources',headers=h).text
-    assert client.get('/enablement/resource-filters',headers=h).json()['capabilities']
+    assert client.get('/enablement/resource-filters',headers=h).json()['roles']
     assert client.get('/admin/enablement/resources',headers=h).status_code==403
 
 
@@ -59,13 +57,13 @@ def test_workspace_revocation_shared_projection_and_redirect(client,admin,metada
     with get_db() as conn: assert conn.execute('SELECT count(*) FROM resource_redirect_events').fetchone()[0]==1
 
 
-@pytest.mark.parametrize('field,value',[('audience','工程师'),('product_direction','数据库'),('difficulty','advanced'),('language','中文'),('site','中国站'),('cost','free'),('account_requirement','企业账号'),('environment_requirement','自备环境'),('prerequisites','SQL基础')])
+@pytest.mark.parametrize('field,value',[('role_id','role-1'),('zone_id','zone-1'),('level','basic')])
 def test_all_metadata_filters(client,admin,metadata,field,value):
-    metadata[field]=value
     published(grant(create(admin,metadata),admin),admin)
     h=auth_headers(admin)
     assert client.get('/enablement/resources',params={field:value},headers=h).json()['total']==1
-    assert client.get('/enablement/resources',params={field:'nonmatching'},headers=h).json()['total']==0
+    alternate='advanced' if field=='level' else 'nonmatching'
+    assert client.get('/enablement/resources',params={field:alternate},headers=h).json()['total']==0
 
 
 def test_context_owner_selection_and_no_inferred_training(client,admin,metadata):
@@ -92,7 +90,7 @@ def test_shared_context_is_current_shared_version_not_internal_evidence(client,a
     assert data['shared_case']['contributor_id']=='partner-1'
     assert client.get('/enablement/resources?contributor_id=partner-1',headers=h).json()['total']==1
     assert client.get('/enablement/resources?contributor_id=other',headers=h).json()['total']==0
-    with get_db() as conn: conn.execute('UPDATE capability_tags SET enabled=0 WHERE id=?',(metadata['capability_tag_ids'][0],))
+    with get_db() as conn: conn.execute('UPDATE capability_tags SET enabled=0 WHERE id=?',(row['metadata']['capability_tag_ids'][0],))
     assert client.get('/enablement/context?case_id=shared-case',headers=h).status_code==404
     assert client.get('/enablement/resources',headers=h).json()['total']==0
 
@@ -156,10 +154,10 @@ def test_catalog_3000_published_resources_search_p95(client,admin,metadata,recor
     elapsed=[]
     for index in range(60):
         started=time.perf_counter()
-        result=catalog(q='迁移',capability_tag_id=metadata['capability_tag_ids'][0],page=index%3+1)
+        result=catalog(q='迁移',page=index%3+1)
         elapsed.append(time.perf_counter()-started)
-        # V1.2 also matches the original shared case's migration summary.
-        assert result['total']==2999 and len(result['items'])==12
+        # Only the generated clone titles contain the search term.
+        assert result['total']==2998 and len(result['items'])==12
     ordered=sorted(elapsed);p95=ordered[56]
     record_property('catalog_performance',json.dumps({'course_lab_count':2000,'case_count':1000,'samples':60,
         'p50_seconds':ordered[29],'p95_seconds':p95,'max_seconds':max(elapsed),
@@ -167,7 +165,7 @@ def test_catalog_3000_published_resources_search_p95(client,admin,metadata,recor
     assert p95<2
     from backend.app import development_engine as engine
     request={'constraints':dict.fromkeys(['language','site','account','network','environment','cost','budget'],'无要求'),'trainee_role':'工程师'}
-    diagnosis=[{'problem_type':'trainable_gap','capability_tag_id':metadata['capability_tag_ids'][0]}]
+    diagnosis=[{'problem_type':'trainable_gap','capability_tag_id':case['metadata']['capability_tag_ids'][0], 'target_requirement':'迁移'}]
     timings=[]
     for _ in range(30):
         started=time.perf_counter()

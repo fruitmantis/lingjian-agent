@@ -169,7 +169,7 @@ def test_ordinary_course_new_publication_keeps_historical_name_without_url(scena
     from backend.tests.test_enablement import published
     accepted,_,_=execute(scenario);user,_,admin,req=scenario[0];id=accepted['plan_id']
     row=enablement.detail('resource','test-course')
-    metadata=enablement.ResourceMetadata(resource_type='course',title='新版课程名称',summary='新版本共享摘要',target_capability='交付',audience='工程师',source_platform='合成平台',source_url='https://example.com/new-course',capability_tag_ids=[req.targets[0].capability_tag_id])
+    metadata=enablement.ResourceMetadata(resource_type='course',title='新版课程名称',summary='新版本共享摘要',course_goals='交付',audience='工程师',level='advanced',source_url='https://example.com/new-course')
     row=enablement.save('resource','test-course',enablement.ResourceSave(base_revision=row['revision'],metadata=metadata),admin['id']);published(row,admin)
     data=views.detail(id,user);assert not data['hidden']
     item=data['payload']['stages'][0]['items'][0]

@@ -23,7 +23,7 @@ def structured(messages):
 
 def add_resource(admin, tag, name):
     metadata=enablement.ResourceMetadata(resource_type='course',title=name,summary='固定验收合成资源',
-        target_capability=name,audience='工程师',source_platform='合成平台',source_url='https://example.com/synthetic',capability_tag_ids=[tag])
+        course_goals=name,audience='工程师',level='advanced',source_url='https://example.com/synthetic')
     row=enablement.save('resource',name,enablement.ResourceSave(base_revision=0,metadata=metadata),admin['id'])
     return published(grant(row,admin),admin)
 

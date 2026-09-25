@@ -107,7 +107,7 @@ class DirectionAnalysis(StrictModel):
     priorities: list[Focus]=Field(default_factory=list,max_length=12)
     basis_limitations: list[str]=Field(default_factory=list,max_length=10)
     resource_types: list[Literal['course','lab','case']]=Field(default_factory=list,max_length=3)
-    excluded_difficulties: list[Literal['beginner','intermediate','advanced']]=Field(default_factory=list,max_length=3)
+    excluded_levels: list[Literal['basic','advanced']]=Field(default_factory=list,max_length=2)
 
 class AdviceOutput(PlanOutput):
     stages: list[Stage]=Field(default_factory=list,max_length=20)

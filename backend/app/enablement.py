@@ -7,7 +7,7 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator, ValidationError
 
 from .database import get_db
 
@@ -26,20 +26,26 @@ class ResourceMetadata(StrictModel):
     resource_type: Literal['course', 'lab']
     title: str = Field(min_length=1, max_length=200)
     summary: str = Field(min_length=1, max_length=4000)
-    target_capability: str = Field(min_length=1, max_length=1000)
-    audience: str = Field(default='未知', min_length=1, max_length=500)
-    product_direction: str = Field(default='未知', min_length=1, max_length=200)
-    difficulty: Literal['unknown','beginner','intermediate','advanced'] = 'unknown'
-    language: str = Field(default='未知', min_length=1, max_length=100)
-    site: str = Field(default='未知', min_length=1, max_length=200)
-    prerequisites: str = Field(default='未知', min_length=1, max_length=1000)
+    role_ids: list[str] = Field(default_factory=list, max_length=100)
+    zone_ids: list[str] = Field(default_factory=list, max_length=100)
+    level: Literal['basic', 'advanced'] | None = None
     duration_minutes: int | None = Field(default=None, gt=0, le=100000)
-    cost: Literal['unknown','free','paid'] = 'unknown'
-    account_requirement: str = Field(default='未知', min_length=1, max_length=1000)
-    environment_requirement: str = Field(default='未知', min_length=1, max_length=1000)
-    source_platform: str = Field(min_length=1, max_length=200)
     source_url: str = Field(min_length=1, max_length=2000)
-    capability_tag_ids: list[str] = Field(default_factory=list, max_length=100)
+    course_goals: str = Field(default='', max_length=4000)
+    audience: str = Field(default='', max_length=2000)
+    outline: str = Field(default='', max_length=12000)
+    cover_url: str = Field(default='', max_length=2000)
+    lab_goals: str = Field(default='', max_length=4000)
+    lab_requirements: str = Field(default='', max_length=4000)
+
+    @model_validator(mode='after')
+    def type_fields(self):
+        invalid = ('lab_goals', 'lab_requirements') if self.resource_type == 'course' else ('course_goals', 'audience', 'outline', 'cover_url')
+        if any(getattr(self, field) for field in invalid):
+            raise ValueError('课程和实验的补充字段不能混用')
+        if self.cover_url:
+            self.check_url(self.cover_url)
+        return self
 
     @field_validator('source_url')
     @classmethod
@@ -63,6 +69,24 @@ class ResourceMetadata(StrictModel):
         except ValueError:
             raise ValueError('请填写不含凭据的外部 HTTP/HTTPS 来源链接') from None
         return value
+
+
+def resource_metadata(data):
+    """Read-only adapter for historical immutable snapshots, never an old editing API."""
+    fields = ResourceMetadata.model_fields
+    result = {k: v for k, v in data.items() if k in fields}
+    if 'level' not in data:
+        result['level'] = {'beginner': 'basic', 'intermediate': 'advanced', 'advanced': 'advanced'}.get(data.get('difficulty'))
+        if data.get('resource_type') == 'course':
+            result['course_goals'] = data.get('target_capability', '')
+        else:
+            result.pop('audience', None)
+            result['lab_goals'] = data.get('target_capability', '')
+            result['lab_requirements'] = '' if data.get('prerequisites') in (None, '未知', 'unknown') else data['prerequisites']
+    # Defaults also cover optional fields absent from old published versions.
+    defaults = {'role_ids': [], 'zone_ids': [], 'level': None, 'duration_minutes': None,
+                'course_goals': '', 'audience': '', 'outline': '', 'cover_url': '', 'lab_goals': '', 'lab_requirements': ''}
+    return {**defaults, **result}
 
 
 class ShareMetadata(StrictModel):
@@ -151,13 +175,14 @@ def detail_in(conn, kind, source_id):
     row = row_for(conn,kind,source_id)
     row['source_id'] = source_id
     row['metadata'] = json.loads(row.pop('draft_json'))
+    if kind == 'resource': row['metadata'] = resource_metadata(row['metadata'])
     _, versions, _ = TABLES[kind]
     row['versions'] = [dict(v) for v in conn.execute(f'SELECT version,reviewed_revision,authorization_epoch,published_at,published_by FROM {versions} WHERE source_id=? ORDER BY version DESC',(source_id,))]
-    row['reviews'] = [dict(v) for v in conn.execute('SELECT r.*, CASE WHEN u.status=\'deleted\' THEN \'已删除用户\' ELSE COALESCE(u.display_name,u.username) END AS reviewer_name FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id WHERE source_kind=? AND source_id=? ORDER BY reviewed_at DESC',(kind,source_id))]
+    row['reviews'] = [dict(v) for v in conn.execute('SELECT r.*, CASE WHEN u.status=\'deleted\' THEN \'已删除用户\' ELSE COALESCE(u.display_name,u.username) END AS reviewer_name FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id WHERE source_kind=? AND source_id=? ORDER BY reviewed_at DESC',(kind,source_id))] if kind == 'case' else []
     row['audit'] = [dict(v) for v in conn.execute('SELECT action,actor_id,revision,authorization_epoch,reason,created_at FROM enablement_audit_events WHERE source_kind=? AND source_id=? ORDER BY created_at DESC',(kind,source_id))]
     if row['published_version']:
         v=conn.execute(f'SELECT payload_json FROM {versions} WHERE source_id=? AND version=?',(source_id,row['published_version'])).fetchone()
-        row['published_metadata']=json.loads(v[0])
+        row['published_metadata']=resource_metadata(json.loads(v[0])) if kind == 'resource' else json.loads(v[0])
     return row
 
 
@@ -176,8 +201,13 @@ def save(kind, source_id, payload, actor):
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         if kind=='case': check_case(conn,source_id)
-        check_tags(conn,metadata['capability_tag_ids'])
+        if kind == 'case': check_tags(conn,metadata['capability_tag_ids'])
+        else:
+            from .resource_categories import validate
+            validate(conn, metadata)
         existing=conn.execute(f'SELECT * FROM {table} WHERE {key}=?',(source_id,)).fetchone()
+        if kind == 'resource':
+            metadata['capability_tag_ids'] = json.loads(existing['draft_json']).get('capability_tag_ids', []) if existing else []
         if existing:
             row=dict(existing); check_base(row,payload.base_revision)
             if kind=='resource' and json.loads(row['draft_json'])['resource_type'] != metadata['resource_type']:
@@ -188,9 +218,6 @@ def save(kind, source_id, payload, actor):
             if payload.base_revision != 0: fail(409,'资源尚未建立，请刷新')
             conn.execute(f'INSERT INTO {table} ({key},draft_json,created_by,created_at,updated_at) VALUES (?,?,?,?,?)',
                 (source_id,json.dumps(metadata,ensure_ascii=False),actor,now(),now()))
-        if kind=='resource':
-            conn.execute('DELETE FROM resource_capability_map WHERE resource_id=?',(source_id,))
-            conn.executemany('INSERT INTO resource_capability_map VALUES (?,?)',[(source_id,t) for t in metadata['capability_tag_ids']])
         row=row_for(conn,kind,source_id)
         audit(conn,kind,source_id,'edit' if existing else 'create',actor,row)
         return detail_in(conn,kind,source_id)
@@ -211,6 +238,7 @@ def permissions(kind, source_id, payload, actor):
 
 
 def review(kind, source_id, payload, actor):
+    if kind != 'case': fail(404, '课程和实验不再使用人工核验流程')
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         row=row_for(conn,kind,source_id); check_base(row,payload.base_revision)
@@ -227,15 +255,23 @@ def publish(kind, source_id, payload, actor):
         conn.execute('BEGIN IMMEDIATE')
         row=row_for(conn,kind,source_id); check_base(row,payload.base_revision)
         metadata=json.loads(row['draft_json'])
-        check_tags(conn,metadata['capability_tag_ids'],required=True)
+        if kind == 'case': check_tags(conn,metadata['capability_tag_ids'],required=True)
+        else:
+            from .resource_categories import validate
+            try: clean = ResourceMetadata.model_validate(resource_metadata(metadata)).model_dump()
+            except ValidationError: fail(422, '资源内容或跳转链接无效，请编辑草稿后重新发布')
+            validate(conn, clean)
+            if not clean['level']: fail(409, '发布前请选择基础或进阶')
+            metadata = {**clean, 'capability_tag_ids': metadata.get('capability_tag_ids', [])}
         if kind=='case':
             partner=check_case(conn,source_id)
             metadata['contributor_name']=partner['name']
             metadata['contributor_id']=partner['id']
-        latest=conn.execute('SELECT * FROM enablement_reviews WHERE source_kind=? AND source_id=? AND revision=? ORDER BY reviewed_at DESC LIMIT 1',
-            (kind,source_id,row['revision'])).fetchone()
-        if not latest or latest['link_status']!='available' or not latest['content_checked'] or not latest['authorization_checked']:
-            fail(409,'请先完成当前内容与授权的人工核验，并确认来源链接可用')
+        if kind == 'case':
+            latest=conn.execute('SELECT * FROM enablement_reviews WHERE source_kind=? AND source_id=? AND revision=? ORDER BY reviewed_at DESC LIMIT 1',
+                (kind,source_id,row['revision'])).fetchone()
+            if not latest or latest['link_status']!='available' or not latest['content_checked'] or not latest['authorization_checked']:
+                fail(409,'请先完成当前内容与授权的人工核验，并确认来源链接可用')
         version=conn.execute(f'SELECT COALESCE(MAX(version),0)+1 FROM {versions} WHERE source_id=?',(source_id,)).fetchone()[0]
         # Freeze authorization with the content: granting flags later must not expose old content.
         metadata['_permissions']={f:bool(row[f]) for f in ('system_visible','model_allowed','partner_allowed')}
@@ -275,13 +311,20 @@ def resolve_reference(conn, source_type, source_id, source_version, purpose='sys
         partner=check_case(conn,source_id)
         if partner['id']!=data['contributor_id']: fail(409,'案例归属已变化，需重新核验')
     elif data['resource_type']!=source_type: fail(422,'引用类型与资源不符')
-    check_tags(conn,data['capability_tag_ids'],required=True)
+    if kind == 'case': check_tags(conn,data['capability_tag_ids'],required=True)
     flags=['system_visible'] + ({'model':['model_allowed'],'partner':['partner_allowed']}.get(purpose,[]))
     if any(not row[f] or not data['_permissions'].get(f,False) for f in flags):
         fail(403,'当前内容未获得此用途的明确授权')
     shared=('title','summary','methods','contributor_role','contributor_name','source_platform')
-    resource=('title','summary','target_capability','audience','product_direction','difficulty','language','site','prerequisites','duration_minutes','cost','account_requirement','environment_requirement','source_platform')
-    result={f:data[f] for f in (shared if kind=='case' else resource)}
+    resource=('title','summary','role_ids','zone_ids','level','duration_minutes','course_goals','audience','outline','lab_goals','lab_requirements')
+    if kind == 'resource':
+        from .resource_categories import labels
+        data = {**data, **resource_metadata(data)}
+        data['capability_tag_ids'] = [tag for tag in data.get('capability_tag_ids', []) if conn.execute('SELECT 1 FROM capability_tags WHERE id=? AND enabled=1', (tag,)).fetchone()]
+    result={k:data.get(k) for k in (shared if kind=='case' else resource)}
+    if kind == 'resource':
+        result.update(labels(conn, data))
+        if purpose != 'model': result['cover_url'] = data.get('cover_url', '')
     if purpose!='model': result['source_url']=data['source_url']
     if purpose!='partner': result.update(source_type=source_type,source_id=source_id,source_version=source_version,capability_tag_ids=data['capability_tag_ids'])
     return result

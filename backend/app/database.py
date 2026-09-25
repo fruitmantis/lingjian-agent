@@ -370,6 +370,8 @@ def initialize_storage() -> None:
         migrate_to_v12(connection)
         from .identity_schema import initialize_identity_schema
         initialize_identity_schema(connection)
+        from .resource_categories import initialize as initialize_resource_categories
+        initialize_resource_categories(connection)
         _ensure_column(connection, "match_records", "last_error_details", "TEXT")
         from .feedback_schema import initialize_feedback_fixture
         initialize_feedback_fixture(connection)

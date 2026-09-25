@@ -36,7 +36,9 @@ def readable_payload(conn,row):
     for stage in payload['stages']:
         for item in stage['items']:
             try:
-                resources.resolve_reference(conn,item['source_type'],item['source_id'],item['source_version'],'system')
+                source=resources.resolve_reference(conn,item['source_type'],item['source_id'],item['source_version'],'system')
+                if item['source_type'] != 'case':
+                    item['conditions']={k:source.get(k) for k in ('duration_minutes','level','roles','zones','lab_requirements')}
                 item['availability']='available'
             except HTTPException:item['availability']='unavailable'
     return payload
@@ -135,7 +137,7 @@ def transferable(plan_id,user,expected=None,copy_event=False):
             if not selected:continue
             lines.append(f'阶段 {index}')
             for data in selected:
-                for field,label in [('title','资源'),('summary','说明'),('methods','实践方法'),('source_platform','来源'),('source_url','来源链接'),('prerequisites','先修条件'),('account_requirement','账号要求'),('environment_requirement','环境要求'),('cost','费用'),('language','语言'),('site','站点'),('estimated_hours','预计投入（小时）')]:
+                for field,label in [('title','资源'),('summary','说明'),('methods','实践方法'),('source_platform','来源'),('source_url','来源链接'),('course_goals','课程目标'),('outline','课程大纲'),('lab_goals','实验目标'),('lab_requirements','基本要求'),('estimated_hours','预计投入（小时）')]:
                     if data.get(field):lines.append(f'{label}：{data[field]}')
         if len(lines)<=2:lines.append('当前没有可传递的资源安排，请联系内部负责人核实。')
         text='\n'.join(lines)

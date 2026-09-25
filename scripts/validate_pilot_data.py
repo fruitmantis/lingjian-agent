@@ -24,7 +24,7 @@ from backend.app.enablement import (StrictModel, ResourceMetadata, ShareMetadata
     Permissions, Review, check_case, check_tags, resolve_reference, row_for)
 from backend.app.development_types import DevelopmentRequest
 from backend.app.development_lifecycle import clarify
-from backend.app.development_engine import request_projection, guard, blocked_fragments, constraint_state, candidates
+from backend.app.development_engine import request_projection, guard, blocked_fragments, candidates
 
 STABLE = Path('/home/yuan/project/lingjian-agent')
 CANARY = 'INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE'
@@ -264,10 +264,6 @@ def inspect_package(conn, manifest, records, imported=False):
                     projection_ok = False
                     error('UNSAFE_RESOURCE_MODEL_PROJECTION', loc); continue
                 projected_items.append(item)
-                condition = constraint_state(item, request)
-                if condition['state'] == 'conflicts':
-                    warnings.append({'code': 'MODEL_CONSTRAINT_CONFLICT', 'location': loc}); continue
-                if condition['state'] == 'unknown': warnings.append({'code': 'MODEL_CONSTRAINT_UNKNOWN', 'location': loc})
             if imported and purpose == 'partner':
                 try: resolve_reference(conn, rec.source_type, rec.source_id, rec.source_version, 'partner')
                 except HTTPException:

@@ -12,7 +12,7 @@ CANARY='INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE'
 @pytest.fixture
 def scenario(prepared,monkeypatch):
     user,other,admin,request=prepared;tag=request.targets[0].capability_tag_id
-    metadata=enablement.ResourceMetadata(resource_type='course',title='数据库课程',summary='合成共享资源',target_capability='交付',audience='工程师',source_platform='合成平台',source_url='https://example.com/course',capability_tag_ids=[tag])
+    metadata=enablement.ResourceMetadata(resource_type='course',title='数据库课程',summary='合成共享资源',course_goals='交付',audience='工程师',level='advanced',source_url='https://example.com/course')
     row=enablement.save('resource','test-course',enablement.ResourceSave(base_revision=0,metadata=metadata),admin['id'])
     published(grant(row,admin),admin)
     with get_db() as conn:
@@ -43,7 +43,7 @@ def test_model_safe_context_and_strong_judgment_boundary(scenario,caplog):
     assert version['diagnoses'][0]['target_satisfaction']=='needs_assessment'
     assert version['diagnoses'][0]['evidence_status']=='partial'
     assert version['diagnoses'][0]['judgment_source']=='model_inference'
-    assert version['stages'][0]['items'][0]['constraint']['state']=='unknown'
+    assert version['stages'][0]['items'][0]['conditions']['level']=='advanced'
     for boundary in [scenario[1],version,caplog.text,run['safe_error_message']]:assert CANARY not in json.dumps(boundary)
     for messages in scenario[1]:
         text=json.dumps(messages);assert 'source_url' not in text and 'raw_demand' not in text
@@ -89,7 +89,7 @@ def test_legacy_human_gap_field_no_longer_controls_advice(scenario):
 
 
 @pytest.mark.parametrize('change',['unpublished','not_model_allowed','unknown','conflict'])
-def test_candidate_permissions_and_constraint_three_states(scenario,change):
+def test_candidate_permissions_and_legacy_constraints_do_not_filter(scenario,change):
     request=scenario[0][3]
     with get_db() as conn:
         if change=='unpublished':conn.execute("UPDATE enablement_resources SET status='unpublished' WHERE id='test-course'")
@@ -98,7 +98,7 @@ def test_candidate_permissions_and_constraint_three_states(scenario,change):
         else:request.trainee_role='商务经理'
     _,run,version=execute(scenario);assert run['status']=='ready'
     items=[i for stage in version['stages'] for i in stage['items']]
-    if change in ('unknown','conflict'):assert items and items[0]['constraint']['state']=='unknown'
+    if change in ('unknown','conflict'):assert items and 'constraint' not in items[0]
     else:assert items==[] and version['resource_gaps']
 
 

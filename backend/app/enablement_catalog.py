@@ -22,11 +22,11 @@ POOL = '''WITH candidates AS (
  AND p.status='active' AND p.id=json_extract(v.payload_json,'$.contributor_id')
 ), visible AS (
  SELECT * FROM candidates WHERE CAST(json_extract(payload_json,'$._permissions.system_visible') AS TEXT) IN ('1','true')
- AND json_array_length(payload_json,'$.capability_tag_ids')>0
+ AND (kind='resource' OR (json_array_length(payload_json,'$.capability_tag_ids')>0
  AND NOT EXISTS (SELECT 1 FROM json_each(payload_json,'$.capability_tag_ids') j
- LEFT JOIN capability_tags t ON t.id=j.value AND t.enabled=1 WHERE t.id IS NULL)
+ LEFT JOIN capability_tags t ON t.id=j.value AND t.enabled=1 WHERE t.id IS NULL)))
 ) '''
-FILTER_FIELDS = ('audience','product_direction','difficulty','language','site','cost','account_requirement','environment_requirement','prerequisites')
+CASE_FILTER_FIELDS = ('audience','product_direction','difficulty','language','site','cost','account_requirement','environment_requirement','prerequisites')
 
 
 def public_detail(conn, source_type, source_id, version=None):
@@ -39,13 +39,16 @@ def public_detail(conn, source_type, source_id, version=None):
         raise HTTPException(404,'资源不存在或当前不可用，请重新选择') from error
     _, versions, _ = service.TABLES[kind]
     snapshot = conn.execute(f'SELECT * FROM {versions} WHERE source_id=? AND version=?',(source_id,current)).fetchone()
-    review = conn.execute('''SELECT r.reviewed_at,r.link_status,r.content_checked,r.authorization_checked,
-        CASE WHEN u.status='deleted' THEN '已删除用户' ELSE COALESCE(NULLIF(u.display_name,''),'未记录') END AS reviewer_name
-        FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id
-        WHERE r.source_kind=? AND r.source_id=? AND r.revision=?
-        ORDER BY r.reviewed_at DESC,r.id DESC LIMIT 1''',(kind,source_id,snapshot['reviewed_revision'])).fetchone()
-    data.update(status='published',availability='available' if review and review['link_status']=='available' else 'unknown',
-                published_at=snapshot['published_at'],review=dict(review) if review else None)
+    if kind == 'case':
+        review = conn.execute('''SELECT r.reviewed_at,r.link_status,r.content_checked,r.authorization_checked,
+            CASE WHEN u.status='deleted' THEN '已删除用户' ELSE COALESCE(NULLIF(u.display_name,''),'未记录') END AS reviewer_name
+            FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id
+            WHERE r.source_kind=? AND r.source_id=? AND r.revision=?
+            ORDER BY r.reviewed_at DESC,r.id DESC LIMIT 1''',(kind,source_id,snapshot['reviewed_revision'])).fetchone()
+        data.update(status='published',availability='available' if review and review['link_status']=='available' else 'unknown',
+                    published_at=snapshot['published_at'],review=dict(review) if review else None)
+    else:
+        data.update(status='published', published_at=snapshot['published_at'])
     data['capabilities'] = [dict(conn.execute('SELECT id,name FROM capability_tags WHERE id=?',(tag,)).fetchone()) for tag in data['capability_tag_ids']]
     if kind == 'case':
         data['contributor_id'] = json.loads(snapshot['payload_json'])['contributor_id']
@@ -57,18 +60,26 @@ def catalog(source_type=None, q=None, capability_tag_id=None, contributor_id=Non
     if status != 'published': conditions.append('1=0')
     if source_type: conditions.append('source_type=?');params.append(source_type)
     if q:
-        fields=('title','summary','target_capability','methods','product_direction','audience')
+        fields=('title','summary','methods','course_goals','outline','lab_goals','audience')
         conditions.append('('+' OR '.join("instr(lower(COALESCE(json_extract(payload_json,'$."+field+"'),'')),lower(?))>0" for field in fields)+')')
         params.extend([q.strip()]*len(fields))
     if capability_tag_id:
         conditions.append("EXISTS (SELECT 1 FROM json_each(payload_json,'$.capability_tag_ids') WHERE value=?)");params.append(capability_tag_id)
     if contributor_id: conditions.append("json_extract(payload_json,'$.contributor_id')=?");params.append(contributor_id)
-    for field in FILTER_FIELDS:
+    for field in CASE_FILTER_FIELDS if source_type == 'case' else ():
         value=filters.get(field)
         if value:
             unknown='unknown' if field in ('difficulty','cost') else '未知'
             conditions.append(f"COALESCE(NULLIF(json_extract(payload_json,'$.{field}'),''),?)=?")
             params.extend([unknown,value])
+    for field in ('role_ids', 'zone_ids'):
+        value = filters.get(field[:-1])
+        if value:
+            conditions.append("EXISTS (SELECT 1 FROM json_each(payload_json,'$."+field+"') WHERE value=?)")
+            params.append(value)
+    if filters.get('level'):
+        conditions.append("COALESCE(json_extract(payload_json,'$.level'), CASE json_extract(payload_json,'$.difficulty') WHEN 'beginner' THEN 'basic' WHEN 'intermediate' THEN 'advanced' WHEN 'advanced' THEN 'advanced' END)=?")
+        params.append(filters['level'])
     where=' WHERE '+' AND '.join(conditions) if conditions else ''
     with get_db() as conn:
         conn.execute('BEGIN')
@@ -82,10 +93,12 @@ def catalog(source_type=None, q=None, capability_tag_id=None, contributor_id=Non
 def filter_options():
     with get_db() as conn:
         conn.execute('BEGIN')
-        data=[json.loads(r[0]) for r in conn.execute(POOL+'SELECT payload_json FROM visible')]
+        data=[json.loads(r[0]) for r in conn.execute(POOL+"SELECT payload_json FROM visible WHERE kind='case'")]
+        from .resource_categories import read
+        categories = read(conn)
         tag_ids={tag for row in data for tag in row['capability_tag_ids']}
         tags=[dict(r) for r in conn.execute('SELECT id,name FROM capability_tags WHERE enabled=1 ORDER BY name') if r['id'] in tag_ids]
-        return {'capabilities':tags, **{f:sorted({str(row.get(f) or ('unknown' if f in ('difficulty','cost') else '未知')) for row in data}) for f in FILTER_FIELDS}}
+        return {'roles': [r for r in categories if r['kind']=='role'], 'zones': [r for r in categories if r['kind']=='zone'], 'capabilities':tags, **{f:sorted({str(row.get(f) or ('unknown' if f in ('difficulty','cost') else '未知')) for row in data}) for f in CASE_FILTER_FIELDS}}
 
 
 def redirect(source_type,source_id,version,actor):

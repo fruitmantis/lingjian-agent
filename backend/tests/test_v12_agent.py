@@ -22,7 +22,7 @@ def run(scenario,direction,partner='partner-1',user=None):
 
 
 def add(admin,kind,title,tag,difficulty='advanced',id=None):
-    metadata=enablement.ResourceMetadata(resource_type=kind,title=title,summary=title+'的合成测试用途',target_capability=title,product_direction=title,audience='交付工程师',difficulty=difficulty,cost='paid',account_requirement='需测试账号',environment_requirement='需测试环境',source_platform='synthetic',source_url='https://example.com/synthetic',capability_tag_ids=[tag])
+    metadata=enablement.ResourceMetadata(resource_type=kind,title=title,summary=title+'的合成测试用途',level='basic' if difficulty=='beginner' else 'advanced',source_url='https://example.com/synthetic',**({'course_goals':title,'audience':'交付工程师'} if kind=='course' else {'lab_goals':title,'lab_requirements':'需测试环境'}))
     row=enablement.save('resource',id or str(uuid.uuid4()),enablement.ResourceSave(base_revision=0,metadata=metadata),admin['id']);return published(grant(row,admin),admin)
 
 
@@ -46,7 +46,7 @@ def test_directions_profiles_unmapped_focus_and_latest_profile(scenario):
     assert any('Agent' in i['title'] for i in items(agent)) # metadata search, not tag equality
     assert all(i['source_id']!='test-course' for i in items(agent)) # generic delivery audience is not relevance
     assert other['payload']['analysis']['basis_limited']
-    assert items(agent)[0]['conditions']['account_requirement']=='需测试账号'
+    assert items(agent)[0]['conditions']['level']=='advanced'
     with get_db() as conn:
         assert conn.execute('SELECT count(*) FROM capability_tags').fetchone()[0]==before
         conn.execute("UPDATE partners SET ai_profile='已完成数据库与云基础项目实践' WHERE id='profile-b'")
@@ -67,15 +67,15 @@ def test_exploration_not_driven_by_resource_inventory(scenario):
     first=json.loads(scenario[1][0][-1]['content']);assert 'candidates' not in first
 
 
-def test_short_labs_unknown_cost_gap_and_no_capability_update(scenario,client):
+def test_short_labs_gap_and_no_capability_update(scenario,client):
     tag=scenario[0][3].targets[0].capability_tag_id
     add(scenario[0][2],'lab','数据库进阶实验',tag)
     d=run(scenario,'只给几个数据库进阶实验，不要基础课')
     assert d['payload']['analysis']['intent']=='resources'
     assert {i['source_type'] for i in items(d)}=={'lab'}
     assert not d['payload']['next_steps']
-    assert items(d)[0]['conditions']['cost']=='paid'
-    assert items(d)[0]['constraint']['state']=='unknown'
+    assert items(d)[0]['conditions']['lab_requirements']=='需测试环境'
+    assert 'constraint' not in items(d)[0]
     with get_db() as conn:before=tuple(conn.execute("SELECT capabilities,ai_profile FROM partners WHERE id='partner-1'").fetchone())
     i=items(d)[0]
     res=client.post(f"/enablement/resources/lab/{i['source_id']}/redirect",headers=auth_headers(scenario[0][0]),json={'source_version':i['source_version']})

@@ -39,9 +39,9 @@ test.beforeAll(async ({ request }) => {
   expect(capability).toBeTruthy();
   for (const [resource_type, title] of [['course', 'RAG 知识库工程课程（视觉合成测试）'], ['lab', 'Agent 系统集成实验（视觉合成测试）']]) {
     const created = await request.post(`${API}/admin/enablement/resources`, { headers, data: { base_revision: 0, metadata: {
-      resource_type, title, summary: '仅用于临时数据库的视觉验证，不是正式业务资源。', target_capability: title,
-      source_platform: 'synthetic', source_url: 'https://example.com/visual-fixture', capability_tag_ids: [capability.id],
-      difficulty: 'advanced', duration_minutes: 90, cost: 'free', account_requirement: '测试账号',
+      resource_type, title, summary: '仅用于临时数据库的视觉验证，不是正式业务资源。', level: 'advanced', duration_minutes: 90, role_ids:['role-1'], zone_ids:['zone-1'],
+      source_url: 'https://example.com/visual-fixture',
+
     } } });
     expect(created.ok()).toBeTruthy();
     let row = await created.json();
@@ -49,9 +49,7 @@ test.beforeAll(async ({ request }) => {
     const permissions = await request.patch(url + '/permissions', { headers, data: { base_revision: row.revision,
       system_visible: true, model_allowed: true, partner_allowed: true, reason: '仅限临时库合成验证' } });
     expect(permissions.ok()).toBeTruthy(); row = await permissions.json();
-    const review = await request.post(url + '/review', { headers, data: { base_revision: row.revision,
-      link_status: 'available', content_checked: true, authorization_checked: true } });
-    expect(review.ok()).toBeTruthy();
+
     expect((await request.post(url + '/publish', { headers, data: { base_revision: row.revision } })).ok()).toBeTruthy();
   }
 });
@@ -127,13 +125,13 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
     if (route === '/partners') await expect(page.locator('.partner-insight-card').first()).toBeVisible();
     if (route === '/tasks') await expect(page.locator('tbody tr').first()).toBeVisible();
     if (route === '/admin') await expect(page.locator('.admin-metric-card').first()).toBeVisible();
-    if (route === '/resources') await expect(page.locator('.enablement-resource-card').first()).toBeVisible();
+    if (route === '/resources') await expect(page.locator('.learning-card').first()).toBeVisible();
     await capture(name);
   }
   const publicContext = await browser.newContext();
   const login = await publicContext.newPage();
   await login.goto('http://localhost:3000/login');
-  await expect(login.getByRole('heading', { name: '伴飞 Agent', exact: true })).toBeVisible();
+  await expect(login.getByRole('heading', { name: '使用身份 Key 登录', exact: true })).toBeVisible();
   await publicContext.close();
   expect((await request.get('http://localhost:3000/icon.svg')).status()).toBe(200);
   if (typography) await writeFile(path.join(directory, `font-validation-${width}.json`), JSON.stringify(typography.evidence(), null, 2));

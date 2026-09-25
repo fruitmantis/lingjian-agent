@@ -22,8 +22,8 @@ def admin(client):
 def metadata():
     with get_db() as conn:
         tag=conn.execute('SELECT id FROM capability_tags WHERE enabled=1 LIMIT 1').fetchone()[0]
-    return {'resource_type':'course','title':'合成课程','summary':'仅测试资源','target_capability':'数据库迁移',
-            'source_platform':'合成平台','source_url':'https://example.com/course','capability_tag_ids':[tag]}
+    return {'resource_type':'course','title':'合成课程','summary':'仅测试资源','level':'basic', 'role_ids':['role-1','role-4'], 'zone_ids':['zone-1'],
+            'source_url':'https://example.com/course'}
 
 
 def create(admin, metadata, kind='resource'):
@@ -31,7 +31,9 @@ def create(admin, metadata, kind='resource'):
         make_partner()
         with get_db() as conn:
             conn.execute("INSERT INTO cases VALUES ('shared-case','partner-1','INTERNAL TITLE','INTERNAL SECRET','2026-09-05')")
-        metadata={k:v for k,v in metadata.items() if k not in ('resource_type','target_capability')}
+        metadata={k:v for k,v in metadata.items() if k in ('title','summary','source_url')}
+        with get_db() as conn: tag=conn.execute('SELECT id FROM capability_tags WHERE enabled=1 LIMIT 1').fetchone()[0]
+        metadata.update(source_platform='合成平台',capability_tag_ids=[tag])
         metadata.update(methods='可共享方法',contributor_role='仅承担迁移实施')
         return service.save('case','shared-case',service.ShareSave(base_revision=0,metadata=metadata),admin['id'])
     return service.save('resource','resource-test',service.ResourceSave(base_revision=0,metadata=metadata),admin['id'])
@@ -43,6 +45,7 @@ def grant(row,admin,kind='resource',flags=(True,True,True)):
 
 
 def reviewed(row,admin,kind='resource'):
+    if kind != 'case': return row
     return service.review(kind,row['source_id'],service.Review(base_revision=row['revision'],link_status='available',content_checked=True,authorization_checked=True),admin['id'])
 
 
@@ -81,15 +84,14 @@ def test_resource_lifecycle_review_and_conflicts(client,admin,metadata,resource_
     assert response.status_code==201
     row=response.json(); path='/admin/enablement/resources/'+row['source_id']
     assert not row['system_visible'] and not row['model_allowed'] and not row['partner_allowed']
-    assert client.post(path+'/publish',headers=headers,json={'base_revision':1}).status_code==409
+    assert client.post(path+'/review',headers=headers,json={'base_revision':1}).status_code==404
     assert client.put(path,headers=headers,json={'base_revision':99,'metadata':metadata}).status_code==409
     row=grant(row,admin)
     reviewed(row,admin)
     metadata['title']='编辑后的课程'
     row=client.put(path,headers=headers,json={'base_revision':row['revision'],'metadata':metadata}).json()
-    assert client.post(path+'/publish',headers=headers,json={'base_revision':row['revision']}).status_code==409
     row=published(row,admin)
-    assert row['published_version']==1 and len(row['reviews'])==2
+    assert row['published_version']==1 and len(row['reviews'])==0
     metadata['title']='未发布草稿'
     draft=client.put(path,headers=headers,json={'base_revision':row['revision'],'metadata':metadata}).json()
     assert resolve(draft)['title']=='编辑后的课程'
@@ -154,23 +156,22 @@ def test_reject_unsafe_urls(client,admin,metadata,url):
     assert client.post('/admin/enablement/resources',headers=auth_headers(admin),json={'base_revision':0,'metadata':metadata}).status_code==422
 
 
-def test_tags_missing_disabled_and_invalid_reference(admin,metadata):
-    metadata['capability_tag_ids']=['missing']
-    with pytest.raises(HTTPException): create(admin,metadata)
-    with get_db() as conn: metadata['capability_tag_ids']=[conn.execute('SELECT id FROM capability_tags LIMIT 1').fetchone()[0]]
+def test_disabled_case_tags_and_invalid_resource_reference(admin,metadata):
     row=published(grant(create(admin,metadata),admin),admin)
     with get_db() as conn:
         with pytest.raises(HTTPException): service.resolve_reference(conn,'lab',row['source_id'],1)
         with pytest.raises(HTTPException): service.resolve_reference(conn,'course','invented',1)
-        conn.execute('UPDATE capability_tags SET enabled=0 WHERE id=?',(metadata['capability_tag_ids'][0],))
-    with pytest.raises(HTTPException): resolve(row)
+    shared=published(grant(create(admin,metadata,'case'),admin,'case'),admin,'case')
+    with get_db() as conn: conn.execute('UPDATE capability_tags SET enabled=0')
+    with pytest.raises(HTTPException): resolve(shared,'case')
+    assert resolve(row)['title']==metadata['title']
 
 
 @pytest.mark.parametrize('link_status,content,authorization',[('unknown',True,True),('unavailable',True,True),('available',False,True),('available',True,False)])
 def test_publish_requires_latest_complete_review(admin,metadata,link_status,content,authorization):
-    row=create(admin,metadata); reviewed(row,admin)
-    service.review('resource',row['source_id'],service.Review(base_revision=row['revision'],link_status=link_status,content_checked=content,authorization_checked=authorization),admin['id'])
-    with pytest.raises(HTTPException): service.publish('resource',row['source_id'],service.Revision(base_revision=row['revision']),admin['id'])
+    row=create(admin,metadata,'case'); reviewed(row,admin,'case')
+    service.review('case',row['source_id'],service.Review(base_revision=row['revision'],link_status=link_status,content_checked=content,authorization_checked=authorization),admin['id'])
+    with pytest.raises(HTTPException): service.publish('case',row['source_id'],service.Revision(base_revision=row['revision']),admin['id'])
 
 
 def test_concurrent_publish_only_one_version(admin,metadata):
@@ -212,7 +213,7 @@ def test_all_new_api_operations_require_admin(client,metadata,role):
             response=client.request(method,path,headers=headers,json={})
             assert response.status_code==(403 if role=='user' else 401),(method,path,response.text)
             operations+=1
-    assert operations==14
+    assert operations==16
 
 
 def test_case_delete_and_initial_share_are_serialized(client,admin,metadata):

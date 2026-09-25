@@ -14,6 +14,7 @@ type Resource = {
   target_capability?: string; audience?: string; product_direction?: string; difficulty?: string;
   language?: string; site?: string; prerequisites?: string; duration_minutes?: number | null;
   cost?: string; account_requirement?: string; environment_requirement?: string; source_platform: string;
+  role_ids?:string[];zone_ids?:string[];roles?:Category[];zones?:Category[];level?:string|null;course_goals?:string;outline?:string;cover_url?:string;lab_goals?:string;lab_requirements?:string;
   source_url: string; capabilities: {id: string; name: string}[]; status: string; availability: string;
   review: { reviewer_name: string; reviewed_at: string; link_status: string; content_checked: number; authorization_checked: number } | null;
   contributor_name?: string; contributor_id?: string; contributor_role?: string; methods?: string;
@@ -80,22 +81,21 @@ export function DevelopmentEntry() {
   </div>;
 }
 
-const filterFields: [string,string][] = [["audience","岗位 / 适用对象"],["product_direction","产品 / 技术方向"],["difficulty","难度"],["language","语言"],["site","站点"],["cost","费用"],["account_requirement","账号条件"],["environment_requirement","环境条件"],["prerequisites","先修条件"]];
-type Filters = {capabilities:{id:string;name:string}[]} & Record<string,unknown>;
-export function ResourceCatalog() {
-  const search=useSearchParams();const router=useRouter();
-  const source=["course","lab","case"].includes(search.get("resource_type")||"") ? search.get("resource_type")! : "course";
+// Retained exclusively for the unchanged shared-case view.
+const caseFilterFields: [string,string][] = [["audience","岗位 / 适用对象"],["product_direction","产品 / 技术方向"],["difficulty","难度"],["language","语言"],["site","站点"],["cost","费用"],["account_requirement","账号条件"],["environment_requirement","环境条件"],["prerequisites","先修条件"]];
+type Category = {id:string;name:string};
+type Filters = {roles?:Category[];zones?:Category[]} & {capabilities:{id:string;name:string}[]} & Record<string,unknown>;
+function CaseCatalog() {
+  const source="case";
   const [query,setQuery]=useState("");const [filters,setFilters]=useState<Record<string,string>>({});const [applied,setApplied]=useState<Record<string,string>>({});const [page,setPage]=useState(1);
   const options=useAuthorizedData<Filters>("/enablement/resource-filters");
   const request=new URLSearchParams({source_type:source,page:String(page),page_size:"12",...applied});
   const result=useAuthorizedData<{items:Resource[];total:number}>(`/enablement/resources?${request}`);
-  function tab(type:string){const next=new URLSearchParams(search);next.delete("tab");next.set("resource_type",type);setPage(1);router.replace(`/resources?${next}`,{scroll:false});}
-  return <section aria-label="资源中心">
-    <div className="enablement-tabs" role="tablist" aria-label="资源类型">{Object.entries(typeLabels).map(([key,label])=><button role="tab" aria-selected={source===key} className={source===key?"active":""} key={key} onClick={()=>tab(key)}>{label}</button>)}</div>
+  return <section aria-label="案例资源">
     <form className="card resource-filters" onSubmit={e=>{e.preventDefault();setApplied({q:query,...filters});setPage(1);}}>
       <div className="enablement-search"><label className="enablement-field">资源名称<input value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索资源名称" maxLength={200}/></label><button type="submit">搜索资源</button><button type="button" className="secondary-btn" onClick={()=>{setQuery("");setFilters({});setApplied({});setPage(1);}}>重置筛选</button></div>
       <div className="enablement-filter-grid"><label className="enablement-field">能力<select aria-label="能力" value={filters.capability_tag_id||""} onChange={e=>setFilters({...filters,capability_tag_id:e.target.value})}><option value="">全部能力</option>{options.data?.capabilities.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-      {filterFields.map(([key,label])=><label className="enablement-field" key={key}>{label}<select aria-label={label} value={filters[key]||""} onChange={e=>setFilters({...filters,[key]:e.target.value})}><option value="">全部</option>{((options.data?.[key]||[]) as string[]).map(v=><option key={v} value={v}>{display(v)}</option>)}</select></label>)}
+      {caseFilterFields.map(([key,label])=><label className="enablement-field" key={key}>{label}<select aria-label={label} value={filters[key]||""} onChange={e=>setFilters({...filters,[key]:e.target.value})}><option value="">全部</option>{((options.data?.[key]||[]) as string[]).map(v=><option key={v} value={v}>{display(v)}</option>)}</select></label>)}
       <label className="enablement-field">发布状态<select aria-label="发布状态" value={filters.status||"published"} onChange={e=>setFilters({...filters,status:e.target.value})}><option value="published">已发布</option><option value="unpublished">已下架</option></select></label></div>
       <p className="muted">仅展示当前已发布且获准在系统内查看的版本。已下架、撤权内容不可查看。</p>
     </form>
@@ -121,6 +121,13 @@ export function ResourceDetail({type,id}:{type:string;id:string}) {
     } catch {popup?.close();resource.clear();setEvent("无法发起跳转，请重新核验资源。");}finally{setJumping(false);}
   }
   const r=resource.data;
+  if(r&&r.source_type!=="case")return <div className="page enablement-page learning-detail"><Link href={`/resources?resource_type=${r.source_type}`}>返回资源中心</Link>
+    <header className="learning-detail-heading"><h1>{r.title}</h1><p className="lead">{r.summary}</p><ResourceLabels resource={r}/><div className="learning-meta"><span>{levelName(r.level)}</span>{r.source_type==='lab'&&<span>{duration(r.duration_minutes)}</span>}</div></header>
+    {r.source_type==='course'&&r.cover_url&&<img className="learning-cover" src={r.cover_url} alt="" referrerPolicy="no-referrer" loading="lazy"/>}
+    <section className="card learning-content">{(r.source_type==='course'?[['课程目标',r.course_goals],['目标学员',r.audience],['课程大纲',r.outline]]:[['实验目标',r.lab_goals],['基本要求',r.lab_requirements]]).map(([label,value])=><section key={label}><h2>{label}</h2><p className="enablement-prose">{value||'暂未填写'}</p></section>)}
+      <div className="learning-cta"><button disabled={jumping} onClick={()=>void redirect()}>{jumping?'正在跳转…':r.source_type==='course'?'前往课程':'前往实验'}</button></div>
+    </section>{event&&<p role="status">{event}</p>}
+  </div>;
   return <div className="page enablement-page"><Link href={`/resources?resource_type=${encodeURIComponent(type)}`}>返回资源中心</Link>{resource.error?<ReadError message={resource.error} retry={resource.retry}/>:!r?<p role="status">正在核验资源…</p>:<>
     <div className="page-heading-row"><div><p className="eyebrow">{typeLabels[r.source_type]}资源</p><h1>{r.title}</h1><p className="lead">{r.summary}</p></div><span className="enablement-badge">已发布 · {r.availability==="available"?"人工核验可用":"可用性未知"}</span></div>
     <section className="card"><h2>资源信息</h2><div className="enablement-tags">{r.capabilities.map(c=><span key={c.id}>{c.name}</span>)}</div><dl className="enablement-facts">
@@ -133,4 +140,38 @@ export function ResourceDetail({type,id}:{type:string;id:string}) {
 export function PartnerSharedCases({partnerId}:{partnerId:string}) {
   const result=useAuthorizedData<{items:Resource[]}>(`/enablement/resources?source_type=case&contributor_id=${encodeURIComponent(partnerId)}`);
   return <section className="card"><h2>共享学习案例</h2>{result.error?<ReadError message={result.error} retry={result.retry}/>:result.data?.items.length?<div className="case-stack">{result.data.items.map(r=><article className="case-item" key={r.source_id}><h3><Link href={resourcePath(r)}>{r.title}</Link></h3><p>{r.summary}</p></article>)}</div>:<p className="placeholder-text">暂无当前可查看的已发布共享学习案例。</p>}</section>;
+}
+
+const levelName=(level?:string|null)=>level==='basic'?'基础':level==='advanced'?'进阶':'层级待补充';
+const duration=(minutes?:number|null)=>minutes?`${minutes} 分钟`:'时长待补充';
+function ResourceLabels({resource}:{resource:Resource}) {
+  return <div className="enablement-tags learning-labels">{[...(resource.roles||[]),...(resource.zones||[])].map(c=><span key={c.id}>{c.name}</span>)}</div>;
+}
+
+export function ResourceCatalog() {
+  const search=useSearchParams(),router=useRouter();
+  const source=['course','lab','case'].includes(search.get('resource_type')||'')?search.get('resource_type')!:'course';
+  function tab(type:string){const next=new URLSearchParams(search);next.delete('tab');next.set('resource_type',type);router.replace(`/resources?${next}`,{scroll:false});}
+  return <section aria-label="资源中心"><div className="enablement-tabs" role="tablist" aria-label="资源类型">{Object.entries(typeLabels).map(([key,label])=><button role="tab" aria-selected={source===key} className={source===key?'active':''} key={key} onClick={()=>tab(key)}>{label}</button>)}</div>
+    {source==='case'?<CaseCatalog/>:<LearningCatalog key={source} source={source}/>}
+  </section>;
+}
+function LearningCatalog({source}:{source:string}) {
+  const [axis,setAxis]=useState<'roles'|'zones'>('roles'),[category,setCategory]=useState(''),[level,setLevel]=useState('');
+  const [query,setQuery]=useState(''),[applied,setApplied]=useState(''),[page,setPage]=useState(1);
+  const options=useAuthorizedData<Filters>('/enablement/resource-filters');
+  const params=new URLSearchParams({source_type:source,page:String(page),page_size:'12'});
+  if(category)params.set(axis==='roles'?'role_id':'zone_id',category);
+  if(level)params.set('level',level);if(applied)params.set('q',applied);
+  const result=useAuthorizedData<{items:Resource[];total:number}>(`/enablement/resources?${params}`);
+  return <>
+    <section className="card learning-filters">
+      <div className="learning-toolbar"><div className="learning-axis" role="group" aria-label="浏览方式">{([['roles','按岗位'],['zones','按专区']] as const).map(([value,label])=><button className={axis===value?'active':''} key={value} aria-pressed={axis===value} onClick={()=>{setAxis(value);setCategory('');setPage(1);}}>{label}</button>)}</div>
+      <form className="learning-search" onSubmit={e=>{e.preventDefault();setApplied(query.trim());setPage(1);}}><input aria-label="搜索课程或实验" placeholder="搜索名称或简介" maxLength={200} value={query} onChange={e=>setQuery(e.target.value)}/><button type="submit" className="secondary-btn">搜索</button></form></div>
+      {options.error?<ReadError message={options.error} retry={options.retry}/>:<div className="learning-categories" role="group" aria-label={axis==='roles'?'岗位分类':'专区分类'}><button aria-pressed={!category} className={!category?'active':''} onClick={()=>{setCategory('');setPage(1);}}>全部{axis==='roles'?'岗位':'专区'}</button>{(options.data?.[axis]||[]).map(c=><button key={c.id} aria-pressed={category===c.id} className={category===c.id?'active':''} onClick={()=>{setCategory(c.id);setPage(1);}}>{c.name}</button>)}</div>}
+      <div className="learning-levels" role="group" aria-label="资源层级">{[['','全部'],['basic','基础'],['advanced','进阶']].map(([value,label])=><button key={value} className={level===value?'active':''} aria-pressed={level===value} onClick={()=>{setLevel(value);setPage(1);}}>{label}</button>)}</div>
+    </section>
+    {result.error?<ReadError message={result.error} retry={result.retry}/>:!result.data?<p role="status">正在读取资源…</p>:<><p className="muted" role="status">共 {result.data.total} 条资源</p><div className="enablement-resource-grid learning-grid">{result.data.items.map(r=><article className="card learning-card" key={r.source_id}><h2><Link href={resourcePath(r)}>{r.title}</Link></h2><p>{r.summary}</p><ResourceLabels resource={r}/><div className="learning-meta"><span className="learning-level">{levelName(r.level)}</span>{r.source_type==='lab'&&<span>{duration(r.duration_minutes)}</span>}</div></article>)}</div>{!result.data.items.length&&<div className="card empty-state"><h2>暂无符合条件的资源</h2><p>试试其他分类或搜索词。</p></div>}
+    <div className="enablement-actions resource-pagination"><button className="secondary-btn" disabled={page===1} onClick={()=>setPage(p=>p-1)}>上一页</button><span>第 {page} 页</span><button className="secondary-btn" disabled={page*12>=result.data.total} onClick={()=>setPage(p=>p+1)}>下一页</button></div></>}
+  </>;
 }

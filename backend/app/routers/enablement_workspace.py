@@ -20,6 +20,7 @@ SourceType=Literal['course','lab','case']
 def resources(source_type: SourceType | None=None,q: str | None=Query(None,max_length=200),
               capability_tag_id: str | None=None,contributor_id: str | None=None,
               status: Literal['published','unpublished']='published',
+              role_id: str | None=None,zone_id: str | None=None,level: Literal['basic','advanced'] | None=None,
               audience: str | None=None,product_direction: str | None=None,difficulty: str | None=None,
               language: str | None=None,site: str | None=None,cost: str | None=None,
               account_requirement: str | None=None,environment_requirement: str | None=None,prerequisites: str | None=None,

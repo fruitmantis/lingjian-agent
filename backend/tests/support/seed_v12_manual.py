@@ -41,11 +41,11 @@ def main():
             if conn.execute(f'SELECT 1 FROM {table} WHERE {column}=?',(id,)).fetchone():continue
         meta={'title':title+'（合成开发测试）','summary':focus+'；仅用于 V1.2 开发体验，不是真实业务资源。','source_platform':'本地开发示例目录','source_url':'https://example.com/','capability_tag_ids':[tags[tag]]}
         if kind=='case':meta.update(methods=focus+' 的模拟方法：准备、验证、复盘。',contributor_role='合成实施角色')
-        else:meta.update(resource_type=kind,target_capability=focus,product_direction=focus,audience='交付工程师',difficulty=level,language='中文',site='开发示例',duration_minutes=90,prerequisites='了解对应技术基础',cost='unknown' if 'rag' in id else 'free',account_requirement='需要开发测试账号',environment_requirement='由使用者准备独立实验环境')
+        else:meta={k:v for k,v in meta.items() if k in ('title','summary','source_url')};meta.update(resource_type=kind,level='basic' if level=='beginner' else 'advanced',duration_minutes=90,**({'course_goals':focus,'audience':'交付工程师'} if kind=='course' else {'lab_goals':focus,'lab_requirements':'了解对应技术基础'}))
         save=service.ShareSave if kind=='case' else service.ResourceSave
         row=service.save(domain,id,save(base_revision=0,metadata=meta),admin)
         row=service.permissions(domain,id,service.Permissions(base_revision=row['revision'],system_visible=True,model_allowed=True,partner_allowed=True,reason='合成开发材料仅用于 local mock 和人工演示'),admin)
-        row=service.review(domain,id,service.Review(base_revision=row['revision'],link_status='available',content_checked=True,authorization_checked=True,note='合成演示核验，不代表真实业务人工签审'),admin)
+        if kind=='case':row=service.review(domain,id,service.Review(base_revision=row['revision'],link_status='available',content_checked=True,authorization_checked=True,note='合成演示核验，不代表真实业务人工签审'),admin)
         service.publish(domain,id,service.Revision(base_revision=row['revision']),admin);created+=1
     with get_db() as conn:
         assert conn.execute('PRAGMA integrity_check').fetchone()[0]=='ok'

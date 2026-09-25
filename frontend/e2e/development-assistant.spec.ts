@@ -8,11 +8,11 @@ const API='http://localhost:8000';
 let admin:Record<string,string>,user:Record<string,string>,tag:string;
 async function login(r:APIRequestContext,name:string,page?:Page){const res=await fixtureLogin(r, name, 'ValidationPass123');expect(res.ok()).toBeTruthy();const s=await res.json();if(page)await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},s);return {Authorization:`Bearer ${s.access_token}`};}
 async function ok(res:Awaited<ReturnType<APIRequestContext['get']>>){expect(res.ok(),await res.text()).toBeTruthy();return res.status()===204?null:res.json();}
-async function publish(r:APIRequestContext,url:string,row:{revision:number}){row=await ok(await r.patch(url+'/permissions',{headers:admin,data:{base_revision:row.revision,system_visible:true,model_allowed:true,partner_allowed:true,reason:"V1.2 合成测试授权"}}));await ok(await r.post(url+'/review',{headers:admin,data:{base_revision:row.revision,link_status:'available',content_checked:true,authorization_checked:true}}));return ok(await r.post(url+'/publish',{headers:admin,data:{base_revision:row.revision}}));}
+async function publish(r:APIRequestContext,url:string,row:{revision:number}){row=await ok(await r.patch(url+'/permissions',{headers:admin,data:{base_revision:row.revision,system_visible:true,model_allowed:true,partner_allowed:true,reason:"V1.2 合成测试授权"}}));if(url.includes('/sharing'))await ok(await r.post(url+'/review',{headers:admin,data:{base_revision:row.revision,link_status:'available',content_checked:true,authorization_checked:true}}));return ok(await r.post(url+'/publish',{headers:admin,data:{base_revision:row.revision}}));}
 test.beforeAll(async({request:r})=>{
  admin=await login(r,'admin1');user=await login(r,'user_a');const tags=await ok(await r.get(API+'/development/capabilities',{headers:user}));tag=tags.find((t:{name:string})=>t.name==='数据库').id;const ai=tags.find((t:{name:string})=>t.name==='盘古大模型').id;
  for(const [kind,title,cap] of [['course','数据库迁移合成课程',tag],['lab','数据库进阶迁移实验',tag],['lab','数据库进阶回退实验',tag],['course','RAG 知识库工程课程',ai],['lab','Agent 工具调用集成实验',ai],['lab','Agent 接口可靠性实验',ai]]){
-  const row=await ok(await r.post(API+'/admin/enablement/resources',{headers:admin,data:{base_revision:0,metadata:{resource_type:kind,title,summary:'合成实践验证',target_capability:title,product_direction:title,difficulty:'advanced',duration_minutes:90,cost:'free',account_requirement:'测试云账号',source_platform:'synthetic',source_url:'https://example.com/advisor',capability_tag_ids:[cap]}}}));await publish(r,API+'/admin/enablement/resources/'+row.source_id,row);
+  const row=await ok(await r.post(API+'/admin/enablement/resources',{headers:admin,data:{base_revision:0,metadata:{resource_type:kind,title,summary:'合成实践验证',level:'advanced',duration_minutes:90,role_ids:['role-7'],zone_ids:['zone-4'],...(kind==='course'?{course_goals:title}:{lab_goals:title,lab_requirements:'合成实践要求'}),source_url:'https://example.com/advisor'}}}));await publish(r,API+'/admin/enablement/resources/'+row.source_id,row);
  }
 });
 for(const width of [1366,1920])test(`Advisor UX content, discuss and revision ${width}`,async({page,request:r})=>{
@@ -24,10 +24,13 @@ for(const width of [1366,1920])test(`Advisor UX content, discuss and revision ${
  const id=await create('希望形成企业级 Agent 应用交付能力');const detail=()=>r.get(API+'/development/plans/'+id,{headers:user}).then(ok);
  await page.goto('/tasks/'+id);await expect(page.getByRole('heading',{name:'目标方向',exact:true})).toBeVisible();await expect(page.getByRole('heading',{name:'基于当前伙伴画像',exact:true})).toBeVisible();await expect(page.getByTestId('advisor-focus').first()).toBeVisible();
  await expect(page.getByRole('button',{name:'设为当前采用版本',exact:true})).not.toBeVisible();await expect(page.getByRole('button',{name:'高级编辑',exact:true})).toHaveCount(0);await expect(page.getByTestId('version-history')).toHaveCount(0);await expect(page.getByTestId('run-records')).toHaveCount(0);await expect(page.locator('main input[type=number]')).toHaveCount(0);await expect(page.locator('main select')).toHaveCount(0);
- await expect(page.getByTestId('resource-advice').first()).toContainText('1.5 小时');await expect(page.getByTestId('resource-advice').first()).toContainText('测试云账号');await snap('01-full-advice');
+ const courseAdvice=page.getByTestId('resource-advice').filter({has:page.locator('.advisor-resource-type',{hasText:'课程'})});
+ const labAdvice=page.getByTestId('resource-advice').filter({has:page.locator('.advisor-resource-type',{hasText:'实验'})});
+ await expect(courseAdvice.first()).toBeVisible();await expect(courseAdvice.locator('dt').filter({hasText:'时长'})).toHaveCount(0);
+ await expect(labAdvice.first()).toContainText('1.5 小时');await expect(page.getByTestId('resource-advice').first()).toContainText('进阶');await snap('01-full-advice');
  const d=await detail(),v1=d.plan.current_version_id;expect(d.plan).not.toHaveProperty("confirmed_version_id");
  // Current advice can open resources without confirmation, including the backend-resolved redirect action.
- await page.getByRole('link',{name:'查看来源与发起跳转 →'}).first().click();await expect(page).toHaveURL(/resources\//);await expect(page.getByRole('button',{name:'发起跳转',exact:true})).toBeVisible();await page.goto('/tasks/'+id);
+ await page.getByRole('link',{name:'查看资源 →'}).first().click();await expect(page).toHaveURL(/resources\//);await expect(page.getByRole('button',{name:/前往课程|前往实验/})).toBeVisible();await page.goto('/tasks/'+id);
  for(const [index,message] of ['为什么推荐 RAG？','这两个实验有什么区别？','还需要补哪些准备？'].entries()){
   await page.getByLabel('消息',{exact:true}).fill(message);await page.getByRole('button',{name:'发送',exact:true}).click();await expect.poll(async()=> (await detail()).conversation.length).toBe(index+1);await expect(page.getByTestId('conversation')).toContainText(message);
   const answer=page.getByTestId('advisor-answer').nth(index);

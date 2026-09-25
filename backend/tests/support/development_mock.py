@@ -14,9 +14,9 @@ def response(messages):
   refs=[{k:r[k] for k in ('source_type','source_id','source_version')} for r in resources[:2]]
   if re.search(r'区别|比较|更难|更进阶',message):
    answer='### 结论\n\n先结合用途、目标与基本要求选择，不能仅凭名称认定哪个更难。\n\n#### 资源差异\n\n'
-   answer+='\n'.join(f"- **{r['title']}**：用途为{r.get('target_capability') or r.get('summary','实践参考')}；难度{r.get('difficulty','待补充')}。" for r in resources[:2])
+   answer+='\n'.join(f"- **{r['title']}**：用途为{r.get('course_goals') or r.get('lab_goals') or r.get('summary','实践参考')}；难度{r.get('level','待补充')}。" for r in resources[:2])
    answer+='\n\n#### 选择建议\n\n'
-   if len(resources)>=2 and resources[0].get('difficulty')==resources[1].get('difficulty'):answer+='这两项标注难度相同；请结合用途、目标与基本要求选择，不能仅凭名称认定哪个更难。'
+   if len(resources)>=2 and resources[0].get('level')==resources[1].get('level'):answer+='这两项标注难度相同；请结合用途、目标与基本要求选择，不能仅凭名称认定哪个更难。'
    elif len(resources)<2:answer+='当前不足两项资源，请指出希望比较的资源。'
    else:answer+='优先选择与当前发展目标相符、能够准备好目标与基本要求的资源。'
   else:
@@ -28,7 +28,7 @@ def response(messages):
    answer='### 结论\n\n本次方向来自你的发展诉求，建议用于学习与项目准备，需要真实项目验证。\n\n#### '+topic+'\n\n'
    answer+='\n'.join('- '+reason for reason in reasons) if reasons else '当前依据有限，可先明确发展目标。'
    answer+='\n\n#### 使用边界\n\n资源数量不决定方向优先级，已有资料不代表人员能力结论。'
-  answer=answer.replace('advanced','高级').replace('intermediate','进阶').replace('beginner','入门').replace('unknown','未知')
+  answer=answer.replace('advanced','进阶').replace('basic','基础').replace('unknown','未知')
   return {'target_partner_id':partner,'kind':'revise' if modify else 'explain','answer':'' if modify else answer,'references':refs}
  if 'analyze' in system:
   profile=data.get('profile',{});profile_text=json.dumps(profile,ensure_ascii=False);tags=data['formal_tags']
@@ -52,13 +52,13 @@ def response(messages):
   if profile.get('industries'):basis.append('已有行业经验：'+profile['industries'])
   if profile.get('ai_profile'):basis.append('结合当前画像：'+profile['ai_profile'])
   assessment=('当前可复用的基础包括'+profile.get('capabilities','已有业务经验')+'，行业经验涉及'+profile.get('industries','现有业务场景')+'。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展'+ '、'.join(f['name'] for f in priorities)+'。') if profile.get('capabilities') else '当前画像依据有限，以下方向主要结合你的目标提出，不据此认定伙伴缺少能力。'
-  return {'partner_assessment':assessment,'target_partner_id':partner,'intent':'resources' if lab_only else 'explore' if exploratory else 'development','interpretation':'按你的要求选择进阶实验。' if lab_only else '结合当前基础，可以先讨论以下发展方向。' if exploratory else 'Agent 应用交付与数据库迁移' if agent and database else '企业级 Agent 应用交付' if agent else '数据库迁移与回退验证','reusable_basis':basis,'priorities':priorities,'basis_limitations':['当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。'] if profile.get('basis_limited',True) else [],'resource_types':['lab'] if lab_only else [],'excluded_difficulties':['beginner'] if '不要基础' in text or '进阶实验' in text or (agent and established) else []}
+  return {'partner_assessment':assessment,'target_partner_id':partner,'intent':'resources' if lab_only else 'explore' if exploratory else 'development','interpretation':'按你的要求选择进阶实验。' if lab_only else '结合当前基础，可以先讨论以下发展方向。' if exploratory else 'Agent 应用交付与数据库迁移' if agent and database else '企业级 Agent 应用交付' if agent else '数据库迁移与回退验证','reusable_basis':basis,'priorities':priorities,'basis_limitations':['当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。'] if profile.get('basis_limited',True) else [],'resource_types':['lab'] if lab_only else [],'excluded_levels':['basic'] if '不要基础' in text or '进阶实验' in text or (agent and established) else []}
  analysis=data['analysis'];items=[]
  if 'C_GAP' not in text:
   for r in data['candidates'][:8]:
-   haystack=' '.join(str(r.get(k,'')) for k in ('title','target_capability','summary','product_direction')).lower()
+   haystack=' '.join(str(r.get(k,'')) for k in ('title','summary','course_goals','outline','lab_goals','roles','zones')).lower()
    f=max(analysis['priorities'],key=lambda f:sum(len(w) for w in f['search_terms'] if w.lower() in haystack),default={'name':'相关实践'})
-   items.append({k:r[k] for k in ('source_type','source_id','source_version')}|{'capability_tag_id':r['capability_tag_ids'][0],'focus':f['name'],'reason':'围绕'+f['name']+'，结合当前可复用基础选择该资源。','estimated_hours':max((r.get('duration_minutes') or 60)/60,.5),'note':''})
+   items.append({k:r[k] for k in ('source_type','source_id','source_version')}|{'capability_tag_id':next(iter(r['capability_tag_ids']), ''),'focus':f['name'],'reason':'围绕'+f['name']+'，结合当前可复用基础选择该资源。','estimated_hours':max((r.get('duration_minutes') or 60)/60,.5),'note':''})
  gaps=[]
  if not any(i['source_type']=='lab' for i in items):gaps.append('当前资源库未找到匹配实验，可先使用现有资源。')
  elif any('RAG' in f['name'] for f in analysis['priorities']) and not any(r['source_type']=='lab' and 'rag' in json.dumps(r,ensure_ascii=False).lower() for r in data['candidates']):gaps.append('当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。')
