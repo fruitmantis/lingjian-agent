@@ -18,8 +18,8 @@ def uid():return str(uuid.uuid4())
 def dump(value):return json.dumps(value,ensure_ascii=False,sort_keys=True)
 def fail(code,message):raise HTTPException(code,message)
 
-CONSTRAINTS=('language','site','account','network','environment','cost','budget')
-ASSUMPTIONS={'development_goal','trainee_role','known_baseline','duration_weeks','hours_per_week','trainee_count',*CONSTRAINTS}
+PLAN_COLUMNS='id,owner_user_id,request_id,target_partner_id,status,current_version_id,active_run_id,archived_at,created_at,updated_at'
+
 
 
 def clarify(payload: DevelopmentRequest):
@@ -34,7 +34,7 @@ def clarify(payload: DevelopmentRequest):
 
 
 def authorize(conn,plan_id,user):
-    row=conn.execute('SELECT * FROM development_plans WHERE id=?',(plan_id,)).fetchone()
+    row=conn.execute(f'SELECT {PLAN_COLUMNS} FROM development_plans WHERE id=?',(plan_id,)).fetchone()
     if not row or (user['role']!='admin' and row['owner_user_id']!=user['id']):fail(404,'方案不存在或无权访问')
     return dict(row)
 
@@ -178,7 +178,7 @@ def complete(run_id,token,payload,dependencies,validate):
         conn.execute('BEGIN IMMEDIATE')
         run=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
         if not run or run['status']!='running' or run['execution_token']!=token or expired(run):fail(409,'运行已失效或超时')
-        plan=dict(conn.execute('SELECT * FROM development_plans WHERE id=?',(run['plan_id'],)).fetchone())
+        plan=dict(conn.execute(f'SELECT {PLAN_COLUMNS} FROM development_plans WHERE id=?',(run['plan_id'],)).fetchone())
         if plan['status']!='active' or plan['active_run_id']!=run_id:fail(409,'运行不再拥有保存权限')
         validate(conn,payload,dependencies)
         if expired(run):fail(409,'运行已超时')
@@ -187,14 +187,6 @@ def complete(run_id,token,payload,dependencies,validate):
         conn.execute("UPDATE development_runs SET status='ready',ended_at=? WHERE id=?",(now(),run_id))
         conn.execute('UPDATE development_plans SET active_run_id=NULL WHERE id=?',(plan['id'],))
         return version_id
-
-
-def confirm(plan_id,version_id,user):
-    with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user);writable(plan,version_id)
-        if not version_id or not conn.execute('SELECT id FROM development_versions WHERE id=? AND plan_id=?',(version_id,plan_id)).fetchone():fail(404,'版本不存在')
-        conn.execute('UPDATE development_plans SET confirmed_version_id=?,updated_at=? WHERE id=?',(version_id,now(),plan_id))
-        audit(conn,plan_id,user['id'],'confirmed',version_id)
 
 
 def archive(plan_id,user,restore=False):

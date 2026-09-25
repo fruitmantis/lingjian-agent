@@ -1,3 +1,4 @@
+from backend.tests.support.legacy_development import legacy_confirmed
 import json,os
 import httpx,pytest
 from fastapi import HTTPException
@@ -58,11 +59,11 @@ def test_multiple_partial_reasons_preserve_recommendations(client,monkeypatch):
 
 def test_failed_revise_retry_preserves_input_and_confirmed_version(prepared):
  accepted,run=start(prepared);v1=complete(prepared,accepted,run);user=prepared[0];pid=accepted['plan_id']
- views.confirm(pid,v1,user)
+ legacy_confirmed(pid,v1,user)
  revised=life.revise(pid,Revise(submission_id='failed-change',based_on_version_id=v1,instruction='不要基础课，多给实验'),user)
  running=life.claim(revised['run_id']);life.finish_failure(running['id'],running['execution_token'],'generation',error=httpx.ReadTimeout(SECRET))
  detail=views.detail(pid,user);assert detail['failureDetails'][0]['code']=='timeout'
- assert detail['plan']['confirmed_version_id']==v1==detail['plan']['current_version_id']
+ assert plan(pid)['confirmed_version_id']==v1==detail['plan']['current_version_id']
  body=RetryRun(submission_id='retry-change',based_on_version_id=v1,run_id=running['id'])
  with pytest.raises(HTTPException) as denied:life.retry(pid,body,prepared[1])
  assert denied.value.status_code==404

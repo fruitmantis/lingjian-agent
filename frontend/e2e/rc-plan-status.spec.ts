@@ -21,46 +21,50 @@ for(const width of [1366,1920])test(`RC plan availability, list, sidebar and det
  const folder=path.resolve(evidenceRoot,'rc-states');await mkdir(folder,{recursive:true});
  async function snapshot(name:string){expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();}
 
- async function verify(name:string,primary:string,versions:string[],latest:string,archived=false){
+ async function verify(name:string,primary:string,version:number,archived=false){
   await page.goto('/tasks/'+id);
-  await page.getByText('更多',{exact:true}).click();await page.getByRole('button',{name:'历史版本',exact:true}).click();
-  const main=page.locator('main').getByTestId('plan-status').first();
-  await expect(main.getByTestId('plan-primary')).toHaveText(primary);
-  for(const v of versions)await expect(main).toContainText(v);
-  await expect(main.getByTestId('plan-latest-run')).toHaveText(latest);
+  await page.getByText('更多',{exact:true}).click();
+  await expect(page.getByRole('button',{name:'设为当前采用版本',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'历史版本',exact:true}).click();
+  const history=page.getByTestId('version-history');
+  await expect(history.getByTestId('plan-primary')).toHaveText(primary);
+  await expect(history).toContainText(`V${version} · 当前版本`);
+  await expect(page.locator('main')).not.toContainText(/草稿|尚未确认|当前采用|已采用版本/);
   const sidebar=page.locator(`aside [data-task-id="${id}"]`);
   await expect(sidebar.getByTestId('plan-primary')).toHaveText(primary);
-  await expect(sidebar.getByTestId('plan-latest-run')).toHaveText(latest);
-  await sidebar.scrollIntoViewIfNeeded();await expect(sidebar).toBeInViewport();
-  for(const badge of [main.getByTestId('plan-primary'),sidebar.getByTestId('plan-primary')]){
-   expect(await badge.evaluate(el=>{const box=el.getBoundingClientRect();const hit=document.elementFromPoint(box.x+box.width/2,box.y+box.height/2);return !!hit&&(el.contains(hit)||hit.contains(el));})).toBeTruthy();
-  }
-  const box=await main.boundingBox();expect(box && box.x>=0 && box.x+box.width<=width).toBeTruthy();
-  await snapshot(name+'-detail-sidebar');
-  await page.goto('/tasks');if(archived)await page.getByRole('button',{name:'已归档',exact:true}).click();
-  await page.getByPlaceholder('搜索需求内容').fill(demand.development_goal);await page.getByRole('button',{name:'搜索',exact:true}).click();
-  const row=page.locator('tbody tr').filter({hasText:demand.development_goal});
-  await expect(row).toHaveCount(1);await expect(row.getByTestId('plan-primary')).toHaveText(primary);await expect(row.getByTestId('plan-latest-run')).toHaveText(latest);
-  if(primary==='方案可用')await expect(row.getByTestId('plan-primary')).not.toHaveClass(/failed/);
+  await expect(sidebar.getByTestId('plan-latest-run')).toHaveCount(0);
+  await snapshot(name+'-detail');
+  const listResponse=(status:string)=>page.waitForResponse(response=>{const url=new URL(response.url());return url.pathname==='/agent/tasks'&&url.searchParams.get('pageSize')==='20'&&url.searchParams.get('status')===status&&response.ok();});
+  await Promise.all([listResponse('active'),page.goto('/tasks')]);
+  await expect(page.getByText('加载中...', {exact:true})).toHaveCount(0);
+  if(archived){await Promise.all([listResponse('archived'),page.getByRole('button',{name:'已归档',exact:true}).click()]);await expect(page.getByText('加载中...', {exact:true})).toHaveCount(0);}
+  await page.getByRole('combobox',{name:'任务类型'}).selectOption('development_plan');
+  await page.getByRole('button',{name:'搜索',exact:true}).click();
+  const row=page.locator('tr').filter({hasText:demand.development_goal});
+  await expect(row).toHaveCount(1);await expect(row.getByTestId('plan-primary')).toHaveText(primary);
+  await expect(row.getByTestId('plan-latest-run')).toHaveCount(0);
+  await expect(row.locator('.task-failure-control')).toHaveCount(0);
+  if(primary==='已生成')await expect(row.getByTestId('plan-primary')).not.toHaveClass(/failed/);
   await snapshot(name+'-list');
  }
  let d=await wait('ready');const v1=d.plan.current_version_id;
- await verify('01-v1-draft','草稿可用',['当前草稿 V1','尚未确认'],'最近生成成功');
- // Force the selected older-task path while retaining real authenticated detail/actions.
+ expect(d.plan).not.toHaveProperty('confirmed_version_id');
+ await verify('01-v1-current','已生成',1);
+ // Selected older tasks use the same current-only status as the full list.
  await page.route(/\/agent\/tasks\?/,async route=>{const response=await route.fetch();const data=await response.json();data.items=data.items.filter((x:{id:string})=>x.id!==id);await route.fulfill({response,json:data});});
  await page.goto('/tasks/'+id);await expect(page.locator(`aside .sidebar-selected-task [data-task-id="${id}"]`)).toBeVisible();
- await page.getByText('更多',{exact:true}).click();await page.getByRole('button',{name:'设为当前采用版本',exact:true}).click();
- await expect(page.locator(`aside [data-task-id="${id}"]`)).toContainText('已确认 V1');
+ await expect(page.locator(`aside [data-task-id="${id}"]`).getByTestId('plan-primary')).toHaveText('已生成');
  await page.unroute(/\/agent\/tasks\?/);
- await verify('02-v1-confirmed','方案可用',['当前版本 V1','已确认 V1'],'最近生成成功');
  await ok(await r.post(API+`/development/plans/${id}/revise`,{headers,data:{submission_id:randomUUID(),based_on_version_id:v1,instruction:'C_FAIL 合成错误返回',request:demand}}));await wait('failed');
- await verify('04-failed-revise','方案可用',['当前版本 V1','已确认 V1'],'最近调整失败');
+ expect((await detail()).plan.current_version_id).toBe(v1);
+ await verify('02-failed-revise','已生成',1);
  execFileSync(path.resolve('../.venv/bin/python'),['-m','backend.tests.support.rc_interrupted_fixture',id],{cwd:path.resolve('..')});await wait('interrupted');
- await verify('05-interrupted-revise','方案可用',['当前版本 V1','已确认 V1'],'最近调整中断');
- await ok(await r.post(API+`/development/plans/${id}/revise`,{headers,data:{submission_id:randomUUID(),based_on_version_id:v1,instruction:'缩短周期',request:demand}}));d=await wait('ready');expect(d.plan.confirmed_version_id).toBe(v1);
- await verify('03-v2-draft','方案可用',['当前草稿 V2','已确认 V1'],'最近调整成功');
+ await verify('03-interrupted-revise','已生成',1);
+ await ok(await r.post(API+`/development/plans/${id}/revise`,{headers,data:{submission_id:randomUUID(),based_on_version_id:v1,instruction:'缩短周期',request:demand}}));d=await wait('ready');
+ expect(d.plan.current_version_id).not.toBe(v1);expect(d.versions).toHaveLength(2);
+ await verify('04-v2-current','已生成',2);
  await page.goto('/tasks/'+id);await page.getByText('更多',{exact:true}).click();await page.getByRole('button',{name:'归档方案',exact:true}).click();
  await expect(page.locator(`aside [data-task-id="${id}"]`).getByTestId('plan-primary')).toHaveText('已归档');
- await verify('06-archived','已归档',['当前草稿 V2','已确认 V1'],'最近调整成功',true);
- expect((await detail()).plan.confirmed_version_id).toBe(v1);
+ await verify('05-archived','已归档',2,true);
+ expect((await detail()).plan.current_version_id).toBe(d.plan.current_version_id);
 });

@@ -1,4 +1,5 @@
 """Current authorization is reapplied even after stop/regrant of historical references."""
+from backend.tests.support.legacy_development import legacy_confirmed
 import itertools
 import json
 import pytest
@@ -19,7 +20,7 @@ def test_plan_candidate_and_transfer_dimensions(scenario,flags):
     row=published(grant(row,admin,flags=flags),admin)
     accepted,run,payload=execute(scenario);assert run['status']=='ready'
     items=[i for s in payload['stages'] for i in s['items']];assert bool(items)==(flags[0] and flags[1])
-    v1=plan(accepted['plan_id'])['current_version_id'];views.confirm(accepted['plan_id'],v1,user)
+    v1=plan(accepted['plan_id'])['current_version_id'];legacy_confirmed(accepted['plan_id'],v1,user)
     external=views.transferable(accepted['plan_id'],user)['text']
     assert ('数据库课程' in external)==all(flags)
     assert CANARY not in external
@@ -30,7 +31,7 @@ def test_case_stop_regrant_does_not_restore_old_plan_and_revision_uses_new_pool(
     user,_,admin,request=scenario[0]
     metadata=enablement.ShareMetadata(title='受控共享案例',summary='获准共享的合成方法',methods='逐项核验',contributor_role='实施',source_platform='合成',source_url='https://example.com/case',capability_tag_ids=[request.targets[0].capability_tag_id])
     row=enablement.save('case','secret-case',enablement.ShareSave(base_revision=0,metadata=metadata),admin['id']);row=published(grant(row,admin,'case'),admin,'case')
-    accepted,_,payload=execute(scenario);pid=accepted['plan_id'];v1=plan(pid)['current_version_id'];views.confirm(pid,v1,user)
+    accepted,_,payload=execute(scenario);pid=accepted['plan_id'];v1=plan(pid)['current_version_id'];legacy_confirmed(pid,v1,user)
     with get_db() as conn:before=conn.execute('SELECT payload_json,dependency_json FROM development_versions WHERE id=?',(v1,)).fetchone();before=tuple(before)
     row=enablement.unpublish('case','secret-case',enablement.Unpublish(base_revision=row['revision'],reason='合成授权撤回',sensitive=sensitive),admin['id'])
     current=views.detail(pid,user);assert current['hidden'] and '重新生成' in current['notice']
@@ -55,7 +56,7 @@ def test_case_stop_regrant_does_not_restore_old_plan_and_revision_uses_new_pool(
 
 
 def test_ordinary_course_unpublish_retains_name_but_disables_redirect_and_future_pool(scenario,client):
-    user,_,admin,request=scenario[0];accepted,_,payload=execute(scenario);pid=accepted['plan_id'];v1=plan(pid)['current_version_id'];views.confirm(pid,v1,user)
+    user,_,admin,request=scenario[0];accepted,_,payload=execute(scenario);pid=accepted['plan_id'];v1=plan(pid)['current_version_id'];legacy_confirmed(pid,v1,user)
     with get_db() as conn:before=conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(v1,)).fetchone()[0]
     row=enablement.detail('resource','test-course')
     enablement.unpublish('resource','test-course',enablement.Unpublish(base_revision=row['revision'],reason='普通下架'),admin['id'])

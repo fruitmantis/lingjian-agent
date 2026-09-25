@@ -1,4 +1,5 @@
 """Synthetic acceptance samples and loopback-only supplier compatibility tests."""
+from backend.tests.support.legacy_development import legacy_confirmed
 import copy
 import json
 import threading
@@ -70,7 +71,7 @@ REAL_COMPLETION=model.completion
 @pytest.mark.parametrize('mode',['normal','markdown','empty','invalid','enum','http_error','slow','dribble'])
 def test_loopback_supplier_schema_error_timeout_and_retry(scenario,supplier,monkeypatch,mode,caplog,record_property):
     accepted,_,_=execute(scenario);user,_,_,request=scenario[0];pid=accepted['plan_id']
-    v1=plan(pid)['current_version_id'];assert v1;views.confirm(pid,v1,user)
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
     supplier['mode']=mode
     if mode=='slow':monkeypatch.setenv('DEVELOPMENT_MODEL_TIMEOUT_SECONDS','.08')
     if mode=='dribble':monkeypatch.setenv('DEVELOPMENT_MODEL_TIMEOUT_SECONDS','.25')

@@ -42,22 +42,17 @@ def readable_payload(conn,row):
     return payload
 
 def presentation(conn,plan):
-    """Read-time Plan availability, independent of the latest Run's execution result."""
+    """Four task states; a failed Run never replaces an existing successful Version."""
     current=conn.execute('SELECT * FROM development_versions WHERE plan_id=? AND id=?',(plan['id'],plan['current_version_id'])).fetchone()
-    confirmed=conn.execute('SELECT * FROM development_versions WHERE plan_id=? AND id=?',(plan['id'],plan['confirmed_version_id'])).fetchone()
     current_available=current is not None and not protected(conn,current)
-    confirmed_available=confirmed is not None and not protected(conn,confirmed)
     latest=conn.execute('SELECT status,run_type FROM development_runs WHERE plan_id=? ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,created_at DESC,id DESC LIMIT 1',(plan['id'],plan['active_run_id'])).fetchone()
     if plan['status']=='archived':state='archived'
-    elif confirmed_available:state='available'
-    elif current_available:state='draft'
-    elif current or confirmed:state='restricted'
     elif latest and latest['status'] in ('pending','running'):state='generating'
+    elif current:state='available'
     else:state='generation_failed'
+    # Generated status describes existence, not permission to read revoked content.
     return {'state':state,'current_version':current['version_no'] if current else None,
-            'confirmed_version':confirmed['version_no'] if confirmed else None,
-            'current_is_confirmed':bool(current and confirmed and current['id']==confirmed['id']),
-            'current_available':current_available,'confirmed_available':confirmed_available,
+            'current_available':current_available,
             'latest_run_status':latest['status'] if latest else None,
             'latest_run_type':latest['run_type'] if latest else None}
 
@@ -95,14 +90,6 @@ def detail(plan_id,user,version_id=None):
         if hidden:request={k:v for k,v in request.items() if k in ('target_partner_id','request_source','targets')};request['targets']=[]
         return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
 
-def confirm(plan_id,version_id,user):
-    with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');plan=life.authorize(conn,plan_id,user);life.writable(plan,version_id)
-        row=version_row(conn,plan,version_id)
-        if protected(conn,row):life.fail(409,REVOKED)
-        conn.execute('UPDATE development_plans SET confirmed_version_id=?,updated_at=? WHERE id=?',(version_id,life.now(),plan_id))
-        life.audit(conn,plan_id,user['id'],'confirmed',version_id)
-
 def edit(plan_id,body,user):
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=life.authorize(conn,plan_id,user);life.writable(plan,body.based_on_version_id)
@@ -132,9 +119,9 @@ def options(plan_id,user):
 def transferable(plan_id,user,expected=None,copy_event=False):
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE' if copy_event else 'BEGIN');plan=life.authorize(conn,plan_id,user)
-        if plan['status']!='active' or not plan['confirmed_version_id']:life.fail(409,'仅可预览和复制有效方案的已确认版本')
-        if expected is not None and expected!=plan['confirmed_version_id']:life.fail(409,'已确认版本发生变化，请重新预览')
-        row=version_row(conn,plan,plan['confirmed_version_id'])
+        if plan['status']!='active' or not plan['current_version_id']:life.fail(409,'仅可预览和复制有效方案的当前版本')
+        if expected is not None and expected!=plan['current_version_id']:life.fail(409,'当前版本发生变化，请重新预览')
+        row=version_row(conn,plan,plan['current_version_id'])
         if protected(conn,row):life.fail(409,REVOKED)
         payload=json.loads(row['payload_json']);lines=['伙伴能力发展安排']
         if payload.get('partner_goal_allowed'):lines.append('发展目标：'+payload['overview']['development_goal'])
@@ -155,7 +142,7 @@ def transferable(plan_id,user,expected=None,copy_event=False):
         try:engine.guard(text,engine.blocked_fragments(conn),allow_urls=True)
         except engine.InvalidOutput:life.fail(409,'内容不满足外发校验，请联系管理员')
         if copy_event:life.audit(conn,plan_id,user['id'],'transfer_copy',row['id'])
-        return {'text':text}
+        return {'text':text,'version_id':row['id']}
 
 
 def converse(plan_id,body,user):

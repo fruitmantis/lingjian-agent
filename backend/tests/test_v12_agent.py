@@ -1,4 +1,5 @@
 """V1.2 direction/profile/intent contracts, using only synthetic local model responses."""
+from backend.tests.support.legacy_development import legacy_confirmed
 import copy,json,uuid
 from concurrent.futures import ThreadPoolExecutor
 import pytest
@@ -85,28 +86,28 @@ def test_short_labs_unknown_cost_gap_and_no_capability_update(scenario,client):
 
 
 @pytest.mark.parametrize('message',['为什么推荐这个方向？','这两个实验有什么区别？'])
-def test_draft_explanations_do_not_create_run_or_version_and_are_durable(scenario,message):
+def test_current_explanations_do_not_create_run_or_version_and_are_durable(scenario,message):
     d=run(scenario,'数据库迁移');pid=d['plan']['id'];v1=d['plan']['current_version_id'];user=scenario[0][0]
     body=Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v1,message=message)
     a=views.converse(pid,body,user);assert a['kind']=='explain' and a['answer']
     assert views.converse(pid,body,user)==a
     after=views.detail(pid,user);assert len(after['versions'])==len(after['runs'])==1
     assert after['conversation'][-1]['answer']==a['answer']
-    assert after['plan']['confirmed_version_id'] is None
+    assert plan(pid)['confirmed_version_id'] is None
     with pytest.raises(HTTPException):views.converse(pid,body.model_copy(update={'message':'changed'}),user)
     with pytest.raises(HTTPException) as exc:views.converse(pid,body,scenario[0][1])
     assert exc.value.status_code==404
 
 
-def test_conversation_modify_creates_run_draft_and_preserves_confirmed(scenario):
+def test_conversation_modify_advances_current_and_leaves_legacy_pointer_untouched(scenario):
     tag=scenario[0][3].targets[0].capability_tag_id;add(scenario[0][2],'lab','数据库进阶实验',tag)
     d=run(scenario,'数据库迁移');pid=d['plan']['id'];v1=d['plan']['current_version_id'];user=scenario[0][0]
-    views.confirm(pid,v1,user)
+    legacy_confirmed(pid,v1,user)
     body=Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v1,message='不要基础课，多给实验')
     result=views.converse(pid,body,user);assert result['kind']=='revise'
     assert views.converse(pid,body,user)['run_id']==result['run_id']
     engine.execute(result['run_id']);d=views.detail(pid,user)
-    assert len(d['versions'])==2 and d['plan']['confirmed_version_id']==v1
+    assert len(d['versions'])==2 and plan(pid)['confirmed_version_id']==v1
     assert {i['source_type'] for i in items(d)}=={'lab'}
     with pytest.raises(HTTPException):views.converse(pid,body.model_copy(update={'submission_id':str(uuid.uuid4())}),user)
 

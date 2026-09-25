@@ -1,4 +1,5 @@
 """Phase D reliability evidence; every fixture uses pytest's private database."""
+from backend.tests.support.legacy_development import legacy_confirmed
 import json
 from datetime import datetime, timedelta, timezone
 import pytest
@@ -48,7 +49,7 @@ def test_default_deadlines_and_bounded_test_overrides(monkeypatch):
 def test_run_watchdog_without_polling_preserves_confirmed_and_retries(scenario, monkeypatch):
     accepted, _, payload = execute(scenario)
     user, _, _, request = scenario[0]; pid = accepted['plan_id']
-    v1 = plan(pid)['current_version_id']; views.confirm(pid, v1, user)
+    v1 = plan(pid)['current_version_id']; legacy_confirmed(pid, v1, user)
     held = threading.Event(); entered = threading.Event(); original = scenario[2]
     def slow(*args):
         entered.set(); assert held.wait(5)
@@ -83,7 +84,7 @@ def test_run_watchdog_without_polling_preserves_confirmed_and_retries(scenario, 
 def test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows(scenario, fault):
     accepted, _, payload = execute(scenario)
     user, _, _, request = scenario[0]; pid=accepted['plan_id']
-    v1=plan(pid)['current_version_id']; views.confirm(pid,v1,user)
+    v1=plan(pid)['current_version_id']; legacy_confirmed(pid,v1,user)
     second=life.revise(pid,Revise(submission_id='fault-v2-base',based_on_version_id=v1,instruction='调整',request=request),user)
     engine.execute(second['run_id']);v2=plan(pid)['current_version_id'];assert v2 != v1
     third=life.revise(pid,Revise(submission_id='fault-v3-attempt',based_on_version_id=v2,instruction='再次调整',request=request),user)
@@ -112,7 +113,7 @@ def test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows(scenario, fau
 
 def test_all_owner_mutations_and_canary_boundaries(scenario, client, caplog):
     accepted, _, payload=execute(scenario);pid=accepted['plan_id']
-    user,other,admin,request=scenario[0];v1=plan(pid)['current_version_id'];views.confirm(pid,v1,user)
+    user,other,admin,request=scenario[0];v1=plan(pid)['current_version_id'];legacy_confirmed(pid,v1,user)
     assert CANARY in client.get('/enablement/context?partner_id=partner-1',headers=auth_headers(user)).text
     bodies={
         'revise':{'submission_id':'b-must-not-revise','based_on_version_id':v1,'instruction':'调整','request':request.model_dump()},

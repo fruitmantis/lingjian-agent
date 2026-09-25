@@ -1,4 +1,5 @@
 """Partner deletion tests use only conftest's disposable /tmp database."""
+from backend.tests.support.legacy_development import legacy_confirmed
 import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
@@ -124,7 +125,7 @@ def test_development_history_blocks_and_preserves_versions(client, prepared, sta
         life.finish_failure(run['id'], run['execution_token'], 'model')
     elif state in {'confirmed','archived'}:
         version = complete(prepared, accepted, run)
-        life.confirm(accepted['plan_id'], version, prepared[0])
+        legacy_confirmed(accepted['plan_id'], version, prepared[0])
         if state == 'archived': life.archive(accepted['plan_id'], prepared[0])
     before = snapshot()
     response = client.delete('/partners/partner-1', headers=auth_headers(prepared[2]))

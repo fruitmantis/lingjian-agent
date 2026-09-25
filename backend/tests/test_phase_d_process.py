@@ -51,7 +51,6 @@ def test_development_kill_restart_retry_and_http_creation(tmp_path,record_proper
             code,first=post('/development/plans',{'submission_id':'process-first-plan','request':request});assert code==202
             pid=first['plan_id'];wait_status(first['run_id'],'ready')
             with sqlite3.connect(db) as conn:v1=conn.execute('SELECT current_version_id FROM development_plans WHERE id=?',(pid,)).fetchone()[0]
-            assert post(f'/development/plans/{pid}/confirm',{'version_id':v1})[0]==204
             code,second=post(f'/development/plans/{pid}/revise',{'submission_id':'process-crash-revise','based_on_version_id':v1,'instruction':'调整','request':{**request,'development_goal':'C_SLOW 合成数据库交付'}})
             assert code==202;wait_status(second['run_id'],'running')
             assert Path(f'/proc/{backend.pid}/cwd').resolve()==PROJECT_ROOT
@@ -60,13 +59,13 @@ def test_development_kill_restart_retry_and_http_creation(tmp_path,record_proper
             started=time.monotonic();restarted=launch();wait_health(base+'/health',restarted);wait_status(second['run_id'],'interrupted')
             recovered_seconds=time.monotonic()-started;assert recovered_seconds<60
             with sqlite3.connect(db) as conn:
-                assert conn.execute('SELECT current_version_id,confirmed_version_id FROM development_plans WHERE id=?',(pid,)).fetchone()==(v1,v1)
+                assert conn.execute('SELECT current_version_id,confirmed_version_id FROM development_plans WHERE id=?',(pid,)).fetchone()==(v1,None)
                 assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?',(pid,)).fetchone()[0]==1
             _,retry=post(f'/development/plans/{pid}/revise',{'submission_id':'process-retry-revise','based_on_version_id':v1,'instruction':'重试','request':request})
             wait_status(retry['run_id'],'ready')
             with sqlite3.connect(db) as conn:
                 current,confirmed=conn.execute('SELECT current_version_id,confirmed_version_id FROM development_plans WHERE id=?',(pid,)).fetchone()
-                assert current!=v1 and confirmed==v1
+                assert current!=v1 and confirmed is None
                 assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?',(pid,)).fetchone()[0]==2
             elapsed=[];runs=[]
             for index in range(50):
@@ -78,7 +77,7 @@ def test_development_kill_restart_retry_and_http_creation(tmp_path,record_proper
             record_property('http_creation',json.dumps({'sample_count':50,'p50_seconds':ordered[24],'p95_seconds':ordered[47],
                 'max_seconds':max(elapsed),'scope':'HTTP loopback 8000 + bearer validation + SQLite commit + executor enqueue; excludes model completion/browser/source site',
                 'slow_model_seconds_per_call':3,'real_model_calls':0}))
-            record_property('kill_restart',json.dumps({'port':8000,'recovery_seconds':recovered_seconds,'status':'interrupted','retry':'ready','versions':2,'confirmed_preserved':True}))
+            record_property('kill_restart',json.dumps({'port':8000,'recovery_seconds':recovered_seconds,'status':'interrupted','retry':'ready','versions':2,'current_preserved':True}))
         finally:
             stop_process(restarted);stop_process(backend);stop_process(fake)
     assert 'INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE' not in (tmp_path/'backend.log').read_text()

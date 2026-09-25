@@ -1,20 +1,27 @@
 """Advisor interaction contracts; all resources and model responses are synthetic."""
-import json,uuid
+from backend.tests.support.legacy_development import legacy_confirmed
+import json,uuid,re
 import pytest
 from fastapi import HTTPException
 from backend.app import development_engine as engine,development_views as views,development_model as model
 from backend.app.development_types import Conversation
 from backend.tests.test_development_engine import scenario
-from backend.tests.test_development_lifecycle import prepared
+from backend.tests.test_development_lifecycle import prepared,plan
 from backend.tests.test_v12_agent import run,items,add
 
 @pytest.mark.parametrize('message',['为什么推荐 RAG？','这个课程为什么适合？','这两个实验有什么区别？','哪个实验更难？','有没有更进阶一点的实验？'])
-def test_discussion_keeps_unconfirmed_advice(scenario,message):
+def test_discussion_keeps_current_advice_without_confirmation(scenario,message):
     detail=run(scenario,'Agent 应用交付');pid=detail['plan']['id'];version=detail['plan']['current_version_id']
     result=views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=version,message=message),scenario[0][0])
-    assert result['kind']=='explain' and result['answer']
+    assert result['kind']=='explain' and result['answer'].startswith('### 结论\n\n')
+    assert 1 <= len(re.findall(r'^#### .+$',result['answer'],re.M)) <= 3
+    system=scenario[1][-1][0]['content']
+    for requirement in ('### 结论','1～3 个主题','主题名称由你根据问题生成','不超过 120 字','不重复大段伙伴画像原文'):
+        assert requirement in system
+    assert '### 结论' not in scenario[1][0][0]['content']  # Only follow-up replies use this format.
+
     after=views.detail(pid,scenario[0][0])
-    assert after['plan']['current_version_id']==version and after['plan']['confirmed_version_id'] is None
+    assert after['plan']['current_version_id']==version and plan(pid)['confirmed_version_id'] is None
     assert len(after['runs'])==len(after['versions'])==1
 
 
@@ -27,18 +34,18 @@ def test_explore_is_small_direction_response_not_resource_package(scenario):
     assert len(scenario[1])-before==1 # only direction analysis, inventory never decides priorities
 
 
-def test_natural_adjustment_reorders_focus_and_failed_retry_keeps_adopted(scenario):
+def test_natural_adjustment_reorders_focus_and_failed_retry_keeps_current(scenario):
     d=run(scenario,'Agent 应用交付');user=scenario[0][0];pid=d['plan']['id'];v1=d['plan']['current_version_id']
-    views.confirm(pid,v1,user)
+    legacy_confirmed(pid,v1,user)
     result=views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v1,message='RAG 暂时放后，先做系统集成'),user)
     assert result['kind']=='revise';engine.execute(result['run_id']);updated=views.detail(pid,user)
     assert updated['payload']['analysis']['priorities'][0]['name']=='Agent 系统集成与 POC 调优'
-    assert updated['plan']['confirmed_version_id']==v1
+    assert plan(pid)['confirmed_version_id']==v1
     v2=updated['plan']['current_version_id'];assert v2!=v1
     fail=views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v2,message='模拟调整失败'),user)
     engine.execute(fail['run_id']);after=views.detail(pid,user)
     assert after['runs'][0]['status']=='failed' and len(after['versions'])==2
-    assert after['plan']['current_version_id']==v2 and after['plan']['confirmed_version_id']==v1
+    assert after['plan']['current_version_id']==v2 and plan(pid)['confirmed_version_id']==v1
 
 
 def test_readonly_resource_duration_is_metadata_not_generated_estimate(scenario):
@@ -56,3 +63,21 @@ def test_difficulty_discussion_cannot_be_misclassified_as_revision(scenario,monk
     with pytest.raises(HTTPException) as exc:views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v,message='哪个实验更难？'),scenario[0][0])
     assert exc.value.status_code==422
     after=views.detail(d['plan']['id'],scenario[0][0]);assert len(after['versions'])==len(after['runs'])==1
+
+
+@pytest.mark.parametrize('answer', [
+    '### 结论\n\n优先验证系统集成。\n\n#### 接口约束\n\n- 核实输入输出。\n- 准备异常处理。',
+    '### 结论\n\n两类实验各有侧重。\n\n#### 数据接入\n\n先检查数据条件。\n\n#### 评估方式\n\n1. 明确评估样本。\n2. 验证实际效果。\n\n#### 选择条件\n\n按目标选择。',
+])
+def test_formatted_discussion_persists_and_replays_without_versions(scenario,monkeypatch,answer):
+    detail=run(scenario,'Agent 应用交付');user=scenario[0][0];pid=detail['plan']['id'];version=detail['plan']['current_version_id']
+    def complete(*args):
+        return json.dumps({'target_partner_id':'partner-1','kind':'explain','answer':answer,'references':[]})
+    monkeypatch.setattr(model,'completion',complete)
+    body=Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=version,message='请解释当前建议')
+    assert views.converse(pid,body,user)=={'kind':'explain','answer':answer}
+    monkeypatch.setattr(model,'completion',lambda *args:pytest.fail('Replayed explanation must not call the model'))
+    assert views.converse(pid,body,user)=={'kind':'explain','answer':answer}
+    after=views.detail(pid,user)
+    assert after['conversation'][0]['answer']==answer and len(after['conversation'])==1
+    assert after['plan']['current_version_id']==version and len(after['versions'])==len(after['runs'])==1

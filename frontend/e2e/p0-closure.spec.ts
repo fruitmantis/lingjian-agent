@@ -8,6 +8,8 @@ for (const width of [1366,1920]) test(`P0 scene shortcuts, combined counts and d
   await page.setViewportSize({width,height:width===1366?768:1080});
   const response=await fixtureLogin(request, 'admin1', 'ValidationPass123');
   expect(response.ok()).toBeTruthy();const session=await response.json();
+  const ordinary=await (await fixtureLogin(request, 'user_a')).json();
+  await page.addInitScript(s=>{localStorage.setItem('banfei:user:token',s.access_token);localStorage.setItem('banfei:user:user',JSON.stringify(s.user));},ordinary);
   await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},session);
   const headers={Authorization:`Bearer ${session.access_token}`};
   await page.goto('/scenes');
@@ -33,7 +35,7 @@ for (const width of [1366,1920]) test(`P0 scene shortcuts, combined counts and d
   for(const [label,total,matching,development] of [['累计任务','tasks','partnerMatchTasks','developmentTasks'],['本月任务','monthTasks','monthPartnerMatchTasks','monthDevelopmentTasks']]){
     const metric=page.locator('.admin-metric-card').filter({has:page.getByText(label,{exact:true})});
     await expect(metric.locator('strong')).toHaveText(String(totals[total]));
-    await expect(metric).toContainText(`项目找伙伴 ${totals[matching]} · 能力发展 ${totals[development]}`);
+    await expect(metric).toContainText(`资源匹配 ${totals[matching]} · 能力发展 ${totals[development]}`);
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   await page.goto('/admin/system');

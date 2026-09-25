@@ -42,9 +42,6 @@ def edit(plan_id:str,body:Edit,user:dict=Depends(require_active_user)):return vi
 @router.get('/plans/{plan_id}/candidates')
 def candidates(plan_id:str,user:dict=Depends(require_active_user)):return views.options(plan_id,user)
 
-@router.post('/plans/{plan_id}/confirm',status_code=204)
-def confirm(plan_id:str,body:VersionAction,user:dict=Depends(require_active_user)):views.confirm(plan_id,body.version_id,user)
-
 @router.get('/plans/{plan_id}/transferable')
 def preview(plan_id:str,user:dict=Depends(require_active_user)):return views.transferable(plan_id,user)
 

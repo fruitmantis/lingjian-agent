@@ -253,7 +253,7 @@ function UserTaskSidebar({ pathname, selectedId }: { pathname: string; selectedI
       <strong>{task.requirement}</strong>
       <span className="sidebar-task-meta">
         {task.task_type === "development_plan" && task.planPresentation ? <PlanStatus value={task.planPresentation} compact/> :
-          <span className="sidebar-task-summary"><span>{task.task_type === "development_plan" ? "能力发展" : "项目找伙伴"}</span><span aria-hidden="true"> · </span><em className={`task-state task-${task.taskStatus}`}>{task.task_type === "development_plan" && ["matching","enriching"].includes(task.taskStatus) ? "生成中" : taskLabels[task.taskStatus] || "状态待确认"}</em></span>}
+          <span className="sidebar-task-summary"><span>{task.task_type === "development_plan" ? "能力发展" : "资源匹配"}</span><span aria-hidden="true"> · </span><em className={`task-state task-${task.taskStatus}`}>{task.task_type === "development_plan" && ["matching","enriching"].includes(task.taskStatus) ? "生成中" : taskLabels[task.taskStatus] || "状态待确认"}</em></span>}
         <time dateTime={task.createdAt}>{new Date(task.createdAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" })}</time>
       </span>
     </Link>;

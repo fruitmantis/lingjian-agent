@@ -161,13 +161,13 @@ def _query_tasks(
     ids: list[str] | None = None, task_type: str | None = None,
 ) -> TaskListResponse:
     recover_stale_tasks(owner_user_id=owner_user_id)
-    from ..development_lifecycle import recover
+    from ..development_lifecycle import recover,PLAN_COLUMNS
     recover(owner_user_id=owner_user_id)
     cte = """WITH unified AS (
         SELECT id, owner_user_id, requirement, recommendations_json, created_at, archived_at, task_status, last_error_stage, last_error_details AS failure_details, 'partner_match' AS task_type FROM match_records
         UNION ALL
         SELECT p.id,p.owner_user_id,json_extract(q.payload_json,'$.development_goal'),json_array(json_object('partnerName',t.name)),p.created_at,p.archived_at,
-        CASE r.status WHEN 'pending' THEN 'matching' WHEN 'running' THEN 'enriching' WHEN 'interrupted' THEN 'failed' ELSE COALESCE(r.status,'failed') END,r.error_stage,r.safe_error_message,'development_plan'
+        CASE WHEN r.status IN ('pending','running') THEN 'matching' WHEN p.current_version_id IS NOT NULL THEN 'ready' ELSE 'failed' END,r.error_stage,r.safe_error_message,'development_plan'
         FROM development_plans p JOIN development_requests q ON q.id=p.request_id JOIN partners t ON t.id=p.target_partner_id
         LEFT JOIN development_runs r ON r.id=COALESCE(p.active_run_id,(SELECT id FROM development_runs WHERE plan_id=p.id ORDER BY created_at DESC,id DESC LIMIT 1))
     ) """
@@ -213,7 +213,7 @@ def _query_tasks(
             from ..development_views import protected,presentation
             with get_db() as conn:
                 conn.execute('BEGIN')
-                plan=conn.execute('SELECT * FROM development_plans WHERE id=?',(row['id'],)).fetchone()
+                plan=conn.execute(f'SELECT {PLAN_COLUMNS} FROM development_plans WHERE id=?',(row['id'],)).fetchone()
                 plan_presentation=presentation(conn,plan)
                 version=conn.execute('SELECT v.* FROM development_versions v JOIN development_plans p ON p.current_version_id=v.id WHERE p.id=?',(row['id'],)).fetchone()
                 if version and protected(conn,version):requirement='发展方案（来源授权已变化）'

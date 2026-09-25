@@ -1,3 +1,4 @@
+from backend.tests.support.legacy_development import legacy_confirmed
 import copy,json,threading,time
 from concurrent.futures import ThreadPoolExecutor
 import pytest
@@ -40,18 +41,16 @@ def stages(payload):
     return [{'title':s['title'],'items':[{k:i[k] for k in ('source_type','source_id','source_version','capability_tag_id','reason','estimated_hours','note')} for i in s['items']]} for s in payload['stages']]
 
 
-def test_edit_confirm_transfer_and_cas(scenario):
+def test_edit_automatically_advances_transfer_and_cas(scenario):
     accepted,run,payload=execute(scenario);id=accepted['plan_id'];user=scenario[0][0];v1=plan(id)['current_version_id']
-    with pytest.raises(HTTPException) as err:views.transferable(id,user)
-    assert err.value.status_code==409
-    views.confirm(id,v1,user);before=views.transferable(id,user)['text'];assert '数据库课程' in before and CANARY not in before
-    edited=stages(payload);edited[0]['title']='内部阶段标题';edited[0]['items'][0]['note']='内部编辑备注不外发'
+    before=views.transferable(id,user)['text'];assert '数据库课程' in before and CANARY not in before
+    edited=stages(payload);edited[0]['title']='内部阶段标题';edited[0]['items'][0]['note']='内部编辑备注不外发';edited[0]['items'][0]['estimated_hours']+=1
     result=views.edit(id,Edit(based_on_version_id=v1,stages=edited),user);v2=result['version_id']
-    assert plan(id)['confirmed_version_id']==v1 and plan(id)['current_version_id']==v2
-    assert views.transferable(id,user)['text']==before
+    assert plan(id)['confirmed_version_id'] is None and plan(id)['current_version_id']==v2
+    assert views.transferable(id,user)['text']!=before
+    assert views.transferable(id,user)['version_id']==v2
     with pytest.raises(HTTPException) as err:views.edit(id,Edit(based_on_version_id=v1,stages=edited),user)
     assert err.value.status_code==409
-    views.confirm(id,v2,user)
     with pytest.raises(HTTPException):views.transferable(id,user,expected=v1,copy_event=True)
     text=views.transferable(id,user,expected=v2,copy_event=True)['text']
     for forbidden in [CANARY,'内部编辑备注','内部阶段标题',id,v1,'source_id','model_inference','/tasks/','error_stage']:assert forbidden not in text
@@ -59,7 +58,7 @@ def test_edit_confirm_transfer_and_cas(scenario):
 
 
 def test_same_plan_concurrent_revise_edit_and_failed_adjustment(scenario,monkeypatch):
-    accepted,_,payload=execute(scenario);id=accepted['plan_id'];user,_,_,req=scenario[0];v1=plan(id)['current_version_id'];views.confirm(id,v1,user)
+    accepted,_,payload=execute(scenario);id=accepted['plan_id'];user,_,_,req=scenario[0];v1=plan(id)['current_version_id'];legacy_confirmed(id,v1,user)
     def attempt(n):
         try:return life.revise(id,Revise(submission_id=f'concurrent-adjust-{n}',based_on_version_id=v1,instruction='调整周期',request=req),user)
         except HTTPException as e:return e.status_code
@@ -77,7 +76,7 @@ def test_same_plan_concurrent_revise_edit_and_failed_adjustment(scenario,monkeyp
 
 @pytest.mark.parametrize('kind',['ordinary_course','sensitive_course','partner_permission','model_permission','system_permission'])
 def test_resource_revocation_filters_historical_text(scenario,kind):
-    accepted,_,payload=execute(scenario);id=accepted['plan_id'];user=scenario[0][0];v1=plan(id)['current_version_id'];views.confirm(id,v1,user)
+    accepted,_,payload=execute(scenario);id=accepted['plan_id'];user=scenario[0][0];v1=plan(id)['current_version_id'];legacy_confirmed(id,v1,user)
     with get_db() as conn:
         stored=conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(v1,)).fetchone()[0]
         if kind=='ordinary_course':conn.execute("UPDATE enablement_resources SET status='unpublished' WHERE id='test-course'")
@@ -104,7 +103,7 @@ def test_case_stop_or_sensitive_revoke_hides_inline_text_and_preserves_snapshot(
     user,_,admin,req=scenario[0]
     metadata=enablement.ShareMetadata(title='共享案例',summary='获准共享的方法摘要',methods='逐项核实并复盘',contributor_role='实施',source_platform='共享平台',source_url='https://example.com/shared',capability_tag_ids=[req.targets[0].capability_tag_id])
     row=enablement.save('case','secret-case',enablement.ShareSave(base_revision=0,metadata=metadata),admin['id']);published(grant(row,admin,'case'),admin,'case')
-    accepted,_,payload=execute(scenario);id=accepted['plan_id'];v1=plan(id)['current_version_id'];views.confirm(id,v1,user)
+    accepted,_,payload=execute(scenario);id=accepted['plan_id'];v1=plan(id)['current_version_id'];legacy_confirmed(id,v1,user)
     assert CANARY in client.get('/enablement/context?partner_id=partner-1',headers=auth_headers(user)).text
     assert CANARY not in json.dumps(scenario[1]) and CANARY not in views.transferable(id,user)['text']
     with get_db() as conn:
@@ -144,12 +143,12 @@ def test_task_creation_p95_under_one_second_without_waiting_model(scenario,clien
 
 
 def test_natural_revision_without_legacy_fields_preserves_confirmed(scenario):
-    accepted,_,_=execute(scenario);user=scenario[0][0];pid=accepted['plan_id'];v1=plan(pid)['current_version_id'];views.confirm(pid,v1,user)
+    accepted,_,_=execute(scenario);user=scenario[0][0];pid=accepted['plan_id'];v1=plan(pid)['current_version_id'];legacy_confirmed(pid,v1,user)
     accepted=life.revise(pid,Revise(submission_id='natural-revision',based_on_version_id=v1,instruction='再加上 Agent 应用交付方向'),user)
     engine.execute(accepted['run_id']);data=views.detail(pid,user)
     assert data['runs'][0]['status']=='ready'
     assert 'Agent' in data['request']['development_direction']
-    assert data['plan']['confirmed_version_id']==v1 and data['plan']['current_version_id']!=v1
+    assert plan(pid)['confirmed_version_id']==v1 and data['plan']['current_version_id']!=v1
 
 
 def test_three_parallel_plans_keep_owner_and_goal_snapshots(scenario):
@@ -175,3 +174,30 @@ def test_ordinary_course_new_publication_keeps_historical_name_without_url(scena
     data=views.detail(id,user);assert not data['hidden']
     item=data['payload']['stages'][0]['items'][0]
     assert item['title']=='数据库课程' and item['availability']=='unavailable' and 'source_url' not in item
+
+@pytest.mark.parametrize('legacy',[False,True])
+def test_current_preview_copy_and_retired_confirmation(scenario,client,legacy):
+    accepted,_,payload=execute(scenario);pid=accepted['plan_id'];user=scenario[0][0]
+    v1=plan(pid)['current_version_id']
+    if legacy:legacy_confirmed(pid,v1,user)
+    headers=auth_headers(user)
+    first=client.get(f'/development/plans/{pid}/transferable',headers=headers)
+    assert first.status_code==200 and first.json()['version_id']==v1
+    edited=stages(payload);edited[0]['items'][0]['estimated_hours']+=2
+    v2=views.edit(pid,Edit(based_on_version_id=v1,stages=edited),user)['version_id']
+    current=client.get(f'/development/plans/{pid}',headers=headers).json()
+    assert current['plan']['current_version_id']==v2 and 'confirmed_version_id' not in current['plan']
+    assert current['payload']['stages'][0]['items'][0]['estimated_hours']==edited[0]['items'][0]['estimated_hours']
+    assert [v['id'] for v in current['versions']]==[v2,v1]
+    historical=client.get(f'/development/plans/{pid}?version_id={v1}',headers=headers).json()
+    assert historical['payload']['stages'][0]['items'][0]['estimated_hours']==payload['stages'][0]['items'][0]['estimated_hours']
+    preview=client.get(f'/development/plans/{pid}/transferable',headers=headers).json()
+    assert preview['version_id']==v2 and preview['text']!=first.json()['text']
+    assert client.post(f'/development/plans/{pid}/copy',headers=headers,json={'version_id':v1}).status_code==409
+    copied=client.post(f'/development/plans/{pid}/copy',headers=headers,json={'version_id':v2})
+    assert copied.status_code==200 and copied.json()==preview
+    before=plan(pid)
+    assert client.post(f'/development/plans/{pid}/confirm',headers=headers,json={'version_id':v2}).status_code==404
+    assert plan(pid)==before and before['confirmed_version_id']==(v1 if legacy else None)
+    with get_db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM development_audit_events WHERE plan_id=? AND action='confirmed'",(pid,)).fetchone()[0]==0

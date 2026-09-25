@@ -1,4 +1,5 @@
 """PostgreSQL-specific transaction, migration and runtime regression."""
+from backend.tests.support.legacy_development import legacy_confirmed
 import json
 import os
 import sqlite3
@@ -66,7 +67,7 @@ def test_administrator_delete_and_history_protection(client):
 
 def test_confirmed_version_survives_revise_failure_and_stale_edit(prepared):
     accepted,run=start(prepared);v1=complete(prepared,accepted,run);pid=accepted['plan_id'];user=prepared[0]
-    life.confirm(pid,v1,user)
+    legacy_confirmed(pid,v1,user)
     from backend.app.development_types import Revise
     body=Revise(submission_id='pg-revise',based_on_version_id=v1,instruction='更多实验')
     second=life.revise(pid,body,user);run2=life.claim(second['run_id']);v2=complete(prepared,second,run2)

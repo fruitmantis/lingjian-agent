@@ -1,3 +1,4 @@
+from backend.tests.support.legacy_development import legacy_confirmed
 import json
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
@@ -12,7 +13,7 @@ from backend.tests.conftest import make_user,make_partner
 def prepared(client):
     user=make_user('developer-a');other=make_user('developer-b');admin=make_user('developer-admin',role='admin');make_partner()
     with get_db() as conn:tag=conn.execute("SELECT id FROM capability_tags WHERE name='数据库' AND enabled=1 LIMIT 1").fetchone()[0]
-    request=DevelopmentRequest(target_partner_id='partner-1',raw_demand='原始诉求须保留',development_goal='数据库迁移',trainee_role='工程师',trainee_count=3,known_baseline='基础未知，已接受入门假设',duration_weeks=4,hours_per_week=3,constraints=dict.fromkeys(life.CONSTRAINTS,'无要求'),model_input_allowed=True,partner_goal_allowed=True,targets=[{'capability_tag_id':tag,'requirement':'独立交付'}])
+    request=DevelopmentRequest(target_partner_id='partner-1',raw_demand='原始诉求须保留',development_goal='数据库迁移',trainee_role='工程师',trainee_count=3,known_baseline='基础未知，已接受入门假设',duration_weeks=4,hours_per_week=3,model_input_allowed=True,partner_goal_allowed=True,targets=[{'capability_tag_id':tag,'requirement':'独立交付'}])
     return user,other,admin,request
 
 
@@ -66,7 +67,7 @@ def test_pointer_lifecycle_conflicts_owner_archive_and_failure(prepared):
     with pytest.raises(HTTPException):life.archive(pid,user)
     v1=complete(prepared,accepted,run)
     assert (plan(pid)['current_version_id'],plan(pid)['confirmed_version_id'])==(v1,None)
-    life.confirm(pid,v1,user)
+    legacy_confirmed(pid,v1,user)
     revise=Revise(submission_id='revise-two',based_on_version_id=v1,instruction='缩短周期',request=request)
     second=life.revise(pid,revise,user);run2=life.claim(second['run_id'])
     with pytest.raises(HTTPException):life.revise(pid,revise.model_copy(update={'submission_id':'another-run'}),user)
@@ -77,7 +78,7 @@ def test_pointer_lifecycle_conflicts_owner_archive_and_failure(prepared):
     run3=life.claim(third['run_id']);life.finish_failure(third['run_id'],run3['execution_token'],'model')
     assert (plan(pid)['current_version_id'],plan(pid)['confirmed_version_id'])==(v2,v1)
     with pytest.raises(HTTPException):complete(prepared,third,run3)
-    life.confirm(pid,v2,user);life.archive(pid,user)
+    legacy_confirmed(pid,v2,user);life.archive(pid,user)
     assert plan(pid)['status']=='archived' and plan(pid)['confirmed_version_id']==v2
     life.archive(pid,user,restore=True)
     assert plan(pid)['status']=='active' and plan(pid)['current_version_id']==v2

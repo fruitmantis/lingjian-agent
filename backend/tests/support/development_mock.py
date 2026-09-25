@@ -13,15 +13,21 @@ def response(messages):
   modify=bool(re.search(r'不要|多给|再加|改为|改成|重点放|缩短|去掉|替换|增加|减少|优先|放后|先做|展开建议|模拟调整失败',message)) and not re.search(r'为什么|为何|有什么区别|如何比较|哪个.*更难|为什么适合|有没有更进阶',message)
   refs=[{k:r[k] for k in ('source_type','source_id','source_version')} for r in resources[:2]]
   if re.search(r'区别|比较|更难|更进阶',message):
-   answer='当前可比较资源：\n'+'\n'.join(f"{r['title']}：用途为{r.get('target_capability') or r.get('summary','实践参考')}；难度{r.get('difficulty','未知')}；先修{r.get('prerequisites','未知')}；费用{r.get('cost','未知')}。" for r in resources[:2])
-   if len(resources)>=2 and resources[0].get('difficulty')==resources[1].get('difficulty'):answer+='\n这两项标注难度相同；请结合用途、先修与账号环境选择，不能仅凭名称认定哪个更难。'
-   if len(resources)<2:answer+='\n当前不足两项资源，请指出希望比较的资源。'
+   answer='### 结论\n\n先结合用途、目标与基本要求选择，不能仅凭名称认定哪个更难。\n\n#### 资源差异\n\n'
+   answer+='\n'.join(f"- **{r['title']}**：用途为{r.get('target_capability') or r.get('summary','实践参考')}；难度{r.get('difficulty','待补充')}。" for r in resources[:2])
+   answer+='\n\n#### 选择建议\n\n'
+   if len(resources)>=2 and resources[0].get('difficulty')==resources[1].get('difficulty'):answer+='这两项标注难度相同；请结合用途、目标与基本要求选择，不能仅凭名称认定哪个更难。'
+   elif len(resources)<2:answer+='当前不足两项资源，请指出希望比较的资源。'
+   else:answer+='优先选择与当前发展目标相符、能够准备好目标与基本要求的资源。'
   else:
    analysis=data['current'].get('analysis',{})
    focuses=analysis.get('priorities',[])
    chosen=[f for f in focuses if any(word in message.lower() for word in f.get('search_terms',[])) or ('RAG' in message and 'RAG' in f['name'])]
    reasons=[f["name"]+'：'+f['reason'] for f in (chosen or focuses)[:3]]
-   answer='本次方向来自你的发展诉求。'+ '；'.join(reasons+analysis.get('reusable_basis',[]))+'。资源数量不决定方向优先级，这些建议用于学习与项目准备，需要真实项目验证。'
+   topic='实践准备' if '准备' in message else '推荐依据'
+   answer='### 结论\n\n本次方向来自你的发展诉求，建议用于学习与项目准备，需要真实项目验证。\n\n#### '+topic+'\n\n'
+   answer+='\n'.join('- '+reason for reason in reasons) if reasons else '当前依据有限，可先明确发展目标。'
+   answer+='\n\n#### 使用边界\n\n资源数量不决定方向优先级，已有资料不代表人员能力结论。'
   answer=answer.replace('advanced','高级').replace('intermediate','进阶').replace('beginner','入门').replace('unknown','未知')
   return {'target_partner_id':partner,'kind':'revise' if modify else 'explain','answer':'' if modify else answer,'references':refs}
  if 'analyze' in system:

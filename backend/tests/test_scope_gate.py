@@ -1,4 +1,5 @@
 """Scope decisions, strict transport contract and zero business side effects on rejection."""
+from backend.tests.support.legacy_development import legacy_confirmed
 import json
 import uuid
 from unittest.mock import Mock
@@ -131,7 +132,7 @@ def saved_plan(user, monkeypatch):
     result=life.create(Submit(submission_id='scope-base',request=DevelopmentRequest(target_partner_id='partner-1',development_direction='数据库迁移能力发展')),user)
     run=life.claim(result['run_id'])
     version=life.complete(run['id'],run['execution_token'],{'stages':[],'diagnoses':[],'overview':{'development_direction':'数据库迁移能力发展'}},[],lambda *args:None)
-    life.confirm(result['plan_id'],version,user)
+    legacy_confirmed(result['plan_id'],version,user)
     return result['plan_id'],version
 
 
