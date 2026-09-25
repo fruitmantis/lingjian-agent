@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime,timezone,timedelta
 from fastapi import HTTPException
 from .database import get_db
+from .auth import ensure_account_active
 from . import enablement_catalog
 from .development_deadlines import run_timeout
 from .development_types import DevelopmentRequest
@@ -63,6 +64,7 @@ def duplicate(conn,user,submission_id,request_hash):
 
 
 def insert_run(conn,plan_id,user,submission_id,base,payload,run_type,request_hash):
+    ensure_account_active(conn,user['id'])
     run_id=uid();stamp=now()
     conn.execute('''INSERT INTO development_runs(id,plan_id,owner_user_id,run_type,submission_id,request_hash,based_on_version_id,status,input_snapshot,created_at)
                     VALUES (?,?,?,?,?,?,?,'pending',?,?)''',(run_id,plan_id,user['id'],run_type,submission_id,request_hash,base,dump(payload),stamp))

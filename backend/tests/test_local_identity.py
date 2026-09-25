@@ -260,9 +260,12 @@ def test_admin_projection_never_exposes_key_and_cleanup_preserves_history(client
     assert detail.json()['auth_methods']==['key'] and key not in detail.text
     assert key not in client.get('/admin/users',headers=headers).text
     preview=client.get('/admin/users/'+uid+'/deletion-preview',headers=headers).json()
-    assert preview['allowed'] and preview['credentialCount']==2
-    make_task(first.json()['user'],'preserved')
-    assert not client.get('/admin/users/'+uid+'/deletion-preview',headers=headers).json()['allowed']
+    assert preview['allowed']
+    task_id=make_task(first.json()['user'],'preserved')
+    assert client.get('/admin/users/'+uid+'/deletion-preview',headers=headers).json()['allowed']
+    assert client.delete('/admin/users/'+uid,headers=headers,json={'confirmationToken':preview['confirmationToken']}).status_code==204
+    with get_db() as conn:
+        assert conn.execute('SELECT owner_user_id FROM match_records WHERE id=?',(task_id,)).fetchone()[0]==uid
     empty=browser(client);empty_id=empty.json()['user']['id'];empty_key=key_for(client,empty)
     preview=client.get('/admin/users/'+empty_id+'/deletion-preview',headers=headers).json()
     assert client.delete('/admin/users/'+empty_id,headers=headers,json={'confirmationToken':preview['confirmationToken']}).status_code==204

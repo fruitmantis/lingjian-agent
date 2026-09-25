@@ -1,3 +1,5 @@
+> 删除规则更新：账号统一逻辑删除并保留业务数据；本文旧删除限制仅为历史记录，当前行为见 [账号逻辑删除验证](ACCOUNT_DELETION_VALIDATION.md)。
+
 > 历史记录：普通用户认证已改为浏览器自动登录 + 长期身份 Key；当前规则与验证以 [IDENTITY_KEY_VALIDATION.md](IDENTITY_KEY_VALIDATION.md) 为准。本文 Passkey/旧 Browser Identity 流程不再运行。
 
 # 本机身份与管理员独立认证验证

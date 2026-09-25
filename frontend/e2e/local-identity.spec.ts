@@ -443,3 +443,47 @@ test('unknown Key with a stale remembered marker offers explicit creation withou
   await expect(page.getByRole('dialog', { name: '保存你的身份 Key' })).toBeVisible();
   expect(await userCount(request, admin.access_token)).toBe(before+1);
 });
+
+for (const location of ['list', 'detail']) test(`account soft deletion from ${location} keeps history and uses one-sentence confirmation`, async ({ page, request }) => {
+  const original = await createIdentity(page);
+  const taskId = execFileSync(resolve('../.venv/bin/python'), ['-m', 'backend.tests.support.seed_identity_history', original.user.id], { cwd: resolve('..'), encoding: 'utf8' }).trim();
+  const admin = await adminSession(request);
+  await page.evaluate(s => { localStorage.setItem('banfei:admin:token', s.access_token); localStorage.setItem('banfei:admin:user', JSON.stringify(s.user)); }, admin);
+  await page.goto(location === 'list' ? '/admin/users' : '/admin/users/'+original.user.id);
+  const target = location === 'list' ? page.getByRole('row').filter({ has: page.locator(`a[href="/admin/users/${original.user.id}"]`) }) : page.locator('main');
+  await target.getByRole('button', { name: '删除', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '删除账号' });
+  await expect(dialog.locator('p')).toHaveCount(1);
+  await expect(dialog.locator('p')).toHaveText('删除后，该账号及身份 Key 将无法使用，历史业务数据仍保留。确定删除？');
+  await expect(dialog.getByRole('button')).toHaveCount(2);
+  await dialog.getByRole('button', { name: '取消', exact: true }).click();
+  const headers = { Authorization: 'Bearer '+admin.access_token };
+  expect((await request.get(API+'/admin/users/'+original.user.id, { headers })).ok()).toBeTruthy();
+  await target.getByRole('button', { name: '删除', exact: true }).click();
+  await dialog.getByRole('button', { name: '删除账号', exact: true }).click();
+  await expect(dialog).toHaveCount(0); await expect(page).toHaveURL(/\/admin\/users$/);
+  await expect(page.locator(`a[href="/admin/users/${original.user.id}"]`)).toHaveCount(0);
+  const history = await request.get(API+'/agent/tasks/'+taskId, { headers });
+  expect(history.ok()).toBeTruthy(); expect((await history.json()).createdBy).toBe('已删除用户');
+  await page.goto('/admin/tasks/'+taskId);
+  await expect(page.getByText('已删除用户', { exact: false })).toBeVisible();
+  await page.goto('/login?method=key'); await page.getByLabel('身份 Key', { exact: true }).fill(original.key);
+  await page.getByRole('button', { name: '登录原身份', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
+  expect((await request.get(API+'/auth/me', { headers })).ok()).toBeTruthy();
+});
+
+test('account soft deletion is available for admins and protects the current operator', async ({ page, request }) => {
+  const admin = await adminSession(request); const headers = { Authorization:'Bearer '+admin.access_token };
+  const created = await request.post(API+'/admin/users', { headers, data:{ username:'delete_admin_'+Date.now(), display_name:'待删除管理员', role:'admin' } });
+  expect(created.ok()).toBeTruthy(); const target = (await created.json()).user;
+  await page.goto('/admin/login');
+  await page.evaluate(s => { localStorage.setItem('banfei:admin:token', s.access_token); localStorage.setItem('banfei:admin:user', JSON.stringify(s.user)); }, admin);
+  await page.goto('/admin/users/'+admin.user.id); await page.getByRole('button', { name:'删除', exact:true }).click();
+  await expect(page.locator('main').getByRole('alert')).toHaveText('不能删除当前操作账号。'); await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.goto('/admin/users/'+target.id); await page.getByRole('button', { name:'删除', exact:true }).click();
+  await page.getByRole('dialog').getByRole('button', { name:'删除账号', exact:true }).click();
+  await expect(page).toHaveURL(/\/admin\/users$/);
+  expect((await request.get(API+'/admin/users/'+target.id,{ headers })).status()).toBe(404);
+  expect((await request.get(API+'/auth/me',{ headers })).status()).toBe(200);
+});

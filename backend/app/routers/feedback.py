@@ -106,7 +106,7 @@ def list_issues(limit: int = Query(30, ge=1, le=100), offset: int = Query(0, ge=
     with get_db() as conn:
         total = conn.execute('SELECT count(*) FROM feedback_issue').fetchone()[0]
         rows = conn.execute("""SELECT f.id, f.created_at, f.status, substr(f.description, 1, 100) AS summary,
-            COALESCE(NULLIF(u.display_name, ''), u.username) AS submitter,
+            CASE WHEN u.status='deleted' THEN '已删除用户' ELSE COALESCE(NULLIF(u.display_name, ''), u.username) END AS submitter,
             (SELECT count(*) FROM feedback_attachment a WHERE a.issue_id=f.id) AS screenshot_count
             FROM feedback_issue f JOIN users u ON u.id=f.submitter_id
             ORDER BY f.created_at DESC, f.id DESC LIMIT ? OFFSET ?""", (limit, offset)).fetchall()
@@ -117,7 +117,7 @@ def list_issues(limit: int = Query(30, ge=1, le=100), offset: int = Query(0, ge=
 def detail(issue_id: str):
     with get_db() as conn:
         row = conn.execute("""SELECT f.id, f.description, f.status, f.created_at,
-            COALESCE(NULLIF(u.display_name, ''), u.username) AS submitter
+            CASE WHEN u.status='deleted' THEN '已删除用户' ELSE COALESCE(NULLIF(u.display_name, ''), u.username) END AS submitter
             FROM feedback_issue f JOIN users u ON u.id=f.submitter_id WHERE f.id=?""", (issue_id,)).fetchone()
         if not row:
             raise HTTPException(404, '问题不存在')

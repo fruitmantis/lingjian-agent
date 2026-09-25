@@ -153,7 +153,7 @@ def detail_in(conn, kind, source_id):
     row['metadata'] = json.loads(row.pop('draft_json'))
     _, versions, _ = TABLES[kind]
     row['versions'] = [dict(v) for v in conn.execute(f'SELECT version,reviewed_revision,authorization_epoch,published_at,published_by FROM {versions} WHERE source_id=? ORDER BY version DESC',(source_id,))]
-    row['reviews'] = [dict(v) for v in conn.execute('SELECT r.*, COALESCE(u.display_name,u.username) AS reviewer_name FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id WHERE source_kind=? AND source_id=? ORDER BY reviewed_at DESC',(kind,source_id))]
+    row['reviews'] = [dict(v) for v in conn.execute('SELECT r.*, CASE WHEN u.status=\'deleted\' THEN \'已删除用户\' ELSE COALESCE(u.display_name,u.username) END AS reviewer_name FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id WHERE source_kind=? AND source_id=? ORDER BY reviewed_at DESC',(kind,source_id))]
     row['audit'] = [dict(v) for v in conn.execute('SELECT action,actor_id,revision,authorization_epoch,reason,created_at FROM enablement_audit_events WHERE source_kind=? AND source_id=? ORDER BY created_at DESC',(kind,source_id))]
     if row['published_version']:
         v=conn.execute(f'SELECT payload_json FROM {versions} WHERE source_id=? AND version=?',(source_id,row['published_version'])).fetchone()

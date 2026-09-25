@@ -60,6 +60,13 @@ def get_bootstrap_admin():
     }
 
 
+def ensure_account_active(conn, user_id):
+    """Recheck account access inside a task's writer transaction after model work."""
+    row = conn.execute('SELECT status FROM users WHERE id=?', (user_id,)).fetchone()
+    if row is None or row['status'] != 'active':
+        raise HTTPException(401, '账号不可用，请重新进入')
+
+
 def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(security)) -> dict:
     if credentials is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="请先登录", headers={"WWW-Authenticate": "Bearer"})

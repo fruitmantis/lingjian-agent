@@ -40,7 +40,7 @@ def public_detail(conn, source_type, source_id, version=None):
     _, versions, _ = service.TABLES[kind]
     snapshot = conn.execute(f'SELECT * FROM {versions} WHERE source_id=? AND version=?',(source_id,current)).fetchone()
     review = conn.execute('''SELECT r.reviewed_at,r.link_status,r.content_checked,r.authorization_checked,
-        COALESCE(NULLIF(u.display_name,''),'未记录') AS reviewer_name
+        CASE WHEN u.status='deleted' THEN '已删除用户' ELSE COALESCE(NULLIF(u.display_name,''),'未记录') END AS reviewer_name
         FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id
         WHERE r.source_kind=? AND r.source_id=? AND r.revision=?
         ORDER BY r.reviewed_at DESC,r.id DESC LIMIT 1''',(kind,source_id,snapshot['reviewed_revision'])).fetchone()

@@ -137,6 +137,7 @@ def login(req: LoginRequest, request: Request) -> TokenResponse:
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
     with get_db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
         row = conn.execute(
             f"SELECT {_USER_COLS}, hashed_password, token_version, failed_login_count FROM users WHERE lower(username) = ?",
             (username,),
@@ -146,9 +147,9 @@ def login(req: LoginRequest, request: Request) -> TokenResponse:
             conn.commit()
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
         if row["status"] != "active":
-            record_audit(conn, "auth.login_failed", target_user_id=row["id"], summary="账号已停用", ip_address=_client_ip(request))
+            record_audit(conn, "auth.login_failed", target_user_id=row["id"], summary="账号已删除" if row["status"] == "deleted" else "账号已停用", ip_address=_client_ip(request))
             conn.commit()
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="账号已停用，请联系管理员")
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="账号已删除，无法登录" if row["status"] == "deleted" else "账号已停用，请联系管理员")
         if row["locked_until"]:
             try:
                 if datetime.fromisoformat(row["locked_until"]) > now:
@@ -234,7 +235,7 @@ def list_users(
     _: dict = Depends(require_admin),
 ) -> UserListResponse:
     response.headers["Cache-Control"] = "no-store"
-    conditions: list[str] = []
+    conditions: list[str] = ["users.status <> 'deleted'"]
     params: list[object] = []
     if keyword:
         conditions.append("(username LIKE ? OR display_name LIKE ?)")
@@ -279,7 +280,7 @@ def create_user(payload: UserCreate, request: Request, admin: dict = Depends(req
 def get_user(user_id: str, response: Response, _: dict = Depends(require_admin)) -> AdminUserOut:
     response.headers["Cache-Control"] = "no-store"
     with get_db() as conn:
-        row = conn.execute(f"SELECT {_ADMIN_USER_COLS} FROM {_ADMIN_USER_FROM} WHERE users.id = ?", (user_id,)).fetchone()
+        row = conn.execute(f"SELECT {_ADMIN_USER_COLS} FROM {_ADMIN_USER_FROM} WHERE users.id = ? AND users.status <> 'deleted'", (user_id,)).fetchone()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
     return _admin_user_out(row)
@@ -289,7 +290,8 @@ def get_user(user_id: str, response: Response, _: dict = Depends(require_admin))
 def update_user(user_id: str, payload: UserUpdate, request: Request, admin: dict = Depends(require_admin)) -> UserOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        row = conn.execute("SELECT id, role, status FROM users WHERE id = ?", (user_id,)).fetchone()
+        conn.execute('BEGIN IMMEDIATE')
+        row = conn.execute("SELECT id, role, status FROM users WHERE id = ? AND status <> 'deleted'", (user_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
         if payload.role is not None and payload.role != row["role"]:
@@ -320,7 +322,8 @@ def update_user_status(user_id: str, payload: UserStatusUpdate, request: Request
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="不能停用自己的账号")
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        row = conn.execute("SELECT id, role, status FROM users WHERE id = ?", (user_id,)).fetchone()
+        conn.execute('BEGIN IMMEDIATE')
+        row = conn.execute("SELECT id, role, status FROM users WHERE id = ? AND status <> 'deleted'", (user_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
         if row["role"] == "admin" and row["status"] == "active" and payload.status == "disabled" and _active_admin_count(conn) <= 1:
@@ -339,7 +342,8 @@ def reset_password(user_id: str, request: Request, admin: dict = Depends(require
     temporary_password = _temporary_password()
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        if conn.execute("SELECT id FROM users WHERE id = ? AND role = 'admin'", (user_id,)).fetchone() is None:
+        conn.execute('BEGIN IMMEDIATE')
+        if conn.execute("SELECT id FROM users WHERE id = ? AND role = 'admin' AND status <> 'deleted'", (user_id,)).fetchone() is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
         conn.execute(
             "UPDATE users SET hashed_password = ?, must_change_password = 1, token_version = token_version + 1, failed_login_count = 0, locked_until = NULL, password_changed_at = ?, updated_at = ? WHERE id = ?",
@@ -353,7 +357,8 @@ def reset_password(user_id: str, request: Request, admin: dict = Depends(require
 def unlock_user(user_id: str, request: Request, admin: dict = Depends(require_admin)) -> UserOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        if conn.execute("SELECT id FROM users WHERE id = ? AND role = 'admin'", (user_id,)).fetchone() is None:
+        conn.execute('BEGIN IMMEDIATE')
+        if conn.execute("SELECT id FROM users WHERE id = ? AND role = 'admin' AND status <> 'deleted'", (user_id,)).fetchone() is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
         conn.execute("UPDATE users SET failed_login_count = 0, locked_until = NULL, updated_at = ? WHERE id = ?", (now, user_id))
         record_audit(conn, "admin.user_unlocked", actor_user_id=admin["id"], target_user_id=user_id, ip_address=_client_ip(request))
@@ -371,8 +376,8 @@ def list_audit_logs(
         total = conn.execute("SELECT COUNT(*) FROM user_audit_logs").fetchone()[0]
         rows = conn.execute(
             """SELECT l.id, l.action, l.summary, l.ip_address, l.created_at,
-                      COALESCE(a.display_name, a.username, CASE WHEN l.actor_user_id IS NOT NULL THEN '已删除用户' END) AS actor_name,
-                      COALESCE(t.display_name, t.username, CASE WHEN l.target_user_id IS NOT NULL THEN '已删除用户' END) AS target_name
+                      CASE WHEN a.status='deleted' THEN '已删除用户' ELSE COALESCE(a.display_name, a.username, CASE WHEN l.actor_user_id IS NOT NULL THEN '已删除用户' END) END AS actor_name,
+                      CASE WHEN t.status='deleted' THEN '已删除用户' ELSE COALESCE(t.display_name, t.username, CASE WHEN l.target_user_id IS NOT NULL THEN '已删除用户' END) END AS target_name
                FROM user_audit_logs l
                LEFT JOIN users a ON a.id = l.actor_user_id
                LEFT JOIN users t ON t.id = l.target_user_id

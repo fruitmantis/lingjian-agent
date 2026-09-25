@@ -18,7 +18,7 @@ from ..ai_client import chat_completion, model_error_message
 from ..model_resolver import ModelConfigurationError
 from ..business_taxonomy import canonical, classify, project_partner, taxonomy_prompt
 from ..database import get_db, recover_stale_tasks
-from ..auth import require_active_user, require_admin
+from ..auth import require_active_user, require_admin, ensure_account_active
 from .demand import calculate_opportunity_completeness
 
 
@@ -197,7 +197,7 @@ def _query_tasks(
         ).fetchone()[0]
         rows = conn.execute(
             cte + f"""SELECT mr.task_type, mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
-                       mr.task_status, mr.last_error_stage, mr.failure_details, u.display_name AS owner_name, u.department,
+                       mr.task_status, mr.last_error_stage, mr.failure_details, CASE WHEN u.status='deleted' THEN '已删除用户' ELSE u.display_name END AS owner_name, u.department,
                        (SELECT po.completeness_score FROM project_opportunities po
                         WHERE po.match_record_id = mr.id ORDER BY po.created_at DESC LIMIT 1) AS completeness_score
                 FROM unified mr
@@ -285,7 +285,7 @@ def get_admin_dashboard(_: dict = Depends(require_admin)) -> dict:
         matching = counts.get('partner_match', {'total': 0, 'month_total': 0})
         development = counts.get('development_plan', {'total': 0, 'month_total': 0})
         return {
-            "users": conn.execute("SELECT COUNT(*) FROM users").fetchone()[0],
+            "users": conn.execute("SELECT COUNT(*) FROM users WHERE status <> 'deleted'").fetchone()[0],
             "disabledUsers": conn.execute("SELECT COUNT(*) FROM users WHERE status = 'disabled'").fetchone()[0],
             "partners": conn.execute("SELECT COUNT(*) FROM partners WHERE status = 'active'").fetchone()[0],
             "partnersWithoutProfile": conn.execute("SELECT COUNT(*) FROM partners WHERE status = 'active' AND (ai_profile IS NULL OR ai_profile = '')").fetchone()[0],
@@ -327,7 +327,7 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
     with get_db() as conn:
         row = conn.execute("""SELECT mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
                                      mr.task_status, mr.last_error_stage, mr.last_error_details,
-                                     mr.owner_user_id, u.display_name AS owner_name
+                                     mr.owner_user_id, CASE WHEN u.status='deleted' THEN '已删除用户' ELSE u.display_name END AS owner_name
                               FROM match_records mr LEFT JOIN users u ON u.id = mr.owner_user_id
                               WHERE mr.id = ?""", (record_id,)).fetchone()
         if row is not None and row["owner_user_id"] != user["id"] and user["role"] != "admin":
@@ -599,9 +599,11 @@ def _set_task_state(
             raise RuntimeError("task state update target was not found")
 
 
-def _claim_task_retry(record_id: str, current_status: str, next_status: str) -> None:
+def _claim_task_retry(record_id: str, current_status: str, next_status: str, user_id: str) -> None:
     """Atomically prevent two retry requests from running the same task."""
     with get_db() as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        ensure_account_active(conn, user_id)
         cursor = conn.execute(
             """UPDATE match_records
                SET task_status = ?, last_error_stage = NULL, last_error_details = NULL, updated_at = ?
@@ -667,6 +669,8 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
     now = datetime.now(timezone.utc).isoformat()
     try:
         with get_db() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            ensure_account_active(conn, user['id'])
             conn.execute(
                 """INSERT INTO match_records
                    (id, requirement, recommendations_json, created_at, created_by, owner_user_id,
@@ -674,6 +678,8 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
                    VALUES (?, ?, '[]', ?, ?, ?, 'matching', NULL, ?)""",
                 (record_id, req.requirement, now, user["username"], user["id"], now),
             )
+    except HTTPException:
+        raise
     except Exception as error:
         record_error(error, "submission", task_id=record_id)
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="服务异常，请联系管理员。")
@@ -760,6 +766,7 @@ def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks, user:
     require_scope("partner_match", requirement)
     with get_db() as conn:
         conn.execute("BEGIN IMMEDIATE")
+        ensure_account_active(conn, user["id"])
         existing = conn.execute("SELECT owner_user_id, requirement, task_status FROM match_records WHERE id=?", (record_id,)).fetchone()
         if existing:
             if existing["owner_user_id"] != user["id"]:
@@ -1000,7 +1007,7 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
 
     should_rematch = row["task_status"] == "failed" or not recommendations
     _claim_task_retry(
-        record_id, row["task_status"], "matching" if should_rematch else "enriching",
+        record_id, row["task_status"], "matching" if should_rematch else "enriching", user["id"],
     )
     if should_rematch:
         try:

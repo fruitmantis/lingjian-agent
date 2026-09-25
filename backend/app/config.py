@@ -51,13 +51,3 @@ def database_url() -> str:
     if not value.startswith(("postgresql://", "postgresql+psycopg://", "sqlite://")):
         raise RuntimeError("Unsupported DATABASE_URL database type")
     return value
-
-
-def browser_identity_retention_days() -> int:
-    try:
-        days = int(os.getenv('BROWSER_IDENTITY_RETENTION_DAYS', '90'))
-        if days < 1:
-            raise ValueError()
-        return days
-    except ValueError:
-        raise RuntimeError('BROWSER_IDENTITY_RETENTION_DAYS must be a positive integer') from None

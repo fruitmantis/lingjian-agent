@@ -9,7 +9,7 @@ from .task_failures import SERVICE_FAILURE
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .config import get_jwt_secret_key, browser_identity_retention_days
+from .config import get_jwt_secret_key
 from .database import initialize_storage, get_db, recover_stale_tasks
 from .routers import feedback, partners, cases, profile, match, documents, users, demand, capability_tags, system, model_config, enablement, enablement_workspace, development
 from .auth import get_bootstrap_admin
@@ -26,7 +26,6 @@ def initialize_application() -> None:
     get_jwt_secret_key()
     from .identity_keys import cipher
     cipher()
-    browser_identity_retention_days()
     initialize_storage()
     with get_db() as conn:
         existing = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
