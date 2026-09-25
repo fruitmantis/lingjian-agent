@@ -1,4 +1,6 @@
-"""Disposable format fixtures only. Never seed or import these as pilot business data."""
+"""ARCHIVED: schema 12 SQLite Pilot tests; see pilot-data/README.md.
+
+Disposable format fixtures only. Never seed or import these as pilot business data."""
 import copy
 import hashlib
 import json
@@ -11,6 +13,9 @@ from backend.app.database import DATABASE_PATH, get_db
 from backend.app import enablement as service
 from backend.tests.conftest import make_partner, make_user
 from scripts import validate_pilot_data as v
+
+
+pytestmark = pytest.mark.archived
 
 
 @pytest.fixture(autouse=True)

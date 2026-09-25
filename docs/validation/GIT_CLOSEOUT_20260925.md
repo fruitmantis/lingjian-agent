@@ -24,6 +24,8 @@
 
 ## 已知限制：归档 v12 Pilot 工具
 
+后续处理见 [Pilot 归档核验](PILOT_ARCHIVE_20260925.md)：已核实现行流程无调用，整套历史测试标为 archived 并移出默认口径。本节保留当时的失败记录，不改写历史结果。
+
 **不能将本轮结果表述为后端全量通过。** 全量尝试在归档 SQLite Pilot 导入用例出现 3 个失败后停止；该模块此前已执行 1 项通过。旧工具仍以已替代的课程元数据契约校验包，与当前精简 ResourceMetadata 不兼容：
 
 - test_pilot_import.py::test_dry_run_readonly

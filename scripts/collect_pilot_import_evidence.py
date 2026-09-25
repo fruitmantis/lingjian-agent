@@ -1,4 +1,6 @@
-"""Sanitized readiness evidence. Hash stable/runtime files; never open their SQLite DBs."""
+"""ARCHIVED: unsupported historical SQLite Pilot tooling; see pilot-data/README.md.
+
+Sanitized readiness evidence. Hash stable/runtime files; never open their SQLite DBs."""
 import hashlib,json,subprocess,sys
 import xml.etree.ElementTree as ET
 from collections import Counter

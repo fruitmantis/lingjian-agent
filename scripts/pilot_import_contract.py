@@ -1,4 +1,6 @@
-"""Private import evidence contract. No new product tables or network operations."""
+"""ARCHIVED: unsupported historical SQLite Pilot tooling; see pilot-data/README.md.
+
+Private import evidence contract. No new product tables or network operations."""
 import json
 import re
 from datetime import datetime

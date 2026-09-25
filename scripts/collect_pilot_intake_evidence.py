@@ -1,4 +1,6 @@
-"""Collect sanitized offline intake evidence; stable DB is hashed, never opened."""
+"""ARCHIVED: unsupported historical SQLite Pilot tooling; see pilot-data/README.md.
+
+Collect sanitized offline intake evidence; stable DB is hashed, never opened."""
 import hashlib
 import json
 import subprocess

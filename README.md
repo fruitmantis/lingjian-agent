@@ -113,7 +113,7 @@ Key 文件格式错误在浏览器内提示；Key 格式错误、未知/旧版�
 - [SQLite → PostgreSQL 工具](scripts/migrate_sqlite_to_postgres.py) 只用于经授权的一次性迁移：SQLite backup API、原库只读、空目标库、事务导入和逐表对账。
 - [任务错误详情迁移工具](scripts/migrate_task_failure_details.py) 先 `pg_dump`，再事务加列和校验；不能替代业务数据备份策略。
 - 禁止删除、清空、重建、重新 seed、随意替换任何现有数据库、上传目录或私有备份。必要变更须先核验实际目标，提供备份、事务与回退方案。
-- 历史 Pilot 文件工具只兼容 SQLite，不能对当前 PostgreSQL 运行库使用；见 [兼容工具说明](pilot-data/README.md)。
+- 历史 SQLite schema 12 Pilot 文件工具已明确标为 **archived**；归档工具不属于当前支持范围，不用于当前 PostgreSQL 运行库；见 [归档说明](pilot-data/README.md)。
 
 ## 问题反馈
 
@@ -166,11 +166,12 @@ PLAYWRIGHT_MODEL_MODE=replay .venv/bin/python scripts/run_postgres_validation.py
 
 - 开发、build、Playwright 不得同时写同一 `.next`；可在独立构建目录验证。
 - 默认 UI 子集以 [Playwright 配置](frontend/playwright.config.ts) 的 `testMatch` 为准，不在文档写固定数量。`opportunity-ui.spec.ts` 已单独验证，尚不在默认子集中；完整 replay 会包含它。
+- 默认后端口径由 `pytest.ini` 排除 `archived` 标记；`test_pilot_import.py` / `test_pilot_intake.py` 仅作历史保留，不计入当前正式测试或通过数。显式查看归档清单见 [Pilot 归档说明](pilot-data/README.md)。
 - 未配置 PostgreSQL 验证库的普通 pytest 可能仅验证 SQLite 兼容路径，不能据此宣布 PostgreSQL 全量通过。
 - 真实接口 smoke 使用现有 `scripts/verify_real_model.py`，最多两次合成请求；不读伙伴附件，不建业务任务。故障回放与真实供应商测试分别记录。
 - 版本化测试记录仅证明对应提交/范围；工程、真实模型兼容、真实资源与业务验收分别判断，不相互替代。业务样例填写 [现行业务验收模板](docs/validation/REAL_BUSINESS_ACCEPTANCE_TEMPLATE.md)，不由工具代填结论。
 
-最近一次分组提交验证见 [2026-09-25 Git 收口记录](docs/validation/GIT_CLOSEOUT_20260925.md)。归档 v12 SQLite Pilot 导入工具尚未适配精简课程元数据，存在已记录的测试失败；不参与当前 PostgreSQL 产品运行，不能将本轮结果视为后端全量通过。
+此前分组提交与三项历史 Pilot 失败保留在 [2026-09-25 Git 收口记录](docs/validation/GIT_CLOSEOUT_20260925.md)。后续已核实旧工具没有现行调用，将整套 Pilot 测试归档；当前正式后端测试结果及归档边界见 [Pilot 归档核验](docs/validation/PILOT_ARCHIVE_20260925.md)。归档工具不属于当前支持范围，历史失败没有被改写为通过。
 
 ## 文档边界
 

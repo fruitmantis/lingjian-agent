@@ -1,4 +1,6 @@
-"""Render ignored local readiness report with final commit identity after archival."""
+"""ARCHIVED: unsupported historical SQLite Pilot tooling; see pilot-data/README.md.
+
+Render ignored local readiness report with final commit identity after archival."""
 import hashlib,json,subprocess
 from datetime import datetime,timezone
 from pathlib import Path

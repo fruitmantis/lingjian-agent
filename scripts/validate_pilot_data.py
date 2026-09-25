@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Offline intake checks. No API login, model request, import or database write.
+"""ARCHIVED: unsupported historical SQLite Pilot tooling; see pilot-data/README.md.
+
+Offline intake checks. No API login, model request, import or database write.
 
 Run with the worktree's Python environment. PASS means structural checks only;
 real provenance, suitability and permission attestations still require humans.

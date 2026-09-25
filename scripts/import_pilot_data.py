@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Offline create-only atomic Pilot Package importer. No model calls or product API.
+"""ARCHIVED: unsupported historical SQLite Pilot tooling; see pilot-data/README.md.
+
+Offline create-only atomic Pilot Package importer. No model calls or product API.
 
 prepare clones an independent source through SQLite backup; dry-run is read-only;
 apply requires a pilot path, schema 12, an active admin and full intake validation.

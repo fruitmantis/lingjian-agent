@@ -1,4 +1,6 @@
-"""Synthetic-only importer tests in /tmp. No production authenticity bypass exists.
+"""ARCHIVED: schema 12 SQLite Pilot tests; see pilot-data/README.md.
+
+Synthetic-only importer tests in /tmp. No production authenticity bypass exists.
 
 Transaction tests replace ONLY the synthetic-origin rejection in the validator to
 exercise persistence. Public/CLI validation still rejects this exact same package.
@@ -17,6 +19,9 @@ from backend.tests.conftest import make_partner,make_user
 from scripts import import_pilot_data as imp
 from scripts import validate_pilot_data as v
 from scripts.pilot_import_contract import fingerprints,package_identity
+
+
+pytestmark = pytest.mark.archived
 
 
 @pytest.fixture(autouse=True)

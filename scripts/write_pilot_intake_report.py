@@ -1,4 +1,6 @@
-"""Render the local report after the reviewed intake commit, without self-hash loops."""
+"""ARCHIVED: unsupported historical SQLite Pilot tooling; see pilot-data/README.md.
+
+Render the local report after the reviewed intake commit, without self-hash loops."""
 import json
 import subprocess
 import sys
