@@ -1,5 +1,6 @@
 """Resource and case-sharing lifecycle with explicit, fail-closed projections."""
 from datetime import datetime, timezone
+from contextlib import contextmanager
 import ipaddress
 import json
 import uuid
@@ -195,11 +196,21 @@ def listing():
         return [detail_in(conn,'resource',r[0]) for r in conn.execute('SELECT id FROM enablement_resources ORDER BY updated_at DESC')]
 
 
-def save(kind, source_id, payload, actor):
+@contextmanager
+def write_transaction(connection=None):
+    """Reuse validation and audit in a maintenance import's outer transaction."""
+    if connection is not None:
+        yield connection
+    else:
+        with get_db() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            yield conn
+
+
+def save(kind, source_id, payload, actor, *, connection=None):
     table, _, key = TABLES[kind]
     metadata=payload.metadata.model_dump()
-    with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+    with write_transaction(connection) as conn:
         if kind=='case': check_case(conn,source_id)
         if kind == 'case': check_tags(conn,metadata['capability_tag_ids'])
         else:
@@ -223,10 +234,9 @@ def save(kind, source_id, payload, actor):
         return detail_in(conn,kind,source_id)
 
 
-def permissions(kind, source_id, payload, actor):
+def permissions(kind, source_id, payload, actor, *, connection=None):
     table, _, key = TABLES[kind]
-    with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+    with write_transaction(connection) as conn:
         row=row_for(conn,kind,source_id); check_base(row,payload.base_revision)
         fields=('system_visible','model_allowed','partner_allowed')
         reduced=any(row[f] and not getattr(payload,f) for f in fields)
@@ -249,10 +259,9 @@ def review(kind, source_id, payload, actor):
         return detail_in(conn,kind,source_id)
 
 
-def publish(kind, source_id, payload, actor):
+def publish(kind, source_id, payload, actor, *, connection=None):
     table, versions, key = TABLES[kind]
-    with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+    with write_transaction(connection) as conn:
         row=row_for(conn,kind,source_id); check_base(row,payload.base_revision)
         metadata=json.loads(row['draft_json'])
         if kind == 'case': check_tags(conn,metadata['capability_tag_ids'],required=True)
