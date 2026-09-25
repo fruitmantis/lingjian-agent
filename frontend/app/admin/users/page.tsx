@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { Pagination } from "@/components/pagination";
 import { UserDeleteButton } from "../../../components/user-delete-button";
 import { UiIcon } from "../../../components/ui-icons";
 import { formatAuthMethods, formatIdentityKeyHint, type AuthMethod } from "../../../lib/auth-methods";
@@ -33,6 +34,8 @@ export default function AdminUsersPage() {
   const [tab, setTab] = useState<"users" | "audit">("users");
   const [users, setUsers] = useState<User[]>([]);
   const [audits, setAudits] = useState<AuditLog[]>([]);
+  const [auditPage, setAuditPage] = useState(1), [auditTotal, setAuditTotal] = useState(0);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState("");
   const [role, setRole] = useState("");
@@ -70,12 +73,16 @@ export default function AdminUsersPage() {
   }, []);
   useEffect(() => {
     if (tab !== "audit") return;
-    setLoading(true); setError(null);
-    apiFetch("/admin/user-audit-logs?page=1&pageSize=100", { cache: "no-store" }).then(async response => {
+    let active = true;
+    setAuditLoading(true); setError(null);
+    apiFetch(`/admin/user-audit-logs?page=${auditPage}&pageSize=20`, { cache: "no-store" }).then(async response => {
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "日志加载失败");
-      setAudits((await response.json()).items);
-    }).catch(reason => setError(reason instanceof Error ? reason.message : "日志加载失败")).finally(() => setLoading(false));
-  }, [tab]);
+      const data = await response.json();
+      if (active) { setAudits(data.items); setAuditTotal(data.total); }
+    }).catch(reason => { if (active) setError(reason instanceof Error ? reason.message : "日志加载失败"); })
+      .finally(() => { if (active) setAuditLoading(false); });
+    return () => { active = false; };
+  }, [tab, auditPage]);
 
   async function runAction(action: () => Promise<void>) {
     if (busy) return;
@@ -194,12 +201,12 @@ export default function AdminUsersPage() {
             <span className="result-count">共 <strong>{total}</strong> 个账号</span>
           </div>
           {loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table admin-users-table"><thead><tr><th>用户</th><th>部门</th><th>角色</th><th scope="col">鉴权方式</th><th scope="col">Key 标识</th><th>状态</th><th>首次改密</th><th>最近登录</th><th>操作</th></tr></thead><tbody>{users.map(user => { const locked = Boolean(user.locked_until && new Date(user.locked_until) > new Date()); return <tr key={user.id}><td><Link href={`/admin/users/${user.id}`}><strong>{user.display_name || user.username}</strong></Link><small>{user.username}</small></td><td>{user.department || "-"}</td><td>{user.role === "admin" ? "管理员" : "普通用户"}</td><td>{formatAuthMethods(user.auth_methods)}</td><td><code className="admin-identity-key-hint" title="随机部分前 2 位及末 5 位">{formatIdentityKeyHint(user)}</code></td><td><span className={`status-badge ${locked ? "locked" : user.status}`}>{locked ? "已锁定" : user.status === "active" ? "启用" : "停用"}</span></td><td>{user.role === "user" ? "无需密码" : user.must_change_password ? "待修改" : "已完成"}</td><td>{user.last_login_at ? new Date(user.last_login_at).toLocaleString("zh-CN") : "未登录"}</td><td><div className="table-actions"><button className="secondary-btn" onClick={() => startEdit(user)}>编辑</button><button disabled={busy} className="secondary-btn" onClick={() => toggleStatus(user)}>{user.status === "active" ? "停用" : "启用"}</button>{user.role === "admin" && <button disabled={busy} className="secondary-btn" onClick={() => resetPassword(user)}>重置密码</button>}{<UserDeleteButton userId={user.id} onDeleted={() => { setMessage("用户已删除"); void loadUsers(1); }} />}{user.role === "admin" && locked && <button disabled={busy} className="secondary-btn" onClick={() => unlock(user)}>解锁</button>}</div></td></tr>; })}</tbody></table></div>}
-          <div className="pagination"><button className="secondary-btn" disabled={page <= 1} onClick={() => loadUsers(page - 1)}>上一页</button><span>第 {page} / {Math.max(1, Math.ceil(total / 20))} 页</span><button className="secondary-btn" disabled={page * 20 >= total} onClick={() => loadUsers(page + 1)}>下一页</button></div>
+          <Pagination label="用户分页" page={page} total={total} pageSize={20} disabled={loading || busy} onPageChange={next => void loadUsers(next)}/>
         </section>
         {editing && <div className="modal-backdrop"><form onSubmit={saveEdit} className="card modal-card"><h2>编辑用户：{editing.username}</h2><div className="form-row"><label>显示名称</label><input value={editForm.display_name} onChange={event => setEditForm(current => ({ ...current, display_name: event.target.value }))} required /></div><div className="form-row"><label>所属部门</label><input value={editForm.department} onChange={event => setEditForm(current => ({ ...current, department: event.target.value }))} /></div><div className="modal-actions"><button type="button" className="secondary-btn" onClick={() => setEditing(null)}>取消</button><button disabled={busy}>保存</button></div></form></div>}
       </>}
 
-      {tab === "audit" && <section className="card"><h2>用户操作日志</h2>{loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>时间</th><th>操作</th><th>操作者</th><th>目标用户</th><th>摘要</th><th>IP</th></tr></thead><tbody>{audits.map(item => <tr key={item.id}><td>{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td>{actionLabels[item.action] || item.action}</td><td>{item.actorName || "系统"}</td><td>{item.targetName || "-"}</td><td>{item.summary || "-"}</td><td>{item.ipAddress || "-"}</td></tr>)}</tbody></table></div>}</section>}
+      {tab === "audit" && <section className="card"><h2>用户操作日志</h2>{auditLoading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>时间</th><th>操作</th><th>操作者</th><th>目标用户</th><th>摘要</th><th>IP</th></tr></thead><tbody>{audits.map(item => <tr key={item.id}><td>{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td>{actionLabels[item.action] || item.action}</td><td>{item.actorName || "系统"}</td><td>{item.targetName || "-"}</td><td>{item.summary || "-"}</td><td>{item.ipAddress || "-"}</td></tr>)}</tbody></table></div>}<Pagination label="用户操作日志分页" page={auditPage} total={auditTotal} pageSize={20} disabled={auditLoading} onPageChange={setAuditPage}/></section>}
     </main>
   );
 }

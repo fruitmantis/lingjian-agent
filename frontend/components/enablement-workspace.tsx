@@ -3,6 +3,7 @@ import {ClassificationNotice} from "@/components/business-taxonomy";
 
 
 import Link from "next/link";
+import { Pagination } from "./pagination";
 import {UiIcon} from "./ui-icons";
 import {DevelopmentRequestForm} from "./development-assistant";
 import { useEffect, useState } from "react";
@@ -100,7 +101,7 @@ function CaseCatalog() {
       <p className="muted">仅展示当前已发布且获准在系统内查看的版本。已下架、撤权内容不可查看。</p>
     </form>
     {result.error ? <ReadError message={result.error} retry={result.retry}/> : !result.data ? <p role="status">正在读取资源…</p> : <><p className="muted" role="status">共 {result.data.total} 条资源</p><div className="enablement-resource-grid">{result.data.items.map(r=><article className="card enablement-resource-card" key={r.source_type+r.source_id}><div><span className="enablement-badge">{typeLabels[r.source_type]} · 已发布</span><h2><UiIcon name={r.source_type==="lab"?"settings":r.source_type==="case"?"users":"file"} size={18}/><Link href={resourcePath(r)}>{r.title}</Link></h2><p>{r.summary}</p></div><div className="enablement-tags">{r.capabilities.map(c=><span key={c.id}>{c.name}</span>)}</div><p className="muted">{r.source_platform} · {display(r.difficulty)} · {display(r.language)}</p><div className="enablement-actions"><span className="muted">人工核验{r.review?"已记录":"未知"}</span><Link href={resourcePath(r)}>查看详情</Link></div></article>)}</div>{result.data.items.length===0&&<div className="card empty-state"><h2>暂无符合条件的资源</h2><p>可调整筛选，或等待管理员核验并发布资源。</p></div>}
-    <div className="enablement-actions resource-pagination"><button className="secondary-btn" disabled={page===1} onClick={()=>setPage(p=>p-1)}>上一页</button><span>第 {page} 页</span><button className="secondary-btn" disabled={page*12>=result.data.total} onClick={()=>setPage(p=>p+1)}>下一页</button></div></>}
+    <Pagination label="资源分页" page={page} total={result.data.total} pageSize={12} onPageChange={setPage}/></>}
   </section>;
 }
 
@@ -172,6 +173,6 @@ function LearningCatalog({source}:{source:string}) {
       <div className="learning-levels" role="group" aria-label="资源层级">{[['','全部'],['basic','基础'],['advanced','进阶']].map(([value,label])=><button key={value} className={level===value?'active':''} aria-pressed={level===value} onClick={()=>{setLevel(value);setPage(1);}}>{label}</button>)}</div>
     </section>
     {result.error?<ReadError message={result.error} retry={result.retry}/>:!result.data?<p role="status">正在读取资源…</p>:<><p className="muted" role="status">共 {result.data.total} 条资源</p><div className="enablement-resource-grid learning-grid">{result.data.items.map(r=><article className="card learning-card" key={r.source_id}><h2><Link href={resourcePath(r)}>{r.title}</Link></h2><p>{r.summary}</p><ResourceLabels resource={r}/><div className="learning-meta"><span className="learning-level">{levelName(r.level)}</span>{r.source_type==='lab'&&<span>{duration(r.duration_minutes)}</span>}</div></article>)}</div>{!result.data.items.length&&<div className="card empty-state"><h2>暂无符合条件的资源</h2><p>试试其他分类或搜索词。</p></div>}
-    <div className="enablement-actions resource-pagination"><button className="secondary-btn" disabled={page===1} onClick={()=>setPage(p=>p-1)}>上一页</button><span>第 {page} 页</span><button className="secondary-btn" disabled={page*12>=result.data.total} onClick={()=>setPage(p=>p+1)}>下一页</button></div></>}
+    <Pagination label="资源分页" page={page} total={result.data.total} pageSize={12} onPageChange={setPage}/></>}
   </>;
 }

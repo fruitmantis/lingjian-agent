@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Pagination } from "@/components/pagination";
 import { useEffect, useState } from "react";
 import { adminApiFetch as apiFetch } from "../../../components/auth-provider";
 import { responseError } from "../../../lib/api-request";
@@ -29,8 +30,9 @@ export default function AdminFeedbackPage() {
             <td className="feedback-summary"><Link href={`/admin/feedback/${item.id}`}>{item.summary}</Link></td><td>{item.screenshot_count}</td>
             <td><span className={`feedback-status ${item.status}`}>{item.status === "pending" ? "待处理" : "已处理"}</span></td></tr>)}</tbody>
         </table></div>
-        <div className="feedback-pagination"><span className="muted">共 {total} 条</span><button className="secondary-btn" disabled={offset === 0} onClick={() => setOffset(value => Math.max(0, value - 30))}>上一页</button><button className="secondary-btn" disabled={offset + 30 >= total} onClick={() => setOffset(value => value + 30)}>下一页</button></div>
+
       </>}
+      {!loading && !error && <Pagination label="问题反馈分页" page={Math.floor(offset / 30) + 1} total={total} pageSize={30} onPageChange={next => setOffset((next - 1) * 30)}/>}
     </div>
   </div>;
 }

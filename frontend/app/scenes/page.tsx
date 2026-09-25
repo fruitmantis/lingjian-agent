@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Pagination } from "@/components/pagination";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ENABLED_SCENES, SCENE_CATEGORIES } from "@/lib/scenes";
@@ -55,7 +56,6 @@ export default function ScenesPage() {
       return categoryMatched && (!query || searchable.includes(query));
     });
   }, [category, keyword]);
-  const totalPages = Math.max(1, Math.ceil(filteredScenes.length / pageSize));
   const visibleScenes = filteredScenes.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => { setPage(1); }, [category, keyword, pageSize]);
@@ -124,10 +124,8 @@ export default function ScenesPage() {
             );
           })}
           </section>
-          <footer className="scene-pagination" aria-label="场景分页">
-            <div><span>共 {filteredScenes.length} 条</span><label>每页 <select value={pageSize} onChange={event => setPageSize(Number(event.target.value))}><option value="6">6</option><option value="9">9</option><option value="12">12</option></select> 条</label></div>
-            <div className="scene-page-controls"><button type="button" className="secondary-btn" disabled={page <= 1} onClick={() => setPage(current => current - 1)}>上一页</button>{Array.from({ length: totalPages }, (_, index) => index + 1).map(number => <button type="button" key={number} className={number === page ? "active" : ""} aria-current={number === page ? "page" : undefined} onClick={() => setPage(number)}>{number}</button>)}<button type="button" className="secondary-btn" disabled={page >= totalPages} onClick={() => setPage(current => current + 1)}>下一页</button></div>
-          </footer>
+          <Pagination label="场景分页" page={page} total={filteredScenes.length} pageSize={pageSize}
+            onPageChange={setPage} pageSizeOptions={[6, 9, 12]} onPageSizeChange={size => { setPageSize(size); setPage(1); }}/>
         </>
       ) : (
         <section className="scene-empty">

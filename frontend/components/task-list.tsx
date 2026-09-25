@@ -2,6 +2,7 @@
 
 import {FailureReasons,type FailureDetail} from "./task-failure";
 import Link from "next/link";
+import { Pagination } from "./pagination";
 import {PlanStatus,type PlanPresentation} from "./plan-status";
 import { useEffect, useState } from "react";
 import { apiFetch } from "./auth-provider";
@@ -41,7 +42,6 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
   const [taskStatus, setTaskStatus] = useState("");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +61,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
       const response = await apiFetch(`${admin ? "/admin/tasks" : "/agent/tasks"}?${params}`, { cache: "no-store" });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "任务加载失败");
       const data = await response.json() as TaskPage;
-      setItems(data.items); setPage(data.page); setTotal(data.total); setTotalPages(data.totalPages);
+      setItems(data.items); setPage(data.page); setTotal(data.total);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "任务加载失败");
     } finally {
@@ -125,9 +125,10 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
             <div className="table-wrap"><table className="data-table task-table"><thead><tr><th>需求摘要</th><th>任务类型</th>{admin && <><th>创建人</th><th>部门</th></>}<th>状态</th><th>首选伙伴</th><th>推荐数</th><th>机会完整度</th><th>创建时间</th><th>操作</th></tr></thead><tbody>
               {items.map(item => <tr key={item.id}><td className="task-requirement">{item.requirement}</td><td>{item.task_type === "development_plan" ? "能力发展" : "资源匹配"}</td>{admin && <><td>{item.ownerName || "-"}</td><td>{item.department || "-"}</td></>}<td>{item.task_type === "development_plan" && item.planPresentation ? <PlanStatus value={item.planPresentation}/> : <span className={`status-badge task-${item.taskStatus}`} title={errorStageText(item.lastErrorStage)}>{item.task_type === "development_plan" ? (item.archivedAt ? "已归档" : developmentStatusLabels[item.taskStatus]) : statusLabels[item.taskStatus]}</span>}{item.task_type!=="development_plan"&&(item.taskStatus==="partial"||item.taskStatus==="failed")&&<FailureReasons details={item.failureDetails} stages={item.lastErrorStage} href={`${admin ? "/admin/tasks" : "/tasks"}/${item.id}`}/>}</td><td>{item.topPartner}</td><td>{item.partnerCount}</td><td>{item.completenessScore == null ? "-" : `${item.completenessScore}%`}</td><td className="task-time">{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td><div className="table-actions"><Link href={`${admin ? "/admin/tasks" : "/tasks"}/${item.id}`} className="secondary-btn">详情</Link>{item.task_type !== "development_plan" && (item.taskStatus === "partial" || item.taskStatus === "failed") && <button className="secondary-btn" disabled={retryingId === item.id} onClick={() => void retry(item)}>{retryingId === item.id ? "重试中..." : "重试"}</button>}<button className="secondary-btn" onClick={() => void toggleArchive(item)}>{item.archivedAt ? "恢复" : "归档"}</button></div></td></tr>)}
             </tbody></table></div>
-            <div className="pagination"><span>共 {total} 条</span><button className="secondary-btn" disabled={page <= 1} onClick={() => void load(page - 1)}>上一页</button><span>第 {page} / {Math.max(1, totalPages)} 页</span><button className="secondary-btn" disabled={page >= totalPages} onClick={() => void load(page + 1)}>下一页</button></div>
+
           </>
         )}
+        {!loading && <Pagination label="任务分页" page={page} total={total} pageSize={20} onPageChange={next => void load(next)}/>}
       </section>
     </>
   );

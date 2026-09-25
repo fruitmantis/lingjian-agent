@@ -1,4 +1,5 @@
 "use client";
+import { Pagination } from "./pagination";
 import { adminApiFetch } from "./auth-provider";
 import {ClassificationFilter, ClassificationNotice} from "@/components/business-taxonomy";
 
@@ -265,22 +266,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                 );
               })}
             </div>
-          {data.profiles.length > pageSize && (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
-                <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} >
-                  <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-                </select>
-                <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {data.profiles.length} 条</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="secondary-btn" style={{ opacity: page === 1 ? 0.5 : 1 }}>上一页</button>
-                <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {page} / {Math.ceil(data.profiles.length / pageSize)} 页</span>
-                <button onClick={() => setPage(p => Math.min(Math.ceil(data.profiles.length / pageSize), p + 1))} disabled={page >= Math.ceil(data.profiles.length / pageSize)} className="secondary-btn" style={{ opacity: page >= Math.ceil(data.profiles.length / pageSize) ? 0.5 : 1 }}>下一页</button>
-              </div>
-            </div>
-          )}
+          <Pagination label="需求画像分页" page={page} total={data.profiles.length} pageSize={pageSize} onPageChange={setPage} pageSizeOptions={[10, 20, 50]} onPageSizeChange={size => { setPageSize(size); setPage(1); }} />
           </section>
 
           {/* 供需缺口分析 */}
@@ -305,22 +291,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                 })}
               </div>
             )}
-            {data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length > gapPageSize && (
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
-                  <select value={gapPageSize} onChange={(e) => { setGapPageSize(Number(e.target.value)); setGapPage(1); }} >
-                    <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-                  </select>
-                  <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length} 条</span>
-                </div>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <button onClick={() => setGapPage(p => Math.max(1, p - 1))} disabled={gapPage === 1} className="secondary-btn" style={{ opacity: gapPage === 1 ? 0.5 : 1 }}>上一页</button>
-                  <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {gapPage} / {Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize)} 页</span>
-                  <button onClick={() => setGapPage(p => Math.min(Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize), p + 1))} disabled={gapPage >= Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize)} className="secondary-btn" style={{ opacity: gapPage >= Math.ceil(data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length / gapPageSize) ? 0.5 : 1 }}>下一页</button>
-                </div>
-              </div>
-            )}
+            <Pagination label="供需缺口分页" page={gapPage} total={data.profiles.filter(p => p.supplyStatus === "gap" || p.supplyStatus === "partial").length} pageSize={gapPageSize} onPageChange={setGapPage} pageSizeOptions={[10, 20, 50]} onPageSizeChange={size => { setGapPageSize(size); setGapPage(1); }} />
           </section>
         </>
       )}
@@ -374,22 +345,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
               </tbody>
             </table></div>
           )}
-          {opps.length > oppPageSize && (
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "12px", flexWrap: "wrap", gap: "8px" }}>
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <span style={{ fontSize: "13px", color: "var(--muted)" }}>每页</span>
-                <select value={oppPageSize} onChange={(e) => { setOppPageSize(Number(e.target.value)); setOppPage(1); }} >
-                  <option value={10}>10</option><option value={20}>20</option><option value={50}>50</option>
-                </select>
-                <span style={{ fontSize: "13px", color: "var(--muted)" }}>条 | 共 {opps.length} 条</span>
-              </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <button onClick={() => setOppPage(p => Math.max(1, p - 1))} disabled={oppPage === 1} className="secondary-btn" style={{ opacity: oppPage === 1 ? 0.5 : 1 }}>上一页</button>
-                <span style={{ fontSize: "13px", lineHeight: "28px", padding: "0 8px" }}>第 {oppPage} / {Math.ceil(opps.length / oppPageSize)} 页</span>
-                <button onClick={() => setOppPage(p => Math.min(Math.ceil(opps.length / oppPageSize), p + 1))} disabled={oppPage >= Math.ceil(opps.length / oppPageSize)} className="secondary-btn" style={{ opacity: oppPage >= Math.ceil(opps.length / oppPageSize) ? 0.5 : 1 }}>下一页</button>
-              </div>
-            </div>
-          )}
+          <Pagination label="项目机会分页" page={oppPage} total={opps.length} pageSize={oppPageSize} disabled={oppLoading} onPageChange={setOppPage} pageSizeOptions={[10, 20, 50]} onPageSizeChange={size => { setOppPageSize(size); setOppPage(1); }} />
         </section>
       )}
     </main>
