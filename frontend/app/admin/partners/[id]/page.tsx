@@ -1,128 +1,31 @@
 "use client";
-import {ClassificationFields, ClassificationNotice} from "@/components/business-taxonomy";
-
-
 import Link from "next/link";
-import { FormEvent, use, useEffect, useState } from "react";
-import { adminApiFetch as apiFetch } from "../../../../components/auth-provider";
+import {FormEvent,use,useCallback,useEffect,useRef,useState} from "react";
+import {adminApiFetch as apiFetch} from "@/components/auth-provider";
+import {ClassificationFields,ClassificationNotice} from "@/components/business-taxonomy";
+import {MaterialFiles,uploadMaterials} from "@/components/material-files";
+import {responseError} from "@/lib/api-request";
 
-type Partner = { classification_pending?: Record<string,string[]>; id: string; name: string; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; status: "active" | "disabled" };
-type Document = { id: string; filename: string; file_type: string; extracted_text: string | null; created_at: string };
-type PartnerCase = { id: string; title: string; description: string | null; created_at: string };
-type Deliverable = { id: string; filename: string; created_at: string };
+type Partner={id:string;name:string;intro:string|null;capabilities:string|null;industries:string|null;service_areas:string|null;ai_profile:string|null;profile_needs_update:boolean;classification_pending?:Record<string,string[]>};
+async function request(path:string,method='GET',body?:unknown){const r=await apiFetch(path,{method,headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});if(!r.ok)throw await responseError(r);return r.status===204?null:r.json();}
 
-export default function AdminPartnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const [partner, setPartner] = useState<Partner | null>(null);
-  const [docs, setDocs] = useState<Document[]>([]);
-  const [cases, setCases] = useState<PartnerCase[]>([]);
-  const [deliverables, setDeliverables] = useState<Record<string, Deliverable[]>>({});
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [caseTitle, setCaseTitle] = useState("");
-  const [caseDescription, setCaseDescription] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<Document | null>(null);
-
-  async function load() {
-    setError(null);
-    try {
-      const [partnerResponse, docsResponse, casesResponse] = await Promise.all([
-        apiFetch(`/partners/${id}`, { cache: "no-store" }),
-        apiFetch(`/partners/${id}/documents`, { cache: "no-store" }),
-        apiFetch(`/cases/by-partner/${id}`, { cache: "no-store" }),
-      ]);
-      if (!partnerResponse.ok) throw new Error("伙伴不存在");
-      const partnerData = await partnerResponse.json() as Partner;
-      const caseData = casesResponse.ok ? await casesResponse.json() as PartnerCase[] : [];
-      setPartner(partnerData); setDocs(docsResponse.ok ? await docsResponse.json() : []); setCases(caseData);
-      setForm({ name: partnerData.name, intro: partnerData.intro || "", capabilities: partnerData.capabilities || "", service_areas: partnerData.service_areas || "", industries: partnerData.industries || "" });
-      const pairs = await Promise.all(caseData.map(async item => { const response = await apiFetch(`/cases/${item.id}/deliverables`); return [item.id, response.ok ? await response.json() : []] as const; }));
-      setDeliverables(Object.fromEntries(pairs));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "加载失败"); }
-  }
-  useEffect(() => { void load(); }, [id]);
-
-  async function runAction(action: () => Promise<void>) {
-    if (busy) return;
-    setBusy(true); setError(null);
-    try {
-      await action();
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "操作失败，请稍后重试");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function save(event: FormEvent) {
-    event.preventDefault();
-    await runAction(async () => {
-      const response = await apiFetch(`/partners/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      if (response.ok) await load(); else setError((await response.json().catch(() => ({}))).detail || "保存失败");
-    });
-  }
-  async function uploadDocument(file: File) {
-    await runAction(async () => {
-      const body = new FormData(); body.append("file", file);
-      const response = await apiFetch(`/partners/${id}/documents`, { method: "POST", body });
-      if (response.ok) await load(); else setError((await response.json().catch(() => ({}))).detail || "上传失败");
-    });
-  }
-  async function deleteDocument(docId: string) {
-    if (!confirm("确定删除该伙伴资料？")) return;
-    await runAction(async () => {
-      const response = await apiFetch(`/partners/${id}/documents/${docId}`, { method: "DELETE" });
-      if (response.ok) await load(); else setError("删除失败");
-    });
-  }
-  async function downloadDocument(doc: Document) {
-    await runAction(async () => {
-      const response = await apiFetch(`/partners/${id}/documents/${doc.id}/file`);
-      if (!response.ok) { setError("下载失败"); return; }
-      const url = URL.createObjectURL(await response.blob());
-      const anchor = window.document.createElement("a"); anchor.href = url; anchor.download = doc.filename; anchor.click(); URL.revokeObjectURL(url);
-    });
-  }
-  async function generateProfile() {
-    await runAction(async () => {
-      const response = await apiFetch(`/partners/${id}/profile`, { method: "POST" });
-      if (response.ok) await load(); else setError((await response.json().catch(() => ({}))).detail || "画像生成失败");
-    });
-  }
-  async function createCase(event: FormEvent) {
-    event.preventDefault();
-    await runAction(async () => {
-      const response = await apiFetch("/cases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ partner_id: id, title: caseTitle, description: caseDescription || null }) });
-      if (response.ok) { setCaseTitle(""); setCaseDescription(""); await load(); } else setError("案例新增失败");
-    });
-  }
-  async function uploadDeliverable(caseId: string, file: File) {
-    await runAction(async () => {
-      const body = new FormData(); body.append("file", file);
-      const response = await apiFetch(`/cases/${caseId}/deliverables`, { method: "POST", body });
-      if (response.ok) await load(); else setError("交付物上传失败");
-    });
-  }
-  async function deleteCase(caseId: string) {
-    if (!confirm("确定删除该案例及其全部交付物？")) return;
-    await runAction(async () => {
-      const response = await apiFetch(`/cases/${caseId}`, { method: "DELETE" });
-      if (response.ok) await load(); else setError("案例删除失败");
-    });
-  }
-  async function deleteDeliverable(caseId: string, deliverableId: string) {
-    if (!confirm("确定删除该交付物？")) return;
-    await runAction(async () => {
-      const response = await apiFetch(`/cases/${caseId}/deliverables/${deliverableId}`, { method: "DELETE" });
-      if (response.ok) await load(); else setError("交付物删除失败");
-    });
-  }
-  if (!partner && !error) return <main className="page"><p>伙伴信息加载中...</p></main>;
-  return <main className="page"><div className="page-heading-row"><div><p className="eyebrow">Partner Maintenance</p><h1>{partner?.name || "伙伴维护"}</h1><p className="lead">维护正式伙伴信息及匹配证据。</p></div><Link href="/admin/partners" className="secondary-btn">返回伙伴列表</Link></div>{error && <p className="error-text">{error}</p>}
-    {partner && <><section className="card"><h2>基础信息</h2><form onSubmit={save} className="form-grid"><div className="form-row"><label>伙伴名称</label><input value={form.name || ""} onChange={event => setForm(current => ({ ...current, name: event.target.value }))} required /></div><ClassificationFields industries={form.industries||""} regions={form.service_areas||""} onIndustries={industries=>setForm(current=>({...current,industries}))} onRegions={service_areas=>setForm(current=>({...current,service_areas}))}/><div className="form-span-two"><ClassificationNotice pending={partner.classification_pending}/></div><div className="form-row"><label>能力标签</label><input value={form.capabilities || ""} onChange={event => setForm(current => ({ ...current, capabilities: event.target.value }))} /></div><div className="form-row form-span-two"><label>伙伴简介</label><textarea rows={3} value={form.intro || ""} onChange={event => setForm(current => ({ ...current, intro: event.target.value }))} /></div><div className="form-span-two"><button disabled={busy}>保存伙伴信息</button></div></form></section>
-    <section className="card"><div className="section-heading-row"><div><h2>原始伙伴资料</h2><p>仅管理员可以查看、下载和维护。</p></div><label className="upload-btn">{busy ? "处理中..." : "上传资料"}<input type="file" hidden accept=".pdf,.docx,.pptx,.xlsx" disabled={busy} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadDocument(file); event.target.value = ""; }} /></label></div>{docs.length === 0 ? <p className="placeholder-text">暂无资料。</p> : <div className="document-list">{docs.map(doc => <div key={doc.id}><div><strong>{doc.filename}</strong><span>{doc.file_type.toUpperCase()} · {new Date(doc.created_at).toLocaleDateString("zh-CN")}</span></div><div className="table-actions"><button className="secondary-btn" onClick={() => setPreview(preview?.id === doc.id ? null : doc)}>提取文本</button><button disabled={busy} className="secondary-btn" onClick={() => downloadDocument(doc)}>下载</button><button disabled={busy} className="secondary-btn danger-outline" onClick={() => deleteDocument(doc.id)}>删除</button></div>{preview?.id === doc.id && <pre className="document-preview">{doc.extracted_text || "未提取到文本内容"}</pre>}</div>)}</div>}</section>
-    <section className="card card-highlight"><div className="section-heading-row"><h2>AI 能力画像</h2><button onClick={generateProfile} disabled={busy}>{partner.ai_profile ? "重新生成" : "生成画像"}</button></div>{partner.ai_profile ? <pre className="ai-profile-text">{partner.ai_profile}</pre> : <p className="placeholder-text">尚未生成画像。</p>}</section>
-    <section className="card"><h2>案例与交付物</h2><form onSubmit={createCase} className="form-grid compact-form"><div className="form-row"><label>案例标题</label><input value={caseTitle} onChange={event => setCaseTitle(event.target.value)} required /></div><div className="form-row"><label>案例描述</label><input value={caseDescription} onChange={event => setCaseDescription(event.target.value)} /></div><div className="form-span-two"><button disabled={busy}>新增案例</button></div></form><div className="case-stack">{cases.map(item => <article className="case-item" key={item.id}><div className="section-heading-row"><h3>{item.title}</h3><Link className="secondary-btn" href={`/admin/partners/${id}/cases/${item.id}/sharing`}>共享设置</Link><button disabled={busy} className="secondary-btn danger-outline" onClick={() => deleteCase(item.id)}>删除案例</button></div><p>{item.description || "暂无描述"}</p><div className="deliverable-pills">{(deliverables[item.id] || []).map(file => <span key={file.id}>{file.filename}<button disabled={busy} title="删除交付物" onClick={() => deleteDeliverable(item.id, file.id)}>×</button></span>)}</div><label className="upload-btn small">上传交付物<input hidden type="file" disabled={busy} onChange={event => { const file = event.target.files?.[0]; if (file) void uploadDeliverable(item.id, file); event.target.value = ""; }} /></label></article>)}</div></section></>}
+export default function AdminPartnerDetailPage({params}:{params:Promise<{id:string}>}){
+  const {id}=use(params);const [partner,setPartner]=useState<Partner|null>(null);
+  const [form,setForm]=useState<Record<string,string>>({}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
+  const [refresh,setRefresh]=useState(0);
+  const initial=useRef(false),importing=useRef(false);
+  const load=useCallback(async()=>{const p=await request(`/partners/${id}`);setPartner(p);if(!initial.current){setForm({name:p.name,intro:p.intro||'',capabilities:p.capabilities||'',industries:p.industries||'',service_areas:p.service_areas||''});initial.current=true;}},[id]);
+  useEffect(()=>{initial.current=false;void load().catch(e=>setError(e.message));},[load]);
+  async function action(fn:()=>Promise<void>){if(busy)return;setBusy(true);setError('');setNotice('');try{await fn();await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
+  function changed(){void load().catch(e=>setError(e.message));}
+  function processed(){changed();if(importing.current){importing.current=false;setNotice('文件处理已结束，请查看当前画像和处理结果。');}}
+  async function updateProfile(){await action(async()=>{await request(`/partners/${id}/profile`,'POST');setNotice('伙伴画像已更新。');});}
+  async function save(e:FormEvent){e.preventDefault();await action(async()=>{await request(`/partners/${id}`,'PUT',form);setNotice('伙伴信息已保存。');});}
+  return <main className="page"><div className="page-heading-row"><div><p className="eyebrow">Partner</p><h1>{partner?.name||'伙伴资料'}</h1><p className="lead">维护伙伴基本信息与画像。案例资料在统一页面管理。</p></div><Link href="/admin/partners" className="secondary-btn">返回伙伴列表</Link></div>
+    {error&&<p role="alert" className="error-text">{error}</p>}{notice&&<p role="status">{notice}</p>}
+    {partner&&<><section className="card"><h2>基础信息</h2><form onSubmit={save} className="form-grid"><label className="form-row">伙伴名称<input required value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></label><ClassificationFields industries={form.industries||''} regions={form.service_areas||''} onIndustries={industries=>setForm(f=>({...f,industries}))} onRegions={service_areas=>setForm(f=>({...f,service_areas}))}/><div className="form-span-two"><ClassificationNotice pending={partner.classification_pending}/></div><label className="form-row">能力标签<input value={form.capabilities||''} onChange={e=>setForm(f=>({...f,capabilities:e.target.value}))}/></label><label className="form-row form-span-two">伙伴简介<textarea rows={3} value={form.intro||''} onChange={e=>setForm(f=>({...f,intro:e.target.value}))}/></label><div className="form-span-two"><button disabled={busy}>保存伙伴信息</button></div></form></section>
+    <section className="card"><div className="section-heading-row"><div><h2>案例与资料</h2><p className="muted">查看、上传和整理该伙伴的资料。</p></div><Link href={`/admin/partner-materials?partner_id=${encodeURIComponent(id)}`} className="secondary-btn">管理资料</Link></div></section>
+    <section className="card" id="profile"><div className="section-heading-row"><div><h2>伙伴画像</h2>{partner.profile_needs_update&&<p className="muted">资料已变化，画像待更新。</p>}</div><div className="table-actions"><label className="upload-btn">导入 DOCX 画像<input type="file" hidden accept=".docx" disabled={busy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void action(async()=>{if(!file.name.toLowerCase().endsWith('.docx'))throw new Error('初始化画像请上传 DOCX 文件');importing.current=true;await uploadMaterials(`/partners/${id}/documents`,[file],true);setRefresh(n=>n+1);setNotice('画像文件已保存，提取成功后直接采用，不调用 AI 重写。');});}}/></label><button disabled={busy} onClick={()=>void updateProfile()}>{busy?'处理中…':'更新伙伴画像'}</button></div></div><p className="muted">导入内容直接采用；点击更新时才根据现有资料生成。完整画像仅管理员可见。</p>{partner.ai_profile?<pre className="ai-profile-text">{partner.ai_profile}</pre>:<p className="placeholder-text">暂无画像，可导入 DOCX 或手动更新。</p>}<details style={{marginTop:24}}><summary>画像原件</summary><MaterialFiles endpoint={`/partners/${id}/documents`} admin profileOnly allowUpload={false} refresh={refresh} onChange={changed} onProcessed={processed}/></details></section>
+    </>}
   </main>;
 }

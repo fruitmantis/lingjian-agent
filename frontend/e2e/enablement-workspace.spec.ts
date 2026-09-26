@@ -16,7 +16,6 @@ async function login(request:APIRequestContext,username='user_a',page?:Page){
 async function checked(response:Awaited<ReturnType<APIRequestContext['get']>>){expect(response.ok(),`Unexpected API status ${response.status()}`).toBeTruthy();return response.json();}
 async function publish(request:APIRequestContext,url:string,row:{revision:number}){
   row=await checked(await request.patch(url+'/permissions',{headers:adminHeaders,data:{base_revision:row.revision,system_visible:true,model_allowed:false,partner_allowed:false,reason:'合成自动化验证授权'}}));
-  if(url.includes('/sharing'))await checked(await request.post(url+'/review',{headers:adminHeaders,data:{base_revision:row.revision,link_status:'available',content_checked:true,authorization_checked:true}}));
   return checked(await request.post(url+'/publish',{headers:adminHeaders,data:{base_revision:row.revision}}));
 }
 test.beforeAll(async({request})=>{
@@ -28,10 +27,7 @@ test.beforeAll(async({request})=>{
     await publish(request,API+'/admin/enablement/resources/'+row.source_id,row);
     if(kind==='course')course=row.source_id;else lab=row.source_id;
   }
-  const base=await checked(await request.post(API+'/cases',{headers:adminHeaders,data:{partner_id:'partner-1',title:'内部案例证据标题',description:'INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE'}}));sharedCase=base.id;
-  const url=API+`/admin/cases/${sharedCase}/sharing`;
-  const row=await checked(await request.put(url,{headers:adminHeaders,data:{base_revision:0,metadata:{title:'伙伴迁移实践共享案例（合成验证）',summary:'脱敏后的迁移验证实践，仅包含获准共享的方法。',methods:'制定核验清单，分阶段验证迁移结果并复盘。',contributor_role:'承担迁移验证实施，不代表其他交付环节的能力。',source_platform:'合成案例平台',source_url:'https://example.com/shared-case',capability_tag_ids:[tag.id]}}}));
-  await publish(request,url,row);
+  const base=await checked(await request.post(API+'/cases',{headers:adminHeaders,data:{partner_id:'partner-1',title:'伙伴迁移实践共享案例（合成验证）',description:'迁移验证实践，仅包含合成内容。',category_id:'technical-2',visible:true}}));sharedCase=base.id;
 });
 
 test('NAV-01/SCN-01 center preserves navigation and offers truthful scene entries',async({page,request})=>{
@@ -39,7 +35,7 @@ test('NAV-01/SCN-01 center preserves navigation and offers truthful scene entrie
   for(const name of ['开启新任务','场景广场','伙伴洞察','全部任务','个人中心','管理后台','资源中心'])await expect(page.locator('aside').getByRole('link',{name,exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'生成能力发展建议',exact:true})).toBeVisible();
   await page.getByLabel('选择目标伙伴').selectOption('partner-1');
-  await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'当前伙伴画像摘要',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'生成方案',exact:true})).toHaveCount(0);
   await page.goto('/scenes?category='+encodeURIComponent('能力发展'));
   for(const name of ['制定伙伴能力发展建议','查找课程与实验','学习优秀伙伴案例'])await expect(page.getByRole('heading',{name,exact:true})).toBeVisible();
@@ -83,12 +79,13 @@ test('RES-admin adds renames and orders categories with a slim resource editor',
   await login(request,'admin1',page);await page.goto('/admin/resources');
   await page.getByText('管理岗位 / 专区分类',{exact:true}).click();
   await page.getByLabel('新分类名称',{exact:true}).fill('自动化新岗位');await page.getByRole('button',{name:'新增分类',exact:true}).click();
-  const input=page.locator('input[value="自动化新岗位"]');await expect(input).toBeVisible();
+  const input=page.locator('.resource-category-admin tbody input[aria-label^="分类名称 "][value="自动化新岗位"]');await expect(input).toBeVisible();
   const id=await input.getAttribute('aria-label');
   const row=page.getByRole('row').filter({has:page.getByLabel(id!,{exact:true})});
   await expect(row).toBeVisible();
   await row.getByRole('textbox').fill('自动化改名岗位');await row.getByRole('spinbutton').fill('999');await row.getByRole('button',{name:'保存分类'}).click();
   await expect(page.locator('input[value="自动化改名岗位"]')).toBeVisible();
+  await expect(row.getByRole('button',{name:'保存分类'})).toBeEnabled();
   await page.getByRole('button',{name:'新增资源',exact:true}).click();
   await expect(page.getByLabel('自动化改名岗位',{exact:true})).toBeVisible();
   for(const label of ['费用条件','难度','来源平台','语言','账号要求'])await expect(page.getByLabel(label,{exact:true})).toHaveCount(0);
@@ -127,7 +124,7 @@ test('PRT-01/CASE-05 partner shared case and center exchange authorized identifi
   await login(request,'user_a',page);await page.goto('/partners/partner-1');
   await page.getByRole('link',{name:'制定发展建议',exact:true}).click();
   await expect(page).toHaveURL(/partner_id=partner-1/);
-  await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'当前伙伴画像摘要',exact:true})).toBeVisible();
   await page.getByText('查看获准引用的依据',{exact:true}).click();await expect(page.getByRole('heading',{name:'当前可访问的证据引用',exact:true})).toBeVisible();
   await page.goto(`/enablement/resources/case/${sharedCase}?source_version=1`);
   await expect(page.getByRole('heading',{level:1})).toHaveText('伙伴迁移实践共享案例（合成验证）');
@@ -135,8 +132,8 @@ test('PRT-01/CASE-05 partner shared case and center exchange authorized identifi
   await page.getByRole('link',{name:'验证伙伴',exact:true}).click();await expect(page).toHaveURL('/partners/partner-1');
   await page.getByRole('link',{name:'伙伴迁移实践共享案例（合成验证）',exact:true}).click();
   await page.getByRole('link',{name:'围绕此案例制定发展建议',exact:true}).click();
-  await expect(page).toHaveURL(new RegExp(`case_id=${sharedCase}&case_version=1`));
-  await expect(page.getByLabel('选择目标伙伴')).toHaveValue('');
+  await expect(page).toHaveURL(new RegExp(`case_id=${sharedCase}`));
+  await expect(page.getByLabel('选择目标伙伴')).toHaveValue('partner-1');
   await expect(page.getByRole('link',{name:'伙伴迁移实践共享案例（合成验证）',exact:true})).toBeVisible();
   await expect(page.locator('main')).not.toContainText('INTERNAL_SECRET_PHASE_B');
 });

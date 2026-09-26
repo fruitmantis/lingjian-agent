@@ -23,6 +23,7 @@ const adminNav: { group: string; items: NavItem[] }[] = [
   ] },
   { group: "业务运营", items: [
     { label: "伙伴管理", href: "/admin/partners", icon: "users" },
+    { label: "伙伴资料", href: "/admin/partner-materials", icon: "file" },
     { label: "需求画像", href: "/admin/demands", icon: "file" },
     { label: "项目机会", href: "/admin/opportunities", icon: "spark" },
     { label: "运营报表", href: "/admin/reports", icon: "chart" },

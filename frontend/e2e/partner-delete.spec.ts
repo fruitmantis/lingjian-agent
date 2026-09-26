@@ -7,7 +7,7 @@ for (const width of [1366, 1920]) test(`admin partner deletion preserves busines
   // Created by prepare_e2e only in its guarded /tmp fixture directory. No runtime credentials.
   expect(process.env.PLAYWRIGHT_REUSE_SERVER).not.toBe('1');
   const session = JSON.parse(readFileSync('/tmp/lingjian-enablement-e2e/visual-session.json','utf8'));
-  expect(session.database).toBe(process.env.PLAYWRIGHT_DATABASE_URL?.startsWith('postgresql') ? 'postgresql:banfei_validation' : '/tmp/lingjian-enablement-e2e/app.db');
+  expect(session.database).toBe(process.env.PLAYWRIGHT_DATABASE_URL?.startsWith('postgresql') ? `postgresql:${new URL(process.env.PLAYWRIGHT_DATABASE_URL).pathname.slice(1)}` : '/tmp/lingjian-enablement-e2e/app.db');
   const headers = {Authorization: `Bearer ${session.access_token}`};
   // The ephemeral fixture token cannot authenticate against the private runtime database.
   expect((await request.get(`${API}/partners`,{headers})).status()).toBe(200);
@@ -20,7 +20,7 @@ for (const width of [1366, 1920]) test(`admin partner deletion preserves busines
     expect(response.status()).toBe(201); return response.json();
   }
   const unused = await create(unusedName), used = await create(usedName);
-  const caseResponse = await request.post(`${API}/cases`, {headers,data:{partner_id:used.id,title:'Synthetic protected case',description:'Only in temporary E2E database'}});
+  const caseResponse = await request.post(`${API}/cases`, {headers,data:{partner_id:used.id,title:'Synthetic protected case',category_id:'technical-1',description:'Only in temporary E2E database'}});
   expect(caseResponse.status()).toBe(201);
   await page.goto('/admin/partners');
   const unusedRow = page.getByRole('row').filter({has:page.getByRole('cell',{name:unusedName,exact:true})});

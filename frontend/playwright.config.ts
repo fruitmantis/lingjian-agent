@@ -35,7 +35,7 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: replay ? "**/*.spec.ts" : [
     "**/business-taxonomy.spec.ts", "**/partner-delete.spec.ts", "**/model-boundary.spec.ts",
-    "**/pagination.spec.ts", "**/arm-runtime.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts", "**/first-login.spec.ts", "**/local-identity.spec.ts",
+    "**/partner-materials.spec.ts", "**/pagination.spec.ts", "**/arm-runtime.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts", "**/first-login.spec.ts", "**/local-identity.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,
