@@ -136,6 +136,7 @@ Key 文件格式错误在浏览器内提示；Key 格式错误、未知/旧版�
 ## 数据库与迁移
 
 - `DATABASE_URL` 显式选择 PostgreSQL，缺失或连接失败直接报错；不自动回退 SQLite。不要用旧 SQLite 快照覆盖切换后的新增数据。
+- 下述反馈及 v12→v17 迁移脚本默认只接受本机 `banfei_agent`；其他既有部署可显式传 `--database-name <现有库名>`，必须与私有 `DATABASE_URL` 的库名完全一致，仍只接受 localhost / 127.0.0.1 PostgreSQL。该参数不创建、替换数据库，也不改变迁移内容；先核对版本并备份，再按顺序升级。
 - v12 升级到 v13 使用 `scripts/migrate_local_identity.py --backup-dir <新的私有备份目录>`，由既有私有配置提供 DATABASE_URL。先 pg_dump，后事务新增凭据/challenge 表、放宽普通用户密码列并约束管理员密码；不重建库、不自动删除旧用户。失败回滚；回退须连同认证代码和备份一起评估，不能把 v12 程序直接指向新增无密码身份的数据。
 - v13 升级到 v14 使用 `scripts/migrate_user_activity.py --backup-dir <新的私有备份目录>`，仅增加可空 `users.last_active_at`，不删除业务数据；先备份后事务执行，失败回滚。当前库已迁移，不重复执行。回退应停止服务并协调代码/schema 版本；新增时间列可保留，不需要重建数据库。
 - v14 升级到 v15 使用 `scripts/migrate_identity_keys.py --backup-dir <新的私有备份目录>`，先备份后在单一事务新增 `user_identity_keys`（user_id 主键、唯一 Key 摘要、密文及创建时间），不修改既有用户/凭据/业务行；失败自动回滚。v15 迁移已执行，不重复执行。回退须先停止服务、保留 v15 数据和私有密钥备份，再协调代码/schema；已产生 Key 用户后不可直接回退旧认证或用旧库覆盖新增数据。

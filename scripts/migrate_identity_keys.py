@@ -28,10 +28,11 @@ def migrate(conn, fault=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--backup-dir', type=Path, required=True)
+    parser.add_argument('--database-name', default='banfei_agent', help='Expected local database name; must match DATABASE_URL')
     args = parser.parse_args()
     url = make_url(os.environ['DATABASE_URL'])
-    if not url.drivername.startswith('postgresql') or url.database != 'banfei_agent' or url.host not in ('localhost', '127.0.0.1'):
-        raise RuntimeError('Only local banfei_agent is allowed')
+    if not url.drivername.startswith('postgresql') or url.database != args.database_name or url.host not in ('localhost', '127.0.0.1'):
+        raise RuntimeError('Only the explicitly named local PostgreSQL database is allowed')
     os.umask(0o077)
     args.backup_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
     env = dict(os.environ, PGHOST=url.host, PGPORT=str(url.port or 5432), PGDATABASE=url.database,
