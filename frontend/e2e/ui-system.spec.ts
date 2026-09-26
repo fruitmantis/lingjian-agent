@@ -15,9 +15,10 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
     if(p==='/auth/me')json={id:'ui-admin',username:'ui-admin',role:route.request().headers().authorization==='Bearer synthetic-admin'?'admin':'user',status:'active',must_change_password:false};
     else if(p==='/partners'||p==='/partners/profiles')json=[partner];
     else if(p==='/enablement/context')json={partner,evidence:[],project:null,shared_case:null};
-    else if(p==='/enablement/resource-filters')json={capabilities:[]};
-    else if(p==='/enablement/resources')json={items:[{source_type:u.searchParams.get('source_type')||'course',source_id:'ui-resource',source_version:1,title:'用于布局验证的合成资源',summary:'此记录仅存在于浏览器请求拦截中。',source_platform:'synthetic',capabilities:[],status:'published',availability:'available',difficulty:'advanced',language:'中文',review:null}],total:1};
-    else if(p.startsWith('/enablement/resources/'))json={source_type:p.split('/')[3],source_id:'ui-resource',source_version:1,title:'用于布局验证的合成资源',summary:'仅用于界面测试。',capabilities:[],status:'published',availability:'available',source_platform:'synthetic',review:null};
+    else if(p==='/enablement/resource-filters')json={roles:[],zones:[],case_categories:[]};
+    else if(p==='/cases/ui-resource/deliverables')json=[];
+    else if(p==='/enablement/resources')json={items:[{source_type:u.searchParams.get('source_type')||'course',source_id:'ui-resource',source_version:1,title:'用于布局验证的合成资源',summary:'此记录仅存在于浏览器请求拦截中。',source_url:'https://example.com/resource',capabilities:[],roles:[],zones:[],level:'advanced',category:'技术案例',subcategory:'架构设计',contributor_id:partner.id,contributor_name:partner.name}],total:1};
+    else if(p.startsWith('/enablement/resources/'))json={source_type:p.split('/')[3],source_id:'ui-resource',source_version:1,title:'用于布局验证的合成资源',summary:'仅用于界面测试。',capabilities:[],roles:[],zones:[],level:'advanced',source_url:'https://example.com/resource',category:'技术案例',subcategory:'架构设计',contributor_id:partner.id,contributor_name:partner.name};
     else if(p==='/admin/reports')json={overview:{totalDemands:1,thisMonthDemands:1,totalPartners:1,partnersWithProfile:1,activePartners:1,noPartnerDemands:0,partialDemands:0,pendingSuggestions:0},capabilityDist:[],industryDist:[],regionDist:[],deliveryTypeDist:[],supplyGaps:[],activePartnerCount:0,activePartnerRatio:0,topRecommendedPartners:[],inactivePartners:[],topFormalTags:[],uncoveredClues:0,pendingSuggestions:0};
     else if(p==='/admin/dashboard')json={users:8,tasks:20};
     else if(p==='/admin/model-configs'||p==='/admin/model-configs/usage')json=[];
@@ -29,8 +30,8 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
   for(const [url,selector,name] of [
     ['/scenes','.scene-gallery-card.is-interactive','scenes'],
     ['/partners','.partner-insight-card','partners'],
-    ['/resources?resource_type=course','.enablement-resource-card','course'],
-    ['/resources?resource_type=lab','.enablement-resource-card','lab'],
+    ['/resources?resource_type=course','.learning-card','course'],
+    ['/resources?resource_type=lab','.learning-card','lab'],
     ['/resources?resource_type=case','.enablement-resource-card','case'],
   ]){
     await page.goto(url);const card=page.locator(selector).first();await expect(card).toBeVisible();
@@ -46,8 +47,9 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
     if(['course','lab','case'].includes(name)){
       await card.locator('h2 a').click();await expect(page).toHaveURL(new RegExp(`/resources/${name}/ui-resource`));
       await expect(page.getByRole('heading',{name:'用于布局验证的合成资源',exact:true})).toBeVisible();
-      await page.goto(url);await page.locator(selector).first().click({position:{x:12,y:12}});
-      await expect(page).toHaveURL(new RegExp(`/resources/${name}/ui-resource`));
+      // Cases retain the existing whole-card link; compact course/lab cards use the title link above.
+      if(name==='case'){await page.goto(url);await page.locator(selector).first().click({position:{x:12,y:12}});
+        await expect(page).toHaveURL(new RegExp(`/resources/${name}/ui-resource`));}
     }
   }
   expect(new Set(shadows).size).toBe(1);expect(shadows[0]).not.toBe('none');expect(new Set(hoverShadows).size).toBe(1);expect(hoverShadows[0]).not.toBe(shadows[0]);

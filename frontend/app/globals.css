@@ -517,10 +517,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .form-grid textarea { resize: vertical; }
 .danger-outline { border-color: #fecaca !important; color: var(--danger) !important; }
 .account-session-signout { margin-top: 20px; }
-.partner-insight-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.partner-insight-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .partner-insight-card { display: flex; flex-direction: column; margin: 0; }
 .partner-card-heading, .partner-card-heading > div, .partner-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.partner-card-heading h2 { margin: 0; }
+.partner-card-heading > div { min-width: 0; }
+.partner-card-heading h2 { margin: 0; overflow-wrap: anywhere; }
+.partner-insight-card .partner-avatar { flex-shrink: 0; }
 .partner-avatar { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 8px; background: var(--brand-soft); color: var(--brand); font-weight:var(--font-weight-heading); }
 .profile-state, .status-badge { padding: 4px 9px; border: 1px solid #fde68a; border-radius: 999px; background: #fffbeb; color: #92400e; font-size: 11px; font-weight:var(--font-weight-heading); white-space: nowrap; }
 .profile-state.ready, .status-badge.active { border-color: #a7e7cf; background: #ecfdf3; color: var(--success); }

@@ -220,7 +220,7 @@ export function CapabilityTagsTab() {
                 {catList.map((c) => {
                   const ic = editCatId === c.id;
                   return (
-                    <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "var(--bg-hover)" : "transparent" }}>
+                    <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "var(--bg-hover)" : undefined }}>
                       <td >{ic ? <input type="text" value={cN} onChange={(e) => setCN(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{c.name}</span>}</td>
                                             <td >{ic ? <input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{c.description || "-"}</span>}</td>
                       <td >{ic ? <input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /> : <span style={{ fontSize: "13px" }}>{c.sortOrder}</span>}</td>
@@ -340,7 +340,7 @@ export function CapabilityTagsTab() {
               {tags.map((t) => {
                 const isThisEditing = editingId === t.id;
                 return (
-                  <tr key={t.id} style={{ borderBottom: "1px solid var(--line)", background: isThisEditing ? "var(--bg-hover)" : "transparent" }}>
+                  <tr key={t.id} style={{ borderBottom: "1px solid var(--line)", background: isThisEditing ? "var(--bg-hover)" : undefined }}>
                     <td >
                       {isThisEditing ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{t.name}</span>}
                     </td>
@@ -607,7 +607,7 @@ export function ModelConfigTab() {
               {configs.map((c) => {
                 const ic = editingId === c.id;
                 return (
-                  <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "var(--bg-hover)" : "transparent" }}>
+                  <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "var(--bg-hover)" : undefined }}>
                     <td style={{ whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}{c.isDefault ? <span className="tag-red" style={{ marginLeft: "6px" }}>默认</span> : null}</span>}</td>
                     <td >{ic ? <input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /> : c.provider}</td>
                     <td >{ic ? <input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} style={inp} /> : c.modelName}</td>

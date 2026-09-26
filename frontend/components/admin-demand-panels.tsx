@@ -1,7 +1,7 @@
 "use client";
 import { Pagination } from "./pagination";
 import { adminApiFetch } from "./auth-provider";
-import {ClassificationFilter, ClassificationNotice} from "@/components/business-taxonomy";
+import {ClassificationNotice} from "@/components/business-taxonomy";
 
 
 import { Fragment, useState, useEffect, useRef } from "react";
@@ -115,7 +115,9 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
 
   useEffect(() => { loadData(); }, []);
 
+  const reportRequest = useRef(0);
   async function loadReport() {
+    const request = ++reportRequest.current;
     setReportLoading(true); setReportError(null);
     try {
       const p = new URLSearchParams();
@@ -125,8 +127,9 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
       if (filterCapability) p.set("capability", filterCapability);
       const res = await fetch(`${apiBaseUrl}/admin/reports?${p}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setReport(await res.json());
-    } catch (e) { setReportError(e instanceof Error ? e.message : "报表加载失败"); } finally { setReportLoading(false); }
+      const result = await res.json();
+      if (request === reportRequest.current) setReport(result);
+    } catch (e) { if (request === reportRequest.current) setReportError(e instanceof Error ? e.message : "报表加载失败"); } finally { if (request === reportRequest.current) setReportLoading(false); }
   }
   useEffect(() => { if (subTab === "report") loadReport(); }, [subTab, filterDays, filterIndustry, filterRegion, filterCapability]);
 
@@ -352,21 +355,22 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
   );
 }
 function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIndustry, setFilterIndustry, filterRegion, setFilterRegion, filterCapability, setFilterCapability }: any) {
-  if (loading) return <p>加载中...</p>;
-  if (error) return <p className="error-text">{error}</p>;
-  if (!report) return <p className="placeholder-text">暂无数据。</p>;
   const max = (arr: any[]) => arr.length > 0 ? arr[0].count : 1;
   return (
     <>
-      <section className="card"><h2>筛选条件</h2>
-        <div className="ui-filter-row">
-          <select value={filterDays} onChange={(e: any) => setFilterDays(parseInt(e.target.value))} ><option value={0}>全部时间</option><option value={7}>近7天</option><option value={30}>近30天</option><option value={90}>近90天</option></select>
-          <ClassificationFilter kind="industry" label="行业" value={filterIndustry} onChange={setFilterIndustry}/>
-          <ClassificationFilter kind="region" label="区域" value={filterRegion} onChange={setFilterRegion}/>
-          <input type="text" placeholder="能力标签" value={filterCapability} onChange={(e: any) => setFilterCapability(e.target.value)} style={{ flex: "1 1 120px" }} />
+      <section className="card report-filter-card" aria-label="报表筛选">
+        <div className="report-filter-heading"><h2>筛选条件</h2><span>行业、区域可多选</span></div>
+        <div className="report-filter-toolbar">
+          <label className={oppStyles.field}>时间范围<select value={filterDays} onChange={e => setFilterDays(Number(e.target.value))}><option value={0}>全部时间</option><option value={7}>近7天</option><option value={30}>近30天</option><option value={90}>近90天</option></select></label>
+          <OpportunityFilter kind="industry" value={filterIndustry} onChange={setFilterIndustry}/>
+          <OpportunityFilter kind="region" value={filterRegion} onChange={setFilterRegion}/>
+          <label className={oppStyles.field}>能力标签<input type="text" placeholder="输入能力标签" value={filterCapability} onChange={e => setFilterCapability(e.target.value)}/></label>
         </div>
       </section>
-      <section className="card"><h2>运营总览</h2><div className="ui-report-metrics">
+      {loading&&<p role="status" className="report-filter-status">正在更新报表…</p>}
+      {error&&<p role="alert" className="error-text">{error}</p>}
+      {!report&&!loading&&!error&&<p className="placeholder-text">暂无数据。</p>}
+      {report&&!error&&<><section className="card"><h2>运营总览</h2><div className="ui-report-metrics">
         {[{v:report.overview.totalDemands,l:"累计需求"},{v:report.overview.thisMonthDemands,l:"本月新增"},{v:report.overview.totalPartners,l:"伙伴总数"},{v:report.overview.partnersWithProfile,l:"已生成画像"},{v:report.overview.activePartners,l:"活跃伙伴"},{v:report.overview.noPartnerDemands,l:"无合适伙伴"},{v:report.overview.partialDemands,l:"部分满足"},{v:report.overview.pendingSuggestions,l:"待采纳建议"}].map((m,i) => (
           <MetricCard key={i} label={m.l} value={m.v} />
         ))}
@@ -401,6 +405,7 @@ function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIn
         <div style={{ flex: "1 1 200px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>高频正式能力标签</h3>{report.topFormalTags.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.topFormalTags.map((t: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{t.label}</span><span style={{ fontSize: "13px", color: "var(--brand)", fontWeight: 600 }}>{t.count}</span></div>))}</div>
         <div style={{ flex: "1 1 200px" }}><div style={{ padding: "16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a", marginBottom: "8px" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "#e8a317" }}>{report.uncoveredClues}</div><div style={{ fontSize: "12px", color: "var(--muted)" }}>未覆盖能力线索</div></div><div style={{ padding: "16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "#e8a317" }}>{report.pendingSuggestions}</div><div style={{ fontSize: "12px", color: "var(--muted)" }}>待采纳AI建议</div></div></div>
       </div></section>
+      </>}
     </>
   );
 }

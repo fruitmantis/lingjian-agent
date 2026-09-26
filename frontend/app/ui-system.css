@@ -89,13 +89,16 @@
 .page .tab-count { background:var(--bg-selected); color:var(--text-secondary); }
 
 /* Navigable catalog cards are the only surfaces that lift on hover. */
-.page :is(.featured-scene-card,.scene-gallery-card,.enablement-resource-card,.partner-insight-card) {
+.page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card) {
+  position:relative; transition:transform 180ms ease,box-shadow 180ms ease,border-color 180ms ease;
+}
+.page :is(.featured-scene-card,.scene-gallery-card,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card) {
   border:0; border-radius:var(--radius-lg); padding:24px; margin:0;
   background:var(--bg-surface); box-shadow:var(--shadow-surface);
 }
-.page :is(.featured-scene-card,.scene-gallery-card,.enablement-resource-card,.partner-insight-card) :is(h2,h3) { font-size:16px; line-height:1.5; }
-.page :is(.scene-gallery-card,.enablement-resource-card,.partner-insight-card) p { font-size:14px; line-height:1.7; }
-.page :is(.scene-gallery-card,.enablement-resource-card,.partner-insight-card) .muted { font-size:13px; }
+.page :is(.featured-scene-card,.scene-gallery-card,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card) :is(h2,h3) { font-size:16px; line-height:1.5; }
+.page :is(.scene-gallery-card,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card) p { font-size:14px; line-height:1.7; }
+.page :is(.scene-gallery-card,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card) .muted { font-size:13px; }
 .scene-gallery-grid,.partner-insight-grid { gap:24px; }
 .enablement-resource-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
 .page .learning-grid .learning-card { gap:12px; padding:20px; margin:0; }
@@ -108,11 +111,11 @@
 .partner-card-heading h2 { overflow-wrap:anywhere; }
 .partner-field span { font-size:12px; font-weight:400; }
 .partner-card-footer,.enablement-resource-card .enablement-actions { margin-top:auto; padding-top:16px; }
-.page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.partner-insight-card):focus-within {
+.page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card):focus-within {
   outline:2px solid var(--brand-primary); outline-offset:3px; box-shadow:var(--shadow-surface-hover);
 }
 @media(hover:hover) and (pointer:fine) {
-  .page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.partner-insight-card):hover {
+  .page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card):hover {
     transform:translateY(-2px); box-shadow:var(--shadow-surface-hover);
   }
 }
@@ -246,7 +249,7 @@
 }
 @media(max-width:800px) {
   .page-content { padding:24px 16px 40px; }
-  .card,.page :is(.scene-gallery-card,.enablement-resource-card,.partner-insight-card) { padding:20px; }
+  .card,.page :is(.scene-gallery-card,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card) { padding:20px; }
   .development-composer .development-source { padding:20px 0 0; }
   .advisor-detail { padding:20px; }
   .advisor-detail .card { padding:20px 0; }
@@ -258,10 +261,6 @@
   .page :is(.enablement-tabs,.task-tabs,.page-tabs,.scene-category-tabs,.assistant-category-tabs) { gap:16px; flex-wrap:wrap; }
   .advisor-conditions { grid-template-columns:1fr; }
   .login-card { padding:24px; }
-}
-@media(prefers-reduced-motion:reduce) {
-  .page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.partner-insight-card) { transition:none; }
-  .page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.partner-insight-card):hover { transform:none; }
 }
 
 .ui-match-result { position:relative; }
@@ -318,3 +317,46 @@
 .unified-task-page .assistant-composer { width:100%; max-width:none; height:auto; min-height:0; margin-inline:0; }
 .unified-task-page .assistant-composer textarea { height:104px; min-height:80px; flex:0 0 auto; resize:vertical; overflow:auto; }
 .unified-task-page .assistant-composer-footer { flex-shrink:0; }
+
+/* Administration uses the same neutral hover feedback as the workspace. */
+.admin-layout :is(button,a.secondary-btn,.admin-shortcuts a,.upload-btn,summary) {
+  transition:background-color 160ms ease,border-color 160ms ease,color 160ms ease,box-shadow 160ms ease;
+}
+.admin-layout :is(.admin-shortcuts a,summary):focus-visible {
+  outline:2px solid var(--brand-primary); outline-offset:2px;
+}
+.admin-layout tbody tr { transition:background-color 160ms ease; }
+.admin-layout tbody tr:focus-within { background:var(--bg-hover); }
+.page .ui-catalog-card h3 button {
+  min-height:0; padding:0; border:0; border-radius:0; background:transparent; color:inherit; text-align:left; font:inherit;
+}
+@media(hover:hover) and (pointer:fine) {
+  .admin-layout tbody tr:hover { background:var(--bg-hover); }
+  .admin-layout summary:hover,.admin-layout .admin-shortcuts a:hover {
+    background:var(--bg-hover); color:var(--text-primary);
+  }
+  .admin-layout :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea):hover:not(:disabled):not(:focus) {
+    border-color:var(--text-tertiary);
+  }
+  .page .ui-catalog-card h3 button:hover:not(:disabled) { background:transparent; color:var(--brand-primary); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card),
+  .admin-layout :is(button,a,summary,input,select,textarea,tr) { transition:none; }
+  .page :is(a.featured-scene-card,.scene-gallery-card.is-interactive,.enablement-resource-card,.learning-card,.partner-insight-card,.ui-catalog-card):hover { transform:none; }
+}
+
+/* Keep reports in the root UI stylesheet so both navigation and reload use the same layout. */
+.report-filter-card { overflow:visible; }
+.report-filter-heading { display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.report-filter-heading h2 { margin:0; }
+.report-filter-heading > span { color:var(--text-tertiary); font-size:12px; }
+.report-filter-toolbar { display:grid; grid-template-columns:minmax(0,.85fr) repeat(2,minmax(0,1fr)) minmax(0,1.35fr); align-items:end; gap:20px; }
+.report-filter-toolbar > * { min-width:0; }
+.report-filter-toolbar :is(input[type=text],select) { width:100%; height:var(--control-height); }
+.report-filter-status { margin:0 0 16px; color:var(--muted); font-size:13px; }
+@media(max-width:900px) { .report-filter-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:550px) {
+  .report-filter-toolbar { grid-template-columns:minmax(0,1fr); gap:16px; }
+  .report-filter-heading { flex-wrap:wrap; gap:8px; }
+}
