@@ -2,8 +2,8 @@ import { test, expect, chromium, type Page, type APIRequestContext } from '@play
 import { resolve } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-const API = 'http://localhost:8000';
-const origin = { Origin: 'http://localhost:3000' };
+const API = process.env.PLAYWRIGHT_HTTPS_ORIGIN ? process.env.PLAYWRIGHT_HTTPS_ORIGIN + '/api' : 'http://localhost:8000';
+const origin = { Origin: process.env.PLAYWRIGHT_HTTPS_ORIGIN || 'http://localhost:3000' };
 async function localUser(page: Page) { return page.evaluate(() => JSON.parse(localStorage.getItem('banfei:user:user') || 'null')); }
 async function createIdentity(page: Page) {
   await page.goto('/');

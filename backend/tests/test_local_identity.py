@@ -421,3 +421,22 @@ def test_explicit_new_identity_replaces_only_current_browser_and_never_reuses_re
     assert client.get('/auth/me', headers=admin).status_code == 200
     assert client.post('/auth/identity/key/login', headers=HEADERS, json={'key': key}).json()['detail']['code'] == 'identity_deleted'
     assert client.post('/auth/identity/key/login', headers=HEADERS, json={'key': current_key}).status_code == 200
+
+
+def test_https_reuses_verified_http_cookie_and_keeps_key_owner(client, monkeypatch):
+    original = browser(client)
+    key = key_for(client, original)
+    original_id = original.json()['user']['id']
+    secret = original.cookies[BROWSER_COOKIE]
+    before = counts()
+    monkeypatch.setenv('BANFEI_IDENTITY_ORIGIN', 'https://localhost')
+    restored = client.post('/auth/identity/session', json={'create': False},
+        headers={'Origin': 'https://localhost', 'Cookie': BROWSER_COOKIE+'='+secret})
+    assert restored.status_code == 200
+    assert restored.json()['user']['id'] == original_id and not restored.json()['created']
+    assert restored.cookies[BROWSER_COOKIE] == secret
+    assert all(flag in restored.headers['set-cookie'] for flag in ('Secure', 'HttpOnly', 'SameSite=strict'))
+    assert key_for(client, restored) == key and counts() == before
+    denied = client.post('/auth/identity/session', json={'create': True},
+        headers={'Origin': 'http://localhost:3000', 'Cookie': BROWSER_COOKIE+'='+secret})
+    assert denied.status_code == 403 and 'set-cookie' not in denied.headers and counts() == before

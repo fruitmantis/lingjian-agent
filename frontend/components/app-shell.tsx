@@ -39,7 +39,7 @@ const adminNav: { group: string; items: NavItem[] }[] = [
 ];
 
 function active(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
+  return href === "/" || href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(href + "/");
 }
 
 function SidebarLink({ item, pathname }: { item: NavItem; pathname: string }) {

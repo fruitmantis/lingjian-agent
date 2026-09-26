@@ -22,4 +22,5 @@ with get_readonly_db() as connection:
 install_model_network_policy(endpoints)
 
 import uvicorn
-uvicorn.run('app.main:app', host='127.0.0.1', port=8000)
+uvicorn.run('app.main:app', host='127.0.0.1', port=8000,
+            proxy_headers=True, forwarded_allow_ips='127.0.0.1')

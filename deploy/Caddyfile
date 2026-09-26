@@ -1,0 +1,17 @@
+{
+	admin off
+	skip_install_trust
+	default_sni {$BANFEI_HTTPS_HOST}
+	auto_https disable_redirects
+	servers {
+		protocols h1 h2
+	}
+}
+
+{$BANFEI_HTTPS_ORIGIN} {
+	bind {$BANFEI_HTTPS_BIND}
+	tls internal
+	reverse_proxy {$BANFEI_CADDY_FRONTEND:127.0.0.1:3000}
+}
+
+# Optional HTTP redirect is appended by enablement-dev.sh init-https.

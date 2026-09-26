@@ -2,7 +2,30 @@
 
 用于同一正式工作区的新对话接续。先读本文件、根目录 AGENTS.md 和 README.md，再根据新任务读相关代码与 docs/validation。用户最新指示、实际代码和实时核验优先；不要因历史对话很长而重新实施已完成事项。
 
-## 2026-09-26 ARM 部署补充（最新）
+## 2026-09-27 文档与 Git 交付（最新）
+
+- 用户明确要求更新 AGENTS.md、README.md，并提交、普通推送到 GitHub `origin/main`；本批包含 Caddy HTTPS、WSL 实际 IP 入口说明、旧身份保留与验证，以及后台概览高亮修复。没有远端部署授权。
+- 后台概览改为精确匹配 `/admin`；其他栏目仍匹配自身详情子路由，仅一处导航判断变化，TypeScript 检查通过。AGENTS/README 已同步导航规则、HTTPS 初始化/启停、CA 保留及 Windows/ARM 未验证边界。
+- 复用本会话已完成的定向验证，不重跑全量测试、业务模型、迁移或伙伴整理。私有配置、证书与密钥、上传、数据库和测试证据留在忽略目录，不进入提交；443/3000/8000 持续运行。
+- 下文“未提交”描述实施当时状态，最终提交与推送结果以实时 Git 和本次交付回复为准。
+
+## 2026-09-27 WSL 入口切换为 IP（实施时未提交）
+
+- 用户明确要求本地也取消 localhost 入口，使用 WSL 实际 IP。仅修改原私有 HTTPS/Origin 配置和运行说明，复用现有脚本重启，未改登录或业务代码，之前的未提交改动保留。
+- 实际入口以私有 `BANFEI_HTTPS_ORIGIN` 为准；用默认路由网卡的 IPv4 地址，不在代码或模板写死。443 为 Caddy，3000/8000 保持内部服务，80 仍关闭。
+- 保留原 CA、应用密钥、用户、凭据和历史。localhost 的 Cookie/Token 不跨主机继承，新 IP 首次访问用 `/login?method=key` 和原 Key 恢复原身份。WSL IP 若改变，更新配置、初始化并重启，保留 CA 数据目录。
+- 验证与数据核对追加至 [HTTPS 验证](../validation/HTTPS_VALIDATION_20260926.md)。未 commit、push、部署远端，Windows 浏览器信任仍未实测。
+
+## 2026-09-26 Caddy HTTPS 接入（前一批次，未提交）
+
+- 本轮基线 `6de96bd382c89e38ad09560cbe3c58ea735642a2`，仍在当前 `main`。用户仅授权最小 HTTPS 改造与本机验证，明确不自动 commit、push 或部署远端；下文旧批次授权不延伸到本轮。
+- WSL 浏览器入口为 `https://localhost`；Caddy 443 → 前端 3000 → 既有同源 `/api` → 后端 8000。80 跳转默认关闭。Origin 保持精确校验；后端仅信任 loopback 代理；已验证的旧 Cookie 保留原用户并升级 Secure。
+- 三种环境共用 `deploy/Caddyfile` 和 `enablement-dev.sh init-https|https-start|https-stop`。配置来自既有私有文件，默认 `.isolation/runtime/dev/environment.json`，可用 `BANFEI_ENV_FILE` 指向既有 JSON/dotenv；不初始化数据库或应用密钥。
+- Caddy 根证书导出 `.isolation/runtime/caddy/root.crt`，持久 CA/私钥目录 `.isolation/runtime/caddy/data` 不能清理或提交。客户端未信任时会告警；Windows 尚未导入或实测，不能声称自动受信任。
+- 原运行库 35 张表与原应用签名/加密密钥前后校验一致，无账号清理、seed、迁移或模型调用。WSL 隔离 PostgreSQL 与真实 TLS 浏览器验证见 [HTTPS 验证](../validation/HTTPS_VALIDATION_20260926.md)，操作方法见 [HTTPS 运行说明](../HTTPS_SETUP.md)。
+- 公网/内网 ARM HTTPS 本轮未连接、未部署、未验证；下文 ARM 报告只代表上轮业务兼容结果。后续远端变更须另获明确授权。
+
+## 2026-09-26 ARM 部署补充（前一批次）
 
 - 用户随后明确授权提交、推送、部署和 ARM 定向验证，覆盖下文历史批次“未授权部署”的限制；仍只允许最小兼容适配，不改业务流程。
 - `e192810` 功能已推送；`8113f89`、`6c938f4` 仅补充既有维护 CLI 的显式本机数据库目标及代理测试适配。ARM 已构建并切换，数据库按既有流程从 schema 12 升至 17，备份、演练和原业务/原件对账通过。

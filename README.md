@@ -26,6 +26,8 @@
 
 伙伴详情、匹配结果和当前展示案例中的发展入口都汇入统一新任务页，并带入允许的来源上下文。`/enablement` 仅保留兼容跳转，不提供另一套用户工作台。
 
+后台侧栏“后台概览”仅在 `/admin` 页面高亮；切换任务、伙伴等栏目后取消概览高亮，各栏目在自身详情页仍保持选中。
+
 - 匹配资料有多少用多少，不要求人工整理或补齐；交付物使用已有名称，不新增摘要字段。画像上下文最多 3000 字符，单案例摘要最多 500 字符。
 - 能力发展解释/讨论不生成版本；修改成功产生新 Version 并自动成为 current；失败继续展示上一个 current。无需确认或采用；历史成功版本和运行记录为二级操作，不展示普通用户高级编辑入口。 继续追问先给结论，再按问题生成 1～3 个主题，以短段落或少量列表呈现；沿用 answer 文本与既有历史存储。
 - 失败调整保留已有建议；普通失败提示简化为重试、联系管理员或刷新核实结果；必填项和登录问题保留具体提示。空匹配为正常结果。项目机会抽取兼容常见格式差异，无法提取的字段记“未知”，不把未知计为完整信息。机会库支持紧凑多选筛选、重置和展开详情。
@@ -88,24 +90,34 @@ Plan / Run / Version、current、幂等、版本冲突、事务、超时、中�
 | 项目 | 当前配置 |
 |---|---|
 | 系统 / 工作区 / 分支 | WSL Ubuntu 24.04 / `/home/yuan/project/lingjian-agent-enablement` / `main` |
-| 前端 / 后端 | http://localhost:3000 / http://localhost:8000 |
-| 后端健康检查 | `GET /health` |
+| 浏览器入口 | `https://<WSL实际IP>`，以私有 `BANFEI_HTTPS_ORIGIN` 为准（Caddy 内部 CA；客户端需导入根证书） |
+| 内部前端 / 后端 | http://127.0.0.1:3000 / http://127.0.0.1:8000 |
+| 同源 API / 健康检查 | `/api` / `GET /api/health` |
 | PostgreSQL 库 / 用户 | `banfei_agent` / `banfei_app`（PostgreSQL 16） |
 | 私有配置 | `.isolation/runtime/dev/environment.json`，包含 `DATABASE_URL` |
 | 上传 / 日志 | `.isolation/runtime/dev/uploads` / `.isolation/logs/` |
+| HTTPS 根证书 / 持久 CA 数据 | `.isolation/runtime/caddy/root.crt` / `.isolation/runtime/caddy/data`（CA 数据含私钥，保留且不提交） |
 | 原 SQLite 与备份 | `.isolation/runtime/dev/app.db`、`.isolation/postgres-migration/`，保留、不参与正常运行 |
 
-```bash
-cd /home/yuan/project/lingjian-agent-enablement
-bash enablement-dev.sh status
-bash enablement-dev.sh start
-# 需要停止当前服务时：
-bash enablement-dev.sh stop
-```
+在项目根目录按需执行：
+
+| 操作 | 命令 |
+|---|---|
+| 查看三项服务归属与状态 | `bash enablement-dev.sh status` |
+| 首次或地址变更后初始化 HTTPS | `bash enablement-dev.sh init-https` |
+| 启动前后端和已配置的 Caddy | `bash enablement-dev.sh start` |
+| 停止本项目三项服务 | `bash enablement-dev.sh stop` |
+| 只启停 Caddy | `bash enablement-dev.sh https-start` / `bash enablement-dev.sh https-stop` |
+
+首次切换先保存原 Key，再设置现有私有配置。地址变更时先核对并停止本项目服务，修改 `BANFEI_HTTPS_ORIGIN`，依次执行 `init-https`、`start`、`status`。WSL IP 变化也使用此流程；保留原 CA 目录、应用密钥和数据，不重新初始化账号。
 
 复用已有 `.venv`、`frontend/node_modules`、配置和运行数据，不重新初始化。legacy 目录、旧 feature 分支及历史 worktree 不得作为正式开发环境，legacy 服务保持停止。
 
-同一代码已做 ARM64 兼容：可用 `NEXT_PUBLIC_API_BASE_URL=/api` 配合 `BANFEI_API_PROXY_TARGET` 使用同源代理，`BANFEI_BUILD_CPUS=1` 限制小机器构建并发；本地当前仍直连后端。见 [ARM 验证范围](docs/validation/ARM_VALIDATION_REPORT.md)。Git push 不自动更新 ARM 服务。
+WSL、公网 ARM、内网 ARM 共用 `init-https` 和 `deploy/Caddyfile`，分别配置 `https://实际WSL_IP`、`https://实际公网IP`、`https://实际内网IP`。浏览器统一走 443 和同源 `/api`，80 跳转默认关闭。`https-start` / `https-stop` 仅控制本项目 Caddy；`start` / `stop` 管理本地前后端与 Caddy。安装、重复初始化、证书信任及 ARM 既有服务接入方法见 [HTTPS 运行说明](docs/HTTPS_SETUP.md)。本轮只完成 WSL 实测，未部署 ARM HTTPS。
+
+同一代码已做 ARM64 兼容；`BANFEI_BUILD_CPUS=1` 可限制小机器构建并发。此前业务兼容范围见 [ARM 验证记录](docs/validation/ARM_VALIDATION_REPORT.md)，本轮见 [HTTPS 验证](docs/validation/HTTPS_VALIDATION_20260926.md)。Git push 不自动更新 ARM 服务。
+
+当前 HTTPS 验证边界：WSL 可信证书浏览器验证已通过，切换 IP 后完成 3 项定向复核；账号、历史、应用密钥及根 CA 保留。Windows curl 使用原根证书时仍报“证书吊销状态未知”，Windows 浏览器信任尚未实测；不能通过跳过校验宣称通过。根证书导入方法见 [Windows 信任说明](docs/HTTPS_SETUP.md#ca-持久化与-windows-信任)。公网与内网 ARM HTTPS 尚未部署或验证。
 
 普通用户的失败提示与管理员诊断分离。后台 **系统状态 → 最近错误** 按时间倒序展示最近 50 条脱敏记录，可展开和复制详情。记录复用 `.isolation/logs/`：`errors.jsonl` 追加保存，已有后端日志同时记录；重试成功不删除历史。无需数据库 schema 变更，数据库故障也能记录。每条包含时间、任务或请求标识、失败环节、实际异常和堆栈；模型错误含可取得的模型名称、HTTP 状态码与必要返回片段。返回片段和超长字段有长度上限并标记截取，不采集请求正文或 Prompt；密钥、Token、身份 Key 和 Cookie 脱敏。完整诊断仅管理员接口可读，不进入普通任务响应。
 
@@ -123,7 +135,7 @@ bash enablement-dev.sh stop
 
 管理员 `/admin/login`、改密、锁定、重置、停用和任务查看保持原实现；普通和管理请求分别使用对应身份，退出互不覆盖，不能相互转换角色。用户管理列表/详情显示鉴权方式及只读“Key 标识”：普通长期 Key 由后端校验现有凭据归属后返回 `bf_` + 随机部分前 2 位 + `…` + 末 5 位，详情同时显示用户 ID，便于辅助核对。管理员或无长期 Key 的旧身份显示“—”，无法校验或解密的凭据显示“暂不可用”。管理员接口不返回完整 Key、密文或摘要；旧凭据记录按原实际类型显示，仅用于历史数据查看。普通注册、审批、密码登录、首次改密和 Passkey 接口均关闭。
 
-本地统一使用 **http://localhost:3000** 和 **http://localhost:8000**。`BANFEI_IDENTITY_ORIGIN` 默认前者；正式运行须配置稳定 HTTPS 内网域名、CORS 与精确匹配的 Origin。部署须用户显式授权，不改现有模型配置，也不将网络可访问身份解释为员工实名。
+本地浏览器统一使用私有配置中的 **WSL 实际 IP HTTPS 地址**，前后端 3000/8000 为内部 HTTP 服务。`init-https` 将 `BANFEI_IDENTITY_ORIGIN` 和 CORS 设置为精确的 HTTPS 入口；不放宽来源校验。切换前保存原 Key；localhost 的 Cookie 和 Token 不会自动转给 IP，首次切换请在新地址 `/login?method=key` 使用已有 Key 恢复原 `users.id` 和历史。同主机下经验证的原浏览器 Cookie 仍可复用。部署须用户显式授权，不改现有模型配置，也不将网络可访问身份解释为员工实名。
 
 不迁移、合并或删除旧普通用户和历史；旧 Passkey/浏览器凭据不能用于新认证，也不会自动获配 Key。无 Key 找回、MFA、自动轮换或设备管理。
 

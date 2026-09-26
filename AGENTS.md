@@ -61,7 +61,7 @@
 - 管理员独立 `/admin/login`，密码、锁定、改密、重置、停用和旧 Token 失效机制保留；管理员和普通身份不能转换角色，共用浏览器时会话互不覆盖。
 - 普通任务恢复仅在普通身份就绪后执行；管理员任务详情使用 `/admin/tasks/{id}`。有效普通请求更新 users.last_active_at，管理员查看不刷新被查看用户。
 - users.hashed_password 对普通身份可为空，管理员必须有密码；密码只存不可逆哈希，管理员临时密码只展示一次。
-- 本地固定前端 `http://localhost:3000`、后端 `http://localhost:8000`；正式运行配置稳定 HTTPS 内网域名和严格匹配 Origin。内网可访问身份不代表员工实名。
+- 本地浏览器入口使用 `https://<WSL实际IP>`，不再使用 localhost；前端 `http://127.0.0.1:3000`、后端 `http://127.0.0.1:8000` 保留内部 HTTP，经 Caddy 和既有 `/api` 同源代理访问。WSL/公网 ARM/内网 ARM 共用 `deploy/Caddyfile` 与 `init-https`，入口从私有 `BANFEI_HTTPS_ORIGIN` 读取，Origin 严格匹配。WSL IP 变化后更新该配置并初始化、重启，不在代码中写死 IP。`tls internal` 的客户端根证书须显式信任；保留 `.isolation/runtime/caddy/data`，不得重新生成或提交 CA 私钥。内网可访问身份不代表员工实名。
 - 无固定默认账号密码；`JWT_SECRET_KEY` 必须显式配置且至少 32 位。已有数据库不重新执行 bootstrap。
 
 ## 模型与测试桩
@@ -78,6 +78,7 @@
 
 - 保持黑白灰与华为红 `#C7000B`，红色原图标 + “伴飞 Agent”字标；保留成功、警告、错误语义色。
 - 目录卡片、输入容器、表格、控件遵循现有共享样式，不重新设计导航或 Logo。官方 Latin/数字字体本地加载；中文沿用已批准的系统 fallback，不假称中文 Web Font 全覆盖。
+- 后台导航的“后台概览”只在 `/admin` 精确选中；其他栏目可匹配自身详情子路由，不让概览因 `/admin` 前缀而持续高亮。
 - 当前未接入 Chroma、Embedding、向量检索或 RAG 基础设施；资源主题出现 RAG 不代表系统使用 RAG。
 - 未经明确要求不引入 Redis、队列、微服务、复杂 RBAC、LMS、Planner、Multi-Agent、新数据库迁移框架或其他架构扩展。
 
@@ -93,7 +94,8 @@
 
 ## 服务与验证
 
-- 在正式工作目录使用 `bash enablement-dev.sh status|start|stop`，沿用已有私有配置；不得绕开配置重建环境。停止前核对 PID/端口与项目归属，禁用宽泛 kill。
+- 在正式工作目录使用 `bash enablement-dev.sh status|start|stop`，沿用已有私有配置；HTTPS 初始化用 `init-https`，仅控制 Caddy 用 `https-start|https-stop`，见 `docs/HTTPS_SETUP.md`。不得绕开配置重建环境。停止前核对 PID/端口与项目归属，禁用宽泛 kill。
+- HTTPS 地址切换前提醒保存原身份 Key；localhost 与 IP 不共享浏览器 Cookie/Token，使用原 Key 恢复原用户，不清库或重建账号。验证须实际信任对应根 CA，不关闭证书、吊销或 Origin 校验；分别报告 WSL、Windows、ARM 的实测范围，不把 WSL Chromium 通过当作 Windows 或 ARM 已验证。
 - 开发服务、production build、Playwright 不得并行写同一个 `.next`。使用独立构建目录，或验证归属后停服再恢复。
 - PostgreSQL 验证入口：`.venv/bin/python scripts/run_postgres_validation.py backend|browser`，由私有 `BANFEI_TEST_DATABASE_URL` 指向本机专用验证库。
 - 默认 Playwright 只跑选定 UI 子集；完整回放需显式 `PLAYWRIGHT_MODEL_MODE=replay`，与真实供应商验证分开。相关命令见 README，不把 SQLite 测试冒充 PostgreSQL 验证。

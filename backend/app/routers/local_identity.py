@@ -139,7 +139,12 @@ def browser_session(payload: BrowserSession, request: Request, response: Respons
         conn.execute('BEGIN IMMEDIATE')
         row = current_browser(conn, request)
         if row and not payload.replace:
-            return IdentitySession(**session(conn, row['user_id'], row['id']).model_dump())
+            result = IdentitySession(**session(conn, row['user_id'], row['id']).model_dump())
+            # Reuse a verified HTTP-era browser credential on the same host,
+            # upgrading its transport flags without replacing its identity/session.
+            if secure:
+                cookie(response, BROWSER_COOKIE, request.cookies[BROWSER_COOKIE], True, 365 * 24 * 3600)
+            return result
         if not payload.create:
             raise HTTPException(404, '当前浏览器尚未登录，请输入身份 Key 或开始使用')
         user_id = str(uuid.uuid4())
