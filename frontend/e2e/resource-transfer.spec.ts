@@ -11,8 +11,10 @@ async function setup(page: Page) {
   let importFails = false;
   let importCount = 0;
   await page.addInitScript(() => localStorage.setItem('banfei:admin:token', 'isolated-ui-fixture'));
-  await page.route('http://localhost:8000/**', async route => {
-    const path = new URL(route.request().url()).pathname;
+  await page.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.port !== '8000' && !url.pathname.startsWith('/api/')) return route.continue();
+    const path = url.pathname.replace(/^\/api/, '');
     if (path === '/health') return route.fulfill({json: {status: 'ok'}});
     if (path === '/auth/me') return route.fulfill({json: {id: 'admin', role: 'admin', username: '合成管理员', status: 'active', must_change_password: false}});
     if (path === '/admin/enablement/resources') return route.fulfill({json: rows});
@@ -94,8 +96,10 @@ test('partner Excel and resource template download entries', async ({page}) => {
   const unhandled: string[] = [];
   let imported = false;
   await page.addInitScript(() => localStorage.setItem('banfei:admin:token', 'isolated-ui-fixture'));
-  await page.route('http://localhost:8000/**', async route => {
-    const path = new URL(route.request().url()).pathname;
+  await page.route('**/*', async route => {
+    const url = new URL(route.request().url());
+    if (url.port !== '8000' && !url.pathname.startsWith('/api/')) return route.continue();
+    const path = url.pathname.replace(/^\/api/, '');
     if (path === '/auth/me') return route.fulfill({json: {id: 'admin', role: 'admin', status: 'active', must_change_password: false}});
     if (path === '/health') return route.fulfill({json: {status: 'ok'}});
     if (['/partners/template', '/partners/export', '/admin/enablement/resources/template'].includes(path)) return route.fulfill({body: 'synthetic-excel', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});

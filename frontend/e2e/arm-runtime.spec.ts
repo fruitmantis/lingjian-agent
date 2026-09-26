@@ -24,6 +24,7 @@ test("same-origin proxy preserves direct API model request budgets", () => {
     ["/partners/partner-id/profile", "POST", 180_000],
     ["/admin/model-configs/model-id/test", "POST", 45_000],
     ["/agent/tasks", "GET", 30_000],
+    ["/development/plans/plan-id/conversation", "POST", 240_000],
   ];
   for (const [path, method, budget] of cases) {
     expect(requestTimeoutMs("http://localhost:8000" + path, method)).toBe(budget);

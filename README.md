@@ -41,7 +41,7 @@
 
 AI 按名称、简介、分类、层级、课程目标/大纲、实验目标检索。岗位/专区为辅助信号，不作硬限制；已有有效能力标签仅作内部信号，新增资源无需维护。旧快照通过只读映射保持可读，不回填或重建：入门映射基础，原进阶/高级映射进阶，未知层级显示待补充，下次发布须选择明确层级；既有未分类资源继续出现在“全部”中。历史方案仍按原版本和权限引用资源。
 
-分类复用 `app_metadata.enablement_resource_categories`，该分类功能不新增表（当时 schema 16）。已有库通过 `scripts/initialize_resource_categories.py --backup-dir <新的私有备份目录>` 显式初始化；先 pg_dump，再事务写入一条配置，已存在则保留管理员修改，不自动重置。运行前沿用私有环境配置，脚本只允许本机 banfei_agent。代码回退可保留分类配置和新资源版本，不应恢复旧库覆盖后续业务数据。验证见 [资源中心精简记录](docs/validation/RESOURCE_CENTER_VALIDATION.md)。
+分类复用 `app_metadata.enablement_resource_categories`，该分类功能不新增表（当时 schema 16）。已有库通过 `scripts/initialize_resource_categories.py --backup-dir <新的私有备份目录>` 显式初始化；先 pg_dump，再事务写入一条配置，已存在则保留管理员修改，不自动重置。运行前沿用私有环境配置，脚本默认只允许本机 banfei_agent，其他既有部署须显式传 `--database-name <现有库名>` 且与 DATABASE_URL 完全匹配。代码回退可保留分类配置和新资源版本，不应恢复旧库覆盖后续业务数据。验证见 [资源中心精简记录](docs/validation/RESOURCE_CENTER_VALIDATION.md)。
 
 华为云课程/实验已按现有资源模型预置，并用登录后的官方详情补全课程目标、学员和大纲等信息；采用来源 ID 去重、备份后事务更新，异常来源保留草稿或列入未导入清单。现有资源及历史引用保留，不自动同步或覆盖管理员维护。范围、缺失字段、工具和验证见 [华为云资源导入记录](docs/validation/HUAWEI_RESOURCE_IMPORT.md)。
 
@@ -123,7 +123,7 @@ bash enablement-dev.sh stop
 
 管理员 `/admin/login`、改密、锁定、重置、停用和任务查看保持原实现；普通和管理请求分别使用对应身份，退出互不覆盖，不能相互转换角色。用户管理列表/详情显示鉴权方式及只读“Key 标识”：普通长期 Key 由后端校验现有凭据归属后返回 `bf_` + 随机部分前 2 位 + `…` + 末 5 位，详情同时显示用户 ID，便于辅助核对。管理员或无长期 Key 的旧身份显示“—”，无法校验或解密的凭据显示“暂不可用”。管理员接口不返回完整 Key、密文或摘要；旧凭据记录按原实际类型显示，仅用于历史数据查看。普通注册、审批、密码登录、首次改密和 Passkey 接口均关闭。
 
-本地统一使用 **http://localhost:3000** 和 **http://localhost:8000**。`BANFEI_IDENTITY_ORIGIN` 默认前者；正式运行须配置稳定 HTTPS 内网域名、CORS 与精确匹配的 Origin。当前不部署，不改现有模型配置，也不将网络可访问身份解释为员工实名。
+本地统一使用 **http://localhost:3000** 和 **http://localhost:8000**。`BANFEI_IDENTITY_ORIGIN` 默认前者；正式运行须配置稳定 HTTPS 内网域名、CORS 与精确匹配的 Origin。部署须用户显式授权，不改现有模型配置，也不将网络可访问身份解释为员工实名。
 
 不迁移、合并或删除旧普通用户和历史；旧 Passkey/浏览器凭据不能用于新认证，也不会自动获配 Key。无 Key 找回、MFA、自动轮换或设备管理。
 
@@ -162,7 +162,7 @@ PostgreSQL 保存 `feedback_issue`、`feedback_attachment`，图片位于现有�
 .venv/bin/python scripts/migrate_feedback.py --backup-dir <新的私有备份目录>
 ```
 
-工具仅允许本机 `banfei_agent`：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和当时的 schema version 12；本机身份迁移再将版本升至 13。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。旧 SQLite 快照需先在私有副本上升级到当前 schema，才可使用当前映射导入空验证目标；不修改原快照。日常运行继续使用 PostgreSQL。
+工具默认仅允许本机 `banfei_agent`（其他既有库须显式传匹配的 `--database-name`）：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和当时的 schema version 12；本机身份迁移再将版本升至 13。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。旧 SQLite 快照需先在私有副本上升级到当前 schema，才可使用当前映射导入空验证目标；不修改原快照。日常运行继续使用 PostgreSQL。
 
 相关验证：`run_postgres_validation.py backend -q -k feedback`；`run_postgres_validation.py browser feedback.spec.ts`。均须使用专用验证库及 `/tmp` 上传目录，不能对业务库执行测试。验证范围与结果见 [反馈验证记录](docs/validation/FEEDBACK_VALIDATION.md)。
 
