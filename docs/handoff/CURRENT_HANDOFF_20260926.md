@@ -2,7 +2,15 @@
 
 用于同一正式工作区的新对话接续。先读本文件、根目录 AGENTS.md 和 README.md，再根据新任务读相关代码与 docs/validation。用户最新指示、实际代码和实时核验优先；不要因历史对话很长而重新实施已完成事项。
 
-## 2026-09-27 文档与 Git 交付（最新）
+## 2026-09-27 公网 ARM HTTPS 部署（最新）
+
+- 用户在 GitHub 交付后明确授权部署 ARM 并测试近三天功能；应用基线 `ba14e03` 已构建并运行，本批仅补充文档和分页测试 `/api` 夹具，不改登录或业务逻辑。最终提交以 GitHub `main` 和 ARM `.deployment-commit` 为准。
+- ARM 使用原私有配置中的公网 IP HTTPS，Caddy 443、前端 loopback 3000、后端 loopback 8000；80 关闭。原 systemd 前后端保留，Caddy 用 `https-start|https-stop`，主机重启后需手动 `https-start`。持久 CA 位于 `/var/lib/banfei/caddy`，release 中为符号链接；不得随新版本重建 CA。
+- 150 项 ARM 后端、4 项配置、30 项前端定向检查及 15 项生产只读接口通过；实际公网可信证书登录页复验通过。30 项中 27 项为 WSL 浏览器访问 ARM 隔离服务，3 项为 WSL Node 纯前端检查；Windows 浏览器、内网 ARM 未实测。详见 [ARM HTTPS 验证](../validation/ARM_HTTPS_VALIDATION_20260927.md)。
+- 35 张正式表、3 个上传文件、原应用密钥前后摘要一致；未迁移、seed、整理伙伴、向远端复制本地业务数据或调用模型。隔离测试服务/schema 已退出；生产库仅只读核验。
+- 修正远端字体目录层级及私有部署文件权限；原服务安全设置保留。根证书从 `/var/lib/banfei/caddy/root.crt` 导出，本地副本 `.isolation/arm-deploy/20260927/arm-root.crt`，客户端需单独信任。WSL 443/3000/8000 持续运行，操作与备份留在原私有位置。
+
+## 2026-09-27 文档与 Git 交付（前一批次）
 
 - 用户明确要求更新 AGENTS.md、README.md，并提交、普通推送到 GitHub `origin/main`；本批包含 Caddy HTTPS、WSL 实际 IP 入口说明、旧身份保留与验证，以及后台概览高亮修复。没有远端部署授权。
 - 后台概览改为精确匹配 `/admin`；其他栏目仍匹配自身详情子路由，仅一处导航判断变化，TypeScript 检查通过。AGENTS/README 已同步导航规则、HTTPS 初始化/启停、CA 保留及 Windows/ARM 未验证边界。

@@ -8,9 +8,10 @@ async function fixture(page: Page) {
   await page.addInitScript(() => {
     for (const role of ["user", "admin"]) localStorage.setItem(`banfei:${role}:token`, `pagination-${role}`);
   });
-  await page.route(/https?:\/\/(?:localhost|127\.0\.0\.1):8000\//, async route => {
+  await page.route(url => url.pathname.startsWith("/api/") || (["localhost", "127.0.0.1"].includes(url.hostname) && url.port === "8000"), async route => {
     expect(route.request().method()).toBe("GET");
-    const url = new URL(route.request().url()), path = url.pathname, p = url.searchParams;
+    const url = new URL(route.request().url()); url.pathname = url.pathname.replace(/^\/api\//, "/");
+    const path = url.pathname, p = url.searchParams;
     requests.push(url);
     const number = Number(p.get("page") || 1);
     const slice = <T,>(total: number, size: number, make: (n: number) => T, start = (number - 1) * size) =>

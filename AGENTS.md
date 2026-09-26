@@ -96,6 +96,7 @@
 
 - 在正式工作目录使用 `bash enablement-dev.sh status|start|stop`，沿用已有私有配置；HTTPS 初始化用 `init-https`，仅控制 Caddy 用 `https-start|https-stop`，见 `docs/HTTPS_SETUP.md`。不得绕开配置重建环境。停止前核对 PID/端口与项目归属，禁用宽泛 kill。
 - HTTPS 地址切换前提醒保存原身份 Key；localhost 与 IP 不共享浏览器 Cookie/Token，使用原 Key 恢复原用户，不清库或重建账号。验证须实际信任对应根 CA，不关闭证书、吊销或 Origin 校验；分别报告 WSL、Windows、ARM 的实测范围，不把 WSL Chromium 通过当作 Windows 或 ARM 已验证。
+- 公网 ARM 09-27 已按授权部署 HTTPS，结果见 `docs/validation/ARM_HTTPS_VALIDATION_20260927.md`；后续部署仍需授权。沿用 ARM 原 systemd 前后端，Caddy 使用同一脚本独立启停，主机重启后需执行 `https-start`。ARM 的 `.isolation/runtime/caddy` 链接到 `/var/lib/banfei/caddy`，切换版本必须保留该目录和既有应用密钥；字体二进制不在 Git 中，部署时保留 `frontend/public/fonts/` 的完整目录层级。
 - 开发服务、production build、Playwright 不得并行写同一个 `.next`。使用独立构建目录，或验证归属后停服再恢复。
 - PostgreSQL 验证入口：`.venv/bin/python scripts/run_postgres_validation.py backend|browser`，由私有 `BANFEI_TEST_DATABASE_URL` 指向本机专用验证库。
 - 默认 Playwright 只跑选定 UI 子集；完整回放需显式 `PLAYWRIGHT_MODEL_MODE=replay`，与真实供应商验证分开。相关命令见 README，不把 SQLite 测试冒充 PostgreSQL 验证。

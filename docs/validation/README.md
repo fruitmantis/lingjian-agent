@@ -1,6 +1,6 @@
 # 验证文档索引
 
-更新日期：2026-09-26。当前正式工作区 main、PostgreSQL schema 17；运行与安全约束以根目录 [README](../../README.md) 和 [AGENTS](../../AGENTS.md) 为准。
+更新日期：2026-09-27。当前正式工作区 main、PostgreSQL schema 17；运行与安全约束以根目录 [README](../../README.md) 和 [AGENTS](../../AGENTS.md) 为准。
 
 ## 当前入口
 
@@ -8,6 +8,7 @@
 |---|---|
 | 最新工程验证、提交范围、数据边界 | [2026-09-26 Git 收口](GIT_CLOSEOUT_20260926.md) |
 | 新对话接续、已完成事项、不要重做的操作 | [项目交接](../handoff/CURRENT_HANDOFF_20260926.md) |
+| 最新公网 ARM 部署、近三天兼容检查、数据保留 | [ARM HTTPS 验证](ARM_HTTPS_VALIDATION_20260927.md) |
 | Caddy HTTPS、旧身份保留、可信证书浏览器验证与未测边界 | [HTTPS 验证](HTTPS_VALIDATION_20260926.md)、[初始化与 Windows 信任](../HTTPS_SETUP.md) |
 | 六类资料、单一案例展示、手动画像、统一后台 | [伙伴资料验证](PARTNER_MATERIALS_VALIDATION.md) |
 | 伙伴/课程/实验 Excel 导入导出、空白模板、资源批量上下架 | [导入导出验证](RESOURCE_TRANSFER_VALIDATION.md) |
@@ -27,7 +28,7 @@
 | 范围与错误 | [Scope Gate](SCOPE_GATE_VALIDATION.md)、[错误处理](ERROR_HANDLING_VALIDATION.md) |
 | 课程与实验 | [资源精简](RESOURCE_CENTER_VALIDATION.md)、[华为云导入](HUAWEI_RESOURCE_IMPORT.md)；案例后续规则以 schema 17 资料文档为准 |
 | 公共交互 | [分页](PAGINATION_VALIDATION.md)、[反馈](FEEDBACK_VALIDATION.md) |
-| 平台兼容 | [ARM 验证](ARM_VALIDATION_REPORT.md)，09-26 前一批已部署并完成定向业务兼容验证；本轮 Caddy HTTPS 仅 WSL 已运行，ARM 未部署 |
+| 平台兼容 | [ARM HTTPS 验证](ARM_HTTPS_VALIDATION_20260927.md)，09-27 已部署并实测公网 ARM；[此前 ARM 验证](ARM_VALIDATION_REPORT.md) 保留历史边界；Windows 与内网 ARM 尚未实测 |
 | 旧提交与 Pilot | [09-25 收口](GIT_CLOSEOUT_20260925.md)、[Pilot 归档](PILOT_ARCHIVE_20260925.md) |
 
 ## 统一口径

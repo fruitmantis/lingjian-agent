@@ -113,11 +113,11 @@ Plan / Run / Version、current、幂等、版本冲突、事务、超时、中�
 
 复用已有 `.venv`、`frontend/node_modules`、配置和运行数据，不重新初始化。legacy 目录、旧 feature 分支及历史 worktree 不得作为正式开发环境，legacy 服务保持停止。
 
-WSL、公网 ARM、内网 ARM 共用 `init-https` 和 `deploy/Caddyfile`，分别配置 `https://实际WSL_IP`、`https://实际公网IP`、`https://实际内网IP`。浏览器统一走 443 和同源 `/api`，80 跳转默认关闭。`https-start` / `https-stop` 仅控制本项目 Caddy；`start` / `stop` 管理本地前后端与 Caddy。安装、重复初始化、证书信任及 ARM 既有服务接入方法见 [HTTPS 运行说明](docs/HTTPS_SETUP.md)。本轮只完成 WSL 实测，未部署 ARM HTTPS。
+WSL、公网 ARM、内网 ARM 共用 `init-https` 和 `deploy/Caddyfile`，分别配置 `https://实际WSL_IP`、`https://实际公网IP`、`https://实际内网IP`。浏览器统一走 443 和同源 `/api`，80 跳转默认关闭。`https-start` / `https-stop` 仅控制本项目 Caddy；`start` / `stop` 管理本地前后端与 Caddy。安装、重复初始化、证书信任及 ARM 既有服务接入方法见 [HTTPS 运行说明](docs/HTTPS_SETUP.md)。WSL 与公网 ARM 已实际运行 HTTPS；内网 ARM 尚未部署验证。
 
-同一代码已做 ARM64 兼容；`BANFEI_BUILD_CPUS=1` 可限制小机器构建并发。此前业务兼容范围见 [ARM 验证记录](docs/validation/ARM_VALIDATION_REPORT.md)，本轮见 [HTTPS 验证](docs/validation/HTTPS_VALIDATION_20260926.md)。Git push 不自动更新 ARM 服务。
+同一代码已做 ARM64 兼容；`BANFEI_BUILD_CPUS=1` 可限制小机器构建并发。09-27 已按授权部署公网 ARM，完成 150 项后端、4 项 HTTPS 配置、30 项前端定向检查及生产只读核验，详见 [ARM HTTPS 验证](docs/validation/ARM_HTTPS_VALIDATION_20260927.md)。原账号、Key、历史、上传和应用密钥全部保留，没有重跑 schema 17 或伙伴整理，没有调用真实模型。Git push 不自动更新 ARM 服务；每次部署仍需明确授权。
 
-当前 HTTPS 验证边界：WSL 可信证书浏览器验证已通过，切换 IP 后完成 3 项定向复核；账号、历史、应用密钥及根 CA 保留。Windows curl 使用原根证书时仍报“证书吊销状态未知”，Windows 浏览器信任尚未实测；不能通过跳过校验宣称通过。根证书导入方法见 [Windows 信任说明](docs/HTTPS_SETUP.md#ca-持久化与-windows-信任)。公网与内网 ARM HTTPS 尚未部署或验证。
+当前 HTTPS 验证边界：WSL 可信证书浏览器验证已通过；WSL Chromium 访问 ARM 隔离服务的身份流程和真实公网登录页也已通过，未忽略证书错误。Windows curl 此前使用 WSL 根证书报“证书吊销状态未知”；Windows 浏览器信任、安全上下文、复制和 Web Locks 尚未实测。根证书导入方法见 [Windows 信任说明](docs/HTTPS_SETUP.md#ca-持久化与-windows-信任)，ARM 根证书与 WSL 不同，需要分别信任。ARM 保留原 systemd 前后端；Caddy 由既有脚本控制，主机重启后须手动执行 `https-start`，命令见运行说明。
 
 普通用户的失败提示与管理员诊断分离。后台 **系统状态 → 最近错误** 按时间倒序展示最近 50 条脱敏记录，可展开和复制详情。记录复用 `.isolation/logs/`：`errors.jsonl` 追加保存，已有后端日志同时记录；重试成功不删除历史。无需数据库 schema 变更，数据库故障也能记录。每条包含时间、任务或请求标识、失败环节、实际异常和堆栈；模型错误含可取得的模型名称、HTTP 状态码与必要返回片段。返回片段和超长字段有长度上限并标记截取，不采集请求正文或 Prompt；密钥、Token、身份 Key 和 Cookie 脱敏。完整诊断仅管理员接口可读，不进入普通任务响应。
 
