@@ -376,3 +376,6 @@ def initialize_storage() -> None:
         from .feedback_schema import initialize_feedback_fixture
         initialize_feedback_fixture(connection)
         connection.commit()
+        from .partner_materials_schema import migrate
+        migrate(connection)
+        connection.commit()

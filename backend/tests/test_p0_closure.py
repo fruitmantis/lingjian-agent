@@ -22,8 +22,9 @@ def test_matching_uses_existing_profile_and_evidence_without_raw_files(client, m
         conn.execute("UPDATE partners SET ai_profile=?,industries='银行',service_areas='深圳' WHERE id='partner-1'", ('核心能力：企业数据库迁移与 RAG 数据集成。' + '既有经验' * 1000,))
         conn.execute("UPDATE partners SET ai_profile=NULL,capabilities=NULL,industries=NULL,service_areas=NULL WHERE id='empty-partner'")
         conn.execute("UPDATE partners SET status='disabled',ai_profile='DISABLED_SECRET' WHERE id='disabled-partner'")
-        conn.execute('INSERT INTO cases VALUES (?,?,?,?,?)', ('case-p0', 'partner-1', '数据库项目', '实施数据库迁移。' + '案例细节' * 300, now))
-        conn.execute('INSERT INTO deliverables VALUES (?,?,?,?,?)', ('file-p0', 'case-p0', '迁移交付说明.pdf', '/private/NEVER_SEND_RAW_FILE', now))
+        conn.execute('INSERT INTO cases (id,partner_id,title,description,created_at) VALUES (?,?,?,?,?)', ('case-p0', 'partner-1', '数据库项目', '实施数据库迁移。' + '案例细节' * 300, now))
+        conn.execute('INSERT INTO deliverables (id,case_id,filename,file_path,created_at) VALUES (?,?,?,?,?)', ('file-p0', 'case-p0', '迁移交付说明.pdf', '/private/NEVER_SEND_RAW_FILE', now))
+        conn.execute("UPDATE cases SET visible=1 WHERE id='case-p0'")
     captured = []
     def fake(messages, **kwargs):
         captured.append(messages)

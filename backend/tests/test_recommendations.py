@@ -23,6 +23,7 @@ def add_evidence(partner_id="partner-1", suffix="1", *, title="制造知识库�
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
         conn.execute("INSERT INTO cases (id, partner_id, title, description, created_at) VALUES (?, ?, ?, '合成案例', ?)", (f"case-{suffix}", partner_id, title, now))
+        conn.execute("UPDATE cases SET visible=1 WHERE id=?",(f"case-{suffix}",))
         conn.execute("INSERT INTO deliverables (id, case_id, filename, file_path, created_at) VALUES (?, ?, ?, '/tmp/synthetic-only.pdf', ?)", (f"file-{suffix}", f"case-{suffix}", filename, now))
 
 

@@ -29,7 +29,7 @@ def test_catalog_auth_unknown_filters_and_published_snapshot(client,admin,metada
     assert client.get('/admin/enablement/resources',headers=h).status_code==403
 
 
-@pytest.mark.parametrize('kind',['resource','case'])
+@pytest.mark.parametrize('kind',['resource'])
 @pytest.mark.parametrize('actor_role',['user','admin'])
 def test_workspace_revocation_shared_projection_and_redirect(client,admin,metadata,kind,actor_role):
     reader=make_user('reader',role=actor_role);h=auth_headers(reader)
@@ -81,7 +81,7 @@ def test_context_owner_selection_and_no_inferred_training(client,admin,metadata)
     assert client.get(path,headers=auth_headers(a)).status_code==404
 
 
-def test_shared_context_is_current_shared_version_not_internal_evidence(client,admin,metadata):
+def test_case_context_uses_current_visibility_without_tag_or_version_gate(client,admin,metadata):
     row=published(grant(create(admin,metadata,'case'),admin,'case'),admin,'case')
     h=auth_headers(make_user('reader'))
     data=client.get('/enablement/context?case_id=shared-case&case_version=1',headers=h).json()
@@ -91,6 +91,8 @@ def test_shared_context_is_current_shared_version_not_internal_evidence(client,a
     assert client.get('/enablement/resources?contributor_id=partner-1',headers=h).json()['total']==1
     assert client.get('/enablement/resources?contributor_id=other',headers=h).json()['total']==0
     with get_db() as conn: conn.execute('UPDATE capability_tags SET enabled=0 WHERE id=?',(row['metadata']['capability_tag_ids'][0],))
+    assert client.get('/enablement/context?case_id=shared-case',headers=h).status_code==200
+    with get_db() as conn: conn.execute("UPDATE cases SET visible=0 WHERE id='shared-case'")
     assert client.get('/enablement/context?case_id=shared-case',headers=h).status_code==404
     assert client.get('/enablement/resources',headers=h).json()['total']==0
 
@@ -138,7 +140,9 @@ def test_catalog_3000_published_resources_search_p95(client,admin,metadata,recor
     resource=published(grant(create(admin,metadata),admin),admin)
     case=published(grant(create(admin,metadata,'case'),admin,'case'),admin,'case')
     with get_db() as conn:
-        for kind,row,count in [('resource',resource,1999),('case',case,999)]:
+        for index in range(999):
+            conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at,category_id,visible,updated_at) VALUES (?,'partner-1',?,'案例正文','2026','technical-1',1,'2026')",(f'case-{index}',f'迁移案例 {index}'))
+        for kind,row,count in [('resource',resource,1999)]:
             table,versions,key=service.TABLES[kind]
             head=dict(conn.execute(f'SELECT * FROM {table} WHERE {key}=?',(row['source_id'],)).fetchone())
             version=dict(conn.execute(f'SELECT * FROM {versions} WHERE source_id=?',(row['source_id'],)).fetchone())
@@ -146,7 +150,7 @@ def test_catalog_3000_published_resources_search_p95(client,admin,metadata,recor
                 source_id=f'performance-{kind}-{index}'
                 payload=json.loads(version['payload_json']);payload['title']=f'迁移资源 {index}'
                 if kind=='resource': payload['resource_type']='course' if index%2 else 'lab'
-                else: conn.execute('INSERT INTO cases VALUES (?,?,?,?,?)',(source_id,'partner-1','内部标题','不可共享正文','2026'))
+                else: conn.execute('INSERT INTO cases (id,partner_id,title,description,created_at) VALUES (?,?,?,?,?)',(source_id,'partner-1','内部标题','不可共享正文','2026'))
                 cloned={**head,key:source_id};snapshot={**version,'source_id':source_id,'payload_json':json.dumps(payload,ensure_ascii=False)}
                 for target,values in [(table,cloned),(versions,snapshot)]:
                     conn.execute(f"INSERT INTO {target} ({','.join(values)}) VALUES ({','.join('?' for _ in values)})",list(values.values()))

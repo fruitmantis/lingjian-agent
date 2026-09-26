@@ -114,7 +114,7 @@ def test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows(scenario, fau
 def test_all_owner_mutations_and_canary_boundaries(scenario, client, caplog):
     accepted, _, payload=execute(scenario);pid=accepted['plan_id']
     user,other,admin,request=scenario[0];v1=plan(pid)['current_version_id'];legacy_confirmed(pid,v1,user)
-    assert CANARY in client.get('/enablement/context?partner_id=partner-1',headers=auth_headers(user)).text
+    assert CANARY not in client.get('/enablement/context?partner_id=partner-1',headers=auth_headers(user)).text
     bodies={
         'revise':{'submission_id':'b-must-not-revise','based_on_version_id':v1,'instruction':'调整','request':request.model_dump()},
         'edit':{'based_on_version_id':v1,'stages':stages(payload)},

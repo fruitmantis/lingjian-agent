@@ -1,128 +1,108 @@
-"""Case and deliverable router."""
-
+"""Cases and attachments share one visibility rule; all writes require an administrator."""
 import uuid
-from datetime import datetime, timezone
-from pathlib import Path
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
+from ..auth import require_active_user, require_admin, record_audit
+from ..database import get_db
+from ..models import CaseCreate,CaseOut,DeliverableOut
+from ..material_contract import CONTRACT,check_category
+from .. import material_files as files
+from ..case_content import visible_case
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+router=APIRouter(prefix='/cases',tags=['cases'],dependencies=[Depends(require_active_user)])
 
-from ..auth import require_active_user, require_admin
-from ..database import get_db, UPLOADS_DIR
-from ..file_storage import save_upload_limited
-from ..models import CaseCreate, CaseOut, DeliverableOut
+@router.get('/categories')
+def categories(): return CONTRACT['categories']
 
-
-router = APIRouter(prefix="/cases", tags=["cases"], dependencies=[Depends(require_active_user)])
-
-_CASE_COLS = "id, partner_id, title, description, created_at"
-_DELIV_COLS = "id, case_id, filename, file_path, created_at"
-
-
-@router.get("/by-partner/{partner_id}", response_model=list[CaseOut])
-def list_cases_by_partner(partner_id: str, user: dict = Depends(require_active_user)) -> list[CaseOut]:
+@router.get('/by-partner/{partner_id}',response_model=list[CaseOut])
+def list_cases_by_partner(partner_id: str,user=Depends(require_active_user)):
     with get_db() as conn:
-        partner = conn.execute("SELECT status FROM partners WHERE id = ?", (partner_id,)).fetchone()
-        if partner is None or (partner["status"] != "active" and user["role"] != "admin"):
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
-        rows = conn.execute(
-            f"SELECT {_CASE_COLS} FROM cases WHERE partner_id = ? ORDER BY created_at DESC",
-            (partner_id,),
-        ).fetchall()
-    return [CaseOut(**dict(r)) for r in rows]
+        p=conn.execute('SELECT status FROM partners WHERE id=?',(partner_id,)).fetchone()
+        if not p or (user['role']!='admin' and p['status']!='active'): raise HTTPException(404,'伙伴不存在')
+        return [dict(r) for r in conn.execute('SELECT * FROM cases WHERE partner_id=?'+('' if user['role']=='admin' else ' AND visible=1')+' ORDER BY created_at DESC',(partner_id,))]
 
-
-@router.post("", response_model=CaseOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
-def create_case(payload: CaseCreate) -> CaseOut:
-    case = CaseOut(
-        id=str(uuid.uuid4()),
-        partner_id=payload.partner_id,
-        title=payload.title,
-        description=payload.description,
-        created_at=datetime.now(timezone.utc).isoformat(),
-    )
+@router.post('',response_model=CaseOut,status_code=201)
+def create_case(payload: CaseCreate,actor=Depends(require_admin)):
+    check_category(payload.category_id)
+    cid=str(uuid.uuid4());stamp=files.now()
     with get_db() as conn:
-        partner = conn.execute("SELECT id FROM partners WHERE id = ?", (payload.partner_id,)).fetchone()
-        if partner is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
-        conn.execute(
-            f"INSERT INTO cases ({_CASE_COLS}) VALUES (?, ?, ?, ?, ?)",
-            (case.id, case.partner_id, case.title, case.description, case.created_at),
-        )
-    return case
+        conn.execute('BEGIN IMMEDIATE')
+        if not conn.execute('SELECT id FROM partners WHERE id=?',(payload.partner_id,)).fetchone(): raise HTTPException(404,'伙伴不存在')
+        conn.execute('INSERT INTO cases (id,partner_id,title,description,category_id,visible,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)',(cid,payload.partner_id,payload.title,payload.description,payload.category_id,int(payload.visible),stamp,stamp))
+        files.changed(conn,payload.partner_id)
+        record_audit(conn,'case_created',actor_user_id=actor['id'],summary={'case_id':cid,'visible':payload.visible})
+        return visible_case(conn,cid,True)
 
+@router.get('/{case_id}',response_model=CaseOut)
+def get_case(case_id: str,user=Depends(require_active_user)):
+    with get_db() as conn: return visible_case(conn,case_id,user['role']=='admin')
 
-@router.get("/{case_id}/deliverables", response_model=list[DeliverableOut])
-def list_deliverables(case_id: str, user: dict = Depends(require_active_user)) -> list[DeliverableOut]:
+@router.put('/{case_id}',response_model=CaseOut)
+def edit_case(case_id: str,payload: CaseCreate,actor=Depends(require_admin)):
+    check_category(payload.category_id)
     with get_db() as conn:
-        case = conn.execute("SELECT p.status FROM cases c JOIN partners p ON p.id = c.partner_id WHERE c.id = ?", (case_id,)).fetchone()
-        if case is None or (case["status"] != "active" and user["role"] != "admin"):
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Case not found")
-        rows = conn.execute(
-            f"SELECT {_DELIV_COLS} FROM deliverables WHERE case_id = ? ORDER BY created_at DESC",
-            (case_id,),
-        ).fetchall()
-    return [DeliverableOut(**dict(r)) for r in rows]
+        conn.execute('BEGIN IMMEDIATE');old=visible_case(conn,case_id,True)
+        if not conn.execute('SELECT id FROM partners WHERE id=?',(payload.partner_id,)).fetchone(): raise HTTPException(404,'伙伴不存在')
+        conn.execute('UPDATE cases SET partner_id=?,title=?,description=?,category_id=?,visible=?,updated_at=? WHERE id=?',(payload.partner_id,payload.title,payload.description,payload.category_id,int(payload.visible),files.now(),case_id))
+        for pid in {old['partner_id'],payload.partner_id}: files.changed(conn,pid)
+        record_audit(conn,'case_updated',actor_user_id=actor['id'],summary={'case_id':case_id,'visible':payload.visible})
+        return visible_case(conn,case_id,True)
 
+class Visibility(BaseModel): visible: bool
 
-@router.post("/{case_id}/deliverables", response_model=DeliverableOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
-async def upload_deliverable(case_id: str, file: UploadFile = File(...)) -> DeliverableOut:
-    if not file.filename:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No filename")
+@router.patch('/{case_id}/visibility',response_model=CaseOut)
+def visibility(case_id: str,payload: Visibility,actor=Depends(require_admin)):
     with get_db() as conn:
-        case = conn.execute("SELECT id FROM cases WHERE id = ?", (case_id,)).fetchone()
-        if case is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Case not found")
+        conn.execute('BEGIN IMMEDIATE');visible_case(conn,case_id,True)
+        conn.execute('UPDATE cases SET visible=?,updated_at=? WHERE id=?',(int(payload.visible),files.now(),case_id))
+        record_audit(conn,'case_visibility_changed',actor_user_id=actor['id'],summary={'case_id':case_id,'visible':payload.visible})
+        return visible_case(conn,case_id,True)
 
-    deliverable_id = str(uuid.uuid4())
-    safe_name = Path(file.filename).name
-    stored_name = f"{deliverable_id}_{safe_name}"
-    file_path = UPLOADS_DIR / stored_name
-    try:
-        await save_upload_limited(file, file_path)
-        deliv = DeliverableOut(
-            id=deliverable_id,
-            case_id=case_id,
-            filename=file.filename,
-            created_at=datetime.now(timezone.utc).isoformat(),
-        )
-        with get_db() as conn:
-            conn.execute(
-                f"INSERT INTO deliverables ({_DELIV_COLS}) VALUES (?, ?, ?, ?, ?)",
-                (deliv.id, deliv.case_id, deliv.filename, str(file_path), deliv.created_at),
-            )
-    except Exception:
-        file_path.unlink(missing_ok=True)
-        raise
-    return deliv
-
-
-@router.delete("/{case_id}/deliverables/{deliverable_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
-def delete_deliverable(case_id: str, deliverable_id: str):
+@router.get('/{case_id}/deliverables',response_model=list[DeliverableOut])
+def list_deliverables(case_id: str,user=Depends(require_active_user)):
     with get_db() as conn:
-        row = conn.execute("SELECT file_path FROM deliverables WHERE id = ? AND case_id = ?", (deliverable_id, case_id)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="交付物不存在")
-        conn.execute("DELETE FROM deliverables WHERE id = ? AND case_id = ?", (deliverable_id, case_id))
-    try:
-        Path(row["file_path"]).unlink(missing_ok=True)
-    except OSError:
-        pass
+        visible_case(conn,case_id,user['role']=='admin')
+        return [files.public_file(r,user['role']=='admin') for r in conn.execute('SELECT * FROM deliverables WHERE case_id=? ORDER BY created_at DESC',(case_id,))]
 
+@router.post('/{case_id}/deliverables',response_model=DeliverableOut,status_code=201)
+async def upload_deliverable(case_id: str,background_tasks: BackgroundTasks,file: UploadFile=File(...),actor=Depends(require_admin)):
+    with get_db() as conn: case=visible_case(conn,case_id,True)
+    return await files.save('attachment',case_id,case['partner_id'],file,background_tasks)
 
-@router.delete("/{case_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
-def delete_case(case_id: str):
+@router.post('/{case_id}/deliverables/{file_id}/retry',dependencies=[Depends(require_admin)])
+def retry(case_id: str,file_id: str,background_tasks: BackgroundTasks): return files.retry('attachment',case_id,file_id,background_tasks)
+
+@router.get('/{case_id}/deliverables/{file_id}/file')
+def download(case_id: str,file_id: str,user=Depends(require_active_user)):
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute("SELECT id FROM cases WHERE id = ?", (case_id,)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="案例不存在")
-        if conn.execute("SELECT case_id FROM case_share_configs WHERE case_id = ?", (case_id,)).fetchone():
-            raise HTTPException(status.HTTP_409_CONFLICT, detail="案例已有共享版本或配置，需保留原案例以供追溯；可停止共享")
-        files = [row["file_path"] for row in conn.execute("SELECT file_path FROM deliverables WHERE case_id = ?", (case_id,)).fetchall()]
-        conn.execute("DELETE FROM deliverables WHERE case_id = ?", (case_id,))
-        conn.execute("DELETE FROM cases WHERE id = ?", (case_id,))
-    for file_path in files:
-        try:
-            Path(file_path).unlink(missing_ok=True)
-        except OSError:
-            pass
+        visible_case(conn,case_id,user['role']=='admin');row=files.get_file(conn,'attachment',case_id,file_id)
+    return files.respond(row)
+
+@router.get('/{case_id}/deliverables/{file_id}/preview')
+def preview(case_id: str,file_id: str,user=Depends(require_active_user)):
+    with get_db() as conn:
+        visible_case(conn,case_id,user['role']=='admin');row=files.get_file(conn,'attachment',case_id,file_id)
+    return files.respond(row,True)
+
+@router.delete('/{case_id}/deliverables/{file_id}',status_code=204,dependencies=[Depends(require_admin)])
+def delete_deliverable(case_id: str,file_id: str):
+    with get_db() as conn: case=visible_case(conn,case_id,True)
+    files.remove('attachment',case_id,file_id,case['partner_id'])
+
+@router.delete('/{case_id}',status_code=204)
+def delete_case(case_id: str,actor=Depends(require_admin)):
+    from pathlib import Path
+    with get_db() as conn:
+        conn.execute('BEGIN IMMEDIATE');case=visible_case(conn,case_id,True)
+        paths=[dict(r) for r in conn.execute('SELECT file_path,preview_path FROM deliverables WHERE case_id=?',(case_id,))]
+        conn.execute('DELETE FROM deliverables WHERE case_id=?',(case_id,));conn.execute('DELETE FROM cases WHERE id=?',(case_id,))
+        files.changed(conn,case['partner_id'])
+        record_audit(conn,'case_deleted',actor_user_id=actor['id'],summary={'case_id':case_id})
+    for row in paths:
+        for path in row.values():
+            if path: Path(path).unlink(missing_ok=True)
+
+@router.put('/{case_id}/deliverables/{file_id}',response_model=DeliverableOut)
+async def replace_deliverable(case_id: str,file_id: str,background_tasks: BackgroundTasks,file: UploadFile=File(...),actor=Depends(require_admin)):
+    with get_db() as conn: visible_case(conn,case_id,True)
+    return await files.replace('attachment',case_id,file_id,file,background_tasks)

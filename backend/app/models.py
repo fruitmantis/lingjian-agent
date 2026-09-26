@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from .business_taxonomy import ClassificationInput, ClassificationOutput
 
 
@@ -23,17 +23,24 @@ class PartnerOut(ClassificationOutput):
     industries: str | None
     ai_profile: str | None
     status: Literal["active", "disabled"] = "active"
+    profile_needs_update: bool = False
     created_at: str
     updated_at: str | None = None
 
 
 class CaseCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    category_id: str
+    visible: bool = False
     partner_id: str
     title: str = Field(..., min_length=1, max_length=300)
     description: str | None = None
 
 
 class CaseOut(BaseModel):
+    category_id: str | None = None
+    visible: bool = False
+    updated_at: str | None = None
     id: str
     partner_id: str
     title: str
@@ -41,7 +48,15 @@ class CaseOut(BaseModel):
     created_at: str
 
 
-class DeliverableOut(BaseModel):
+class MaterialOut(BaseModel):
+    file_type: str = ''
+    processing_status: Literal['processing', 'ready', 'empty', 'failed'] = 'processing'
+    processing_error: str | None = None
+    preview_error: str | None = None
+    processed_at: str | None = None
+
+
+class DeliverableOut(MaterialOut):
     id: str
     case_id: str
     filename: str
@@ -53,13 +68,13 @@ class ProfileOut(BaseModel):
     ai_profile: str
 
 
-class PartnerDocumentOut(BaseModel):
+class PartnerDocumentOut(MaterialOut):
     id: str
     partner_id: str
     filename: str
     file_type: str
     doc_category: str | None
-    extracted_text: str | None
+    extracted_text: str | None = None
     created_at: str
 
 

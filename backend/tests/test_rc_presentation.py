@@ -59,7 +59,7 @@ def test_revoked_current_does_not_fall_back_to_legacy_confirmed(client,prepared)
  accepted,run=start(prepared);v1=complete(prepared,accepted,run);pid=accepted['plan_id'];legacy_confirmed(pid,v1,prepared[0])
  with get_db() as conn:
   version=dict(conn.execute('SELECT * FROM development_versions WHERE id=?',(v1,)).fetchone())
-  version['run_id']=None;version['id']='rc-revoked-version';version['version_no']=2;version['dependency_json']='[{"source_type":"case","source_id":"not-authorized","source_version":1}]'
+  version['run_id']=None;version['id']='rc-revoked-version';version['version_no']=2;version['dependency_json']='[{"source_type":"course","source_id":"not-authorized","source_version":1}]'
   keys=list(version);conn.execute(f"INSERT INTO development_versions ({','.join(keys)}) VALUES ({','.join('?' for _ in keys)})",list(version.values()))
   conn.execute('UPDATE development_plans SET current_version_id=? WHERE id=?',(version['id'],pid))
  detail=views.detail(pid,prepared[0])

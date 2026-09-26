@@ -68,7 +68,7 @@ def calculate_partner_health(ai_profile, capabilities, service_areas, industries
 
 
 @router.get("/profiles", response_model=list[PartnerProfileCard])
-def list_profiles() -> list[PartnerProfileCard]:
+def list_profiles(user: dict = Depends(require_active_user)) -> list[PartnerProfileCard]:
     with get_db() as conn:
         partners = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE status = 'active' ORDER BY created_at DESC").fetchall()
         result = []
@@ -77,7 +77,7 @@ def list_profiles() -> list[PartnerProfileCard]:
             case_count = conn.execute("SELECT COUNT(*) as cnt FROM cases WHERE partner_id = ?", (pd["id"],)).fetchone()["cnt"]
             deliverable_count = conn.execute("SELECT COUNT(*) as cnt FROM deliverables WHERE case_id IN (SELECT id FROM cases WHERE partner_id = ?)", (pd["id"],)).fetchone()["cnt"]
             hs, hl, hr = calculate_partner_health(p["ai_profile"], p["capabilities"], p["service_areas"], p["industries"], case_count, deliverable_count)
-            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), case_count=case_count, deliverable_count=deliverable_count, classification_pending=pd["classification_pending"], healthScore=hs, healthLevel=hl, healthReason=hr))
+            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile") if user["role"]=="admin" else None, case_count=case_count, deliverable_count=deliverable_count, classification_pending=pd["classification_pending"], healthScore=hs, healthLevel=hl, healthReason=hr))
     return result
 
 
@@ -88,18 +88,18 @@ def list_partners(include_disabled: bool = False, user: dict = Depends(require_a
     with get_db() as conn:
         where = "" if include_disabled else " WHERE status = 'active'"
         rows = conn.execute(f"SELECT {_COLUMNS} FROM partners{where} ORDER BY created_at DESC").fetchall()
-    return [PartnerOut(**dict(r)) for r in rows]
+    return [PartnerOut(**{**dict(r), "ai_profile":r["ai_profile"] if user["role"]=="admin" else None}) for r in rows]
 
 
 @router.get("/{partner_id}", response_model=PartnerOut)
 def get_partner(partner_id: str, user: dict = Depends(require_active_user)) -> PartnerOut:
     with get_db() as conn:
-        row = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
+        row = conn.execute("SELECT * FROM partners WHERE id = ?", (partner_id,)).fetchone()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
     if row["status"] != "active" and user["role"] != "admin":
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
-    return PartnerOut(**dict(row))
+    return PartnerOut(**{**dict(row), "ai_profile":row["ai_profile"] if user["role"]=="admin" else None, "profile_needs_update":row["materials_revision"]!=row["profile_materials_revision"]})
 
 
 @router.post("", response_model=PartnerOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])

@@ -36,27 +36,15 @@ def edit_resource(source_id: str, payload: service.ResourceSave, user=Depends(re
     service.detail('resource',source_id)
     return service.save('resource',source_id,payload,user['id'])
 
-@router.get('/admin/cases/{source_id}/sharing')
-def get_sharing(source_id: str):
-    return service.detail('case',source_id)
-
-@router.put('/admin/cases/{source_id}/sharing')
-def save_sharing(source_id: str, payload: service.ShareSave, user=Depends(require_admin)):
-    return service.save('case',source_id,payload,user['id'])
-
 # Typed route factories keep the two lifecycles identical without a second permission system.
 def register_actions(prefix: str, kind: service.Kind):
     def set_permissions(source_id: str, payload: service.Permissions, user=Depends(require_admin)):
         return service.permissions(kind,source_id,payload,user['id'])
-    def record_review(source_id: str, payload: service.Review, user=Depends(require_admin)):
-        return service.review(kind,source_id,payload,user['id'])
     def publish(source_id: str, payload: service.Revision, user=Depends(require_admin)):
         return service.publish(kind,source_id,payload,user['id'])
     def unpublish(source_id: str, payload: service.Unpublish, user=Depends(require_admin)):
         return service.unpublish(kind,source_id,payload,user['id'])
-    for suffix, endpoint, method in [('permissions',set_permissions,'PATCH'),('review',record_review,'POST'),('publish',publish,'POST'),('unpublish',unpublish,'POST')]:
-        if suffix == 'review' and kind == 'resource': continue
+    for suffix, endpoint, method in [('permissions',set_permissions,'PATCH'),('publish',publish,'POST'),('unpublish',unpublish,'POST')]:
         router.add_api_route(prefix+'/'+suffix,endpoint,methods=[method],name=kind+'_'+suffix)
 
 register_actions('/admin/enablement/resources/{source_id}', 'resource')
-register_actions('/admin/cases/{source_id}/sharing', 'case')

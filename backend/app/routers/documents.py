@@ -1,120 +1,50 @@
-"""Partner document upload and management router - requires authentication."""
-
-import uuid
-import html
-from datetime import datetime, timezone
-from pathlib import Path
-
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, status
-from fastapi.responses import FileResponse
-
+"""Private partner materials. Originals and complete cached text stay admin-only."""
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from ..auth import require_admin
-from ..database import get_db, UPLOADS_DIR
-from ..doc_extractor import extract_text, get_file_type
-from ..file_storage import save_upload_limited, validate_office_document
+from ..database import get_db
+from .. import material_files as files
 from ..models import PartnerDocumentOut
 
-router = APIRouter(prefix="/partners", tags=["documents"], dependencies=[Depends(require_admin)])
-_DOC_COLS = "id, partner_id, filename, file_path, file_type, doc_category, extracted_text, created_at"
-_ALLOWED_TYPES = {"pdf", "docx", "pptx", "xlsx"}
+router=APIRouter(prefix='/partners',tags=['documents'],dependencies=[Depends(require_admin)])
 
-
-@router.get("/{partner_id}/documents", response_model=list[PartnerDocumentOut])
-def list_documents(partner_id: str) -> list[PartnerDocumentOut]:
+def partner_exists(partner_id):
     with get_db() as conn:
-        rows = conn.execute("SELECT id, partner_id, filename, file_type, doc_category, extracted_text, created_at FROM partner_documents WHERE partner_id = ? ORDER BY created_at DESC", (partner_id,)).fetchall()
-    return [PartnerDocumentOut(**dict(r)) for r in rows]
+        if not conn.execute('SELECT id FROM partners WHERE id=?',(partner_id,)).fetchone(): raise HTTPException(404,'伙伴不存在')
 
-
-@router.post("/{partner_id}/documents", response_model=PartnerDocumentOut, status_code=status.HTTP_201_CREATED)
-async def upload_document(partner_id: str, file: UploadFile = File(...)) -> PartnerDocumentOut:
-    if not file.filename:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No filename")
-    file_type = get_file_type(file.filename)
-    if file_type not in _ALLOWED_TYPES:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Unsupported file type. Allowed: {', '.join(_ALLOWED_TYPES)}")
+@router.get('/{partner_id}/documents',response_model=list[PartnerDocumentOut])
+def list_documents(partner_id: str):
+    partner_exists(partner_id)
     with get_db() as conn:
-        partner = conn.execute("SELECT id FROM partners WHERE id = ?", (partner_id,)).fetchone()
-        if partner is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
-    doc_id = str(uuid.uuid4())
-    safe_name = Path(file.filename).name
-    stored_name = f"{doc_id}_{safe_name}"
-    file_path = UPLOADS_DIR / stored_name
-    try:
-        await save_upload_limited(file, file_path)
-        validate_office_document(file_path, file_type)
-        extracted = extract_text(str(file_path), file_type)
-        doc = PartnerDocumentOut(id=doc_id, partner_id=partner_id, filename=file.filename, file_type=file_type, doc_category=None, extracted_text=extracted, created_at=datetime.now(timezone.utc).isoformat())
-        with get_db() as conn:
-            conn.execute(f"INSERT INTO partner_documents ({_DOC_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (doc.id, doc.partner_id, doc.filename, str(file_path), doc.file_type, doc.doc_category, doc.extracted_text, doc.created_at))
-    except Exception:
-        file_path.unlink(missing_ok=True)
-        raise
-    return doc
+        return [files.public_file(r) for r in conn.execute('SELECT * FROM partner_documents WHERE partner_id=? ORDER BY created_at DESC',(partner_id,))]
 
+@router.post('/{partner_id}/documents',response_model=PartnerDocumentOut,status_code=201)
+async def upload_document(partner_id: str,background_tasks: BackgroundTasks,file: UploadFile=File(...),initialize_profile: bool=Form(False)):
+    partner_exists(partner_id)
+    return await files.save('document',partner_id,partner_id,file,background_tasks,import_profile=initialize_profile)
 
-@router.get("/{partner_id}/documents/{doc_id}/preview")
-def preview_document(partner_id: str, doc_id: str):
-    """Return HTML preview of a document (PPTX supported via python-pptx)."""
-    with get_db() as conn:
-        row = conn.execute("SELECT file_path, filename, file_type FROM partner_documents WHERE id = ? AND partner_id = ?", (doc_id, partner_id)).fetchone()
-    if row is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
-    file_path = Path(row["file_path"])
-    if not file_path.exists():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File not found on disk")
+@router.post('/{partner_id}/documents/{doc_id}/retry')
+def retry_document(partner_id: str,doc_id: str,background_tasks: BackgroundTasks):
+    return files.retry('document',partner_id,doc_id,background_tasks)
 
-    if row["file_type"] == "pptx":
-        from pptx import Presentation
-        prs = Presentation(str(file_path))
-        slides_html = []
-        for i, slide in enumerate(prs.slides, 1):
-            shapes_text = []
-            for shape in slide.shapes:
-                if shape.has_text_frame:
-                    for para in shape.text_frame.paragraphs:
-                        text = para.text.strip()
-                        if text:
-                            shapes_text.append(f"<p>{html.escape(text)}</p>")
-                elif hasattr(shape, "text") and shape.text.strip():
-                    shapes_text.append(f"<p>{html.escape(shape.text.strip())}</p>")
-            slides_html.append(
-                f'<div style="border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:16px;min-height:200px;background:white">'
-                f'<div style="font-size:12px;color:#999;margin-bottom:8px">幻灯片 {i}</div>'
-                f'{"".join(shapes_text) if shapes_text else "<p style=\"color:#ccc\">空白幻灯片</p>"}'
-                f'</div>'
-            )
-        html_content = f'<div style="font-family:sans-serif">{" ".join(slides_html)}</div>'
-        from fastapi.responses import HTMLResponse
-        return HTMLResponse(
-            content=html_content,
-            headers={"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'"},
-        )
-    raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Preview not supported for this file type")
+@router.get('/{partner_id}/documents/{doc_id}/text')
+def text_document(partner_id: str,doc_id: str):
+    with get_db() as conn: row=files.get_file(conn,'document',partner_id,doc_id)
+    return {'text':row['extracted_text'],'processing_status':row['processing_status']}
 
+@router.get('/{partner_id}/documents/{doc_id}/preview')
+def preview_document(partner_id: str,doc_id: str):
+    with get_db() as conn: row=files.get_file(conn,'document',partner_id,doc_id)
+    return files.respond(row,True)
 
-@router.get("/{partner_id}/documents/{doc_id}/file")
-def download_document(partner_id: str, doc_id: str):
-    with get_db() as conn:
-        row = conn.execute("SELECT file_path, filename, file_type FROM partner_documents WHERE id = ? AND partner_id = ?", (doc_id, partner_id)).fetchone()
-    if row is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
-    file_path = Path(row["file_path"])
-    if not file_path.exists():
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="File not found on disk")
-    return FileResponse(path=str(file_path), filename=row["filename"], media_type="application/octet-stream")
+@router.get('/{partner_id}/documents/{doc_id}/file')
+def download_document(partner_id: str,doc_id: str):
+    with get_db() as conn: row=files.get_file(conn,'document',partner_id,doc_id)
+    return files.respond(row)
 
+@router.delete('/{partner_id}/documents/{doc_id}',status_code=204)
+def delete_document(partner_id: str,doc_id: str):
+    files.remove('document',partner_id,doc_id,partner_id)
 
-@router.delete("/{partner_id}/documents/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_document(partner_id: str, doc_id: str):
-    with get_db() as conn:
-        row = conn.execute("SELECT file_path FROM partner_documents WHERE id = ? AND partner_id = ?", (doc_id, partner_id)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Document not found")
-        conn.execute("DELETE FROM partner_documents WHERE id = ? AND partner_id = ?", (doc_id, partner_id))
-    try:
-        Path(row["file_path"]).unlink(missing_ok=True)
-    except OSError:
-        pass
-    return None
+@router.put('/{partner_id}/documents/{doc_id}',response_model=PartnerDocumentOut)
+async def replace_document(partner_id: str,doc_id: str,background_tasks: BackgroundTasks,file: UploadFile=File(...)):
+    return await files.replace('document',partner_id,doc_id,file,background_tasks)

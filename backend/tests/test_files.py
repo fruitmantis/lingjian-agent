@@ -48,7 +48,7 @@ def test_file_001_normal_document_upload(client):
         files={"file": ("evidence.docx", docx_bytes(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
     )
     assert response.status_code == 201
-    assert "validation document" in response.json()["extracted_text"]
+    assert "validation document" in client.get(f"/partners/{partner['id']}/documents/{response.json()['id']}/text",headers=auth_headers(admin)).json()["text"]
     with get_db() as conn:
         row = conn.execute("SELECT file_path FROM partner_documents WHERE id = ?", (response.json()["id"],)).fetchone()
     assert Path(row["file_path"]).exists()
@@ -62,15 +62,15 @@ def test_file_002_upload_size_boundary(client, monkeypatch):
     headers = auth_headers(admin)
     below = client.post(
         f"/cases/{case_id}/deliverables", headers=headers,
-        files={"file": ("below.bin", b"a" * 2048, "application/octet-stream")},
+        files={"file": ("below.txt", b"a" * 2048, "application/octet-stream")},
     )
     assert below.status_code == 201
     above = client.post(
         f"/cases/{case_id}/deliverables", headers=headers,
-        files={"file": ("above.bin", b"a" * 2049, "application/octet-stream")},
+        files={"file": ("above.txt", b"a" * 2049, "application/octet-stream")},
     )
     assert above.status_code == 413
-    assert not any(path.name.endswith("_above.bin") for path in UPLOADS_DIR.glob("*"))
+    assert not any(path.name.endswith("_above.txt") for path in UPLOADS_DIR.glob("*"))
 
 
 def test_file_003_forged_office_extension_is_rejected(client):
@@ -154,6 +154,5 @@ def test_file_006_pptx_preview_escapes_html(client):
         headers=auth_headers(admin),
     )
     assert preview.status_code == 200
-    assert dangerous not in preview.text
-    assert "&lt;script&gt;" in preview.text
-    assert "default-src 'none'" in preview.headers["content-security-policy"]
+    assert preview.headers["content-type"]=="application/pdf"
+    assert preview.content.startswith(b"%PDF-")

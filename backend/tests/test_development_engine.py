@@ -16,7 +16,7 @@ def scenario(prepared,monkeypatch):
     row=enablement.save('resource','test-course',enablement.ResourceSave(base_revision=0,metadata=metadata),admin['id'])
     published(grant(row,admin),admin)
     with get_db() as conn:
-        conn.execute("INSERT INTO cases VALUES ('secret-case','partner-1','内部案例',?,'2026')",(CANARY,))
+        conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('secret-case','partner-1','内部案例',?,'2026')",(CANARY,))
         conn.execute("UPDATE partners SET ai_profile=? WHERE id='partner-1'",(CANARY,))
         config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
     monkeypatch.setattr(model,'configuration',lambda:config)

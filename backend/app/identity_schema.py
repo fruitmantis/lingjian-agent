@@ -29,4 +29,4 @@ def initialize_identity_schema(conn):
     conn.execute('CREATE INDEX IF NOT EXISTS idx_identity_expiry ON identity_challenges(expires_at)')
     if 'last_active_at' not in {row[1] for row in conn.execute('PRAGMA table_info(users)')}:
         conn.execute('ALTER TABLE users ADD COLUMN last_active_at TEXT')
-    conn.execute("UPDATE app_metadata SET value='16' WHERE key='schema_version'")
+    conn.execute("UPDATE app_metadata SET value='16' WHERE key='schema_version' AND CAST(value AS INTEGER)<16")

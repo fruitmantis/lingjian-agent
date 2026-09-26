@@ -33,7 +33,7 @@ def v9_db(tmp_path):
             CREATE TABLE users(id TEXT PRIMARY KEY); INSERT INTO users VALUES ('admin');
             CREATE TABLE partners(id TEXT PRIMARY KEY); INSERT INTO partners VALUES ('partner');
             CREATE TABLE cases(id TEXT PRIMARY KEY,partner_id TEXT REFERENCES partners(id));
-            INSERT INTO cases VALUES ('valid','partner'); INSERT INTO cases VALUES ('orphan','missing');
+            INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('valid','partner'); INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('orphan','missing');
             CREATE TABLE capability_tags(id TEXT PRIMARY KEY); INSERT INTO capability_tags VALUES ('tag');''')
     return target
 

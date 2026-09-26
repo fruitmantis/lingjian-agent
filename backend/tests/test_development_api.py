@@ -97,25 +97,20 @@ def test_old_diagnostic_correction_is_not_a_hidden_ui_backdoor(scenario):
     with pytest.raises(HTTPException):
         views.edit(pid,Edit(based_on_version_id=plan(pid)['current_version_id'],stages=stages(payload),corrections={'old':'确认不足'}),user)
 
-@pytest.mark.parametrize('sensitive',[False,True])
-def test_case_stop_or_sensitive_revoke_hides_inline_text_and_preserves_snapshot(scenario,sensitive,client):
-    from backend.tests.test_enablement import grant,published
-    user,_,admin,req=scenario[0]
-    metadata=enablement.ShareMetadata(title='共享案例',summary='获准共享的方法摘要',methods='逐项核实并复盘',contributor_role='实施',source_platform='共享平台',source_url='https://example.com/shared',capability_tag_ids=[req.targets[0].capability_tag_id])
-    row=enablement.save('case','secret-case',enablement.ShareSave(base_revision=0,metadata=metadata),admin['id']);published(grant(row,admin,'case'),admin,'case')
-    accepted,_,payload=execute(scenario);id=accepted['plan_id'];v1=plan(id)['current_version_id'];legacy_confirmed(id,v1,user)
-    assert CANARY in client.get('/enablement/context?partner_id=partner-1',headers=auth_headers(user)).text
-    assert CANARY not in json.dumps(scenario[1]) and CANARY not in views.transferable(id,user)['text']
+def test_case_visibility_is_rechecked_for_model_completion(scenario,monkeypatch):
     with get_db() as conn:
-        stored=conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(v1,)).fetchone()[0]
-        conn.execute("UPDATE case_share_configs SET status=?,authorization_epoch=authorization_epoch+? WHERE case_id='secret-case'",('revoked' if sensitive else 'unpublished',int(sensitive)))
-    assert views.detail(id,user)['hidden']
-    with pytest.raises(HTTPException):views.transferable(id,user)
-    listing=client.get('/agent/tasks?task_type=development_plan',headers=auth_headers(user)).json()
-    assert listing['items'][0]['requirement']=='发展方案（来源授权已变化）'
-    with get_db() as conn:
-        assert conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(v1,)).fetchone()[0]==stored
-        assert not any(c['source_type']=='case' for c in engine.candidates(conn,req.model_dump(),payload['diagnoses']))
+        conn.execute("UPDATE cases SET title='数据库案例',description='数据库迁移的合成方法',category_id='technical-1',visible=1,updated_at='2026-09-25' WHERE id='secret-case'")
+    original=scenario[2]
+    def hide(config,messages,schema):
+        result=original(config,messages,schema)
+        if 'plan' in messages[0]['content']:
+            with get_db() as conn: conn.execute("UPDATE cases SET visible=0 WHERE id='secret-case'")
+        return result
+    from backend.app import development_model
+    monkeypatch.setattr(development_model,'completion',hide)
+    accepted,run,payload=execute(scenario)
+    assert run['status']=='failed' and payload is None
+    assert plan(accepted['plan_id'])['current_version_id'] is None
 
 
 def test_model_plan_free_text_cannot_assert_confirmed_gap(scenario,monkeypatch):

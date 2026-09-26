@@ -8,50 +8,33 @@ from .database import get_db
 
 # Mirror the reference gate when selecting/counting candidates; resolve_reference remains
 # the final projection/authorization gate in the same read transaction.
-POOL = '''WITH candidates AS (
- SELECT 'resource' kind, json_extract(v.payload_json,'$.resource_type') source_type,
- r.id source_id,r.published_version source_version,v.payload_json,v.published_at
- FROM enablement_resources r JOIN enablement_resource_versions v
- ON v.source_id=r.id AND v.version=r.published_version
+POOL = """WITH candidates AS (
+ SELECT 'resource' kind,json_extract(v.payload_json,'$.resource_type') source_type,
+ r.id source_id,r.published_version source_version,v.payload_json,v.published_at,
+ json_extract(v.payload_json,'$.title') title,json_extract(v.payload_json,'$.summary') summary,
+ NULL contributor_id,NULL category_id
+ FROM enablement_resources r JOIN enablement_resource_versions v ON v.source_id=r.id AND v.version=r.published_version
  WHERE r.status='published' AND r.system_visible=1 AND r.authorization_epoch=v.authorization_epoch
+ AND CAST(json_extract(v.payload_json,'$._permissions.system_visible') AS TEXT) IN ('1','true')
  UNION ALL
- SELECT 'case','case',s.case_id,s.published_version,v.payload_json,v.published_at
- FROM case_share_configs s JOIN case_share_versions v ON v.source_id=s.case_id AND v.version=s.published_version
- JOIN cases c ON c.id=s.case_id JOIN partners p ON p.id=c.partner_id
- WHERE s.status='published' AND s.system_visible=1 AND s.authorization_epoch=v.authorization_epoch
- AND p.status='active' AND p.id=json_extract(v.payload_json,'$.contributor_id')
-), visible AS (
- SELECT * FROM candidates WHERE CAST(json_extract(payload_json,'$._permissions.system_visible') AS TEXT) IN ('1','true')
- AND (kind='resource' OR (json_array_length(payload_json,'$.capability_tag_ids')>0
- AND NOT EXISTS (SELECT 1 FROM json_each(payload_json,'$.capability_tag_ids') j
- LEFT JOIN capability_tags t ON t.id=j.value AND t.enabled=1 WHERE t.id IS NULL)))
-) '''
-CASE_FILTER_FIELDS = ('audience','product_direction','difficulty','language','site','cost','account_requirement','environment_requirement','prerequisites')
+ SELECT 'case','case',c.id,1,NULL,c.updated_at,c.title,c.description,c.partner_id,c.category_id
+ FROM cases c JOIN partners p ON p.id=c.partner_id WHERE c.visible=1 AND p.status='active'
+), visible AS (SELECT * FROM candidates) """
 
 
 def public_detail(conn, source_type, source_id, version=None):
-    kind = 'case' if source_type == 'case' else 'resource'
+    if source_type=='case':
+        from .case_content import projection
+        return projection(conn,source_id)
     try:
-        head = service.row_for(conn,kind,source_id)
-        current = head['published_version']
-        data = service.resolve_reference(conn,source_type,source_id,version if version is not None else current,'system')
+        head=service.row_for(conn,'resource',source_id)
+        current=head['published_version']
+        data=service.resolve_reference(conn,source_type,source_id,version if version is not None else current,'system')
     except HTTPException as error:
         raise HTTPException(404,'资源不存在或当前不可用，请重新选择') from error
-    _, versions, _ = service.TABLES[kind]
-    snapshot = conn.execute(f'SELECT * FROM {versions} WHERE source_id=? AND version=?',(source_id,current)).fetchone()
-    if kind == 'case':
-        review = conn.execute('''SELECT r.reviewed_at,r.link_status,r.content_checked,r.authorization_checked,
-            CASE WHEN u.status='deleted' THEN '已删除用户' ELSE COALESCE(NULLIF(u.display_name,''),'未记录') END AS reviewer_name
-            FROM enablement_reviews r JOIN users u ON u.id=r.reviewer_id
-            WHERE r.source_kind=? AND r.source_id=? AND r.revision=?
-            ORDER BY r.reviewed_at DESC,r.id DESC LIMIT 1''',(kind,source_id,snapshot['reviewed_revision'])).fetchone()
-        data.update(status='published',availability='available' if review and review['link_status']=='available' else 'unknown',
-                    published_at=snapshot['published_at'],review=dict(review) if review else None)
-    else:
-        data.update(status='published', published_at=snapshot['published_at'])
-    data['capabilities'] = [dict(conn.execute('SELECT id,name FROM capability_tags WHERE id=?',(tag,)).fetchone()) for tag in data['capability_tag_ids']]
-    if kind == 'case':
-        data['contributor_id'] = json.loads(snapshot['payload_json'])['contributor_id']
+    snapshot=conn.execute('SELECT published_at FROM enablement_resource_versions WHERE source_id=? AND version=?',(source_id,current)).fetchone()
+    data.update(status='published',published_at=snapshot['published_at'])
+    data['capabilities']=[dict(conn.execute('SELECT id,name FROM capability_tags WHERE id=?',(tag,)).fetchone()) for tag in data['capability_tag_ids']]
     return data
 
 
@@ -60,18 +43,20 @@ def catalog(source_type=None, q=None, capability_tag_id=None, contributor_id=Non
     if status != 'published': conditions.append('1=0')
     if source_type: conditions.append('source_type=?');params.append(source_type)
     if q:
-        fields=('title','summary','methods','course_goals','outline','lab_goals','audience')
-        conditions.append('('+' OR '.join("instr(lower(COALESCE(json_extract(payload_json,'$."+field+"'),'')),lower(?))>0" for field in fields)+')')
-        params.extend([q.strip()]*len(fields))
+        fields=('course_goals','outline','lab_goals','audience')
+        conditions.append("(instr(lower(COALESCE(title,'')),lower(?))>0 OR instr(lower(COALESCE(summary,'')),lower(?))>0 OR "+' OR '.join("instr(lower(COALESCE(json_extract(payload_json,'$."+field+"'),'')),lower(?))>0" for field in fields)+')')
+        params.extend([q.strip()]*(len(fields)+2))
     if capability_tag_id:
         conditions.append("EXISTS (SELECT 1 FROM json_each(payload_json,'$.capability_tag_ids') WHERE value=?)");params.append(capability_tag_id)
-    if contributor_id: conditions.append("json_extract(payload_json,'$.contributor_id')=?");params.append(contributor_id)
-    for field in CASE_FILTER_FIELDS if source_type == 'case' else ():
-        value=filters.get(field)
-        if value:
-            unknown='unknown' if field in ('difficulty','cost') else '未知'
-            conditions.append(f"COALESCE(NULLIF(json_extract(payload_json,'$.{field}'),''),?)=?")
-            params.extend([unknown,value])
+    if contributor_id: conditions.append("contributor_id=?");params.append(contributor_id)
+    if filters.get('category_id'):
+        conditions.append('category_id=?');params.append(filters['category_id'])
+    if filters.get('category_group'):
+        from .material_contract import CONTRACT
+        ids=[c['id'] for g in CONTRACT['categories'] if g['id']==filters['category_group'] for c in g['children']]
+        if ids:
+            conditions.append('category_id IN ('+','.join('?' for _ in ids)+')');params.extend(ids)
+        else: conditions.append('1=0')
     for field in ('role_ids', 'zone_ids'):
         value = filters.get(field[:-1])
         if value:
@@ -91,20 +76,18 @@ def catalog(source_type=None, q=None, capability_tag_id=None, contributor_id=Non
 
 
 def filter_options():
+    from .material_contract import CONTRACT
+    from .resource_categories import read
     with get_db() as conn:
-        conn.execute('BEGIN')
-        data=[json.loads(r[0]) for r in conn.execute(POOL+"SELECT payload_json FROM visible WHERE kind='case'")]
-        from .resource_categories import read
-        categories = read(conn)
-        tag_ids={tag for row in data for tag in row['capability_tag_ids']}
-        tags=[dict(r) for r in conn.execute('SELECT id,name FROM capability_tags WHERE enabled=1 ORDER BY name') if r['id'] in tag_ids]
-        return {'roles': [r for r in categories if r['kind']=='role'], 'zones': [r for r in categories if r['kind']=='zone'], 'capabilities':tags, **{f:sorted({str(row.get(f) or ('unknown' if f in ('difficulty','cost') else '未知')) for row in data}) for f in CASE_FILTER_FIELDS}}
+        categories=read(conn)
+        return {'roles':[r for r in categories if r['kind']=='role'], 'zones':[r for r in categories if r['kind']=='zone'], 'case_categories':CONTRACT['categories']}
 
 
 def redirect(source_type,source_id,version,actor):
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         resource=public_detail(conn,source_type,source_id,version)
+        if source_type=='case': return {'url':f'/resources/case/{source_id}'}
         # Check again under the current URL validator, including legacy published snapshots.
         try:
             url=service.ResourceMetadata.check_url(resource['source_url'])
@@ -136,7 +119,8 @@ def context(user,partner_id=None,task_id=None,case_id=None,case_version=None):
             partner=conn.execute("SELECT id,name,intro,capabilities,industries,service_areas,ai_profile FROM partners WHERE id=? AND status='active'",(partner_id,)).fetchone()
             if not partner: raise HTTPException(404,'伙伴不存在或当前不可用')
             result['partner']=project_partner(dict(partner))
+            if user['role']!='admin': result['partner']['ai_profile']=None
             # Internal evidence references only: no upload paths, extracted content or shared-case fallback.
-            result['evidence']=[{'source_type':'internal_case','source_id':r['id'],'title':r['title']} for r in conn.execute('SELECT id,title FROM cases WHERE partner_id=?',(partner_id,))]
-            result['evidence'] += [{'source_type':'internal_deliverable','source_id':r['id'],'title':r['filename']} for r in conn.execute('SELECT d.id,d.filename FROM deliverables d JOIN cases c ON c.id=d.case_id WHERE c.partner_id=?',(partner_id,))]
+            result['evidence']=[{'source_type':'internal_case','source_id':r['id'],'title':r['title']} for r in conn.execute('SELECT id,title FROM cases WHERE partner_id=? AND visible=1',(partner_id,))]
+            result['evidence'] += [{'source_type':'internal_deliverable','source_id':r['id'],'title':r['filename']} for r in conn.execute('SELECT d.id,d.filename FROM deliverables d JOIN cases c ON c.id=d.case_id WHERE c.partner_id=? AND c.visible=1',(partner_id,))]
         return result

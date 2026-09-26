@@ -30,7 +30,7 @@ def snapshot(ignore_user_activity=False):
 
 def add_case():
     with get_db() as conn:
-        conn.execute("INSERT INTO cases VALUES ('case-1','partner-1','Synthetic case','Summary','2026-09-08')")
+        conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('case-1','partner-1','Synthetic case','Summary','2026-09-08')")
 
 
 @pytest.mark.parametrize('state', ['active', 'disabled'])
@@ -75,7 +75,7 @@ def test_business_attachments_block_with_counts_without_changing_any_data(client
         add_case()
     with get_db() as conn:
         if kind == 'deliverables':
-            conn.execute("INSERT INTO deliverables VALUES ('file-1','case-1','Synthetic.txt','/tmp/never-opened','2026-09-08')")
+            conn.execute("INSERT INTO deliverables (id,case_id,filename,file_path,created_at) VALUES ('file-1','case-1','Synthetic.txt','/tmp/never-opened','2026-09-08')")
         if kind == 'documents':
             conn.execute("INSERT INTO partner_documents (id,partner_id,filename,file_path,file_type,created_at) VALUES ('doc-1','partner-1','Synthetic.txt','/tmp/never-opened','txt','2026-09-08')")
     before = snapshot()

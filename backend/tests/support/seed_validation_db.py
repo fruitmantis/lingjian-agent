@@ -60,8 +60,8 @@ def seed() -> None:
             (now, now),
         )
         conn.execute(
-            """INSERT INTO cases (id, partner_id, title, description, created_at)
-               VALUES ('case-1', 'partner-1', '制造知识库案例', '自动化验证案例', ?)""",
+            """INSERT INTO cases (id, partner_id, title, description, created_at,category_id,visible,updated_at)
+               VALUES ('case-1', 'partner-1', '制造知识库案例', '自动化验证案例', ?,'technical-3',1,'2026-09-25')""",
             (now,),
         )
         for prefix, owner_id, owner_name in [("a", "user-a-id", "user_a"), ("b", "user-b-id", "user_b")]:

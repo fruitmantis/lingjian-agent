@@ -17,7 +17,7 @@ def key(ref):return (ref['source_type'],ref['source_id'],ref['source_version'])
 
 def blocked_fragments(conn):
     # These values are used locally as leak sentinels, never sent to any model.
-    values=[r[0] for r in conn.execute("SELECT description FROM cases UNION ALL SELECT note FROM enablement_reviews")]
+    values=[r[0] for r in conn.execute("SELECT description FROM cases WHERE visible=0")]
     return [v for v in values if v and len(v.strip())>=12]
 
 
@@ -31,8 +31,11 @@ def dependencies(conn,refs):
     result=[]
     for ref in {key(r):r for r in refs}.values():
         kind='case' if ref['source_type']=='case' else 'resource'
-        head=resources.row_for(conn,kind,ref['source_id'])
-        result.append({**{k:ref[k] for k in ('source_type','source_id','source_version')},'authorization_epoch':head['authorization_epoch']})
+        if kind=='case':
+            from .case_content import visible_case
+            stamp={'case_updated_at':visible_case(conn,ref['source_id'])['updated_at']}
+        else: stamp={'authorization_epoch':resources.row_for(conn,kind,ref['source_id'])['authorization_epoch']}
+        result.append({**{k:ref[k] for k in ('source_type','source_id','source_version')},**stamp})
     return result
 
 
@@ -44,7 +47,10 @@ def validate_dependencies(conn,payload,deps):
     for ref in deps:
         resources.resolve_reference(conn,ref['source_type'],ref['source_id'],ref['source_version'],'model')
         kind='case' if ref['source_type']=='case' else 'resource'
-        if resources.row_for(conn,kind,ref['source_id'])['authorization_epoch']!=ref['authorization_epoch']:raise InvalidOutput('Permission changed')
+        if kind=='case':
+            from .case_content import visible_case
+            if ref.get('case_updated_at')!=visible_case(conn,ref['source_id'])['updated_at']:raise InvalidOutput('Case changed')
+        elif resources.row_for(conn,kind,ref['source_id'])['authorization_epoch']!=ref['authorization_epoch']:raise InvalidOutput('Permission changed')
     guard(payload,blocked_fragments(conn))
     for focus in payload.get('analysis',{}).get('priorities',[]):
         if focus.get('capability_tag_id') and focus['capability_tag_id'] not in tags:raise InvalidOutput('Invented formal tag')
@@ -110,7 +116,7 @@ def profile_context(conn,request):
     profile['case_count']=conn.execute('SELECT count(*) FROM cases WHERE partner_id=?',(row['id'],)).fetchone()[0]
     profile['deliverable_count']=conn.execute('SELECT count(*) FROM deliverables d JOIN cases c ON c.id=d.case_id WHERE c.partner_id=?',(row['id'],)).fetchone()[0]
     profile['shared_evidence']=[]
-    for case in conn.execute("SELECT c.id,s.published_version FROM cases c JOIN case_share_configs s ON s.case_id=c.id WHERE c.partner_id=? AND s.status='published'",(row['id'],)):
+    for case in conn.execute("SELECT id,1 FROM cases WHERE partner_id=? AND visible=1",(row['id'],)):
         try:
             data=resources.resolve_reference(conn,'case',case[0],case[1],'model')
             guard(data,blocked);profile['shared_evidence'].append(data)

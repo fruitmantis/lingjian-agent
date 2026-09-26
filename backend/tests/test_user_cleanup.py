@@ -294,10 +294,9 @@ def test_published_resource_permissions_reviews_and_files_survive_admin_deletion
     assert business_snapshot() == before and file.read_bytes() == b'fixture!'
     response = client.get(path, headers=headers)
     assert response.status_code == 200
-    if kind == 'case': assert response.json()['review']['reviewer_name'] == '已删除用户'
+    assert 'review' not in response.json()
     with get_db() as conn:
-        assert service.row_for(conn,kind,row['source_id'])['model_allowed'] == 0
-    assert client.get('/admin/feedback/with-file/attachments/file', headers=auth_headers(admin)).content == b'fixture!'
-    result = service.detail(kind,row['source_id'])
-    if kind == 'case': assert result['reviews'][0]['reviewer_name'] == '已删除用户'
-    else: assert not result['reviews']
+        if kind=='resource': assert service.row_for(conn,kind,row['source_id'])['model_allowed']==0
+        else: assert conn.execute('SELECT visible FROM cases WHERE id=?',(row['source_id'],)).fetchone()[0]==1
+    assert client.get('/admin/feedback/with-file/attachments/file',headers=auth_headers(admin)).content==b'fixture!'
+    if kind=='resource': assert 'reviews' not in service.detail(kind,row['source_id'])

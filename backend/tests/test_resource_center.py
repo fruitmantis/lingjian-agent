@@ -45,7 +45,7 @@ def test_multi_classification_one_resource_and_no_review(client,admin,metadata,k
     assert client.post('/admin/enablement/resources/'+row['source_id']+'/review',headers=auth_headers(admin),json={'base_revision':row['revision']}).status_code==404
     with get_db() as conn:
         assert conn.execute('SELECT count(*) FROM enablement_resources').fetchone()[0]==1
-        assert conn.execute("SELECT count(*) FROM enablement_reviews WHERE source_kind='resource'").fetchone()[0]==0
+        assert 'enablement_reviews' not in __import__('backend.app.storage_models',fromlist=['metadata']).metadata.tables
     redirect=client.post(f'/enablement/resources/{kind}/{row["source_id"]}/redirect',headers=h,json={'source_version':1})
     assert redirect.status_code==200 and redirect.json()['url']==metadata['source_url']
 

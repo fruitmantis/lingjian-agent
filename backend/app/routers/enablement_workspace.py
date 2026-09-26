@@ -21,9 +21,7 @@ def resources(source_type: SourceType | None=None,q: str | None=Query(None,max_l
               capability_tag_id: str | None=None,contributor_id: str | None=None,
               status: Literal['published','unpublished']='published',
               role_id: str | None=None,zone_id: str | None=None,level: Literal['basic','advanced'] | None=None,
-              audience: str | None=None,product_direction: str | None=None,difficulty: str | None=None,
-              language: str | None=None,site: str | None=None,cost: str | None=None,
-              account_requirement: str | None=None,environment_requirement: str | None=None,prerequisites: str | None=None,
+              category_id: str | None=None,category_group: str | None=None,
               page: int=Query(1,ge=1),page_size: int=Query(12,ge=1,le=50)):
     return catalog.catalog(**locals())
 

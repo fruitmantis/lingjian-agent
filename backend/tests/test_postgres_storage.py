@@ -110,13 +110,13 @@ def test_migration_success_and_immutable_source():
     before=sha(DATABASE_PATH)
     with empty_postgres_schema() as target:
         result=import_snapshot(DATABASE_PATH,target)
-        assert result['table_count']==38 and result['row_value_reconciliation']=='PASS'
+        assert result['table_count']==35 and result['row_value_reconciliation']=='PASS'
         with engine_for(target).connect() as conn:assert inspect(conn).get_foreign_keys('cases')
         with pytest.raises(RuntimeError,match='empty'):import_snapshot(DATABASE_PATH,target)
     assert sha(DATABASE_PATH)==before
 
 
-@pytest.mark.parametrize('fail_after',['partners','case_share_versions','development_runs','users'])
+@pytest.mark.parametrize('fail_after',['partners','enablement_resource_versions','development_runs','users'])
 def test_migration_failure_rolls_back_schema_and_rows(fail_after):
     def fault(name):
         if name==fail_after:raise RuntimeError('synthetic migration failure')
@@ -128,7 +128,7 @@ def test_migration_failure_rolls_back_schema_and_rows(fail_after):
 def test_bad_foreign_key_source_is_rejected(tmp_path):
     bad=tmp_path/'orphan.db'
     with sqlite3.connect(DATABASE_PATH) as src,sqlite3.connect(bad) as dst:src.backup(dst)
-    with sqlite3.connect(bad) as conn:conn.execute("INSERT INTO cases VALUES ('bad','missing','Synthetic',NULL,'now')")
+    with sqlite3.connect(bad) as conn:conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('bad','missing','Synthetic',NULL,'now')")
     with pytest.raises(RuntimeError,match='foreign-key'):source_inventory(bad)
 
 

@@ -26,33 +26,28 @@ def test_plan_candidate_and_transfer_dimensions(scenario,flags):
     assert CANARY not in external
 
 
-@pytest.mark.parametrize('sensitive',[False,True])
-def test_case_stop_regrant_does_not_restore_old_plan_and_revision_uses_new_pool(scenario,client,sensitive):
+@pytest.mark.parametrize('action',['hide','delete'])
+def test_case_hide_or_delete_preserves_task_prose_and_disables_links(scenario,client,action):
     user,_,admin,request=scenario[0]
-    metadata=enablement.ShareMetadata(title='受控共享案例',summary='获准共享的合成方法',methods='逐项核验',contributor_role='实施',source_platform='合成',source_url='https://example.com/case',capability_tag_ids=[request.targets[0].capability_tag_id])
-    row=enablement.save('case','secret-case',enablement.ShareSave(base_revision=0,metadata=metadata),admin['id']);row=published(grant(row,admin,'case'),admin,'case')
-    accepted,_,payload=execute(scenario);pid=accepted['plan_id'];v1=plan(pid)['current_version_id'];legacy_confirmed(pid,v1,user)
-    with get_db() as conn:before=conn.execute('SELECT payload_json,dependency_json FROM development_versions WHERE id=?',(v1,)).fetchone();before=tuple(before)
-    row=enablement.unpublish('case','secret-case',enablement.Unpublish(base_revision=row['revision'],reason='合成授权撤回',sensitive=sensitive),admin['id'])
-    current=views.detail(pid,user);assert current['hidden'] and '重新生成' in current['notice']
+    with get_db() as conn:
+        conn.execute("UPDATE cases SET title='数据库案例',description='数据库迁移的合成方法',category_id='technical-1',visible=1,updated_at='2026-09-25' WHERE id='secret-case'")
+    accepted,run,payload=execute(scenario);assert run['status']=='ready'
+    pid=accepted['plan_id'];v1=plan(pid)['current_version_id']
+    with get_db() as conn: before=tuple(conn.execute('SELECT payload_json,dependency_json FROM development_versions WHERE id=?',(v1,)).fetchone())
+    if action=='hide':
+        assert client.patch('/cases/secret-case/visibility',headers=auth_headers(admin),json={'visible':False}).status_code==200
+    else:
+        assert client.delete('/cases/secret-case',headers=auth_headers(admin)).status_code==204
+    assert not views.detail(pid,user)['hidden']
     for path in ['/enablement/resources/case/secret-case','/enablement/context?case_id=secret-case']:
         assert client.get(path,headers=auth_headers(user)).status_code==404
-    with pytest.raises(HTTPException):views.transferable(pid,user,expected=v1,copy_event=True)
     with get_db() as conn:
         assert not any(r['source_type']=='case' for r in engine.candidates(conn,request.model_dump(),payload['diagnoses']))
-    # A real revise after withdrawal must not reuse the old case or its free text.
-    next_run=life.revise(pid,Revise(submission_id='revise-without-withdrawn-case',based_on_version_id=v1,instruction='调整资源',request=request),user)
-    scenario[1].clear();engine.execute(next_run['run_id'])
-    assert 'secret-case' not in json.dumps(scenario[1]) and CANARY not in json.dumps(scenario[1])
-    assert views.detail(pid,user)['runs'][0]['status']=='ready'
-    assert plan(pid)['confirmed_version_id']==v1
-    # Re-publication creates a new shared version; it must not resurrect the old plan snapshot.
-    row=published(grant(row,admin,'case'),admin,'case')
-    old=views.detail(pid,user,version_id=v1);assert old['hidden']
-    with pytest.raises(HTTPException):views.transferable(pid,user,expected=v1,copy_event=True)
-    with get_db() as conn:
         assert tuple(conn.execute('SELECT payload_json,dependency_json FROM development_versions WHERE id=?',(v1,)).fetchone())==before
-        assert row['published_version']==2
+    if action=='hide':
+        client.patch('/cases/secret-case/visibility',headers=auth_headers(admin),json={'visible':True})
+        assert client.get('/enablement/resources/case/secret-case',headers=auth_headers(user)).status_code==200
+        assert not views.detail(pid,user,version_id=v1)['hidden']
 
 
 def test_ordinary_course_unpublish_retains_name_but_disables_redirect_and_future_pool(scenario,client):

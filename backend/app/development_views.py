@@ -22,11 +22,11 @@ def protected(conn,row):
     if source.get('source_case_id'):
         refs.append({'source_type':'case','source_id':source['source_case_id'],'source_version':source['source_case_version']})
     for ref in refs:
+        if ref['source_type']=='case': continue  # Saved task prose remains readable; file access checks live visibility.
         try:
             head=resources.row_for(conn,'case' if ref['source_type']=='case' else 'resource',ref['source_id'])
             if head['status']=='revoked' or ('authorization_epoch' in ref and head['authorization_epoch']!=ref['authorization_epoch']):return True
-            if ref['source_type']=='case':resources.resolve_reference(conn,'case',ref['source_id'],ref['source_version'],'system')
-            elif not head['system_visible']:return True
+            if not head['system_visible']:return True
         except HTTPException:return True
     return False
 

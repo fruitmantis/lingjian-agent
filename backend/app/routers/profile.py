@@ -1,6 +1,7 @@
 """AI profile generation and partner profile listing router."""
 
 import json
+import os
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
@@ -22,10 +23,13 @@ class ProfileOut(BaseModel):
 @router.post("/{partner_id}/profile", response_model=ProfileOut, dependencies=[Depends(require_admin)])
 def generate_profile(partner_id: str) -> ProfileOut:
     with get_db() as conn:
-        partner = conn.execute(f"SELECT {_P_COLS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
+        partner = conn.execute("SELECT * FROM partners WHERE id = ?", (partner_id,)).fetchone()
         if partner is None: raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
         cases = conn.execute(f"SELECT {_CASE_COLS} FROM cases WHERE partner_id = ?", (partner_id,)).fetchall()
-        docs = conn.execute(f"SELECT {_DOC_COLS} FROM partner_documents WHERE partner_id = ?", (partner_id,)).fetchall()
+        docs = [dict(r) for r in conn.execute("SELECT filename,extracted_text,processing_status FROM partner_documents WHERE partner_id=?",(partner_id,))]
+        docs += [dict(r) for r in conn.execute("SELECT d.filename,d.extracted_text,d.processing_status FROM deliverables d JOIN cases c ON c.id=d.case_id WHERE c.partner_id=?",(partner_id,))]
+        if any(d['processing_status'] in ('processing','failed') for d in docs):
+            raise HTTPException(409,'部分资料尚未完成文字提取，请处理完成或重试后更新画像。')
     p = dict(partner)
     parts = [f"伙伴名称: {p['name']}"]
     case_list = [dict(c) for c in cases]
@@ -36,11 +40,15 @@ def generate_profile(partner_id: str) -> ProfileOut:
         doc_text_parts = []
         for d in doc_list:
             text = (d.get('extracted_text') or '').strip()
-            if text: doc_text_parts.append(f"=== 文档: {d['filename']} ===\n{text[:5000]}")
+            if text: doc_text_parts.append(f"=== 文档: {d['filename']} ===\n{text}")
         if doc_text_parts: parts.append("上传文档内容:\n" + "\n\n".join(doc_text_parts))
         else: parts.append("上传文档: 有文档但未提取到文本内容")
     else: parts.append("上传文档: 暂无")
     context = "\n".join(parts)
+    # An explicit conservative input budget; originals/cache are never truncated.
+    limit=max(1000,int(os.getenv('BANFEI_PROFILE_INPUT_MAX_CHARS','60000')))
+    if len(context)>limit:
+        raise HTTPException(422,f'资料文字共 {len(context)} 字，超过本次画像输入上限 {limit} 字，未生成新画像，原画像保持不变。请精简资料后重试。')
     # Get enabled standard capability tags for LLM constraint
     with get_db() as conn:
         std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
@@ -97,8 +105,13 @@ def generate_profile(partner_id: str) -> ProfileOut:
     except Exception as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=model_error_message(e)) from None
     with get_db() as conn:
-        updates = ["ai_profile = ?", "updated_at = ?"]
-        values = [ai_profile, datetime.now(timezone.utc).isoformat()]
+        conn.execute('BEGIN IMMEDIATE')
+        current=conn.execute('SELECT materials_revision,profile_updated_at FROM partners WHERE id=?',(partner_id,)).fetchone()
+        if not current or current['materials_revision']!=p['materials_revision'] or current['profile_updated_at']!=p['profile_updated_at']:
+            raise HTTPException(409,'资料或画像在生成期间发生变化，未覆盖当前画像，请重新更新。')
+        updates = ["ai_profile = ?", "updated_at = ?", "profile_updated_at = ?", "profile_materials_revision = materials_revision"]
+        stamp=datetime.now(timezone.utc).isoformat()
+        values = [ai_profile,stamp,stamp]
         for field, value in structured_updates.items():
             updates.append(f"{field} = ?")
             values.append(value)
@@ -127,7 +140,7 @@ def batch_generate_profiles() -> BatchProfileResponse:
     """Generate AI profiles for all partners sequentially."""
     with get_db() as conn:
         partner_ids = conn.execute("SELECT id, name FROM partners WHERE status = 'active' ORDER BY created_at ASC").fetchall()
-    
+
     results: list[BatchProfileResult] = []
     success_count = 0
     for p in partner_ids:
@@ -140,7 +153,7 @@ def batch_generate_profiles() -> BatchProfileResponse:
                 partner_id=p["id"], partner_name=p["name"], success=False,
                 error="画像生成失败，请在伙伴详情中重试或检查模型配置",
             ))
-    
+
     return BatchProfileResponse(
         total=len(partner_ids),
         success=success_count,

@@ -1,0 +1,137 @@
+{
+  "formats": [
+    {
+      "type": "pdf",
+      "extensions": [
+        ".pdf"
+      ]
+    },
+    {
+      "type": "txt",
+      "extensions": [
+        ".txt"
+      ]
+    },
+    {
+      "type": "markdown",
+      "extensions": [
+        ".md",
+        ".markdown"
+      ]
+    },
+    {
+      "type": "docx",
+      "extensions": [
+        ".docx"
+      ]
+    },
+    {
+      "type": "pptx",
+      "extensions": [
+        ".pptx"
+      ]
+    },
+    {
+      "type": "html",
+      "extensions": [
+        ".html",
+        ".htm"
+      ]
+    }
+  ],
+  "categories": [
+    {
+      "id": "marketing",
+      "name": "营销与宣传",
+      "children": [
+        {
+          "id": "marketing-1",
+          "name": "客户开发与线索"
+        },
+        {
+          "id": "marketing-2",
+          "name": "销售与产品物料"
+        },
+        {
+          "id": "marketing-3",
+          "name": "市场活动"
+        },
+        {
+          "id": "marketing-4",
+          "name": "客户成功案例"
+        },
+        {
+          "id": "marketing-5",
+          "name": "案例制作与规范"
+        },
+        {
+          "id": "marketing-6",
+          "name": "内容与传播活动"
+        }
+      ]
+    },
+    {
+      "id": "delivery",
+      "name": "交付管理",
+      "children": [
+        {
+          "id": "delivery-1",
+          "name": "项目管理"
+        },
+        {
+          "id": "delivery-2",
+          "name": "交付流程与质量标准"
+        },
+        {
+          "id": "delivery-3",
+          "name": "方案实施与割接"
+        },
+        {
+          "id": "delivery-4",
+          "name": "运维保障"
+        },
+        {
+          "id": "delivery-5",
+          "name": "工具与脚本"
+        },
+        {
+          "id": "delivery-6",
+          "name": "复盘与经验教训"
+        }
+      ]
+    },
+    {
+      "id": "technical",
+      "name": "技术案例",
+      "children": [
+        {
+          "id": "technical-1",
+          "name": "架构设计"
+        },
+        {
+          "id": "technical-2",
+          "name": "云迁移与云原生"
+        },
+        {
+          "id": "technical-3",
+          "name": "数据与AI"
+        },
+        {
+          "id": "technical-4",
+          "name": "安全与合规"
+        },
+        {
+          "id": "technical-5",
+          "name": "平台与运维工具"
+        },
+        {
+          "id": "technical-6",
+          "name": "最佳实践与官方文档"
+        }
+      ]
+    }
+  ],
+  "upload_notice": "系统仅提取文档文字，图片及扫描内容不参与伙伴画像分析。",
+  "unsupported_message": "不支持此格式，请上传 PDF、TXT、Markdown、DOCX、PPTX 或 HTML 文件。",
+  "empty_message": "文件已保存，但未提取到可用文字，不能用于画像更新。请上传包含可提取文字的版本。"
+}

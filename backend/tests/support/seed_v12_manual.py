@@ -35,17 +35,19 @@ def main():
              ('case','v12-case-agent','Agent 集成共享实践','盘古大模型','Agent 系统集成 POC','advanced')]
     created=0
     for kind,id,title,tag,focus,level in entries:
-        domain='case' if kind=='case' else 'resource'
+        if kind=='case':
+            with get_db() as conn:
+                conn.execute("UPDATE cases SET title=?,description=?,category_id='technical-1',visible=1,updated_at=? WHERE id=?",(title+'（合成开发测试）',focus+' 的模拟方法：准备、验证、复盘。',stamp,id))
+            created+=1
+            continue
+        domain='resource'
         with get_db() as conn:
-            table='case_share_configs' if kind=='case' else 'enablement_resources';column='case_id' if kind=='case' else 'id'
-            if conn.execute(f'SELECT 1 FROM {table} WHERE {column}=?',(id,)).fetchone():continue
+            if conn.execute('SELECT 1 FROM enablement_resources WHERE id=?',(id,)).fetchone(): continue
         meta={'title':title+'（合成开发测试）','summary':focus+'；仅用于 V1.2 开发体验，不是真实业务资源。','source_platform':'本地开发示例目录','source_url':'https://example.com/','capability_tag_ids':[tags[tag]]}
-        if kind=='case':meta.update(methods=focus+' 的模拟方法：准备、验证、复盘。',contributor_role='合成实施角色')
-        else:meta={k:v for k,v in meta.items() if k in ('title','summary','source_url')};meta.update(resource_type=kind,level='basic' if level=='beginner' else 'advanced',duration_minutes=90,**({'course_goals':focus,'audience':'交付工程师'} if kind=='course' else {'lab_goals':focus,'lab_requirements':'了解对应技术基础'}))
-        save=service.ShareSave if kind=='case' else service.ResourceSave
+        meta={k:v for k,v in meta.items() if k in ('title','summary','source_url')};meta.update(resource_type=kind,level='basic' if level=='beginner' else 'advanced',duration_minutes=90,**({'course_goals':focus,'audience':'交付工程师'} if kind=='course' else {'lab_goals':focus,'lab_requirements':'了解对应技术基础'}))
+        save=service.ResourceSave
         row=service.save(domain,id,save(base_revision=0,metadata=meta),admin)
         row=service.permissions(domain,id,service.Permissions(base_revision=row['revision'],system_visible=True,model_allowed=True,partner_allowed=True,reason='合成开发材料仅用于 local mock 和人工演示'),admin)
-        if kind=='case':row=service.review(domain,id,service.Review(base_revision=row['revision'],link_status='available',content_checked=True,authorization_checked=True,note='合成演示核验，不代表真实业务人工签审'),admin)
         service.publish(domain,id,service.Revision(base_revision=row['revision']),admin);created+=1
     with get_db() as conn:
         assert conn.execute('PRAGMA integrity_check').fetchone()[0]=='ok'

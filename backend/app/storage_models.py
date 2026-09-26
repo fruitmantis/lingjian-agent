@@ -65,44 +65,14 @@ capability_tags = Table('capability_tags', metadata,
 )
 
 
-case_share_configs = Table('case_share_configs', metadata,
-    Column('case_id', Text, primary_key=True, nullable=False),
-    Column('draft_json', Text, primary_key=False, nullable=False),
-    Column('revision', Integer, primary_key=False, nullable=False, server_default=text('1')),
-    Column('status', Text, primary_key=False, nullable=False, server_default=text("'draft'")),
-    Column('published_version', Integer, primary_key=False, nullable=True),
-    Column('system_visible', Integer, primary_key=False, nullable=False, server_default=text('0')),
-    Column('model_allowed', Integer, primary_key=False, nullable=False, server_default=text('0')),
-    Column('partner_allowed', Integer, primary_key=False, nullable=False, server_default=text('0')),
-    Column('authorization_epoch', Integer, primary_key=False, nullable=False, server_default=text('1')),
-    Column('created_by', Text, primary_key=False, nullable=False),
-    Column('created_at', Text, primary_key=False, nullable=False),
-    Column('updated_at', Text, primary_key=False, nullable=False),
-    CheckConstraint('revision > 0', name='ck_case_share_configs_0'),
-    CheckConstraint("status IN ('draft','published','unpublished','revoked')", name='ck_case_share_configs_1'),
-    CheckConstraint('system_visible IN (0,1)', name='ck_case_share_configs_2'),
-    CheckConstraint('model_allowed IN (0,1)', name='ck_case_share_configs_3'),
-    CheckConstraint('partner_allowed IN (0,1)', name='ck_case_share_configs_4'),
-    ForeignKeyConstraint(['created_by'], ['users.id'], name='fk_case_share_configs_0', deferrable=True, initially='IMMEDIATE', use_alter=True),
-    ForeignKeyConstraint(['case_id'], ['cases.id'], name='fk_case_share_configs_1', deferrable=True, initially='IMMEDIATE', use_alter=True),
-)
 
 
-case_share_versions = Table('case_share_versions', metadata,
-    Column('source_id', Text, primary_key=True, nullable=False),
-    Column('version', Integer, primary_key=True, nullable=False),
-    Column('payload_json', Text, primary_key=False, nullable=False),
-    Column('authorization_epoch', Integer, primary_key=False, nullable=False),
-    Column('reviewed_revision', Integer, primary_key=False, nullable=False),
-    Column('published_by', Text, primary_key=False, nullable=False),
-    Column('published_at', Text, primary_key=False, nullable=False),
-    CheckConstraint('version > 0', name='ck_case_share_versions_0'),
-    ForeignKeyConstraint(['published_by'], ['users.id'], name='fk_case_share_versions_0', deferrable=True, initially='IMMEDIATE', use_alter=True),
-    ForeignKeyConstraint(['source_id'], ['case_share_configs.case_id'], name='fk_case_share_versions_1', deferrable=True, initially='IMMEDIATE', use_alter=True),
-)
 
 
 cases = Table('cases', metadata,
+    Column('category_id', Text, nullable=True),
+    Column('visible', Integer, nullable=False, server_default=text('0')),
+    Column('updated_at', Text, nullable=True),
     Column('id', Text, primary_key=True, nullable=False),
     Column('partner_id', Text, primary_key=False, nullable=False),
     Column('title', Text, primary_key=False, nullable=False),
@@ -113,6 +83,13 @@ cases = Table('cases', metadata,
 
 
 deliverables = Table('deliverables', metadata,
+    Column('file_type', Text, nullable=False, server_default=text("''")),
+    Column('extracted_text', Text, nullable=True),
+    Column('processing_status', Text, nullable=False, server_default=text("'processing'")),
+    Column('processing_error', Text, nullable=True),
+    Column('preview_error', Text, nullable=True),
+    Column('preview_path', Text, nullable=True),
+    Column('processed_at', Text, nullable=True),
     Column('id', Text, primary_key=True, nullable=False),
     Column('case_id', Text, primary_key=False, nullable=False),
     Column('filename', Text, primary_key=False, nullable=False),
@@ -311,23 +288,7 @@ enablement_resources = Table('enablement_resources', metadata,
 )
 
 
-enablement_reviews = Table('enablement_reviews', metadata,
-    Column('id', Text, primary_key=True, nullable=False),
-    Column('source_kind', Text, primary_key=False, nullable=False),
-    Column('source_id', Text, primary_key=False, nullable=False),
-    Column('revision', Integer, primary_key=False, nullable=False),
-    Column('reviewer_id', Text, primary_key=False, nullable=False),
-    Column('reviewed_at', Text, primary_key=False, nullable=False),
-    Column('link_status', Text, primary_key=False, nullable=False),
-    Column('content_checked', Integer, primary_key=False, nullable=False),
-    Column('authorization_checked', Integer, primary_key=False, nullable=False),
-    Column('note', Text, primary_key=False, nullable=False, server_default=text("''")),
-    CheckConstraint("source_kind IN ('resource','case')", name='ck_enablement_reviews_0'),
-    CheckConstraint("link_status IN ('available','unavailable','unknown')", name='ck_enablement_reviews_1'),
-    ForeignKeyConstraint(['reviewer_id'], ['users.id'], name='fk_enablement_reviews_0', deferrable=True, initially='IMMEDIATE', use_alter=True),
-)
 
-Index('idx_enablement_reviews_source', enablement_reviews.c.source_kind, enablement_reviews.c.source_id, enablement_reviews.c.revision, unique=0)
 
 match_records = Table('match_records', metadata,
     Column('id', Text, primary_key=True, nullable=False),
@@ -378,6 +339,11 @@ model_usage_configs = Table('model_usage_configs', metadata,
 
 
 partner_documents = Table('partner_documents', metadata,
+    Column('processing_status', Text, nullable=False, server_default=text("'processing'")),
+    Column('processing_error', Text, nullable=True),
+    Column('preview_error', Text, nullable=True),
+    Column('preview_path', Text, nullable=True),
+    Column('processed_at', Text, nullable=True),
     Column('id', Text, primary_key=True, nullable=False),
     Column('partner_id', Text, primary_key=False, nullable=False),
     Column('filename', Text, primary_key=False, nullable=False),
@@ -391,6 +357,9 @@ partner_documents = Table('partner_documents', metadata,
 
 
 partners = Table('partners', metadata,
+    Column('materials_revision', Integer, nullable=False, server_default=text('0')),
+    Column('profile_materials_revision', Integer, nullable=False, server_default=text('0')),
+    Column('profile_updated_at', Text, nullable=True),
     Column('id', Text, primary_key=True, nullable=False),
     Column('name', Text, primary_key=False, nullable=False),
     Column('intro', Text, primary_key=False, nullable=True),

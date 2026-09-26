@@ -470,11 +470,11 @@ def _perform_partner_match(requirement: str) -> list[PartnerRecommendation]:
         partner_deliverables: dict[str, list] = {}
         for p in partners:
             pid = p["id"]
-            cases = conn.execute(f"SELECT {_CASE_COLS} FROM cases WHERE partner_id = ?", (pid,)).fetchall()
+            cases = conn.execute(f"SELECT {_CASE_COLS} FROM cases WHERE partner_id = ? AND visible=1", (pid,)).fetchall()
             partner_cases[pid] = [dict(c) for c in cases]
             deliverables = conn.execute(
                 "SELECT d.id, d.filename, c.title AS case_title FROM deliverables d "
-                "JOIN cases c ON c.id = d.case_id WHERE c.partner_id = ?", (pid,),
+                "JOIN cases c ON c.id = d.case_id WHERE c.partner_id = ? AND c.visible=1", (pid,),
             ).fetchall()
             partner_deliverables[pid] = [dict(row) for row in deliverables]
 

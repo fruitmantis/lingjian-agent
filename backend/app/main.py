@@ -38,6 +38,8 @@ def initialize_application() -> None:
     recover_stale_tasks()
     from .development_lifecycle import recover
     recover(startup=True)
+    from .material_files import recover_processing
+    recover_processing()
 
 
 @asynccontextmanager
@@ -80,6 +82,8 @@ app.include_router(cases.router)
 app.include_router(match.router)
 app.include_router(match.admin_router)
 app.include_router(documents.router)
+from .routers import partner_materials
+app.include_router(partner_materials.router)
 app.include_router(users.router)
 app.include_router(demand.router)
 app.include_router(demand.admin_router)
