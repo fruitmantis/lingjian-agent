@@ -26,7 +26,7 @@
 | 范围与错误 | [Scope Gate](SCOPE_GATE_VALIDATION.md)、[错误处理](ERROR_HANDLING_VALIDATION.md) |
 | 课程与实验 | [资源精简](RESOURCE_CENTER_VALIDATION.md)、[华为云导入](HUAWEI_RESOURCE_IMPORT.md)；案例后续规则以 schema 17 资料文档为准 |
 | 公共交互 | [分页](PAGINATION_VALIDATION.md)、[反馈](FEEDBACK_VALIDATION.md) |
-| 平台兼容 | [ARM 验证](ARM_VALIDATION_REPORT.md)，只证明标注的历史提交；本轮没有部署或 ARM 验证 |
+| 平台兼容 | [ARM 验证](ARM_VALIDATION_REPORT.md)，09-26 已部署并完成定向兼容验证；公网身份登录待 HTTPS 配置授权 |
 | 旧提交与 Pilot | [09-25 收口](GIT_CLOSEOUT_20260925.md)、[Pilot 归档](PILOT_ARCHIVE_20260925.md) |
 
 ## 统一口径
