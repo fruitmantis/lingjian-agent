@@ -81,3 +81,20 @@ def test_formatted_discussion_persists_and_replays_without_versions(scenario,mon
     after=views.detail(pid,user)
     assert after['conversation'][0]['answer']==answer and len(after['conversation'])==1
     assert after['plan']['current_version_id']==version and len(after['versions'])==len(after['runs'])==1
+
+
+def test_empty_answer_records_actual_reason_and_preserves_advice(scenario,monkeypatch,client):
+    from backend.app.error_diagnostics import recent_errors
+    from backend.tests.conftest import auth_headers
+    detail=run(scenario,'Agent 应用交付');pid=detail['plan']['id'];version=detail['plan']['current_version_id']
+    user=scenario[0][0]
+    monkeypatch.setattr(model,'completion',lambda *args:json.dumps({'target_partner_id':'partner-1','kind':'explain','answer':'  ','references':[]}))
+    body={'submission_id':'empty-answer-request','based_on_version_id':version,'message':'请解释当前建议'}
+    response=client.post(f'/development/plans/{pid}/conversation',headers=auth_headers(user),json=body)
+    assert response.status_code==422 and response.json()['detail']=='本次处理失败，请重试。'
+    error=recent_errors()[0]
+    assert error['task_id']==pid and error['request_id']==body['submission_id'] and error['stage']=='conversation'
+    assert error['message']=='Explanation answer is empty' and 'converse' in error['traceback']
+    after=views.detail(pid,user)
+    assert after['plan']['current_version_id']==version and not after['conversation']
+    assert len(after['versions'])==len(after['runs'])==1

@@ -1,9 +1,10 @@
 """Admin-only resource metadata and case sharing. No model calls."""
 import uuid
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile, Response
 from ..auth import require_admin
 from .. import enablement as service
 from .. import resource_categories as categories
+from .. import resource_transfer as transfer
 
 router = APIRouter(tags=['enablement-admin'], dependencies=[Depends(require_admin)])
 
@@ -26,6 +27,28 @@ def list_resources():
 @router.post('/admin/enablement/resources', status_code=201)
 def create_resource(payload: service.ResourceSave, user=Depends(require_admin)):
     return service.save('resource',str(uuid.uuid4()),payload,user['id'])
+
+@router.get('/admin/enablement/resources/export')
+def export_resources():
+    return Response(transfer.export_workbook(),
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': 'attachment; filename="banfei-resources.xlsx"', 'Cache-Control': 'no-store'})
+
+@router.get('/admin/enablement/resources/template')
+def resource_template():
+    return Response(transfer.export_workbook(template=True),
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': 'attachment; filename="banfei-resources-template.xlsx"', 'Cache-Control': 'no-store'})
+
+@router.post('/admin/enablement/resources/import')
+def import_resources(file: UploadFile = File(...), user=Depends(require_admin)):
+    if not (file.filename or '').lower().endswith('.xlsx'):
+        service.fail(422, '请上传.xlsx文件')
+    return transfer.import_workbook(file.file.read(transfer.MAX_BYTES + 1), user['id'])
+
+@router.post('/admin/enablement/resources/batch')
+def batch_resources(payload: transfer.BatchAction, user=Depends(require_admin)):
+    return transfer.batch_action(payload, user['id'])
 
 @router.get('/admin/enablement/resources/{source_id}')
 def get_resource(source_id: str):

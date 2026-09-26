@@ -9,6 +9,8 @@
 | 最新工程验证、提交范围、数据边界 | [2026-09-26 Git 收口](GIT_CLOSEOUT_20260926.md) |
 | 新对话接续、已完成事项、不要重做的操作 | [项目交接](../handoff/CURRENT_HANDOFF_20260926.md) |
 | 六类资料、单一案例展示、手动画像、统一后台 | [伙伴资料验证](PARTNER_MATERIALS_VALIDATION.md) |
+| 伙伴/课程/实验 Excel 导入导出、空白模板、资源批量上下架 | [导入导出验证](RESOURCE_TRANSFER_VALIDATION.md) |
+| 官网能力逐家采集、30 家增量补充、备份及数据边界 | [官网能力补充](PARTNER_CAPABILITIES_20260926.md) |
 | 真实供应商验证方法（不代表已执行） | [模型前检](REAL_MODEL_PRECHECK.md)、[验证计划](REAL_MODEL_VALIDATION_PLAN.md) |
 | 人工效果验收空白模板 | [业务验收模板](REAL_BUSINESS_ACCEPTANCE_TEMPLATE.md) |
 

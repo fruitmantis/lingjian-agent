@@ -44,17 +44,19 @@ def test_model_safe_context_and_strong_judgment_boundary(scenario,caplog):
     assert version['diagnoses'][0]['evidence_status']=='partial'
     assert version['diagnoses'][0]['judgment_source']=='model_inference'
     assert version['stages'][0]['items'][0]['conditions']['level']=='advanced'
+    assert version['stages'][0]['items'][0]['capability_tag_id']==''  # Untagged resources remain valid recommendations.
     for boundary in [scenario[1],version,caplog.text,run['safe_error_message']]:assert CANARY not in json.dumps(boundary)
     for messages in scenario[1]:
         text=json.dumps(messages);assert 'source_url' not in text and 'raw_demand' not in text
 
 
-@pytest.mark.parametrize('malice',['partner','resource','case','version','url','enum','extra','secret','internal_note','unconfirmed_text'])
+@pytest.mark.parametrize('malice',['partner','resource','case','version','url','enum','extra','secret','internal_note','unconfirmed_text','formal_tag','analysis_tag'])
 def test_malicious_outputs_never_create_versions(scenario,monkeypatch,malice,caplog):
     original=scenario[2]
     def corrupted(config,messages,schema):
         result=json.loads(original(config,messages,schema));diagnose='analyze' in messages[0]['content']
         if malice=='partner':result['target_partner_id']='invented'
+        elif malice=='analysis_tag' and diagnose:result['priorities'][0]['capability_tag_id']='invented-tag'
         elif malice=='enum' and diagnose:result['intent']='illegal'
         elif malice=='extra':result['internal_debug']='forbidden'
         elif malice=='secret':result['extra']=CANARY
@@ -62,6 +64,7 @@ def test_malicious_outputs_never_create_versions(scenario,monkeypatch,malice,cap
         elif malice=='unconfirmed_text' and diagnose:result['basis_limitations']=['该伙伴确认不具备技术能力']
         elif not diagnose:
             item=result['stages'][0]['items'][0]
+            if malice=='formal_tag':item['capability_tag_id']=scenario[0][3].targets[0].capability_tag_id
             if malice=='resource':item['source_id']='invented-resource'
             if malice=='case':item.update(source_type='case',source_id='secret-case')
             if malice=='version':item['source_version']=99

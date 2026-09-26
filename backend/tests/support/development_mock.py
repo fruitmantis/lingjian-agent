@@ -58,7 +58,7 @@ def response(messages):
   for r in data['candidates'][:8]:
    haystack=' '.join(str(r.get(k,'')) for k in ('title','summary','course_goals','outline','lab_goals','roles','zones')).lower()
    f=max(analysis['priorities'],key=lambda f:sum(len(w) for w in f['search_terms'] if w.lower() in haystack),default={'name':'相关实践'})
-   items.append({k:r[k] for k in ('source_type','source_id','source_version')}|{'capability_tag_id':next(iter(r['capability_tag_ids']), ''),'focus':f['name'],'reason':'围绕'+f['name']+'，结合当前可复用基础选择该资源。','estimated_hours':max((r.get('duration_minutes') or 60)/60,.5),'note':''})
+   items.append({k:r[k] for k in ('source_type','source_id','source_version')}|{'focus':f['name'],'reason':'围绕'+f['name']+'，结合当前可复用基础选择该资源。','estimated_hours':max((r.get('duration_minutes') or 60)/60,.5),'note':''})
  gaps=[]
  if not any(i['source_type']=='lab' for i in items):gaps.append('当前资源库未找到匹配实验，可先使用现有资源。')
  elif any('RAG' in f['name'] for f in analysis['priorities']) and not any(r['source_type']=='lab' and 'rag' in json.dumps(r,ensure_ascii=False).lower() for r in data['candidates']):gaps.append('当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。')

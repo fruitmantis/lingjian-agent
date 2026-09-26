@@ -234,10 +234,9 @@ def publish(kind, source_id, payload, actor, *, connection=None):
         return detail_in(conn,kind,source_id)
 
 
-def unpublish(kind, source_id, payload, actor):
+def unpublish(kind, source_id, payload, actor, *, connection=None):
     table, _, key=TABLES[kind]
-    with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+    with write_transaction(connection) as conn:
         row=row_for(conn,kind,source_id); check_base(row,payload.base_revision)
         conn.execute(f'UPDATE {table} SET status=?,authorization_epoch=authorization_epoch+?,revision=revision+1,updated_at=? WHERE {key}=?',
             ('revoked' if payload.sensitive else 'unpublished',int(payload.sensitive),now(),source_id))

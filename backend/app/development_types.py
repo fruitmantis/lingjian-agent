@@ -54,12 +54,15 @@ class Diagnosis(StrictModel):
     pending_verifications: list[str]=Field(default_factory=list,max_length=20)
     problem_type: Literal['trainable_gap','evidence_gap','non_training_constraint','needs_clarification']
 
-class Item(Ref):
-    capability_tag_id: str=''
+class ResourceItem(Ref):
     focus: str=Field(default='',max_length=200)
     reason: str=Field(min_length=1,max_length=2000)
     estimated_hours: float=Field(gt=0,le=10000)
     note: str=Field(default='',max_length=2000)
+
+class Item(ResourceItem):
+    # Historical/manual edits retain their explicit tag validity check.
+    capability_tag_id: str=''
 
 class Stage(StrictModel):
     title: str=Field(min_length=1,max_length=200)
@@ -109,8 +112,12 @@ class DirectionAnalysis(StrictModel):
     resource_types: list[Literal['course','lab','case']]=Field(default_factory=list,max_length=3)
     excluded_levels: list[Literal['basic','advanced']]=Field(default_factory=list,max_length=2)
 
+class AdviceStage(StrictModel):
+    title: str=Field(min_length=1,max_length=200)
+    items: list[ResourceItem]=Field(default_factory=list,max_length=50)
+
 class AdviceOutput(PlanOutput):
-    stages: list[Stage]=Field(default_factory=list,max_length=20)
+    stages: list[AdviceStage]=Field(default_factory=list,max_length=20)
     answer: str=Field(default='',max_length=5000)
     next_steps: list[str]=Field(default_factory=list,max_length=10)
 

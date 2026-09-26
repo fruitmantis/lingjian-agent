@@ -65,7 +65,7 @@ def detail(plan_id,user,version_id=None):
         conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user)
         request=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
         versions=[dict(r) for r in conn.execute('SELECT id,version_no,based_on_version_id,created_by,created_at FROM development_versions WHERE plan_id=? ORDER BY version_no DESC',(plan_id,))]
-        runs=[dict(r) for r in conn.execute('SELECT id,run_type,based_on_version_id,status,model_config_id,created_at,started_at,ended_at,error_stage,safe_error_message FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC',(plan_id,))]
+        runs=[dict(r) for r in conn.execute('SELECT id,submission_id,run_type,based_on_version_id,status,model_config_id,created_at,started_at,ended_at,error_stage,safe_error_message FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC',(plan_id,))]
         latest_failure=public_failures(runs[0]['error_stage'],runs[0]['safe_error_message']) if runs and runs[0]['status'] in ('failed','partial','interrupted') else []
         # Historical failure text is untrusted too; expose only current safe messages.
         for run in runs:
@@ -85,7 +85,7 @@ def detail(plan_id,user,version_id=None):
             if run['based_on_version_id'] and protected(conn,version_row(conn,plan,run['based_on_version_id'])):continue
             instruction=engine.safe_text(json.loads(run['input_snapshot']).get('instruction',''),engine.blocked_fragments(conn))
             if instruction:
-                response='建议已更新，可以继续查看或讨论。' if run['status']=='ready' else '本次调整未完成，已有建议仍可使用。' if run['status'] in ('failed','partial','interrupted') else '正在处理本次调整，已有版本仍可使用。'
+                response='建议已更新，可以继续查看或讨论。' if run['status']=='ready' else '本次调整未完成。' if run['status'] in ('failed','partial','interrupted') else '正在处理本次调整。'
                 conversation.append({'submission_id':run['id'],'message':instruction,'answer':response,'created_at':run['created_at']})
         conversation.sort(key=lambda m:m['created_at'])
         # Source-sensitive user text is also withheld after revocation, including original demand.
@@ -93,6 +93,7 @@ def detail(plan_id,user,version_id=None):
         return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
 
 def edit(plan_id,body,user):
+    bind_context(task_id=plan_id, stage='validation')
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=life.authorize(conn,plan_id,user);life.writable(plan,body.based_on_version_id)
         row=version_row(conn,plan);payload=readable_payload(conn,row)
@@ -107,7 +108,9 @@ def edit(plan_id,body,user):
         try:
             result=engine.assemble(output,request,analysis,pool,user['id']);deps=engine.dependencies(conn,pool+analysis.get('profile_basis',{}).get('shared_evidence',[]))
             engine.validate_dependencies(conn,result,deps)
-        except (engine.InvalidOutput,HTTPException):life.fail(422,'资源或内容校验失败，请刷新候选资源后重试')
+        except (engine.InvalidOutput,HTTPException) as error:
+            record_error(error, 'validation', task_id=plan_id)
+            life.fail(422,'资源或内容校验失败，请刷新候选资源后重试')
         version_id=life.save_version(conn,plan,body.based_on_version_id,result,deps,user['id'])
         return {'version_id':version_id}
 
@@ -119,6 +122,7 @@ def options(plan_id,user):
         return engine.candidates(conn,request,payload.get('analysis',{'priorities':[]}))
 
 def transferable(plan_id,user,expected=None,copy_event=False):
+    bind_context(task_id=plan_id, stage='transfer_validation')
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE' if copy_event else 'BEGIN');plan=life.authorize(conn,plan_id,user)
         if plan['status']!='active' or not plan['current_version_id']:life.fail(409,'仅可预览和复制有效方案的当前版本')
@@ -142,7 +146,9 @@ def transferable(plan_id,user,expected=None,copy_event=False):
         if len(lines)<=2:lines.append('当前没有可传递的资源安排，请联系内部负责人核实。')
         text='\n'.join(lines)
         try:engine.guard(text,engine.blocked_fragments(conn),allow_urls=True)
-        except engine.InvalidOutput:life.fail(409,'内容不满足外发校验，请联系管理员')
+        except engine.InvalidOutput as error:
+            record_error(error, 'transfer_validation', task_id=plan_id)
+            life.fail(409,'内容不满足外发校验，请联系管理员')
         if copy_event:life.audit(conn,plan_id,user['id'],'transfer_copy',row['id'])
         return {'text':text,'version_id':row['id']}
 
@@ -200,15 +206,16 @@ def converse(plan_id,body,user):
             raise engine.InvalidOutput('Explanation cannot modify a version')
         if response['target_partner_id']!=plan['target_partner_id']:raise engine.InvalidOutput('Invented partner')
         if not {engine.key(ref) for ref in response['references']}<={engine.key(ref) for ref in pool}:raise engine.InvalidOutput('Invented reference')
+        if response['kind']=='explain' and not response['answer'].strip():raise engine.InvalidOutput('Explanation answer is empty')
     except Exception as error:
         record_error(error, 'conversation', task_id=plan_id)
         life.fail(422,user_message(error))
+    bind_context(stage='persistence')
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');fresh=life.authorize(conn,plan_id,user);life.writable(fresh,body.based_on_version_id)
         if protected(conn,version_row(conn,fresh)):life.fail(409,REVOKED)
         for ref in model_refs:resources.resolve_reference(conn,ref['source_type'],ref['source_id'],ref['source_version'],'model')
         if response['kind']=='explain':
-            if not response['answer'].strip():life.fail(422,'解释内容为空，请重试')
             stored=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(fresh['request_id'],)).fetchone()[0])
             history=stored.get('_conversation',[])
             if any(m['submission_id']==body.submission_id for m in history):life.fail(409,'消息已处理，请刷新')

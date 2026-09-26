@@ -30,6 +30,15 @@ def create(body:Submit,user:dict=Depends(require_active_user)):
 @router.get('/plans/{plan_id}')
 def detail(plan_id:str,version_id:str|None=None,user:dict=Depends(require_active_user)):return views.detail(plan_id,user,version_id)
 
+@router.get('/submissions/{submission_id}')
+def submission(submission_id:str,user:dict=Depends(require_active_user)):
+    # A lost create response must be resolved by reading the original submission.
+    with get_db() as conn:
+        row=conn.execute('SELECT plan_id,id AS run_id,status FROM development_runs WHERE owner_user_id=? AND submission_id=?',(user['id'],submission_id)).fetchone()
+        if not row:life.fail(404,'暂未确认结果，请刷新查看。')
+        life.authorize(conn,row['plan_id'],user)
+        return dict(row)
+
 @router.post('/plans/{plan_id}/revise',status_code=202)
 def revise(plan_id:str,body:Revise,user:dict=Depends(require_active_user)):
     result=life.revise(plan_id,body,user)

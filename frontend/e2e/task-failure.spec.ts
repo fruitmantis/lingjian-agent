@@ -4,6 +4,7 @@ const user={id:"fixture-user",username:"fixture",display_name:"验收用户",dep
 const reason={stage:"project_opportunity",stageLabel:"项目机会",code:"timeout",message:"模型响应超时，本次处理未完成",action:"稍后重试"};
 const presentation={state:"available",current_version:1,current_available:true,latest_run_status:"failed",latest_run_type:"revise"};
 const summary={id:"partial-fixture",requirement:"合成验收：部分完成",task_type:"partner_match",taskStatus:"partial",lastErrorStage:"project_opportunity",failureDetails:[reason],topPartner:"合成伙伴",partnerCount:1,createdAt:stamp,archivedAt:null,ownerName:"验收用户",department:"测试",completenessScore:null};
+const developmentDetail={presentation,plan:{id:"plan-fixture",current_version_id:"v1",status:"active",active_run_id:null},partner_name:"合成伙伴",request:{development_direction:"合成验收方向"},conversation:[],payload:{overview:{development_direction:"合成验收方向"},stages:[],limitations:[],resource_gaps:[]},hidden:false,notice:null,versions:[{id:"v1",version_no:1}],runs:[{id:"failed-run",run_type:"revise",status:"failed",created_at:stamp,safe_error_message:reason.message}],failureDetails:[{...reason,stage:"generation",stageLabel:"建议生成"}]};
 async function fixture(page:Page){
  await page.addInitScript(({user})=>{localStorage.setItem(`banfei:${user.role}:token`, "isolated-fixture"); localStorage.setItem(`banfei:${user.role}:user`, JSON.stringify(user));},{user});
  const writes:{path:string;body:Record<string,unknown>}[]=[];
@@ -18,7 +19,7 @@ async function fixture(page:Page){
   else if(path==="/agent/tasks")json={items:[summary,{...summary,id:"legacy-fixture",requirement:"合成验收：历史失败",taskStatus:"failed",failureDetails:[],partnerCount:0},{...summary,id:"plan-fixture",requirement:"合成验收：旧建议可用",task_type:"development_plan",planPresentation:presentation,taskStatus:"failed"}],page:1,pageSize:20,total:3,totalPages:1};
   else if(path==="/agent/tasks/failed-fixture")json={...summary,id:"failed-fixture",taskStatus:"failed",lastErrorStage:"partner_match",failureDetails:[{...reason,stage:"partner_match",stageLabel:"伙伴匹配",code:"authentication",message:"模型服务认证失败",action:"联系管理员检查模型访问凭据"}],recommendations:[],demandProfile:null,opportunity:null};
   else if(path.startsWith("/agent/tasks/"))json={...summary,id:path.split("/").pop(),task_type:path.endsWith("plan-fixture")?"development_plan":"partner_match",recommendations:[{partnerId:"fixture-partner",partnerName:"合成伙伴",matchScore:"80",matchedCapabilities:"测试",matchedIndustries:"金融",matchedRegions:"广东",recommendationReason:"仅限隔离验收",evidenceCases:"",evidenceDeliverables:"",riskNotes:""}],demandProfile:null,opportunity:null};
-  else if(path==="/development/plans/plan-fixture")json={presentation,plan:{id:"plan-fixture",current_version_id:"v1",status:"active",active_run_id:null},partner_name:"合成伙伴",request:{development_direction:"合成验收方向"},conversation:[],payload:{overview:{development_direction:"合成验收方向"},stages:[],limitations:[],resource_gaps:[]},hidden:false,notice:null,versions:[{id:"v1",version_no:1}],runs:[{id:"failed-run",run_type:"revise",status:"failed",created_at:stamp,safe_error_message:reason.message}],failureDetails:[{...reason,stage:"generation",stageLabel:"建议生成"}]};
+  else if(path==="/development/plans/plan-fixture")json=developmentDetail;
   else return route.fulfill({status:404,json:{detail:"Unexpected fixture request"}});
   return route.fulfill({json});
  });
@@ -42,7 +43,7 @@ for(const width of [1366,1920])test(`partial and failed revise preserve useful r
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  if(process.env.TASK_FAILURE_SCREENSHOTS)await page.screenshot({path:`${process.env.TASK_FAILURE_SCREENSHOTS}/partial-${width}.png`});
  await page.goto("/tasks/plan-fixture");await expect(page.getByRole("heading",{name:"能力发展建议",exact:true})).toBeVisible();
- await expect(page.getByTestId("advisor-status")).toContainText("建议可用");await expect(page.getByTestId("advisor-run-notice")).toContainText("未生成新版本");
+ await expect(page.getByTestId("advisor-status")).toContainText("建议可用");await expect(page.getByTestId("advisor-run-notice")).toContainText("本次调整失败，请重试。");
  await page.getByTestId("advisor-run-notice").getByRole("button",{name:"重试",exact:true}).click();
  await expect.poll(()=>writes.length).toBe(1);expect(writes[0].path).toBe("/development/plans/plan-fixture/retry");expect(writes[0].body.based_on_version_id).toBe("v1");expect(writes[0].body.run_id).toBe("failed-run");
  await expect(page.getByTestId("advisor-status")).toContainText("建议可用");
@@ -116,4 +117,89 @@ test("admin recent errors expand and copy redacted details",async({page,context}
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(await detail.textContent());
  await entries.nth(1).locator("summary").click();await expect(entries.nth(1)).toContainText("请求 req-1");
  for(const width of [1366,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();if(process.env.TASK_FAILURE_SCREENSHOTS)await page.screenshot({path:`${process.env.TASK_FAILURE_SCREENSHOTS}/admin-errors-${width}.png`,fullPage:true});}
+});
+
+
+test("development service failure has no retry and no false usable advice claim",async({page})=>{
+ await fixture(page);
+ await page.route("**/development/plans/plan-fixture",route=>route.fulfill({json:{...developmentDetail,presentation:{...presentation,current_available:false},hidden:true,payload:null,failureDetails:[{...reason,code:"configuration"}]}}));
+ await page.goto("/tasks/plan-fixture");
+ const notice=page.getByTestId("advisor-run-notice");
+ await expect(notice).toContainText("服务异常，请联系管理员。");
+ await expect(notice).toContainText("发展诉求已保留。");
+ await expect(notice).not.toContainText("当前建议仍可使用");
+ await expect(notice.getByRole("button",{name:"重试",exact:true})).toHaveCount(0);
+});
+
+test("initial generation failure preserves request without claiming old advice",async({page})=>{
+ await fixture(page);
+ await page.route("**/development/plans/plan-fixture",route=>route.fulfill({json:{...developmentDetail,plan:{...developmentDetail.plan,current_version_id:null},presentation:{...presentation,current_available:false},payload:null,runs:[{...developmentDetail.runs[0],run_type:"generate"}]}}));
+ await page.goto("/tasks/plan-fixture");
+ const notice=page.getByTestId("advisor-run-notice");
+ await expect(notice).toContainText("本次建议未生成，请重试。");
+ await expect(notice).toContainText("发展诉求已保留。");
+ await expect(notice).not.toContainText("当前建议仍可使用");
+ await expect(page.getByRole("button",{name:"重试",exact:true})).toHaveCount(1);
+ await expect(page.getByRole("button",{name:"重新生成",exact:true})).toHaveCount(0);
+});
+
+test("answer failure survives polling and can retry only after response ends",async({page})=>{
+ const writes=await fixture(page);
+ await page.route("**/development/plans/plan-fixture",route=>route.fulfill({json:{...developmentDetail,runs:[],failureDetails:[]}}));
+ let release:()=>void=()=>{};
+ const response=new Promise<void>(resolve=>release=resolve);
+ await page.route("**/development/plans/plan-fixture/conversation",async route=>{await response;await route.fulfill({status:422,json:{detail:"本次处理失败，请重试。"}});});
+ await page.goto("/tasks/plan-fixture");
+ await page.getByLabel("消息",{exact:true}).fill("请解释推荐依据");
+ await page.getByRole("button",{name:"发送",exact:true}).click();
+ await expect(page.getByRole("button",{name:"正在回复…",exact:true})).toBeDisabled();
+ await expect(page.getByRole("button",{name:"重试",exact:true})).toHaveCount(0);
+ release();
+ const notice=page.getByRole("region",{name:"任务未完成说明"});
+ await expect(notice).toContainText("本次回答失败，请重试。");
+ await expect(notice).toContainText("当前建议仍可使用。");
+ await expect(notice).not.toContainText("发展诉求已保留");
+ await page.waitForResponse(r=>r.url().includes('/development/plans/plan-fixture')&&r.request().method()==='GET');
+ await expect(notice).toContainText("本次回答失败，请重试。");
+ await expect(notice.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ expect(writes).toHaveLength(0);
+});
+
+test("lost development retry response only queries original run even after reload",async({page})=>{
+ await fixture(page);let posts=0,submission="",confirmed=false;
+ await page.route("**/development/plans/plan-fixture/retry",route=>{posts++;submission=route.request().postDataJSON().submission_id;return route.abort();});
+ await page.route("**/development/plans/plan-fixture",route=>route.fulfill({json:confirmed?{...developmentDetail,plan:{...developmentDetail.plan,active_run_id:"original-run"},runs:[{...developmentDetail.runs[0],id:"original-run",submission_id:submission,status:"running"}],failureDetails:[]}:developmentDetail}));
+ await page.goto("/tasks/plan-fixture");
+ await page.getByRole("button",{name:"重试",exact:true}).click();
+ await expect(page.getByText("暂未确认结果，请刷新查看。",{exact:true})).toBeVisible();
+ await page.reload();
+ await expect(page.getByRole("button",{name:"刷新查看",exact:true})).toBeVisible();
+ await expect(page.getByRole("button",{name:"重试",exact:true})).toHaveCount(0);
+ confirmed=true;
+ await page.getByRole("button",{name:"刷新查看",exact:true}).click();
+ await expect(page.getByText("伴飞正在整理建议，你可以继续查看已有内容。",{exact:true})).toBeVisible();
+ await expect(page.getByText("暂未确认结果，请刷新查看。",{exact:true})).toHaveCount(0);
+ expect(posts).toBe(1);
+});
+
+test("lost create response queries submission and never claims the demand was saved",async({page})=>{
+ await fixture(page);let posts=0,submission="",found=false;
+ await page.route("**/partners",route=>route.fulfill({json:[{id:"fixture-partner",name:"合成伙伴"}]}));
+ await page.route("**/enablement/context?**",route=>route.fulfill({json:{partner:null,source_task:null,shared_case:null,evidence:[]}}));
+ await page.route("**/development/plans",route=>{posts++;submission=route.request().postDataJSON().submission_id;return route.abort();});
+ await page.route("**/development/submissions/*",route=>{expect(route.request().url()).toContain(submission);return found?route.fulfill({json:{plan_id:"plan-fixture",status:"pending"}}):route.fulfill({status:404,json:{detail:"暂未确认结果，请刷新查看。"}});});
+ await page.goto("/?mode=development&partner_id=fixture-partner");
+ await page.getByLabel("发展方向",{exact:true}).fill("合成发展诉求");
+ await page.getByRole("button",{name:"生成能力发展建议",exact:true}).click();
+ const notice=page.getByRole("region",{name:"任务未完成说明"});
+ await expect(notice).toContainText("暂未确认结果，请刷新查看。");
+ await expect(notice).not.toContainText("发展诉求已保留");
+ await page.reload();
+ await expect(page.getByRole("button",{name:"生成能力发展建议",exact:true})).toBeDisabled();
+ await page.getByRole("button",{name:"刷新查看",exact:true}).click();
+ await expect(notice).toContainText("暂未确认结果，请刷新查看。");
+ found=true;
+ await page.getByRole("button",{name:"刷新查看",exact:true}).click();
+ await expect(page).toHaveURL(/tasks\/plan-fixture/);
+ expect(posts).toBe(1);
 });

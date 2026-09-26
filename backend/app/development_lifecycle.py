@@ -45,7 +45,7 @@ def audit(conn,plan_id,actor,action,version_id=None):
 
 def checked_request(payload,user,*,instruction="",scope_checked=False):
     result=clarify(payload)
-    if result['missing_fields']:fail(422,{'message':'请选择伙伴并描述发展方向','missing_fields':result['missing_fields']})
+    if result['missing_fields']:fail(422,'请选择伙伴并描述发展方向')
     data=result['request']
     if not scope_checked:
         require_scope('partner_development',instruction or data['development_direction'],context=data['development_direction'] if instruction else '')
@@ -66,6 +66,7 @@ def duplicate(conn,user,submission_id,request_hash):
 def insert_run(conn,plan_id,user,submission_id,base,payload,run_type,request_hash):
     ensure_account_active(conn,user['id'])
     run_id=uid();stamp=now()
+    bind_context(task_id=plan_id, run_id=run_id, request_id=submission_id, stage='submission')
     conn.execute('''INSERT INTO development_runs(id,plan_id,owner_user_id,run_type,submission_id,request_hash,based_on_version_id,status,input_snapshot,created_at)
                     VALUES (?,?,?,?,?,?,?,'pending',?,?)''',(run_id,plan_id,user['id'],run_type,submission_id,request_hash,base,dump(payload),stamp))
     conn.execute('UPDATE development_plans SET active_run_id=?,updated_at=? WHERE id=?',(run_id,stamp,plan_id))

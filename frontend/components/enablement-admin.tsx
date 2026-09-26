@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { adminApiFetch as apiFetch } from "./auth-provider";
 import styles from "./enablement-admin.module.css";
 type Metadata = {
@@ -31,8 +31,8 @@ type Category = {
 };
 const statusText: Record<string, string> = { draft: "草稿", published: "已发布", unpublished: "已下架", revoked: "已撤销授权" };
 const resourceDefaults: Metadata = { title: "", summary: "", source_url: "", resource_type: "course", role_ids: [], zone_ids: [], level: "basic", duration_minutes: null, course_goals: "", audience: "", outline: "", cover_url: "", lab_goals: "", lab_requirements: "" };
-async function call(path: string, method = "GET", body?: unknown) {
-    const response = await apiFetch(path, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+async function call(path: string, method = "GET", body?: unknown, timeoutMs?: number) {
+    const response = await apiFetch(path, { method, timeoutMs, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
     if (!response.ok) {
         const data = await response.json().catch(() => null);
         throw new Error(typeof data?.detail === "string" ? data.detail : response.status === 422 ? "请检查必填字段、分类和来源链接。" : "操作失败，请稍后重试。");
@@ -44,8 +44,16 @@ export function ResourceManager() {
     const [selected, setSelected] = useState<string | null>(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState(false);
+    const [notice, setNotice] = useState("");
+    const [checked, setChecked] = useState<string[]>([]);
+    const [typeFilter, setTypeFilter] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
+    const [categoryRefresh, setCategoryRefresh] = useState(0);
+    const fileInput = useRef<HTMLInputElement>(null);
     const load = useCallback(async () => { setLoading(true); try {
         setRows(await call('/admin/enablement/resources'));
+        setChecked([]);
         setError("");
     }
     catch (e) {
@@ -55,12 +63,83 @@ export function ResourceManager() {
         setLoading(false);
     } }, []);
     useEffect(() => { void load(); }, [load]);
-    return <main className="page"><p className="eyebrow">Partner Enablement</p><div className="section-heading-row"><div><h1>课程与实验资源</h1><p className="lead">按岗位和专区维护课程、实验，学习和实践在来源平台完成。</p></div><button onClick={() => setSelected("new")}>新增资源</button></div>
-    {error && <p role="alert">{error} <button onClick={() => void load()}>重试</button></p>}
+    const visibleRows = rows.filter(row => (!typeFilter || row.metadata.resource_type === typeFilter) && (!statusFilter || row.status === statusFilter));
+    async function download(template = false) {
+        setBusy(true); setError(""); setNotice("");
+        try {
+            const response = await apiFetch(`/admin/enablement/resources/${template ? 'template' : 'export'}`);
+            if (!response.ok) {
+                const data = await response.json().catch(() => null);
+                throw new Error(typeof data?.detail === 'string' ? data.detail : '导出失败，请稍后重试。');
+            }
+            const url = URL.createObjectURL(await response.blob());
+            const link = document.createElement('a');
+            link.href = url; link.download = template ? '伴飞课程与实验导入模板.xlsx' : '伴飞课程与实验.xlsx';
+            document.body.appendChild(link); link.click(); link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            setNotice(template ? '模板已下载，按表头和使用说明填写后导入。' : '已导出全部课程与实验，可直接修改表格后导入。');
+        } catch (e) { setError((e as Error).message); }
+        finally { setBusy(false); }
+    }
+    async function upload(file: File) {
+        setError(""); setNotice("");
+        if (!file.name.toLowerCase().endsWith('.xlsx') || file.size > 10 * 1024 * 1024) {
+            setError('请选择不超过10MB的.xlsx文件。'); return;
+        }
+        if (!window.confirm('导入将按表格更新资源草稿和三项用途授权，同ID资源会更新。减少授权会立即限制旧版本使用。内容需另行上架，是否继续？')) return;
+        setBusy(true);
+        try {
+            const body = new FormData(); body.append('file', file);
+            const response = await apiFetch('/admin/enablement/resources/import', {method: 'POST', body, timeoutMs: 120_000});
+            const data = await response.json();
+            if (!response.ok) throw new Error(typeof data?.detail === 'string' ? data.detail : '导入失败，请检查表格内容。');
+            await load(); setCategoryRefresh(value => value + 1);
+            setNotice(`导入完成：新增 ${data.created} 条，更新 ${data.updated} 条，未变化 ${data.unchanged} 条。内容已保存，需发布时请勾选后批量上架。`);
+        } catch (e) { setError((e as Error).message); }
+        finally { setBusy(false); }
+    }
+    async function batch(action: 'publish' | 'unpublish') {
+        const label = action === 'publish' ? '上架' : '下架';
+        const explanation = action === 'publish' ? '将发布选中资源当前已保存的草稿，沿用各自用途授权。' : '将下架选中资源中的已发布资源，保留历史版本。';
+        if (!window.confirm(`${explanation}\n确认批量${label} ${checked.length} 条资源？`)) return;
+        setBusy(true); setError(""); setNotice("");
+        try {
+            const result = await call('/admin/enablement/resources/batch', 'POST', {action, items: rows.filter(row => checked.includes(row.source_id)).map(row => ({source_id: row.source_id, base_revision: row.revision}))}, 120_000);
+            await load();
+            setNotice(`已${label} ${result.changed} 条${result.skipped ? `，跳过 ${result.skipped} 条未上架资源` : ''}。`);
+        } catch (e) { setError((e as Error).message); }
+        finally { setBusy(false); }
+    }
+    return <main className="page"><p className="eyebrow">Partner Enablement</p><div className="section-heading-row"><div><h1>课程与实验资源</h1><p className="lead">按岗位和专区维护课程、实验，学习和实践在来源平台完成。</p></div>{selected === null && <div className={styles.actions}>
+        <button className="secondary-btn" disabled={busy || loading} onClick={() => void download()}>导出全部 Excel</button>
+        <button className="secondary-btn" disabled={busy || loading} onClick={() => void download(true)}>下载导入模板</button>
+        <button className="secondary-btn" disabled={busy || loading} onClick={() => fileInput.current?.click()}>导入 Excel</button>
+        <input ref={fileInput} type="file" accept=".xlsx" aria-label="导入课程与实验文件" hidden onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void upload(file); }}/>
+        <button disabled={busy} onClick={() => { setNotice(''); setSelected("new"); }}>新增资源</button>
+    </div>}</div>
+    {error && <p role="alert">{error} <button disabled={busy} onClick={() => void load()}>重新加载</button></p>}
+    {notice && selected === null && <p role="status" className={styles.notice}>{notice}</p>}
     {selected !== null ? <EnablementEditor key={selected} sourceId={selected === "new" ? undefined : selected} onSaved={row => { if (selected === "new")
             setSelected(row.source_id); void load(); }} onClose={() => setSelected(null)}/> :
-            <section className="card">{loading ? <p>加载中…</p> : rows.length === 0 ? <p>暂无课程或实验资源，请新增资源并发布。</p> : <div className={styles.tableWrap}><table className={`data-table ${styles.table}`}><thead><tr><th>资源名称</th><th>类型</th><th>发布状态</th><th>当前发布版本</th><th>操作</th></tr></thead><tbody>{rows.map(row => <tr key={row.source_id}><td><strong>{row.metadata.title}</strong></td><td>{row.metadata.resource_type === "course" ? "课程" : "实验"}</td><td>{statusText[row.status]}</td><td>{row.published_version ? `V${row.published_version}` : "尚未发布"}</td><td><button className="secondary-btn" onClick={() => setSelected(row.source_id)}>管理资源</button></td></tr>)}</tbody></table></div>}</section>}
-    {selected === null && <CategoryManager />}
+            <section className="card">
+                <div className={styles.listControls}>
+                    <fieldset disabled={busy || loading} className={styles.toolbar}>
+                        <div className={styles.filters}>
+                            <label>类型<select aria-label="筛选资源类型" value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setChecked([]); }}><option value="">全部类型</option><option value="course">课程</option><option value="lab">实验</option></select></label>
+                            <label>状态<select aria-label="筛选发布状态" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setChecked([]); }}><option value="">全部状态</option>{Object.entries(statusText).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                        </div>
+                        <div className={styles.batchActions}>
+                            <span className={styles.selectionCount}>已选 {checked.length} 条</span>
+                            <button disabled={!checked.length} onClick={() => void batch('publish')}>批量上架</button>
+                            <button className="secondary-btn" disabled={!checked.length} onClick={() => void batch('unpublish')}>批量下架</button>
+                        </div>
+                    </fieldset>
+                    <p className={styles.transferHint}><span>新增可下载空白模板，批量修改可先导出。</span><span>导入保存草稿，上架发布已保存内容并沿用用途授权。</span></p>
+                </div>
+                {busy && <p aria-live="polite">处理中，请稍候…</p>}
+                {loading ? <p>加载中…</p> : visibleRows.length === 0 ? <p>暂无符合条件的课程或实验资源。</p> : <div className={styles.tableWrap}><table className={`data-table ${styles.table}`}><thead><tr><th><input type="checkbox" aria-label="选择当前筛选的全部资源" disabled={busy} checked={visibleRows.length > 0 && visibleRows.every(row => checked.includes(row.source_id))} onChange={e => setChecked(e.target.checked ? visibleRows.map(row => row.source_id) : [])}/></th><th>资源名称</th><th>类型</th><th>发布状态</th><th>当前发布版本</th><th>操作</th></tr></thead><tbody>{visibleRows.map(row => <tr key={row.source_id}><td><input type="checkbox" aria-label={`选择资源 ${row.metadata.title}`} disabled={busy} checked={checked.includes(row.source_id)} onChange={e => setChecked(ids => e.target.checked ? [...ids, row.source_id] : ids.filter(id => id !== row.source_id))}/></td><td><strong>{row.metadata.title}</strong></td><td>{row.metadata.resource_type === "course" ? "课程" : "实验"}</td><td>{statusText[row.status]}</td><td>{row.published_version ? `V${row.published_version}` : "尚未发布"}</td><td><button className="secondary-btn" disabled={busy} onClick={() => setSelected(row.source_id)}>管理资源</button></td></tr>)}</tbody></table></div>}
+            </section>}
+    {selected === null && <CategoryManager key={categoryRefresh} />}
   </main>;
 }
 function EnablementEditor({ sourceId, onSaved, onClose }: {

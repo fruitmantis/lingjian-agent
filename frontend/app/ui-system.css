@@ -228,6 +228,10 @@
 .classification-options > div { display:grid; grid-template-columns:repeat(auto-fit,minmax(64px,1fr)); gap:8px 12px; }
 .classification-options label { font-size:13px; line-height:20px; }
 .classification-options legend { font-size:13px; color:var(--text-secondary); }
+.classification-options.partner-capability-options > .capability-choice-list { grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); }
+.partner-capability-options label { align-items:flex-start; min-width:0; }
+.partner-capability-options input[type=checkbox] { margin-top:3px; }
+.partner-capability-options label span { overflow-wrap:anywhere; }
 .classification-fields > .classification-options > div { grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); }
 .classification-filter { gap:6px; }
 .admin-shortcuts a { font-weight:400; padding:10px 16px; }

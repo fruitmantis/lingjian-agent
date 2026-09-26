@@ -4,13 +4,15 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, File, UploadFile, Response
 from pydantic import BaseModel
 
 from ..auth import require_active_user, require_admin, record_audit
 from ..database import get_db
 from ..models import PartnerCreate, PartnerOut
 from ..business_taxonomy import ClassificationInput, ClassificationOutput, preserve_pending, project_partner
+from .. import partner_transfer
+from ..resource_transfer import MAX_BYTES
 
 
 class PartnerUpdate(ClassificationInput):
@@ -89,6 +91,27 @@ def list_partners(include_disabled: bool = False, user: dict = Depends(require_a
         where = "" if include_disabled else " WHERE status = 'active'"
         rows = conn.execute(f"SELECT {_COLUMNS} FROM partners{where} ORDER BY created_at DESC").fetchall()
     return [PartnerOut(**{**dict(r), "ai_profile":r["ai_profile"] if user["role"]=="admin" else None}) for r in rows]
+
+
+@router.get('/export', dependencies=[Depends(require_admin)])
+def export_partners():
+    return Response(partner_transfer.export_workbook(),
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': 'attachment; filename="banfei-partners.xlsx"', 'Cache-Control': 'no-store'})
+
+
+@router.get('/template', dependencies=[Depends(require_admin)])
+def partner_template():
+    return Response(partner_transfer.export_workbook(template=True),
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': 'attachment; filename="banfei-partners-template.xlsx"', 'Cache-Control': 'no-store'})
+
+
+@router.post('/import')
+def import_partners(file: UploadFile = File(...), actor: dict = Depends(require_admin)):
+    if not (file.filename or '').lower().endswith('.xlsx'):
+        raise HTTPException(422, '请上传.xlsx文件')
+    return partner_transfer.import_workbook(file.file.read(MAX_BYTES + 1), actor['id'])
 
 
 @router.get("/{partner_id}", response_model=PartnerOut)

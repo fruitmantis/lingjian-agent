@@ -18,6 +18,14 @@ def test_api_quick_accept_unified_tasks_ownership_and_idempotency(scenario,clien
     body={'submission_id':'api-development-create','request':req.model_dump()}
     response=client.post('/development/plans',headers=headers,json=body);assert response.status_code==202
     accepted=response.json();id=accepted['plan_id'];assert len(queued)==1
+    lookup='/development/submissions/'+body['submission_id']
+    original=client.get(lookup,headers=headers)
+    assert original.json()['plan_id']==id and original.json()['status']=='pending'
+    assert original.headers['cache-control']=='no-store'
+    assert client.get(lookup,headers=auth_headers(other)).status_code==404
+    assert client.get(lookup).status_code==401
+    assert client.get('/development/submissions/unknown-submission',headers=headers).status_code==404
+    assert len(queued)==1
     assert client.post('/development/plans',headers=headers,json=body).json()['run_id']==accepted['run_id'] and len(queued)==1
     listing=client.get('/agent/tasks?task_type=development_plan',headers=headers).json();assert listing['total']==1 and listing['items'][0]['taskStatus']=='matching'
     assert client.get('/agent/tasks/'+id,headers=headers).json()['task_type']=='development_plan'
@@ -196,3 +204,19 @@ def test_current_preview_copy_and_retired_confirmation(scenario,client,legacy):
     assert plan(pid)==before and before['confirmed_version_id']==(v1 if legacy else None)
     with get_db() as conn:
         assert conn.execute("SELECT COUNT(*) FROM development_audit_events WHERE plan_id=? AND action='confirmed'",(pid,)).fetchone()[0]==0
+
+
+def test_formal_tag_conflict_is_logged_and_success_preserves_diagnostic(scenario,client):
+    from backend.app.error_diagnostics import recent_errors
+    accepted,_,payload=execute(scenario);pid=accepted['plan_id'];user=scenario[0][0];base=plan(pid)['current_version_id']
+    edited=stages(payload);tag=scenario[0][3].targets[0].capability_tag_id
+    edited[0]['items'][0]['capability_tag_id']=tag  # Enabled tag, but not assigned to this resource.
+    response=client.post(f'/development/plans/{pid}/edit',headers=auth_headers(user),json={'based_on_version_id':base,'stages':edited})
+    assert response.status_code==422 and '资源或内容校验失败' in response.text
+    error=recent_errors()[0]
+    assert error['task_id']==pid and error['request_id'] and error['stage']=='validation'
+    assert 'Illegal formal tag' in error['message'] and 'test-course' in error['message'] and tag in error['message']
+    assert 'assemble' in error['traceback'] and plan(pid)['current_version_id']==base
+    edited[0]['items'][0]['capability_tag_id']=''
+    assert client.post(f'/development/plans/{pid}/edit',headers=auth_headers(user),json={'based_on_version_id':base,'stages':edited}).status_code==200
+    assert recent_errors()[0]['id']==error['id']

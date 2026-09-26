@@ -14,6 +14,8 @@ export function requestTimeoutMs(input: RequestInfo | URL, method = "GET"): numb
       || path === "/admin/capability-tags/suggestions/scan") return 360_000;
     // Structured extraction + narrative: 60 + 90 seconds.
     if (/^\/partners\/[^/]+\/profile$/.test(path)) return 180_000;
+    // Development conversation: scope check + one model call (up to 180 seconds).
+    if (/^\/development\/plans\/[^/]+\/conversation$/.test(path)) return 240_000;
     if (/^\/admin\/model-configs\/[^/]+\/test$/.test(path)) return 45_000;
   }
   return 30_000;
