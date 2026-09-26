@@ -1,3 +1,5 @@
+> **阶段验证记录。** 本文的提交状态、HEAD 和测试数字属于当时基线；当前状态见 [2026-09-26 收口记录](GIT_CLOSEOUT_20260926.md)，现行规则见 [README](../../README.md)。
+
 > 删除规则更新：账号统一逻辑删除并保留业务数据；本文旧删除限制仅为历史记录，当前行为见 [账号逻辑删除验证](ACCOUNT_DELETION_VALIDATION.md)。
 
 > 历史记录：普通用户认证已改为浏览器自动登录 + 长期身份 Key；当前规则与验证以 [IDENTITY_KEY_VALIDATION.md](IDENTITY_KEY_VALIDATION.md) 为准。本文 Passkey/旧 Browser Identity 流程不再运行。

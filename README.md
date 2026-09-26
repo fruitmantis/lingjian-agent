@@ -1,26 +1,30 @@
 # 伴飞 Agent
 
-面向公司内部人员的伙伴智能助手，提供“项目找伙伴”和“能力发展”两条主线。正式工作目录为 `/home/yuan/project/lingjian-agent-enablement`，直接在 `main` 开发。工程名、模块名、API 和 `LINGJIAN_*` 环境变量保留技术标识。
+面向公司内部人员的伙伴智能助手，提供“资源匹配”和“能力发展”两条主线。正式工作目录为 `/home/yuan/project/lingjian-agent-enablement`，直接在 `main` 开发。工程名、模块名、API 和 `LINGJIAN_*` 环境变量保留技术标识。
+
+## 项目接续与最新状态
+
+当前正式库已为 **schema 17**；六类文档与统一伙伴资料管理已实施，2026-09-26 用户指定的 **178 家伙伴名单**整理已完成。不要重复执行迁移、名单脚本或初始化数据。当前业务规则以本文件和 [AGENTS.md](AGENTS.md) 为准；新对话先读 [项目交接](docs/handoff/CURRENT_HANDOFF_20260926.md)，验证与提交范围见 [本次收口记录](docs/validation/GIT_CLOSEOUT_20260926.md) 和 [验证文档索引](docs/validation/README.md)。
 
 ## 主要功能与入口
 
 | 入口 | 当前功能 |
 |---|---|
 | `/` 开启新任务 | 显式“资源匹配 / 能力发展”两个 Tab；不自动猜测业务模式 |
-| 项目找伙伴 | 项目需求 → 使用现有标签、行业/区域、画像摘要、案例摘要及交付物名称匹配 → 推荐/理由/证据/风险 → 需求画像、项目机会 |
+| 资源匹配 | 项目需求 → 使用现有标签、行业/区域、画像摘要、案例摘要及交付物名称匹配 → 推荐/理由/证据/风险 → 需求画像、项目机会 |
 | `/?mode=development` 能力发展 | 伙伴 + 自然语言方向 → 顾问式建议、资源与缺口 → 解释、比较或自然语言调整 |
 | `/scenes` 场景广场 | 发现并进入已有能力；能力短板分析进入能力发展，伙伴能力/画像/案例查询进入伙伴洞察 |
 | `/partners`、`/partners/{id}` | 伙伴洞察、画像与资料；制定发展建议时带入伙伴上下文 |
-| `/resources`、`/resources/{type}/{id}` | 独立课程/实验/共享案例目录，搜索、筛选、详情和发起来源跳转 |
+| `/resources`、`/resources/{type}/{id}` | 独立课程/实验/当前展示案例目录，搜索、筛选、详情和发起来源跳转 |
 | `/tasks`、`/tasks/{id}` | 两类任务共用历史；创建后即出现，真实状态更新，首批 10 条、独立滚动与加载更多 |
 | `/feedback` | 问题描述与可选截图提交；支持 Ctrl+V 粘贴、多图预览和提交前删除 |
 | `/admin/feedback` | 管理员查看全部反馈及截图，切换待处理／已处理 |
 | `/login`、`/account` | 普通身份 Key 登录与个人中心 |
 | `/admin/login`、`/admin/change-password`、`/admin/account` | 独立管理员密码登录、改密与个人中心 |
 | `/admin/tasks/{id}` | 使用管理员会话查看任务，复用原详情组件 |
-| `/admin/*` | 任务、伙伴/资料/案例共享、资源发布、案例核验、需求画像、项目机会、运营报表、标签、用户、模型、系统状态 |
+| `/admin/*` | 任务、伙伴/资料/案例展示、资源发布、需求画像、项目机会、运营报表、标签、用户、模型、系统状态 |
 
-伙伴详情、匹配结果和共享案例中的发展入口都汇入统一新任务页，并带入允许的来源上下文。`/enablement` 仅保留兼容跳转，不提供另一套用户工作台。
+伙伴详情、匹配结果和当前展示案例中的发展入口都汇入统一新任务页，并带入允许的来源上下文。`/enablement` 仅保留兼容跳转，不提供另一套用户工作台。
 
 - 匹配资料有多少用多少，不要求人工整理或补齐；交付物使用已有名称，不新增摘要字段。画像上下文最多 3000 字符，单案例摘要最多 500 字符。
 - 能力发展解释/讨论不生成版本；修改成功产生新 Version 并自动成为 current；失败继续展示上一个 current。无需确认或采用；历史成功版本和运行记录为二级操作，不展示普通用户高级编辑入口。 继续追问先给结论，再按问题生成 1～3 个主题，以短段落或少量列表呈现；沿用 answer 文本与既有历史存储。
@@ -31,23 +35,41 @@
 
 ## 课程 / 实验资源中心
 
-课程和实验共用岗位、专区分类，均可多选；分类由后台“课程与实验资源 → 管理岗位 / 专区分类”新增、改名和排序。同一资源仍只有一个 ID，分类筛选不会复制资源。层级为基础/进阶，目录按岗位或专区浏览，保留搜索。案例维持原有目录、共享核验及授权流程。
+课程和实验共用岗位、专区分类，均可多选；分类由后台“课程与实验资源 → 管理岗位 / 专区分类”新增、改名和排序。同一资源仍只有一个 ID，分类筛选不会复制资源。层级为基础/进阶，目录按岗位或专区浏览，保留搜索。伙伴案例按独立的“展示”开关控制，详见下文。
 
 课程录入名称、简介、岗位、专区、层级、跳转链接，以及课程目标、目标学员、大纲和可选外部封面链接；课程不展示或录入时长，实验保留时长并补充实验目标、基本要求。课程/实验不再维护费用、语言、站点、来源平台、旧难度或成组账号环境条件，不再要求能力标签与人工核验。保存草稿、独立用途授权、发布/下架和历史版本继续保留；来源跳转只记录发起，不表示学习完成。
 
 AI 按名称、简介、分类、层级、课程目标/大纲、实验目标检索。岗位/专区为辅助信号，不作硬限制；已有有效能力标签仅作内部信号，新增资源无需维护。旧快照通过只读映射保持可读，不回填或重建：入门映射基础，原进阶/高级映射进阶，未知层级显示待补充，下次发布须选择明确层级；既有未分类资源继续出现在“全部”中。历史方案仍按原版本和权限引用资源。
 
-分类复用 `app_metadata.enablement_resource_categories`，schema 仍为 16。已有库通过 `scripts/initialize_resource_categories.py --backup-dir <新的私有备份目录>` 显式初始化；先 pg_dump，再事务写入一条配置，已存在则保留管理员修改，不自动重置。运行前沿用私有环境配置，脚本只允许本机 banfei_agent。代码回退可保留分类配置和新资源版本，不应恢复旧库覆盖后续业务数据。验证见 [资源中心精简记录](docs/validation/RESOURCE_CENTER_VALIDATION.md)。
+分类复用 `app_metadata.enablement_resource_categories`，该分类功能不新增表（当时 schema 16）。已有库通过 `scripts/initialize_resource_categories.py --backup-dir <新的私有备份目录>` 显式初始化；先 pg_dump，再事务写入一条配置，已存在则保留管理员修改，不自动重置。运行前沿用私有环境配置，脚本只允许本机 banfei_agent。代码回退可保留分类配置和新资源版本，不应恢复旧库覆盖后续业务数据。验证见 [资源中心精简记录](docs/validation/RESOURCE_CENTER_VALIDATION.md)。
 
 华为云课程/实验已按现有资源模型预置，并用登录后的官方详情补全课程目标、学员和大纲等信息；采用来源 ID 去重、备份后事务更新，异常来源保留草稿或列入未导入清单。现有资源及历史引用保留，不自动同步或覆盖管理员维护。范围、缺失字段、工具和验证见 [华为云资源导入记录](docs/validation/HUAWEI_RESOURCE_IMPORT.md)。
 
+## 伙伴资料、案例与画像
+
+管理员通过 **后台 → 伙伴资料** 统一管理案例与资料；伙伴详情的“管理资料”打开同一个 `/admin/partner-materials` 页面并带入伙伴筛选，新增自动填写该伙伴。页面按一级分类横线分组、每行 3 张卡片，支持伙伴/两级分类/名称筛选与分页跳转；一个案例的多份附件仍只有一张卡片。所有文件必须归属伙伴。只接收 **PDF、TXT、Markdown、DOCX、PPTX、HTML**（md/markdown、html/htm 为别名）；同一份 [格式与分类清单](shared/partner-materials.json) 供前后端使用。仅提取原生文字和普通表格，不安装 OCR、不识别图片、不支持旧版 Office。原件完整保存在私有上传目录，全文缓存保存到 PostgreSQL。
+
+- 在线查看：PDF 直接预览，TXT 保留换行，Markdown/HTML 安全静态渲染，禁用脚本、外部图片和外链抓取。DOCX/PPTX 用本机 LibreOffice 转 PDF 并缓存；图片仍可自然显示在原件/预览中，但不进入模型输入。
+- 文件状态：处理中、已处理、无可提取文字、处理失败。失败保留原件并可重试；预览失败不抹掉已提取文字。打开页面和更新画像只复用缓存，不重新解析文件。
+- 案例表单：关联伙伴、标题、两级分类、多份文件、可选简介。使用已确认的 3 大类 / 18 个二级分类。**只有“展示”开关**：打开后普通用户可查看案例和全部当前附件，修改即时生效；关闭后目录、详情及旧文件链接均不可访问。没有共享版本、案例发布、核验、绑定或独立用途授权流程。旧共享入口跳至该伙伴的统一资料页面。
+- 伙伴详情只保留基本信息、资料快捷入口和画像区域。DOCX 导入画像完整提取后直接采用，不经 AI 重写；失败保留旧画像。画像原件仅在画像区域查看/下载，不混入分类目录。完整画像及未展示资料仅管理员可见。
+- 旧独立资料显示为待分类；管理员编辑归类时，在同一事务中复用原文件 ID、路径及缓存，转入现有案例/附件记录，不复制原件、不重新解析。现有案例 ID 不变。新增/编辑仍复用案例接口，只有目录查询和旧资料归类增加管理入口，不改 schema。文件替换先校验再生效，保留文件 ID；失败校验不覆盖旧文件。
+- 手动更新：资料保存后可选择现在更新/暂不更新；新增、替换、删除资料使画像待更新，均不自动生成。使用完整缓存输入；默认上限 `BANFEI_PROFILE_INPUT_MAX_CHARS=60000` 字，超限明确提示并保留旧画像。更新失败、处理未结束、并发材料/画像变化均不覆盖当前画像。
+- 既有任务结果仍保留，案例链接按当前展示状态读取；课程/实验及 Plan/Run/Version/current 可靠性机制保持不变。
+
+运行依赖：Python 使用 `backend/requirements.txt`；系统预装 `libreoffice-writer libreoffice-impress fonts-noto-cjk`。转换只在本地执行，可用私有 `LIBREOFFICE_BIN` 指定已有可执行文件，不会运行时安装软件或下载模型。
+
+本地 **16 → 17 已迁移完成，不要重跑**。下面仅说明其他仍处于 schema 16 的环境如何显式升级，不表示本次提交要再次迁移。schema **16 → 17** 使用 `scripts/migrate_partner_materials.py --backup-dir <新的私有备份目录>`，沿用私有 DATABASE_URL。先创建并检查完整 pg_dump，再事务补充分类、展示、处理/预览及画像待更新字段，移除旧案例共享/核验表。保留全部业务行、UUID、原件及内部原文；旧公开摘要不同于原文时留在既有审计和完整备份中，该案例默认不展示，避免扩大可见范围。旧案例分类不猜测，显示待分类。回退须停服，在独立库核验恢复备份后人工切换配置，不自动覆盖现库。详见 [伙伴资料验证记录](docs/validation/PARTNER_MATERIALS_VALIDATION.md)。
+
 ## 技术与安全边界
 
-Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 16**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
+Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 17**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
 
-保留 `user/admin`、后端管理权限和任务 owner 隔离。普通用户首次访问自动建立身份，浏览器记住会话；长期身份 Key 可在其他浏览器恢复同一用户，不再注册、审批、使用密码或 Passkey。管理员通过独立入口保留密码登录和首次改密；没有固定默认凭据。系统可见、模型可发送、伙伴可外发分别校验；共享案例使用当前授权共享版本。伙伴可传递视图只取 current 版本并实时重检权限，复制时校验预览版本仍为 current，不输出内部诊断或备注。
+保留 `user/admin`、后端管理权限和任务 owner 隔离。普通用户首次访问自动建立身份，浏览器记住会话；长期身份 Key 可在其他浏览器恢复同一用户，不再注册、审批、使用密码或 Passkey。管理员通过独立入口保留密码登录和首次改密；没有固定默认凭据。课程/实验的系统可见、模型可发送、伙伴可外发分别校验；伙伴案例只检查当前展示开关与伙伴启用状态。伙伴可传递视图只取 current 版本并实时重检权限，复制时校验预览版本仍为 current，不输出内部诊断或备注。
 
 Plan / Run / Version、current、幂等、版本冲突、事务、超时、中断及撤权保护继续保留。confirmed 字段及已有值仅保留数据库，不参与能力发展流程；原确认接口停用。能力发展列表只显示生成中、已生成、生成失败、已归档；调整失败但已有 current 时仍为已生成，失败详情在任务详情和运行记录中查看。资源跳转不等于学习完成；没有 LMS 或正式能力认证。健康度仍等待外部平台，不自行扩展评分。
+
+伙伴目录和后台资料目录桌面每行 3 张卡片；后台可交互卡片与前台课程/伙伴卡片共用悬停阴影、轻微上移和键盘焦点，减少动画偏好时取消位移。运营报表四项筛选在桌面同排，窄屏自适应，更新数据时保留控件焦点。
 
 视觉保持黑白灰 + 华为红 `#C7000B`、现有红色图标和伴飞 Agent 字标；Latin/数字 Web Font 从本地加载，中文按系统 fallback。字体二进制不进 Git，换机器按 [字体来源与复现说明](docs/design/HUAWEI_CLOUD_FONT_SOURCES.md) 获取；不要重新设计 Logo。
 
@@ -107,8 +129,8 @@ Key 文件格式错误在浏览器内提示；Key 格式错误、未知/旧版�
 - v12 升级到 v13 使用 `scripts/migrate_local_identity.py --backup-dir <新的私有备份目录>`，由既有私有配置提供 DATABASE_URL。先 pg_dump，后事务新增凭据/challenge 表、放宽普通用户密码列并约束管理员密码；不重建库、不自动删除旧用户。失败回滚；回退须连同认证代码和备份一起评估，不能把 v12 程序直接指向新增无密码身份的数据。
 - v13 升级到 v14 使用 `scripts/migrate_user_activity.py --backup-dir <新的私有备份目录>`，仅增加可空 `users.last_active_at`，不删除业务数据；先备份后事务执行，失败回滚。当前库已迁移，不重复执行。回退应停止服务并协调代码/schema 版本；新增时间列可保留，不需要重建数据库。
 - v14 升级到 v15 使用 `scripts/migrate_identity_keys.py --backup-dir <新的私有备份目录>`，先备份后在单一事务新增 `user_identity_keys`（user_id 主键、唯一 Key 摘要、密文及创建时间），不修改既有用户/凭据/业务行；失败自动回滚。v15 迁移已执行，不重复执行。回退须先停止服务、保留 v15 数据和私有密钥备份，再协调代码/schema；已产生 Key 用户后不可直接回退旧认证或用旧库覆盖新增数据。
-- v15 升级到 v16 使用 `scripts/migrate_revoked_identity_keys.py --backup-dir <新的私有备份目录>`，先 pg_dump，再事务新增 `revoked_identity_keys(key_hash PRIMARY KEY, revoked_at)`，不改既有用户/Key/业务行，不回填历史删除。运行库须显式迁移，不自动升级；失败回滚，重复执行保留已有失效记录。回退须停服并协调代码/schema，保留新增失效记录；不能恢复旧库覆盖后续数据，也不能用旧代码执行会漏记失效摘要的删除。
-- 38 张表（包括保留的旧身份表及新增 Key 映射）的映射位于 [storage_models.py](backend/app/storage_models.py)。保留现有 UUID、外键、JSON 文本、时间和标志字段；当前 schema version 为 16。
+- v15 升级到 v16 使用 `scripts/migrate_revoked_identity_keys.py --backup-dir <新的私有备份目录>`，先 pg_dump，再事务新增 `revoked_identity_keys(key_hash PRIMARY KEY, revoked_at)`，不改既有用户/Key/业务行，不回填历史删除。本机 v16 迁移已完成，现已升至 v17，不重复执行；其他旧环境须显式升级，失败回滚，重复执行保留已有失效记录。回退须停服并协调代码/schema，保留新增失效记录；不能恢复旧库覆盖后续数据，也不能用旧代码执行会漏记失效摘要的删除。
+- 35 张表（包括保留的旧身份表及新增 Key 映射）的映射位于 [storage_models.py](backend/app/storage_models.py)。保留现有 UUID、外键、JSON 文本、时间和标志字段；当前 schema version 为 17。
 - `match_records.last_error_details` 是 v12 内已落地的可空增量列；当前环境已完成迁移，不因阅读文档再次执行。
 - [SQLite → PostgreSQL 工具](scripts/migrate_sqlite_to_postgres.py) 只用于经授权的一次性迁移：SQLite backup API、原库只读、空目标库、事务导入和逐表对账。
 - [任务错误详情迁移工具](scripts/migrate_task_failure_details.py) 先 `pg_dump`，再事务加列和校验；不能替代业务数据备份策略。
@@ -129,7 +151,7 @@ PostgreSQL 保存 `feedback_issue`、`feedback_attachment`，图片位于现有�
 .venv/bin/python scripts/migrate_feedback.py --backup-dir <新的私有备份目录>
 ```
 
-工具仅允许本机 `banfei_agent`：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和当时的 schema version 12；本机身份迁移再将版本升至 13。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。旧 v12 SQLite 快照缺少反馈表时仍可用于原有显式导入工具，目标反馈表初始化为空；日常运行继续使用 PostgreSQL。
+工具仅允许本机 `banfei_agent`：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和当时的 schema version 12；本机身份迁移再将版本升至 13。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。旧 SQLite 快照需先在私有副本上升级到当前 schema，才可使用当前映射导入空验证目标；不修改原快照。日常运行继续使用 PostgreSQL。
 
 相关验证：`run_postgres_validation.py backend -q -k feedback`；`run_postgres_validation.py browser feedback.spec.ts`。均须使用专用验证库及 `/tmp` 上传目录，不能对业务库执行测试。验证范围与结果见 [反馈验证记录](docs/validation/FEEDBACK_VALIDATION.md)。
 
@@ -137,7 +159,7 @@ PostgreSQL 保存 `feedback_issue`、`feedback_attachment`，图片位于现有�
 
 日常业务及人工体验使用已批准的 **`api.deepseek.com` / `deepseek-v4-flash`**。七个场景：`default`、`partner_profile`、`partner_match`、`demand_profile`、`tag_suggestion`、`recommendation_summary`、`partner_development`，均显式绑定现有启用配置。
 
-用户已授权按现有权限发送所需伙伴资料/画像、案例说明、项目需求、对话及授权资源，伙伴画像生成包括上传文档提取文本。能力发展仍按最小上下文排除内部附件和案例原文。不擅自改模型、Key、默认绑定或供应商，不自动批量处理业务材料。
+用户已授权按现有权限发送所需伙伴资料/画像、案例说明、项目需求、对话及授权资源，伙伴画像生成包括上传文档提取文本。能力发展仍按最小上下文排除内部附件和未展示案例原文。不擅自改模型、Key、默认绑定或供应商，不自动批量处理业务材料。
 
 项目找伙伴和能力发展入口先进行独立的 Scope Gate：复用各自现有模型，仅以输入和必要追问方向判断 `{"in_scope": true/false}`，不读取候选伙伴/资源。跑题返回固定范围提示，不创建任务、推荐、画像、机会或 Version，也不计入最近错误；调用/解析失败才记录系统错误。范围内追问、信息不足和混合请求放行，生成模型只处理业务相关部分。判定使用低温度、64 个输出 Token 上限和 15 秒时限，不增加模型场景或数据库结构。验证见 [Scope Gate 记录](docs/validation/SCOPE_GATE_VALIDATION.md)。
 
@@ -166,12 +188,12 @@ PLAYWRIGHT_MODEL_MODE=replay .venv/bin/python scripts/run_postgres_validation.py
 
 - 开发、build、Playwright 不得同时写同一 `.next`；可在独立构建目录验证。
 - 默认 UI 子集以 [Playwright 配置](frontend/playwright.config.ts) 的 `testMatch` 为准，不在文档写固定数量。`opportunity-ui.spec.ts` 已单独验证，尚不在默认子集中；完整 replay 会包含它。
-- 默认后端口径由 `pytest.ini` 排除 `archived` 标记；`test_pilot_import.py` / `test_pilot_intake.py` 仅作历史保留，不计入当前正式测试或通过数。显式查看归档清单见 [Pilot 归档说明](pilot-data/README.md)。
+- 默认后端口径由 `pytest.ini` 排除 `archived` 标记；`test_pilot_import.py` / `test_pilot_intake.py` 仅作历史保留，不计入当前正式测试或通过数。历史清单和当前收集边界见 [Pilot 归档说明](pilot-data/README.md)。
 - 未配置 PostgreSQL 验证库的普通 pytest 可能仅验证 SQLite 兼容路径，不能据此宣布 PostgreSQL 全量通过。
 - 真实接口 smoke 使用现有 `scripts/verify_real_model.py`，最多两次合成请求；不读伙伴附件，不建业务任务。故障回放与真实供应商测试分别记录。
 - 版本化测试记录仅证明对应提交/范围；工程、真实模型兼容、真实资源与业务验收分别判断，不相互替代。业务样例填写 [现行业务验收模板](docs/validation/REAL_BUSINESS_ACCEPTANCE_TEMPLATE.md)，不由工具代填结论。
 
-此前分组提交与三项历史 Pilot 失败保留在 [2026-09-25 Git 收口记录](docs/validation/GIT_CLOSEOUT_20260925.md)。后续已核实旧工具没有现行调用，将整套 Pilot 测试归档；当前正式后端测试结果及归档边界见 [Pilot 归档核验](docs/validation/PILOT_ARCHIVE_20260925.md)。归档工具不属于当前支持范围，历史失败没有被改写为通过。
+此前分组提交与三项历史 Pilot 失败保留在 [2026-09-25 Git 收口记录](docs/validation/GIT_CLOSEOUT_20260925.md)。后续已核实旧工具没有现行调用，将整套 Pilot 测试归档；归档边界见 [Pilot 归档核验](docs/validation/PILOT_ARCHIVE_20260925.md)；其中 788 项是归档当时的通过数，最新回归结果见 [2026-09-26 收口记录](docs/validation/GIT_CLOSEOUT_20260926.md)。归档工具不属于当前支持范围，历史失败没有被改写为通过。
 
 ## 文档边界
 

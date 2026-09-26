@@ -12,15 +12,9 @@
 
 ## 测试边界
 
-两份历史测试统一标记 `archived`，由根目录 `pytest.ini` 默认排除；普通 pytest 和正式 PostgreSQL 验证入口采用相同口径。不是仅跳过三个失败断言，也不将排除的历史测试计为通过。当前功能的资源、导入、权限、事务、迁移与生命周期测试继续保留。
+两份历史测试统一标记 `archived`，根目录 `pytest.ini` 默认排除。schema 17 移除旧案例 API 后，`backend/tests/conftest.py` 还在默认收集阶段排除这两个模块，避免导入已经退出当前架构的契约。普通 pytest 和正式 PostgreSQL 验证入口口径一致；88 项归档数量来自归档当时的收集记录，不计为当前通过数。
 
-如需检查历史测试清单，可显式选择归档标记（只收集，不执行夹具或导入）：
-
-```bash
-.venv/bin/python -m pytest backend/tests/test_pilot_import.py backend/tests/test_pilot_intake.py -m archived --collect-only -q
-```
-
-移除 `--collect-only` 会显式执行历史测试，仅用于独立的 `/tmp` SQLite 兼容调查；可能失败，不属于当前支持或发布验证。本次只核对清单，没有执行历史导入、取证、报告或真实模型预检。
+查阅历史清单请打开两份测试源码及 [2026-09-25 归档记录](../docs/validation/PILOT_ARCHIVE_20260925.md)。当时的 `-m archived --collect-only` 结果仅证明当时基线可收集；pytest 收集本身会导入 Python 模块，当前 schema 17 不保证该命令还能运行。因此不再将它作为当前核验指令，不执行历史夹具，也不恢复旧 API 来满足它。需要调查历史行为时先明确旧提交与隔离环境，不能对现有工作区/运行库回退、seed 或导入。
 
 - [本次归档核验](../docs/validation/PILOT_ARCHIVE_20260925.md)
 - [历史接收说明](../docs/archive/v1.1/pilot-data/README.md)

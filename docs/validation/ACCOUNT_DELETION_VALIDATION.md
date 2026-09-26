@@ -1,3 +1,5 @@
+> **阶段验证记录。** 本文的提交状态、HEAD 和测试数字属于当时基线；当前状态见 [2026-09-26 收口记录](GIT_CLOSEOUT_20260926.md)，现行规则见 [README](../../README.md)。
+
 # 账号逻辑删除验证
 
 日期：2026-09-25。工作区：`/home/yuan/project/lingjian-agent-enablement`，分支 main，HEAD `7a73e1825067ba466830578443225a912e54ef5e`。本轮及此前未提交修改均保留，未 commit、push 或 deploy。
