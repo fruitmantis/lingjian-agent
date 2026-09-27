@@ -24,7 +24,7 @@ def clarify(body:DevelopmentRequest,user:dict=Depends(require_active_user)):retu
 @router.post('/plans',status_code=202)
 def create(body:Submit,user:dict=Depends(require_active_user)):
     result=life.create(body,user)
-    if not result['replayed']:executor.submit(engine.execute,result['run_id'])
+    if result.get('run_id') and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
     return result
 
 @router.get('/plans/{plan_id}')
@@ -42,7 +42,7 @@ def submission(submission_id:str,user:dict=Depends(require_active_user)):
 @router.post('/plans/{plan_id}/revise',status_code=202)
 def revise(plan_id:str,body:Revise,user:dict=Depends(require_active_user)):
     result=life.revise(plan_id,body,user)
-    if not result['replayed']:executor.submit(engine.execute,result['run_id'])
+    if result.get('run_id') and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
     return result
 
 @router.post('/plans/{plan_id}/edit')
@@ -74,5 +74,5 @@ class RetryRun(BaseModel):
 @router.post('/plans/{plan_id}/retry',status_code=202)
 def retry(plan_id:str,body:RetryRun,user:dict=Depends(require_active_user)):
     result=life.retry(plan_id,body,user)
-    if not result['replayed']:executor.submit(engine.execute,result['run_id'])
+    if result.get('run_id') and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
     return result

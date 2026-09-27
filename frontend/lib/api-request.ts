@@ -9,14 +9,16 @@ function requestPath(input: RequestInfo | URL): string {
 export function requestTimeoutMs(input: RequestInfo | URL, method = "GET"): number {
   const path = requestPath(input);
   if (method.toUpperCase() === "POST") {
-    // Match: 180 + 30 + 30 + 60 seconds; scan: at most 10 × 30 seconds.
-    if (path === "/agent/match" || /^\/agent\/tasks\/[^/]+\/retry$/.test(path)
-      || path === "/admin/capability-tags/suggestions/scan") return 360_000;
+    // Legacy synchronous match: scope (180) + match/extractions (300), with headroom.
+    if (path === "/agent/match" || /^\/agent\/tasks\/[^/]+\/retry$/.test(path)) return 510_000;
+    if (path === "/admin/capability-tags/suggestions/scan") return 360_000;
     // Structured extraction + narrative: 60 + 90 seconds.
     if (/^\/partners\/[^/]+\/profile$/.test(path)) return 180_000;
-    // Development conversation: scope check + one model call (up to 180 seconds).
-    if (/^\/development\/plans\/[^/]+\/conversation$/.test(path)) return 240_000;
-    if (/^\/admin\/model-configs\/[^/]+\/test$/.test(path)) return 45_000;
+    // Each structured call follows the saved model timeout, capped at 180 seconds.
+    if (/^\/development\/plans\/[^/]+\/conversation$/.test(path)) return 390_000;
+    if (path === "/agent/tasks" || path === "/development/plans"
+      || /^\/development\/plans\/[^/]+\/(revise|retry)$/.test(path)
+      || /^\/admin\/model-configs\/[^/]+\/test$/.test(path)) return 210_000;
   }
   return 30_000;
 }

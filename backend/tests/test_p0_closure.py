@@ -100,7 +100,7 @@ def test_development_status_no_runs_and_invalid_explicit_binding(client, safe_st
     assert '配置可用' in d['message']
     with get_db() as conn:
         conn.execute("UPDATE model_usage_configs SET model_config_id='missing' WHERE scene_key='partner_development'")
-    assert status_data(client, safe_status)['status'] == 'error'
+    assert status_data(client, safe_status)['status'] == 'unknown'
 
 
 @pytest.mark.parametrize('state,label', [('pending','等待执行'),('running','执行中'),('ready','已完成'),('partial','部分完成'),('failed','失败'),('interrupted','已中断')])

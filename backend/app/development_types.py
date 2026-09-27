@@ -1,6 +1,6 @@
 """Strict request and generated plan contracts. Unknown fields never reach persistence."""
 from typing import Literal
-from pydantic import Field
+from pydantic import Field, StrictBool
 from .enablement import StrictModel
 
 class Target(StrictModel):
@@ -131,3 +131,32 @@ class ConversationOutput(StrictModel):
     kind: Literal['explain','revise']
     answer: str=Field(default='',max_length=5000)
     references: list[Ref]=Field(default_factory=list,max_length=30)
+
+
+class Understanding(DirectionAnalysis):
+    in_scope: StrictBool
+    action: Literal['answer','generate','patch','regenerate']
+    effective_direction: str=Field(max_length=4000)
+    effective_constraints: dict[str,str]=Field(default_factory=dict,max_length=8)
+    answer: str=Field(default='',max_length=5000)
+    references: list[Ref]=Field(default_factory=list,max_length=30)
+    edit_item_ids: list[str]=Field(default_factory=list,max_length=50)
+    edit_answer_spans: list[str]=Field(default_factory=list,max_length=20)
+
+
+class ItemChange(StrictModel):
+    action: Literal['remove','replace','add_after']
+    item_id: str
+    items: list[ResourceItem]=Field(default_factory=list,max_length=10)
+
+
+class AnswerChange(StrictModel):
+    before: str=Field(min_length=1,max_length=5000)
+    after: str=Field(max_length=5000)
+
+
+class AdvicePatch(StrictModel):
+    target_partner_id: str
+    changes: list[ItemChange]=Field(default_factory=list,max_length=50)
+    answer_changes: list[AnswerChange]=Field(default_factory=list,max_length=20)
+    answer: str=Field(min_length=1,max_length=3000)

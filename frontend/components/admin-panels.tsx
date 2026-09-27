@@ -539,6 +539,12 @@ export function ModelConfigTab() {
   async function setDefault(c: any) {
     await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/${c.id}/default`, { method: "PATCH" }));
   }
+  async function deleteConfig(c: any) {
+    if (saving || testing === c.id) return;
+    const routing = "请确认仍有可用的场景首选或系统默认。当前运行尚未发出的模型调用将停止，已有结果保留。";
+    if (!window.confirm(`确定删除模型配置“${c.name}”？删除后无法恢复，任务和历史结果保留。${routing}`)) return;
+    await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/${c.id}`, { method: "DELETE" }));
+  }
   async function testConn(c: any) {
     setTesting(c.id); setTestResult(null);
     try {
@@ -619,11 +625,12 @@ export function ModelConfigTab() {
                       {ic ? (
                         <div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(c.id)} className="table-save" aria-label="保存">✓</button><button disabled={saving} onClick={cancelEdit} className="table-cancel" aria-label="取消">✕</button></div>
                       ) : (
-                        <div style={{ display: "flex", gap: "4px" }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                           <button onClick={() => startEdit(c)} className="secondary-btn" >编辑</button>
                           <button onClick={() => testConn(c)} disabled={testing === c.id} className="secondary-btn" >{testing === c.id ? "测试中" : "测试"}</button>
                           <button disabled={saving} onClick={() => toggleEnable(c)} className="secondary-btn" >{c.enabled ? "停用" : "启用"}</button>
                           {!c.isDefault && c.enabled && <button disabled={saving} onClick={() => setDefault(c)} className="secondary-btn" >设默认</button>}
+                          <button disabled={saving || testing === c.id || Boolean(editingId) || isNew} onClick={() => deleteConfig(c)} className="secondary-btn danger-outline">删除</button>
                         </div>
                       )}
                     </td>
@@ -637,15 +644,15 @@ export function ModelConfigTab() {
 
       <section className="card">
         <h2>业务场景模型配置</h2>
-        <p className="placeholder-text">未绑定时依次使用默认场景、启用的默认模型、首个启用模型或环境变量配置。显式绑定的模型不可用时会报错。</p>
+        <p className="placeholder-text">场景配置只指定首选模型。未设置、已删除或停用时，依次使用系统默认场景或启用的默认模型；均不可用时提示配置错误。一次运行固定选型，配置停用或删除后尚未发出的调用停止，已有结果保留。</p>
         <div style={{ marginTop: "12px" }}>
           {usages.map((u) => (
             <div key={u.sceneKey} className="ui-model-binding">
-              <div><span style={{ fontSize: "14px", fontWeight: 600 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "使用默认配置"}</span></div>
+              <div><span style={{ fontSize: "14px", fontWeight: 600 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "自动选择模型"}</span></div>
               {u.sceneKey === "recommendation_summary" && <span className="placeholder-text">当前暂无独立调用，推荐理由随伙伴匹配生成。</span>}
               <select aria-label={`${u.sceneName}模型`} disabled={saving} value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} >
-                <option value="">使用默认配置</option>
-                {u.modelConfigId && !configs.some(c => c.id === u.modelConfigId && c.enabled) && <option value={u.modelConfigId} disabled>{u.modelConfigName || "原绑定模型"}（不可用，请重新选择）</option>}
+                <option value="">自动选择模型</option>
+                {u.modelConfigId && !configs.some(c => c.id === u.modelConfigId && c.enabled) && <option value={u.modelConfigId} disabled>{u.modelConfigName || "原首选模型"}（不可用，新运行使用系统默认）</option>}
                 {configs.filter(c => c.enabled).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>

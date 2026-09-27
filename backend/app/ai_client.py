@@ -1,8 +1,9 @@
 """OpenAI-compatible LLM client using httpx."""
 
+import json
 import httpx
 from urllib.parse import urlsplit
-from .model_resolver import ModelConfigurationError, resolve_model_config
+from .model_resolver import ModelConfigurationError, ResolvedModelConfig, resolve_model_config
 
 
 def provider_request_options(base_url: str, model: str) -> dict:
@@ -12,6 +13,23 @@ def provider_request_options(base_url: str, model: str) -> dict:
     return {}
 
 
+def completion_payload(config: ResolvedModelConfig, messages: list[dict], schema: dict | None = None) -> dict:
+    payload = {
+        "model": config.model, "messages": messages,
+        "temperature": config.temperature, "top_p": config.top_p, "max_tokens": config.max_tokens,
+        **provider_request_options(config.base_url, config.model),
+    }
+    if schema is not None:
+        # JSON mode is portable; field/permission validation remains in the application.
+        instruction = "Return only a JSON object matching this JSON schema. No extra fields: " + json.dumps(schema, ensure_ascii=False)
+        if messages and messages[0].get("role") == "system":
+            messages = [{**messages[0], "content": messages[0]["content"] + "\n\n" + instruction}, *messages[1:]]
+        else:
+            messages = [{"role": "system", "content": instruction}, *messages]
+        payload.update(messages=messages, response_format={"type": "json_object"})
+    return payload
+
+
 class ModelResponseError(RuntimeError):
     """The upstream response is empty, malformed or incomplete."""
 
@@ -19,7 +37,7 @@ class ModelResponseError(RuntimeError):
 def model_error_message(error: Exception) -> str:
     """Return only fixed public messages, never upstream bodies, URLs or exceptions."""
     if isinstance(error, ModelConfigurationError):
-        return "业务场景绑定的模型不存在或已停用，请管理员检查模型配置"
+        return "暂无可用模型，请管理员检查启用状态和连接配置"
     if isinstance(error, httpx.TimeoutException):
         return "模型响应超时，请稍后重试"
     if isinstance(error, httpx.HTTPStatusError):
@@ -79,15 +97,8 @@ def chat_completion(messages: list[dict], timeout: int | None = None, scene: str
 
         url = f"{cfg.base_url.rstrip('/')}/chat/completions"
         headers = {"Authorization": f"Bearer {cfg.api_key}", "Content-Type": "application/json"}
-        payload = {
-            "model": cfg.model,
-            "messages": messages,
-            "temperature": cfg.temperature,
-            "top_p": cfg.top_p,
-            "max_tokens": cfg.max_tokens,
-        }
-        payload.update(provider_request_options(cfg.base_url, cfg.model))
-        actual_timeout = cfg.timeout_seconds if timeout is None else timeout
+        payload = completion_payload(cfg, messages)
+        actual_timeout = cfg.timeout_seconds if timeout is None else min(timeout, cfg.timeout_seconds)
 
         with httpx.Client(timeout=actual_timeout) as client:
             resp = client.post(url, headers=headers, json=payload)

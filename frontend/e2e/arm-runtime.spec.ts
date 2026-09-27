@@ -19,12 +19,16 @@ test("HTTP origins without randomUUID keep safe unique submission IDs", () => {
 
 test("same-origin proxy preserves direct API model request budgets", () => {
   const cases: [string, string, number][] = [
-    ["/agent/match", "POST", 360_000],
-    ["/agent/tasks/task-id/retry", "POST", 360_000],
+    ["/agent/match", "POST", 510_000],
+    ["/agent/tasks/task-id/retry", "POST", 510_000],
     ["/partners/partner-id/profile", "POST", 180_000],
-    ["/admin/model-configs/model-id/test", "POST", 45_000],
+    ["/admin/model-configs/model-id/test", "POST", 210_000],
+    ["/agent/tasks", "POST", 210_000],
+    ["/development/plans", "POST", 210_000],
+    ["/development/plans/plan-id/revise", "POST", 210_000],
+    ["/development/plans/plan-id/retry", "POST", 210_000],
     ["/agent/tasks", "GET", 30_000],
-    ["/development/plans/plan-id/conversation", "POST", 240_000],
+    ["/development/plans/plan-id/conversation", "POST", 390_000],
   ];
   for (const [path, method, budget] of cases) {
     expect(requestTimeoutMs("http://localhost:8000" + path, method)).toBe(budget);
@@ -39,5 +43,5 @@ test("optional proxy leaves direct development config unchanged", () => {
   expect(run({})).toEqual({ rules: [] });
   const proxy=run({ BANFEI_API_PROXY_TARGET: "http://localhost:8000", BANFEI_BUILD_CPUS: "1" });
   expect(proxy.rules).toEqual([{ source: "/api/:path*", destination: "http://localhost:8000/:path*" }]);
-  expect(proxy.experimental).toEqual({ cpus: 1, proxyTimeout: 420_000 });
+  expect(proxy.experimental).toEqual({ cpus: 1, proxyTimeout: 600_000 });
 });

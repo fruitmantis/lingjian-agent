@@ -4,14 +4,14 @@ import uuid
 import time
 from datetime import datetime, timezone
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 from ..database import get_db
-from ..auth import require_admin
+from ..auth import require_admin, record_audit
 from ..model_resolver import _resolve_api_key
-from ..ai_client import _completion_content, model_error_message
+from ..ai_client import ModelResponseError, model_error_message
+from .. import development_model
 
 
 router = APIRouter(prefix="/admin/model-configs", tags=["model-configs"], dependencies=[Depends(require_admin)])
@@ -79,6 +79,11 @@ class TestResult(BaseModel):
     latencyMs: int | None = None
 
 
+class _ConnectionProbe(BaseModel):
+    model_config = {"extra": "forbid"}
+    ok: StrictBool
+
+
 def _to_out(r) -> ModelConfigOut:
     return ModelConfigOut(
         id=r["id"], name=r["name"], provider=r["provider"], baseUrl=r["base_url"],
@@ -114,6 +119,7 @@ def create_config(payload: ModelConfigCreate) -> ModelConfigOut:
 def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
@@ -147,10 +153,34 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
     return _to_out(row)
 
 
+@router.delete("/{mc_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_config(mc_id: str, admin: dict = Depends(require_admin)) -> None:
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute("SELECT name, provider, model_name, is_default FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
+        if row is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
+        usages = conn.execute(
+            "SELECT scene_key FROM model_usage_configs WHERE model_config_id = ? ORDER BY scene_key", (mc_id,),
+        ).fetchall()
+        runs = conn.execute("SELECT id, status FROM development_runs WHERE model_config_id = ? ORDER BY id", (mc_id,)).fetchall()
+        # The historical model reference is provenance, not a task dependency.
+        # Preserve it in the existing audit log without retaining connection secrets.
+        conn.execute("UPDATE development_runs SET model_config_id = NULL WHERE model_config_id = ?", (mc_id,))
+        conn.execute("UPDATE model_usage_configs SET model_config_id = NULL, updated_at = ? WHERE model_config_id = ?", (datetime.now(timezone.utc).isoformat(), mc_id))
+        conn.execute("DELETE FROM model_configs WHERE id = ?", (mc_id,))
+        record_audit(conn, "model_config_deleted", actor_user_id=admin["id"], summary={
+            "model_config_id": mc_id, "name": row["name"], "provider": row["provider"],
+            "model_name": row["model_name"], "historical_run_ids": [run["id"] for run in runs],
+            "scene_keys": [usage["scene_key"] for usage in usages],
+        })
+
+
 @router.patch("/{mc_id}/enable", response_model=ModelConfigOut)
 def toggle_enable(mc_id: str, enabled: bool = True) -> ModelConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
@@ -163,6 +193,7 @@ def toggle_enable(mc_id: str, enabled: bool = True) -> ModelConfigOut:
 def set_default(mc_id: str) -> ModelConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ? AND enabled = 1", (mc_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="配置不存在或已停用，无法设为默认")
@@ -179,33 +210,20 @@ def test_connection(mc_id: str) -> TestResult:
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
 
-    import os
-    from ..error_diagnostics import bind_context, register_secret, model_response, record_error
-    bind_context(stage="model_test")
+    from ..error_diagnostics import bind_context, record_error
+    bind_context(stage="model_test", model=row["model_name"])
     api_key = _resolve_api_key(row)
-    register_secret(api_key)
-    base_url = row["base_url"] or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-    model = row["model_name"] or os.getenv("LLM_MODEL", "gpt-4o")
-
-    bind_context(model=model)
     if not api_key:
         record_error(ValueError("Model API credential is not configured"))
         return TestResult(success=False, message="API Key 未配置")
 
     try:
-        start = time.time()
-        url = f"{base_url.rstrip('/')}/chat/completions"
-        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        from ..ai_client import provider_request_options
-        payload = {"model": model, "messages": [{"role": "user", "content": "只回复ok"}], "temperature": 0, "max_tokens": 10}
-        payload.update(provider_request_options(base_url, model))
-        with httpx.Client(timeout=30) as client:
-            resp = client.post(url, headers=headers, json=payload)
-            model_response(resp, model)
-            resp.raise_for_status()
-            _completion_content(resp.json())
-        elapsed = int((time.time() - start) * 1000)
-        return TestResult(success=True, message="连接成功", latencyMs=elapsed)
+        start = time.monotonic()
+        raw = development_model.completion(dict(row), [{"role": "user", "content": '请只返回 JSON：{"ok": true}。'}], _ConnectionProbe.model_json_schema())
+        if not _ConnectionProbe.model_validate_json(raw).ok:
+            raise ModelResponseError("Connection probe did not return ok=true")
+        elapsed = int((time.monotonic() - start) * 1000)
+        return TestResult(success=True, message="连接及 JSON 格式校验通过", latencyMs=elapsed)
     except Exception as e:
         record_error(e)
         return TestResult(success=False, message=model_error_message(e))
@@ -234,6 +252,7 @@ def list_usage_configs():
 def update_usage_config(scene_key: str, payload: UsageConfigUpdate) -> UsageConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute("SELECT * FROM model_usage_configs WHERE scene_key = ?", (scene_key,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="场景不存在")

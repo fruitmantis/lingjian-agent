@@ -62,4 +62,22 @@ def response(messages):
  gaps=[]
  if not any(i['source_type']=='lab' for i in items):gaps.append('当前资源库未找到匹配实验，可先使用现有资源。')
  elif any('RAG' in f['name'] for f in analysis['priorities']) and not any(r['source_type']=='lab' and 'rag' in json.dumps(r,ensure_ascii=False).lower() for r in data['candidates']):gaps.append('当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。')
- return {'target_partner_id':partner,'stages':[{'title':'进阶实验' if analysis['intent']=='resources' else '围绕发展重点选择资源','items':items}] if items else [],'answer':'以下是与你的诉求相关的资源。' if analysis['intent']=='resources' else '', 'limitations':[], 'resource_gaps':gaps,'next_steps':[] if analysis['intent']=='resources' else ['由伙伴自主判断准备程度，结合真实项目试跑；新的案例与交付件经既有机制进入画像后，再调整发展建议。']}
+ return {'target_partner_id':partner,'stages':[{'title':'进阶实验' if analysis['intent']=='resources' else '围绕发展重点选择资源','items':items}] if items else [],'answer':'结合现有基础，建议围绕以下重点开展实践：\n\n'+'\n\n'.join(f"{i+1}. {f['name']}：{f['reason']}" for i,f in enumerate(analysis['priorities'])), 'limitations':[], 'resource_gaps':gaps,'next_steps':[] if analysis['intent']=='resources' else ['由伙伴自主判断准备程度，结合真实项目试跑；新的案例与交付件经既有机制进入画像后，再调整发展建议。']}
+
+# Explicit replay-only adaptation for the unified understanding contract.
+_legacy_response = response
+
+def response(messages):
+ data=json.loads(messages[-1]['content']);system=messages[0]['content']
+ if 'analyze' not in system:return _legacy_response(messages)
+ result=_legacy_response(messages)
+ if 'target_partner_id' not in result:return result
+ current=data.get('current');message=data.get('message','');direction=data['request']['development_direction']
+ action='generate';answer=''
+ if result['intent']=='explore':
+  action='answer';answer='可以考虑以下方向：\n\n'+'\n\n'.join(f"{i+1}. {f['name']}：{f['reason']}" for i,f in enumerate(result['priorities']))
+ if current:
+  if any(word in message for word in ('调整','修改','重新规划','不要','优先','放后面','展开建议')):action='regenerate'
+  else:action='answer';answer='结合当前建议继续说明：\n\n'+current['answer']
+ result.update(in_scope=True,action=action,effective_direction=direction,effective_constraints=data.get('constraints',{}),answer=answer,references=[],edit_item_ids=[],edit_answer_spans=[])
+ return result

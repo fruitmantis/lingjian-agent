@@ -5,16 +5,26 @@ from urllib.parse import urlsplit
 
 
 def install_model_network_policy(endpoints, *, sockets=socket):
-    allowed = set()
-    for endpoint in endpoints:
-        parsed = urlsplit(endpoint)
-        if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
-            raise ValueError('Invalid configured model endpoint')
-        allowed.add((parsed.hostname.lower().rstrip('.'), parsed.port or (443 if parsed.scheme == 'https' else 80)))
+    def configured():
+        allowed = set()
+        for endpoint in endpoints() if callable(endpoints) else endpoints:
+            parsed = urlsplit(endpoint)
+            if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError('Invalid configured model endpoint')
+            allowed.add((parsed.hostname.lower().rstrip('.'), parsed.port or (443 if parsed.scheme == 'https' else 80)))
+        return allowed
+    allowed = configured()
     resolved = set()
     original_lookup = sockets.getaddrinfo
     original_connect = sockets.socket.connect
     original_connect_ex = sockets.socket.connect_ex
+
+    def refresh():
+        nonlocal allowed
+        current = configured()
+        if current != allowed:
+            allowed = current
+            resolved.clear()
 
     def host_text(host):
         return (host.decode('ascii') if isinstance(host, bytes) else str(host)).lower().rstrip('.')
@@ -29,6 +39,8 @@ def install_model_network_policy(endpoints, *, sockets=socket):
 
     def lookup(host, port, *args, **kwargs):
         name = host_text(host)
+        if host is not None and not loopback(name):
+            refresh()
         if host is not None and not loopback(name) and name not in {h for h, _ in allowed}:
             if not any(name == ip for ip, _ in resolved):
                 raise PermissionError('Endpoint is not an enabled model provider')
@@ -42,6 +54,8 @@ def install_model_network_policy(endpoints, *, sockets=socket):
         if not isinstance(address, tuple):
             return  # Unix-domain sockets are not external network connections.
         host, port = host_text(address[0]), address[1]
+        if not loopback(host):
+            refresh()
         if not loopback(host) and (host, port) not in allowed and (host, port) not in resolved:
             raise PermissionError('Endpoint is not an enabled model provider')
 

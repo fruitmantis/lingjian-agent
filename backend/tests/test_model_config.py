@@ -27,7 +27,12 @@ def isolated_models(client, monkeypatch):
 
 
 def add_model(name="model-a", **kwargs):
-    return model_config.create_config(model_config.ModelConfigCreate(name=name, modelName=name, **kwargs)).id
+    model_id = model_config.create_config(model_config.ModelConfigCreate(name=name, modelName=name, **kwargs)).id
+    # Tests that need routing explicitly configure a system default in their fixture.
+    with get_db() as conn:
+        first = conn.execute('SELECT count(*) FROM model_configs').fetchone()[0] == 1
+    if first: model_config.set_default(model_id)
+    return model_id
 
 
 def bind(scene, model_id):
@@ -35,8 +40,97 @@ def bind(scene, model_id):
         conn.execute("UPDATE model_usage_configs SET model_config_id = ? WHERE scene_key = ?", (model_id, scene))
 
 
+@pytest.mark.parametrize("enabled", [True, False])
+def test_delete_model_requires_admin_and_removes_unused_config(client, enabled):
+    admin = make_user("delete_admin", role="admin")
+    user = make_user("delete_user")
+    model_id = add_model(apiKey="synthetic-delete-secret")
+    model_config.toggle_enable(model_id, enabled)
+    path = f"/admin/model-configs/{model_id}"
+    assert client.delete(path).status_code == 401
+    assert client.delete(path, headers=auth_headers(user)).status_code == 403
+    headers = auth_headers(admin)
+    assert client.delete(path, headers=headers).status_code == 204
+    assert client.get("/admin/model-configs", headers=headers).json() == []
+    assert client.delete(path, headers=headers).status_code == 404
+    with get_db() as conn:
+        audit = conn.execute("SELECT actor_user_id, summary FROM user_audit_logs WHERE action='model_config_deleted'").fetchone()
+        assert audit["actor_user_id"] == admin["id"]
+        summary = json.loads(audit["summary"])
+        assert summary["model_config_id"] == model_id
+        assert summary["historical_run_ids"] == []
+        assert "synthetic-delete-secret" not in audit["summary"]
+
+
+def test_delete_model_clears_preferences_and_requires_explicit_default(client):
+    headers = auth_headers(make_user("delete_bound_admin", role="admin"))
+    model_id = add_model()
+    replacement = add_model("replacement")
+    model_config.set_default(model_id)
+    bind("partner_match", model_id)
+    bind("default", model_id)
+    bind("partner_development", model_id)
+    path = f"/admin/model-configs/{model_id}"
+    assert client.delete(path, headers=headers).status_code == 204
+    with pytest.raises(model_resolver.ModelConfigurationError, match="场景首选或系统默认"):
+        model_resolver.resolve_model_config("partner_match")
+    model_config.set_default(replacement)
+    assert model_resolver.resolve_model_config("partner_match").model == "replacement"
+    from backend.app import development_model
+    assert development_model.configuration()["id"] == replacement
+    assert all(u["modelConfigId"] is None for u in client.get("/admin/model-configs/usage", headers=headers).json())
+    assert client.put("/admin/model-configs/usage/partner_match", headers=headers, json={"modelConfigId": model_id}).status_code == 400
+    assert client.delete(f"/admin/model-configs/{replacement}", headers=headers).status_code == 204
+    with pytest.raises(model_resolver.ModelConfigurationError, match="没有启用"):
+        development_model.configuration()
+
+
+@pytest.mark.parametrize("run_status,fail_audit", [("running", False), ("ready", False), ("ready", True)])
+def test_delete_model_preserves_run_history(client_no_raise, monkeypatch, run_status, fail_audit):
+    from backend.app import development_lifecycle, development_engine
+    from backend.app.development_types import DevelopmentRequest, Submit
+    owner = make_user("history_owner")
+    make_partner()
+    # Only construct history for deletion checks; no business/model execution.
+    monkeypatch.setattr(development_engine, 'prepare', lambda *a, **kw: {})
+    task = development_lifecycle.create(Submit(submission_id="history-model", request=DevelopmentRequest(
+        target_partner_id="partner-1", development_direction="合成测试方向",
+    )), owner)
+    model_id = add_model()
+    model_config.toggle_enable(model_id, False)
+    with get_db() as conn:
+        conn.execute("UPDATE development_runs SET model_config_id=?,status=? WHERE id=?", (model_id, run_status, task["run_id"]))
+        if run_status == "ready":
+            conn.execute("""INSERT INTO development_versions (id,plan_id,version_no,run_id,payload_json,dependency_json,created_by,created_at)
+                VALUES ('history-version',?,1,?,'{"summary":"synthetic history"}','{}',?,'2026-09-27')""", (task["plan_id"], task["run_id"], owner["id"]))
+            conn.execute("UPDATE development_plans SET current_version_id='history-version',active_run_id=NULL WHERE id=?", (task["plan_id"],))
+        original_run = dict(conn.execute("SELECT * FROM development_runs WHERE id=?", (task["run_id"],)).fetchone())
+        original_plan = dict(conn.execute("SELECT * FROM development_plans WHERE id=?", (task["plan_id"],)).fetchone())
+    headers = auth_headers(make_user("history_admin", role="admin"))
+    if fail_audit:
+        def unavailable_audit(*args, **kwargs):
+            raise RuntimeError("synthetic audit failure")
+        monkeypatch.setattr(model_config, "record_audit", unavailable_audit)
+    response = client_no_raise.delete(f"/admin/model-configs/{model_id}", headers=headers)
+    deleted = not fail_audit
+    assert response.status_code == (204 if deleted else 500)
+    with get_db() as conn:
+        assert dict(conn.execute("SELECT * FROM development_runs WHERE id=?", (task["run_id"],)).fetchone()) == {**original_run, "model_config_id": None if deleted else model_id}
+        assert dict(conn.execute("SELECT * FROM development_plans WHERE id=?", (task["plan_id"],)).fetchone()) == original_plan
+        assert bool(conn.execute("SELECT id FROM model_configs WHERE id=?", (model_id,)).fetchone()) is not deleted
+        if run_status == "ready":
+            assert json.loads(conn.execute("SELECT payload_json FROM development_versions WHERE id='history-version'").fetchone()[0]) == {"summary":"synthetic history"}
+        audit = conn.execute("SELECT summary FROM user_audit_logs WHERE action='model_config_deleted'").fetchone()
+        if deleted:
+            assert json.loads(audit[0])["historical_run_ids"] == [task["run_id"]]
+            assert json.loads(audit[0])["model_name"] == "model-a"
+        else:
+            assert audit is None
+
+
 def test_unbound_priority_is_preserved():
-    assert model_resolver.resolve_model_config("partner_match").model == "synthetic-env-model"
+    with pytest.raises(model_resolver.ModelConfigurationError, match="没有启用"):
+        model_resolver.resolve_model_config("partner_match")
     first = add_model("first")
     default = add_model("default")
     explicit = add_model("explicit")
@@ -50,18 +144,20 @@ def test_unbound_priority_is_preserved():
     bind("partner_match", None)
     bind("default", None)
     model_config.toggle_enable(default, False)
-    assert model_resolver.resolve_model_config("partner_match").model == "first"
+    with pytest.raises(model_resolver.ModelConfigurationError, match="场景首选或系统默认"):
+        model_resolver.resolve_model_config("partner_match")
 
 
-@pytest.mark.parametrize("scene", ["partner_match", "default"])
+@pytest.mark.parametrize("scene", ["partner_match", "partner_development", "default"])
 @pytest.mark.parametrize("missing", [False, True])
-def test_explicit_unavailable_binding_never_falls_back(scene, missing):
+def test_unavailable_preference_routes_to_enabled_model(scene, missing):
     model_id = add_model()
     model_config.toggle_enable(model_id, False)
-    add_model("available-fallback")
+    model_config.set_default(add_model("available-fallback"))
     bind(scene, "missing-id" if missing else model_id)
-    with pytest.raises(model_resolver.ModelConfigurationError, match="不存在或已停用"):
-        model_resolver.resolve_model_config("partner_match")
+    assert model_resolver.resolve_model_config(scene).model == "available-fallback"
+    from backend.app import development_model
+    assert development_model.configuration()["model_name"] == "available-fallback"
 
 
 def test_database_failure_does_not_select_environment_model(monkeypatch):
@@ -80,7 +176,7 @@ def test_system_status_reports_unavailable_binding_without_model_call():
     items, has_error, message = _check_llm()
     assert has_error
     assert items[0].status == "error"
-    assert "请管理员检查模型配置" in message
+    assert "暂无可用模型" in message
 
 
 def test_zero_parameters_and_large_token_budget_are_preserved():
@@ -136,8 +232,8 @@ def test_binding_api_validates_enabled_target_and_allows_unbind(client):
     assert response.status_code == 200 and response.json()["modelConfigId"] is None
 
 
-@pytest.mark.parametrize("timeout,expected", [(None, 123), (60, 60), (180, 180)])
-def test_client_honors_explicit_timeout_and_sends_zero(monkeypatch, timeout, expected):
+@pytest.mark.parametrize("timeout,expected", [(None, 123), (60, 60), (180, 123)])
+def test_client_honors_configured_timeout_and_sends_zero(monkeypatch, timeout, expected):
     add_model(temperature=0, topP=0, timeoutSeconds=123)
     observed = {}
     class FakeClient:
@@ -154,7 +250,7 @@ def test_client_honors_explicit_timeout_and_sends_zero(monkeypatch, timeout, exp
     assert observed["json"]["top_p"] == 0
 
 
-def test_each_business_call_uses_its_own_scene(monkeypatch):
+def test_separate_admin_maintenance_calls_use_their_scenes(monkeypatch):
     make_partner()
     owner = make_user("scene_user")
     task_id = make_task(owner, "scene validation")
@@ -173,10 +269,9 @@ def test_each_business_call_uses_its_own_scene(monkeypatch):
     assert match._extract_project_opportunity("需求", task_id, recs)
     from backend.app.routers.capability_tags import scan_suggestions
     scan_suggestions()
-    match._perform_partner_match("需求")
     assert calls == [
         ("partner_profile", 60), ("partner_profile", 90), ("demand_profile", 30),
-        ("tag_suggestion", 30), ("demand_profile", 60), ("tag_suggestion", 30), ("partner_match", 180),
+        ("tag_suggestion", 30), ("demand_profile", 60), ("tag_suggestion", 30),
     ]
 
 
@@ -184,7 +279,7 @@ def test_each_business_call_uses_its_own_scene(monkeypatch):
     ("partner_match", "/agent/match"), ("partner_profile", "/partners/partner-1/profile"),
     ("tag_suggestion", "/admin/capability-tags/suggestions/scan"),
 ])
-def test_invalid_binding_returns_actionable_error_without_calling_model(client, scene, path):
+def test_no_enabled_model_returns_actionable_error_without_calling_model(client, scene, path):
     make_partner()
     admin = make_user("unavailable_admin", role="admin")
     make_task(admin, "scan input")
@@ -194,4 +289,4 @@ def test_invalid_binding_returns_actionable_error_without_calling_model(client, 
     assert response.json()["detail"] == "服务异常，请联系管理员。"
     from backend.app.error_diagnostics import recent_errors
     errors=recent_errors()
-    assert any('模型不存在或已停用' in item['message'] for item in errors)
+    assert any('没有启用的模型配置' in item['message'] for item in errors)

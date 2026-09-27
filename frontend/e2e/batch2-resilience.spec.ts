@@ -15,11 +15,11 @@ async function login(page: Page, request: APIRequestContext, username = "admin1"
 }
 
 test("request budgets cover backend model steps and preserve short reads", () => {
-  expect(requestTimeoutMs(`${API}/agent/match`, "POST")).toBe(360_000);
-  expect(requestTimeoutMs(`${API}/agent/tasks/task-a-failed/retry`, "POST")).toBe(360_000);
+  expect(requestTimeoutMs(`${API}/agent/match`, "POST")).toBe(510_000);
+  expect(requestTimeoutMs(`${API}/agent/tasks/task-a-failed/retry`, "POST")).toBe(510_000);
   expect(requestTimeoutMs(`${API}/admin/capability-tags/suggestions/scan`, "POST")).toBe(360_000);
   expect(requestTimeoutMs(`${API}/partners/partner-1/profile`, "POST")).toBe(180_000);
-  expect(requestTimeoutMs(`${API}/admin/model-configs/example/test`, "POST")).toBe(45_000);
+  expect(requestTimeoutMs(`${API}/admin/model-configs/example/test`, "POST")).toBe(210_000);
   expect(requestTimeoutMs(`${API}/agent/tasks`, "GET")).toBe(30_000);
 });
 

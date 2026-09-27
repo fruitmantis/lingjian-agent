@@ -1,5 +1,4 @@
 """Live authorization for historical snapshots; immutable storage stays untouched."""
-from .scope_gate import require_scope
 from .task_failures import public_failures, user_message
 from .error_diagnostics import bind_context, record_error
 import copy,json,re
@@ -32,13 +31,15 @@ def protected(conn,row):
 
 def readable_payload(conn,row):
     if protected(conn,row):return None
-    payload=json.loads(row['payload_json'])
+    from .development_context import identified_payload
+    payload=identified_payload(conn,row)
     for stage in payload['stages']:
         for item in stage['items']:
             try:
                 source=resources.resolve_reference(conn,item['source_type'],item['source_id'],item['source_version'],'system')
                 if item['source_type'] != 'case':
                     item['conditions']={k:source.get(k) for k in ('duration_minutes','level','roles','zones','lab_requirements')}
+                item['title']=source['title']
                 item['availability']='available'
             except HTTPException:item['availability']='unavailable'
     return payload
@@ -78,16 +79,21 @@ def detail(plan_id,user,version_id=None):
             row=version_row(conn,plan,version_id);payload=readable_payload(conn,row);hidden=payload is None
             if payload:request.update(payload.get('effective_request',{}))
         partner=conn.execute('SELECT name FROM partners WHERE id=?',(plan['target_partner_id'],)).fetchone()
-        conversation=request.pop('_conversation',[])
+        from .development_context import exchanges
+        conversation=exchanges(conn,plan,request)
+        request.pop('_conversation',None)
         conversation=[m for m in conversation if not protected(conn,version_row(conn,plan,m['version_id']))]
-        # Modification messages already live in Run input snapshots; do not duplicate them.
-        for run in conn.execute("SELECT id,based_on_version_id,input_snapshot,status,created_at FROM development_runs WHERE plan_id=? AND run_type='revise'",(plan_id,)):
-            if run['based_on_version_id'] and protected(conn,version_row(conn,plan,run['based_on_version_id'])):continue
-            instruction=engine.safe_text(json.loads(run['input_snapshot']).get('instruction',''),engine.blocked_fragments(conn))
-            if instruction:
-                response='建议已更新，可以继续查看或讨论。' if run['status']=='ready' else '本次调整未完成。' if run['status'] in ('failed','partial','interrupted') else '正在处理本次调整。'
-                conversation.append({'submission_id':run['id'],'message':instruction,'answer':response,'created_at':run['created_at']})
-        conversation.sort(key=lambda m:m['created_at'])
+        for message in conversation:
+            cards=[]
+            for ref in message.get('references',[]):
+                try:
+                    source=resources.resolve_reference(conn,ref['source_type'],ref['source_id'],ref['source_version'],'system')
+                    cards.append({**ref,'title':source['title'],'reason':'','availability':'available','conditions':{k:source.get(k) for k in ('duration_minutes','level','roles','zones')}})
+                except HTTPException:continue
+            message['resources']=cards
+        if request.get('_effective_version_id')==plan['current_version_id']:
+            request.update(request.get('_effective_request',{}))
+        request.pop('_effective_request',None);request.pop('_effective_version_id',None)
         # Source-sensitive user text is also withheld after revocation, including original demand.
         if hidden:request={k:v for k,v in request.items() if k in ('target_partner_id','request_source','targets')};request['targets']=[]
         return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
@@ -154,75 +160,5 @@ def transferable(plan_id,user,expected=None,copy_event=False):
 
 
 def converse(plan_id,body,user):
-    """Explain against a reauthorized snapshot; only a modification gets a Run/Version.
-
-    Messages use the existing Request JSON, never the immutable Version or an audit text
-    field. Both request and answer are withheld when their source version is revoked.
-    """
-    from .development_types import ConversationOutput,Revise
-    from . import development_model as model
-    bind_context(task_id=plan_id, request_id=body.submission_id, stage='conversation')
-    digest=life.fingerprint(body.model_dump())
-    with get_db() as conn:
-        conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user)
-        # Replays are checked before active-run conflicts, just like lifecycle submissions.
-        stored=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
-        for message in stored.get('_conversation',[]):
-            if message['submission_id']==body.submission_id:
-                if message['fingerprint']!=digest:life.fail(409,'同一消息标识不能用于不同内容')
-                if protected(conn,version_row(conn,plan,message['version_id'])):life.fail(409,REVOKED)
-                return {'kind':'explain','answer':message['answer']}
-        run=conn.execute('SELECT id,input_snapshot,based_on_version_id FROM development_runs WHERE plan_id=? AND submission_id=?',(plan_id,body.submission_id)).fetchone()
-        if run:
-            if json.loads(run['input_snapshot']).get('instruction')!=body.message or run['based_on_version_id']!=body.based_on_version_id:life.fail(409,'同一消息标识不能用于不同内容')
-            return {'kind':'revise','plan_id':plan_id,'run_id':run['id'],'replayed':True}
-        life.writable(plan,body.based_on_version_id)
-    require_scope('partner_development',body.message,context=stored.get('development_direction') or stored.get('development_goal',''))
-    bind_context(stage='conversation')
-    with get_db() as conn:
-        conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user)
-        life.writable(plan,body.based_on_version_id)
-        row=version_row(conn,plan);payload=readable_payload(conn,row)
-        if payload is None:life.fail(409,REVOKED)
-        blocked=engine.blocked_fragments(conn);engine.guard(body.message,blocked)
-        deps=json.loads(row['dependency_json'])
-        pool=[];model_refs=[]
-        used={engine.key(i) for stage in payload['stages'] for i in stage['items']}
-        for ref in deps:
-            try:
-                resolved=resources.resolve_reference(conn,ref['source_type'],ref['source_id'],ref['source_version'],'model')
-                model_refs.append(ref)
-                if engine.key(ref) in used:pool.append(resolved)
-            except HTTPException:continue
-        # Never send historical free text whose model permission has since changed.
-        current={'direction':payload.get('overview',{}).get('development_direction',''),'resources':pool}
-        if len(model_refs)==len(deps):
-            current['analysis']={k:v for k,v in payload.get('analysis',{}).items() if k in ('interpretation','partner_assessment','priorities','reusable_basis','basis_limitations')}
-        engine.guard(current,blocked)
-    try:
-        response=engine.call(model.configuration(),'converse',{'target_partner_id':plan['target_partner_id'],'message':body.message,'current':current},ConversationOutput,blocked)
-        engine.strong_guard(response)
-        if response['kind']=='revise' and re.search(r'^(为什么|为何|请解释|解释一下|哪个.{0,8}(更难|适合)|有没有更进阶)|为什么适合|有什么区别|有什么差别|哪个实验更难|如何比较',body.message.strip()):
-            raise engine.InvalidOutput('Explanation cannot modify a version')
-        if response['target_partner_id']!=plan['target_partner_id']:raise engine.InvalidOutput('Invented partner')
-        if not {engine.key(ref) for ref in response['references']}<={engine.key(ref) for ref in pool}:raise engine.InvalidOutput('Invented reference')
-        if response['kind']=='explain' and not response['answer'].strip():raise engine.InvalidOutput('Explanation answer is empty')
-    except Exception as error:
-        record_error(error, 'conversation', task_id=plan_id)
-        life.fail(422,user_message(error))
-    bind_context(stage='persistence')
-    with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');fresh=life.authorize(conn,plan_id,user);life.writable(fresh,body.based_on_version_id)
-        if protected(conn,version_row(conn,fresh)):life.fail(409,REVOKED)
-        for ref in model_refs:resources.resolve_reference(conn,ref['source_type'],ref['source_id'],ref['source_version'],'model')
-        if response['kind']=='explain':
-            stored=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(fresh['request_id'],)).fetchone()[0])
-            history=stored.get('_conversation',[])
-            if any(m['submission_id']==body.submission_id for m in history):life.fail(409,'消息已处理，请刷新')
-            history.append({'submission_id':body.submission_id,'fingerprint':digest,'version_id':body.based_on_version_id,'message':body.message,'answer':response['answer'],'created_at':life.now()})
-            stored['_conversation']=history
-            conn.execute('UPDATE development_requests SET payload_json=? WHERE id=?',(life.dump(stored),fresh['request_id']))
-            life.audit(conn,plan_id,user['id'],'conversation_explained',body.based_on_version_id)
-            return {'kind':'explain','answer':response['answer']}
-    result=life.revise(plan_id,Revise(submission_id=body.submission_id,based_on_version_id=body.based_on_version_id,instruction=body.message),user,scope_checked=True)
-    return {'kind':'revise',**result}
+    from .development_types import Revise
+    return life.revise(plan_id,Revise(submission_id=body.submission_id,based_on_version_id=body.based_on_version_id,instruction=body.message),user)

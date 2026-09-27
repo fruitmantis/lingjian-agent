@@ -1,4 +1,4 @@
-"""Transactional Plan/Run/Version lifecycle. Scope checks run outside transactions."""
+"""Transactional Plan/Run/Version lifecycle. Understanding runs outside transactions."""
 import hashlib
 import json
 import uuid
@@ -8,8 +8,7 @@ from .database import get_db
 from .auth import ensure_account_active
 from . import enablement_catalog
 from .development_deadlines import run_timeout
-from .development_types import DevelopmentRequest
-from .scope_gate import require_scope
+from .development_types import DevelopmentRequest,Revise
 from .error_diagnostics import record_error, bind_context
 
 
@@ -43,12 +42,10 @@ def audit(conn,plan_id,actor,action,version_id=None):
     conn.execute('INSERT INTO development_audit_events VALUES (?,?,?,?,?,?)',(uid(),plan_id,version_id,actor,action,now()))
 
 
-def checked_request(payload,user,*,instruction="",scope_checked=False):
+def checked_request(payload,user):
     result=clarify(payload)
     if result['missing_fields']:fail(422,'请选择伙伴并描述发展方向')
     data=result['request']
-    if not scope_checked:
-        require_scope('partner_development',instruction or data['development_direction'],context=data['development_direction'] if instruction else '')
     context=enablement_catalog.context(user,data['target_partner_id'],data['source_task_id'],data['source_case_id'],data['source_case_version'])
     if context['shared_case']:data['source_case_version']=context['shared_case']['source_version']
     return data
@@ -81,6 +78,8 @@ def create(payload,user):
         replay=duplicate(conn,user,payload.submission_id,digest)
         if replay:return replay
     data=checked_request(payload.request,user)
+    from .development_engine import prepare
+    understanding=prepare(data,user)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         replay=duplicate(conn,user,payload.submission_id,digest)
@@ -88,7 +87,7 @@ def create(payload,user):
         request_id=uid();plan_id=uid();stamp=now()
         conn.execute('INSERT INTO development_requests VALUES (?,?,?,?,?,?)',(request_id,user['id'],data['target_partner_id'],dump(data),stamp,user['id']))
         conn.execute('''INSERT INTO development_plans(id,owner_user_id,request_id,target_partner_id,status,created_at,updated_at) VALUES (?,?,?,?,'active',?,?)''',(plan_id,user['id'],request_id,data['target_partner_id'],stamp,stamp))
-        return insert_run(conn,plan_id,user,payload.submission_id,None,{'request':data,'instruction':''},'generate',digest)
+        return insert_run(conn,plan_id,user,payload.submission_id,None,{'request':data,'instruction':'','understanding':understanding},'generate',digest)
 
 
 def writable(plan,base):
@@ -97,30 +96,60 @@ def writable(plan,base):
     if plan['current_version_id']!=base:fail(409,'版本冲突：当前版本已变化，请重新载入后编辑')
 
 
-def revise(plan_id,payload,user,*,scope_checked=False):
+def revise(plan_id,payload,user):
+    from . import development_engine as engine
     bind_context(task_id=plan_id,request_id=payload.submission_id,stage='submission')
     digest=fingerprint({'plan_id':plan_id,**payload.model_dump()})
     with get_db() as conn:
-        authorize(conn,plan_id,user)
+        plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)
-        if replay:return replay
-    if payload.request is None:
-        with get_db() as conn:
-            plan=authorize(conn,plan_id,user)
-            data=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
-            if plan['current_version_id']:
-                saved=json.loads(conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(plan['current_version_id'],)).fetchone()[0])
-                data.update(saved.get('effective_request',{}))
-            data={k:v for k,v in data.items() if k in DevelopmentRequest.model_fields}
-        data=checked_request(DevelopmentRequest.model_validate(data),user,instruction=payload.instruction,scope_checked=scope_checked)
-    else:data=checked_request(payload.request,user,instruction=payload.instruction,scope_checked=scope_checked)
+        if replay:return {'kind':'revise',**replay}
+        stored=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
+        for item in stored.get('_conversation',[]):
+            if item['submission_id']==payload.submission_id:
+                if item['fingerprint']!=digest:fail(409,'同一提交标识不能用于不同请求')
+                from .development_views import protected,version_row,REVOKED
+                if protected(conn,version_row(conn,plan,item['version_id'])):fail(409,REVOKED)
+                return {'kind':'explain','answer':item['answer'],'replayed':True}
+        writable(plan,payload.based_on_version_id)
+        data=stored if payload.request is None else payload.request.model_dump()
+        data={k:v for k,v in data.items() if k in DevelopmentRequest.model_fields}
+        if data['target_partner_id']!=plan['target_partner_id']:fail(409,'同一方案不能更换目标伙伴')
+    data=checked_request(DevelopmentRequest.model_validate(data),user)
+    if payload.request is not None:data['_explicit_request']=True
+    understanding=engine.prepare(data,user,plan_id=plan_id,base=payload.based_on_version_id,instruction=payload.instruction)
+    if understanding['analysis']['action']=='answer' and payload.based_on_version_id:
+        return save_answer(plan_id,payload,user,data,understanding,digest)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)
-        if replay:return replay
+        if replay:return {'kind':'revise',**replay}
         writable(plan,payload.based_on_version_id)
-        if data['target_partner_id']!=plan['target_partner_id']:fail(409,'同一方案不能更换目标伙伴')
-        return insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':payload.instruction},'revise',digest)
+        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':payload.instruction,'understanding':understanding},'revise',digest)
+        return {'kind':'revise',**result}
+
+
+def save_answer(plan_id,payload,user,data,understanding,digest):
+    from .development_context import load
+    fresh=load(data,user,plan_id=plan_id,base=payload.based_on_version_id,message=payload.instruction)
+    if fresh['stamp']!=understanding['stamp']:fail(409,'资料或当前要求已变化，请刷新后重试')
+    result=understanding['analysis']
+    with get_db() as conn:
+        conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user);writable(plan,payload.based_on_version_id)
+        current=load(data,user,plan_id=plan_id,base=payload.based_on_version_id,message=payload.instruction,connection=conn)
+        if current['stamp']!=understanding['stamp']:fail(409,'资料或当前要求已变化，请刷新后重试')
+        stored=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
+        history=stored.get('_conversation',[])
+        for item in history:
+            if item['submission_id']==payload.submission_id:
+                if item['fingerprint']!=digest:fail(409,'同一提交标识不能用于不同请求')
+                return {'kind':'explain','answer':item['answer'],'replayed':True}
+        history.append({'submission_id':payload.submission_id,'fingerprint':digest,'version_id':payload.based_on_version_id,'message':payload.instruction,'answer':result['answer'],'references':result['references'],'created_at':now()})
+        stored.update(_conversation=history,_effective_version_id=payload.based_on_version_id,_effective_request={
+            **fresh['request'],'development_direction':result['effective_direction'],'development_goal':result['effective_direction'],'constraints':result['effective_constraints']})
+        conn.execute('UPDATE development_requests SET payload_json=? WHERE id=?',(dump(stored),plan['request_id']))
+        audit(conn,plan_id,user['id'],'conversation_explained',payload.based_on_version_id)
+        return {'kind':'explain','answer':result['answer']}
 
 
 def claim(run_id):
@@ -160,6 +189,7 @@ def finish_failure(run_id,token,stage,status='failed',error=None):
 
 def save_version(conn,plan,base,payload,dependencies,actor,run_id=None):
     if plan['current_version_id']!=base:fail(409,'版本冲突：较早请求不能覆盖新版本')
+    for item in (i for stage in payload['stages'] for i in stage['items']):item.setdefault('item_id',uid())
     version_id=uid();number=conn.execute('SELECT COALESCE(MAX(version_no),0)+1 FROM development_versions WHERE plan_id=?',(plan['id'],)).fetchone()[0]
     conn.execute('INSERT INTO development_versions VALUES (?,?,?,?,?,?,?,?,?)',(version_id,plan['id'],number,base,run_id,dump(payload),dump(dependencies),actor,now()))
     ordinal=0
@@ -216,10 +246,26 @@ def retry(plan_id,payload,user):
         plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)
         if replay:return replay
+        stored=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
+        for message in stored.get('_conversation',[]):
+            if message['submission_id']==payload.submission_id:
+                if message['fingerprint']!=digest:fail(409,'同一提交标识不能用于不同请求')
+                from .development_views import protected,version_row,REVOKED
+                if protected(conn,version_row(conn,plan,message['version_id'])):fail(409,REVOKED)
+                return {'kind':'explain','answer':message['answer'],'replayed':True}
         original=conn.execute('SELECT * FROM development_runs WHERE id=? AND plan_id=?',(payload.run_id,plan_id)).fetchone()
         if not original:fail(404,'运行记录不存在')
+        writable(plan,payload.based_on_version_id)
+        latest=conn.execute('SELECT id FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(plan_id,)).fetchone()
+        if latest['id']!=payload.run_id or original['status'] not in ('failed','partial','interrupted'):fail(409,'运行状态已变化，请重新载入')
+        if original['based_on_version_id']!=payload.based_on_version_id:fail(409,'版本冲突：请基于当前建议重新提出调整')
         snapshot=json.loads(original['input_snapshot'])
-    data=checked_request(DevelopmentRequest.model_validate({k:v for k,v in snapshot['request'].items() if k in DevelopmentRequest.model_fields}),user,instruction=snapshot['instruction'])
+    data=checked_request(DevelopmentRequest.model_validate({k:v for k,v in snapshot['request'].items() if k in DevelopmentRequest.model_fields}),user)
+    if snapshot['request'].get('_explicit_request'):data['_explicit_request']=True
+    from .development_engine import prepare
+    understanding=prepare(data,user,plan_id=plan_id,base=payload.based_on_version_id,instruction=snapshot['instruction'],cached=snapshot.get('understanding'))
+    if understanding['analysis']['action']=='answer' and payload.based_on_version_id:
+        return save_answer(plan_id,Revise(submission_id=payload.submission_id,based_on_version_id=payload.based_on_version_id,instruction=snapshot['instruction']),user,data,understanding,digest)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)
@@ -228,4 +274,4 @@ def retry(plan_id,payload,user):
         latest=conn.execute('SELECT * FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(plan_id,)).fetchone()
         if latest['id']!=payload.run_id or latest['status'] not in ('failed','partial','interrupted'):fail(409,'运行状态已变化，请重新载入')
         if latest['based_on_version_id']!=payload.based_on_version_id:fail(409,'版本冲突：请基于当前建议重新提出调整')
-        return insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction']},latest['run_type'],digest)
+        return insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction'],'understanding':understanding},latest['run_type'],digest)

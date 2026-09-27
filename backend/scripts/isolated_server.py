@@ -15,11 +15,13 @@ for key in ('LINGJIAN_DATABASE_PATH', 'LINGJIAN_UPLOADS_DIR', 'LINGJIAN_CHROMA_D
 from app.database import get_readonly_db
 from app.model_network_policy import install_model_network_policy
 
-with get_readonly_db() as connection:
-    endpoints = [row['base_url'] for row in connection.execute(
-        'SELECT base_url FROM model_configs WHERE enabled = 1'
-    ).fetchall() if row['base_url']]
-install_model_network_policy(endpoints)
+def enabled_endpoints():
+    with get_readonly_db() as connection:
+        return [row['base_url'] for row in connection.execute(
+            'SELECT base_url FROM model_configs WHERE enabled = 1'
+        ).fetchall() if row['base_url']]
+
+install_model_network_policy(enabled_endpoints)
 
 import uvicorn
 uvicorn.run('app.main:app', host='127.0.0.1', port=8000,

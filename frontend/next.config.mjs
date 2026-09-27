@@ -13,8 +13,8 @@ if (buildCpus !== undefined && (!Number.isInteger(buildCpus) || buildCpus < 1)) 
 export default {
   ...((buildCpus || apiTarget) ? {experimental: {
     ...(buildCpus ? {cpus: buildCpus} : {}),
-    // Existing batch-profile requests allow up to 390 seconds.
-    ...(apiTarget ? {proxyTimeout: 420_000} : {}),
+    // Cover existing batch calls and scope + legacy synchronous matching.
+    ...(apiTarget ? {proxyTimeout: 600_000} : {}),
   }} : {}),
   async rewrites() {
     return apiTarget ? [{source: '/api/:path*', destination: `${apiTarget}/:path*`}] : [];

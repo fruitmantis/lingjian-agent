@@ -40,6 +40,18 @@ def test_only_provider_resolved_address_and_configured_port_allowed():
     assert len(calls)==2
 
 
+def test_provider_policy_follows_updated_enabled_models():
+    endpoints=['https://provider.test/v1']
+    sockets,calls=policy(lambda:endpoints)
+    sockets.getaddrinfo('provider.test',443)
+    endpoints[:]=['https://replacement.test/v1']
+    with pytest.raises(PermissionError):sockets.socket().connect(('203.0.113.10',443))
+    with pytest.raises(PermissionError):sockets.getaddrinfo('provider.test',443)
+    sockets.getaddrinfo('replacement.test',443)
+    sockets.socket().connect(('203.0.113.10',443))
+    assert calls==[('203.0.113.10',443)]
+
+
 @pytest.mark.parametrize('url',['file:///tmp/model','https://user:secret@provider.test/v1','https:///bad'])
 def test_invalid_endpoint_does_not_install_policy(url):
     with pytest.raises(ValueError):policy([url])

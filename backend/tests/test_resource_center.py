@@ -96,8 +96,8 @@ def test_ai_uses_categories_goals_outline_without_hard_category_gate(admin,metad
         # Different requested job/zone do not exclude an otherwise relevant resource.
         pool=engine.candidates(conn,{'development_direction':'AI平台工程师 ModelArts 回退'},{'priorities':[{'name':'回退','search_terms':['回退','ModelArts']}]})
         assert len(pool)==1 and pool[0]['capability_tag_ids']==[]
-        output=engine.direct_resource_output({'target_partner_id':'p'},{'priorities':[{'name':'回退'}]},pool)
-        assert output['stages'][0]['items'][0]['capability_tag_id']==''
+        # Retrieval remains independent of formal resource tags; generation uses the shared model path.
+        assert pool[0]['capability_tag_ids']==[]
 
 
 def test_concurrent_category_add_does_not_lose_updates(client):

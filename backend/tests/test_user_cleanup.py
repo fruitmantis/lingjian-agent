@@ -246,7 +246,7 @@ def test_concurrent_admin_deletes_leave_a_valid_admin(client):
 
 
 @pytest.mark.parametrize('entry', ['task', 'match', 'retry', 'plan'])
-def test_deletion_during_scope_check_cannot_start_a_task(client, identities, monkeypatch, entry):
+def test_deletion_during_understanding_cannot_start_a_task(client, identities, monkeypatch, entry):
     from backend.app.routers import match as matching
     import uuid
     admin, session = identities; user = session.json()['user']
@@ -254,7 +254,9 @@ def test_deletion_during_scope_check_cannot_start_a_task(client, identities, mon
     task_id = make_task(user, 'retry after scope', task_status='failed') if entry == 'retry' else None
     def delete_in_gate(*args, **kwargs):
         assert remove(client, admin, user, preview(client, admin, user)).status_code == 204
-    monkeypatch.setattr(matching if entry != 'plan' else life, 'require_scope', delete_in_gate)
+        return {}
+    from backend.app import development_engine
+    monkeypatch.setattr(matching.understanding if entry != 'plan' else development_engine, 'prepare', delete_in_gate)
     path, payload = {
         'task': ('/agent/tasks', {'requestId':str(uuid.uuid4()), 'requirement':'伙伴推荐'}),
         'match': ('/agent/match', {'requirement':'伙伴推荐'}),

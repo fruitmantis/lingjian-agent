@@ -5,8 +5,8 @@
 ## 当前调用方式
 
 - 复用 OpenAI-compatible `POST /chat/completions`、现有模型场景与权限。
-- 能力发展按 `DirectionAnalysis` / `AdviceOutput` 等当前 [Pydantic 契约](../../backend/app/development_types.py) 处理；不使用旧培训长表单作为必填输入。
-- DeepSeek 当前适配使用 `json_object` 并提供完整 schema 提示；其他供应商保持既有参数。`deepseek-v4-flash` 关闭思考输出，结果仍经严格程序校验。
+- 能力发展按 `Understanding` / `AdviceOutput` / `AdvicePatch` 等当前 [Pydantic 契约](../../backend/app/development_types.py) 处理；不使用旧培训长表单作为必填输入。
+- 统一理解、建议生成和连接测试统一使用 `json_object` 并提供完整 schema 提示，结果仍经严格程序校验；不默认其他供应商支持 `json_schema`。温度、top_p、输出额度与超时读取所选配置，结构化单次调用仍受 180 秒墙钟上限保护。`deepseek-v4-flash` 既有关闭思考参数保留。
 - 项目机会抽取允许常见字段形态与包装差异，缺失记未知；这不允许能力发展编造资源 ID、URL、忽略权限或未经来源确认的强结论。
 - explain/discuss 和 revise 使用当前任务上下文，前者不新建版本，后者成功产生新版本，失败保留旧结果。
 
@@ -18,7 +18,7 @@
 .venv/bin/python scripts/verify_real_model.py   --environment <现有私有环境JSON>   --model-config-id <已批准启用配置ID>   --output <新的私有审计JSON>   --stage analyze --execute
 ```
 
-`analyze` 为最多一次，默认 `both` 为最多两次真实 HTTP 请求。工具只临时限制 smoke token 预算，不修改保存的模型配置。此命令示例不是要求每次文档或 UI 改动都执行。
+`analyze` 为最多一次，默认 `both` 为最多两次真实 HTTP 请求。工具复用保存的模型参数和实际调用上限，不再将输出额度覆盖成 4096；不修改保存的配置。调用数和合成输入仍保持有界。此命令示例不是要求每次文档或 UI 改动都执行。
 
 工具记录 provider、model、timestamp、scenario、HTTP/请求状态、接口返回的 usage、latency、程序校验结果与安全错误类型。只读配置不输出 Key；不保存完整 prompt/response。完整任务验收的模型调用数可能不同，不把两次 smoke 预算当所有 Run 的固定调用数。
 

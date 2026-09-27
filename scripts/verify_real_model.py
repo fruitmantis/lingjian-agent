@@ -30,12 +30,11 @@ def main():
     os.environ.update(json.loads(args.environment.read_text()))
     from backend.app.database import get_readonly_db
     from backend.app import development_model, development_engine
-    from backend.app.development_types import DirectionAnalysis, AdviceOutput
+    from backend.app.development_types import Understanding, AdviceOutput
     with get_readonly_db() as conn:
         row=conn.execute('SELECT * FROM model_configs WHERE id=? AND enabled=1',(args.model_config_id,)).fetchone()
         if not row:raise SystemExit('Selected model is not enabled')
         config=dict(row)
-    config['max_tokens']=4096  # Smoke-only budget; saved configuration is unchanged.
     report={'kind':'real-provider-synthetic-smoke','max_calls':2,'calls':[],'business_acceptance':'NOT RUN'}
     import httpx
     original=development_model.httpx.AsyncClient
@@ -63,7 +62,7 @@ def main():
     request={'target_partner_id':'synthetic-smoke-partner','development_direction':'合成连通性测试：希望了解 Agent 应用集成能力方向。简短回答。'}
     try:
         for stage,contract,payload in [
-            ('analyze',DirectionAnalysis,{'request':request,'profile':{'summary':'合成测试伙伴，具有应用开发基础，没有已确认能力结论。'},'formal_tags':[]}),
+            ('analyze',Understanding,{'request':request,'profile':{'summary':'合成测试伙伴，具有应用开发基础，没有已确认能力结论。'},'formal_tags':[]}),
             ('plan',AdviceOutput,{'request':request,'analysis':{'intent':'development','priorities':[]},'candidates':[]})]:
             if args.stage!='both' and args.stage!=stage:continue
             report['scenario']=stage

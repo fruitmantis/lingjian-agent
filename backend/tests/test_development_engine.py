@@ -8,6 +8,7 @@ from backend.tests.test_development_lifecycle import prepared,plan
 from backend.tests.test_enablement import grant,published
 
 CANARY='INTERNAL_SECRET_PHASE_B_DO_NOT_SHARE'
+REAL_CONFIGURATION=model.configuration
 
 @pytest.fixture
 def scenario(prepared,monkeypatch):
@@ -19,7 +20,7 @@ def scenario(prepared,monkeypatch):
         conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('secret-case','partner-1','内部案例',?,'2026')",(CANARY,))
         conn.execute("UPDATE partners SET ai_profile=? WHERE id='partner-1'",(CANARY,))
         config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
-    monkeypatch.setattr(model,'configuration',lambda:config)
+    monkeypatch.setattr(model,'configuration',lambda **kwargs:config)
     captures=[]
     def mock(config,messages,schema):
         captures.append(copy.deepcopy(messages));data=json.loads(messages[-1]['content'])
@@ -35,6 +36,31 @@ def execute(scenario):
         run=dict(conn.execute('SELECT * FROM development_runs WHERE id=?',(accepted['run_id'],)).fetchone())
         version=conn.execute('SELECT * FROM development_versions WHERE plan_id=?',(accepted['plan_id'],)).fetchone()
     return accepted,run,json.loads(version['payload_json']) if version else None
+
+
+def test_deleting_current_model_between_stages_stops_remaining_calls(scenario,monkeypatch):
+    from backend.app.routers import model_config
+    admin=scenario[0][2]
+    old=REAL_CONFIGURATION()['id']
+    replacement=model_config.create_config(model_config.ModelConfigCreate(
+        name='replacement',modelName='replacement',baseUrl='https://replacement.invalid/v1',apiKey='synthetic-only',
+    )).id
+    monkeypatch.setattr(model,'configuration',REAL_CONFIGURATION)
+    original=scenario[2];used=[]
+    def complete(config,messages,schema):
+        used.append(config['id'])
+        output=original(config,messages,schema)
+        if len(used)==1:
+            model_config.delete_config(old,admin)
+        return output
+    monkeypatch.setattr(model,'completion',complete)
+    accepted,run,version=execute(scenario)
+    assert used==[old]
+    assert run['status']=='failed' and version is None
+    assert run['model_config_id'] is None
+    with get_db() as conn:
+        assert conn.execute('SELECT current_version_id FROM development_plans WHERE id=?',(accepted['plan_id'],)).fetchone()[0] is None
+        assert conn.execute('SELECT id FROM model_configs WHERE id=?',(old,)).fetchone() is None
 
 
 def test_model_safe_context_and_strong_judgment_boundary(scenario,caplog):
@@ -116,21 +142,37 @@ def test_revocation_during_model_call_prevents_save(scenario,monkeypatch):
     _,run,version=execute(scenario);assert run['status']=='failed' and version is None
 
 
-def test_explicit_model_selection_and_external_provider_transport(prepared,monkeypatch):
+@pytest.mark.parametrize('host,name', [
+    ('https://api.deepseek.com/v1','deepseek-v4-flash'),
+    ('https://workspace.cn-beijing.maas.aliyuncs.com/compatible-mode/v1','glm-5.3'),
+    ('https://new-provider.invalid/v1','new-model'),
+])
+def test_shared_model_routing_and_external_provider_transport(prepared,monkeypatch,host,name):
     with get_db() as conn:conn.execute('UPDATE model_configs SET is_default=0');conn.execute('UPDATE model_usage_configs SET model_config_id=NULL')
-    with pytest.raises(ModelConfigurationError):model.configuration()
+    with pytest.raises(ModelConfigurationError,match='场景首选或系统默认'):model.configuration()
     with get_db() as conn:
         row=conn.execute('SELECT id FROM model_configs LIMIT 1').fetchone();conn.execute("UPDATE model_usage_configs SET model_config_id=? WHERE scene_key='partner_development'",(row[0],))
     chosen=model.configuration();assert chosen['id']==row[0]
-    chosen['base_url']='https://api.deepseek.com/v1'
+    chosen.update(base_url=host,model_name=name,api_key='synthetic-transport-key',temperature=0,top_p=.85,max_tokens=131072,timeout_seconds=123)
     import httpx
     requests=[]
     async def handle(request):
         requests.append(request)
         return httpx.Response(200,json={'choices':[{'message':{'content':'{"ok":true}'},'finish_reason':'stop'}]})
-    original=httpx.AsyncClient
-    monkeypatch.setattr(model.httpx,'AsyncClient',lambda **kw:original(transport=httpx.MockTransport(handle),**kw))
-    assert model.completion(chosen,[{'role':'user','content':'transport validation'}],{})=='{"ok":true}'
-    assert len(requests)==1 and requests[0].url.host=='api.deepseek.com'
+    original=httpx.AsyncClient;options=[]
+    def client(**kw):
+        options.append(kw)
+        return original(transport=httpx.MockTransport(handle),**kw)
+    monkeypatch.setattr(model.httpx,'AsyncClient',client)
+    schema={'type':'object','properties':{'ok':{'type':'boolean'}},'required':['ok'],'additionalProperties':False}
+    messages=[{'role':'user','content':'transport validation'}]
+    assert model.completion(chosen,messages,schema)=='{"ok":true}'
+    assert len(requests)==1 and str(requests[0].url)==host+'/chat/completions'
+    payload=json.loads(requests[0].content)
+    assert payload['response_format']=={'type':'json_object'}
+    assert json.dumps(schema,ensure_ascii=False) in payload['messages'][0]['content']
+    assert (payload['temperature'],payload['top_p'],payload['max_tokens'])==(0,.85,131072)
+    assert options[0]['timeout']==123
+    assert messages==[{'role':'user','content':'transport validation'}]
     for invalid in ['file:///tmp/model','https://user:password@model.invalid/v1']:
         with pytest.raises(ModelConfigurationError):model.completion(dict(chosen,base_url=invalid),[],{})

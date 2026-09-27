@@ -70,16 +70,15 @@ def test_status_does_not_change_existing_health_table(client):
     assert database.DATABASE_PATH.read_bytes() == before
 
 
-def test_business_status_uses_scene_binding_not_environment(client):
+def test_business_status_uses_fallback_when_scene_preference_is_missing(client):
     admin = make_user("scene_status_admin", role="admin")
     with get_db() as conn:
         conn.execute("UPDATE model_usage_configs SET model_config_id = 'missing' WHERE scene_key = 'partner_profile'")
     data = client.get("/admin/system/status", headers=auth_headers(admin)).json()
     states = {item["name"]: item for item in data["businessCapabilities"]}
-    assert states["伙伴画像生成"]["status"] == "error"
+    assert states["伙伴画像生成"]["status"] == "unknown"
     assert states["智能匹配"]["status"] == "unknown"
-    assert data["overallStatus"] == "partial"
-    assert "绑定" in states["伙伴画像生成"]["message"]
+    assert data["overallStatus"] == "unknown"
 
 
 def test_default_binding_error_and_database_error_are_sanitized(client, monkeypatch):

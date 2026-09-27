@@ -59,7 +59,7 @@ def supplier(scenario,monkeypatch):
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
     with get_db() as conn:config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
     config.update(base_url=f'http://127.0.0.1:{server.server_port}/v1',api_key='synthetic-only',api_key_source='db')
-    monkeypatch.setattr(model,'configuration',lambda:config)
+    monkeypatch.setattr(model,'configuration',lambda **kwargs:config)
     monkeypatch.setattr(model,'completion',REAL_COMPLETION)
     yield state
     server.shutdown();server.server_close();worker.join(3)
@@ -87,6 +87,7 @@ def test_loopback_supplier_schema_error_timeout_and_retry(scenario,supplier,monk
         engine.execute(retry['run_id']);assert plan(pid)['current_version_id']!=v1
     if mode=='slow':assert elapsed<2
     if mode=='dribble':assert elapsed<.38
-    assert all(r['response_format']['json_schema']['strict'] is True for r in supplier['requests'])
+    assert all(r['response_format']=={'type':'json_object'} for r in supplier['requests'])
+    assert all('"required"' in r['messages'][0]['content'] for r in supplier['requests'])
     for boundary in [json.dumps(supplier['requests']),caplog.text,json.dumps(views.transferable(pid,user))]:assert CANARY not in boundary
     record_property('loopback_supplier',json.dumps({'mode':mode,'status':status,'seconds':elapsed,'real_provider_calls':0}))
