@@ -69,7 +69,7 @@ async function jump(nav: Locator, number: number, enter = false) {
 for (const source of ["course", "lab", "case"]) test(`PAG resource ${source} totals, jump and boundaries`, async ({ page }) => {
   const { requests } = await fixture(page);
   await page.goto(`/resources?resource_type=${source}`);
-  const nav = page.getByRole("navigation", { name: "资源分页" });
+  const nav = page.getByRole("navigation", { name: source === "case" ? "案例分页" : "资源分页" });
   await expect(nav).toContainText("共 3 页");
   await expect(nav.getByRole("button", { name: "上一页" })).toBeDisabled();
   for (const invalid of ["", "0", "-1", "1.5", "abc", "999"]) {
