@@ -123,7 +123,6 @@ def _check_llm() -> tuple[list[ServiceStatus], bool, str]:
         ServiceStatus(name="模型配置", status="error" if error_msg else "normal", message=error_msg or "基础配置已具备，实际调用尚未验证"),
         ServiceStatus(name="模型调用状态", status="unknown", message="本页不调用模型；可在模型配置页手动测试连接"),
         ServiceStatus(name="最近调用耗时", status="unknown", message="未采集调用耗时"),
-        ServiceStatus(name="最近错误信息", status="unknown", message="失败诊断见本页最近错误"),
     ]
     return items, bool(error_msg), error_msg
 

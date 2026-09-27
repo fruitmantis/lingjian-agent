@@ -3,6 +3,7 @@
 import {FailureReasons,type FailureDetail} from "./task-failure";
 import Link from "next/link";
 import { Pagination } from "./pagination";
+import { RecentErrors } from "./recent-errors";
 import {PlanStatus,type PlanPresentation} from "./plan-status";
 import { useEffect, useState } from "react";
 import { apiFetch } from "./auth-provider";
@@ -35,7 +36,8 @@ function errorStageText(value: string | null): string | undefined {
 
 export default function TaskList({ admin = false }: { admin?: boolean }) {
   const [items, setItems] = useState<Task[]>([]);
-  const [archived, setArchived] = useState(false);
+  const [view, setView] = useState<"active" | "archived" | "errors">("active");
+  const archived = view === "archived";
   const [keyword, setKeyword] = useState("");
   const [owner, setOwner] = useState("");
   const [taskType, setTaskType] = useState("");
@@ -69,7 +71,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
     }
   }
 
-  useEffect(() => { void load(1); }, [archived]);
+  useEffect(() => { if (view !== "errors") void load(1); }, [view]);
 
   async function toggleArchive(task: Task) {
     setError(null);
@@ -106,8 +108,12 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
   return (
     <>
       <section className="card toolbar-card">
-        <div className="task-tabs"><button className={!archived ? "active" : ""} onClick={() => setArchived(false)}>进行中</button><button className={archived ? "active" : ""} onClick={() => setArchived(true)}>已归档</button></div>
-        <form onSubmit={event => { event.preventDefault(); void load(1); }} className="inline-search task-search">
+        <div className="task-tabs">
+          <button className={view === "active" ? "active" : ""} aria-pressed={view === "active"} onClick={() => setView("active")}>进行中</button>
+          <button className={archived ? "active" : ""} aria-pressed={archived} onClick={() => setView("archived")}>已归档</button>
+          {admin && <button className={view === "errors" ? "active" : ""} aria-pressed={view === "errors"} onClick={() => setView("errors")}>任务报错</button>}
+        </div>
+        {view !== "errors" && <form onSubmit={event => { event.preventDefault(); void load(1); }} className="inline-search task-search">
           <input value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索需求内容" />
           {admin && <input value={owner} onChange={event => setOwner(event.target.value)} placeholder="创建人 / 部门" />}
           <select value={taskType} onChange={event => { setTaskType(event.target.value); setTaskStatus(""); }} aria-label="任务类型"><option value="">全部类型</option><option value="partner_match">资源匹配</option><option value="development_plan">能力发展</option></select>
@@ -116,9 +122,9 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
             {Object.entries(taskType === "development_plan" ? {matching:"生成中",ready:"已生成",failed:"生成失败"} : statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
           <button>搜索</button>
-        </form>
+        </form>}
       </section>
-      <section className="card">
+      {admin && view === "errors" ? <RecentErrors /> : <section className="card">
         {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load(page)}>重试</button></div>}
         {loading ? <p>加载中...</p> : items.length === 0 ? <div className="empty-state"><h2>{archived ? "暂无已归档任务" : "暂无任务"}</h2><p>{taskType === "development_plan" ? "暂无能力发展任务，可在开启新任务中选择能力发展。" : admin ? "当前筛选条件下没有任务。" : "前往开启新任务，完成第一次伙伴匹配。"}</p>{!admin && <Link href={taskType === "development_plan" ? "/?mode=development" : "/"} className="btn-primary-lg">开启新任务</Link>}</div> : (
           <>
@@ -129,7 +135,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
           </>
         )}
         {!loading && <Pagination label="任务分页" page={page} total={total} pageSize={20} onPageChange={next => void load(next)}/>}
-      </section>
+      </section>}
     </>
   );
 }

@@ -11,10 +11,10 @@ function errorText(item:ErrorEntry){
 }
 export function RecentErrors(){
  const [items,setItems]=useState<ErrorEntry[]>([]),[busy,setBusy]=useState(true),[error,setError]=useState(""),[copy,setCopy]=useState("");
- async function load(){setBusy(true);setError("");try{const response=await adminApiFetch("/admin/system/errors?limit=50",{cache:"no-store"});if(!response.ok)throw await responseError(response);setItems((await response.json()).items);}catch(reason){setError(reason instanceof Error?reason.message:"最近错误暂不可读取。");}finally{setBusy(false);}}
+ async function load(){setBusy(true);setError("");try{const response=await adminApiFetch("/admin/system/errors?limit=50",{cache:"no-store"});if(!response.ok)throw await responseError(response);setItems((await response.json()).items);}catch(reason){setError(reason instanceof Error?reason.message:"任务报错暂不可读取。");}finally{setBusy(false);}}
  useEffect(()=>{void load();},[]);
  async function copyDetails(item:ErrorEntry){try{await navigator.clipboard.writeText(errorText(item));setCopy(`已复制错误详情：${item.id}`);}catch{setCopy("复制失败，请选中下方详情手动复制。");}}
- return <section className={`card ${styles.panel}`} aria-label="最近错误"><div className={styles.heading}><div><h2>最近错误</h2><p className="muted">按时间倒序显示最近 50 条记录；重试成功后仍保留。详情已脱敏。</p></div><button className="secondary-btn" disabled={busy} onClick={()=>void load()}>{busy?"读取中…":"刷新错误"}</button></div>
+ return <section className={`card ${styles.panel}`} aria-label="任务报错"><div className={styles.heading}><div><h2>任务报错</h2><p className="muted">按时间倒序显示最近 50 条记录；重试成功后仍保留。详情已脱敏。</p></div><button className="secondary-btn" disabled={busy} onClick={()=>void load()}>{busy?"读取中…":"刷新错误"}</button></div>
  {error&&<p role="alert" className="error-text">{error}</p>}{copy&&<p role="status" className="muted">{copy}</p>}
  {!busy&&!error&&!items.length&&<p className="placeholder-text">暂无已记录的错误。启用记录前的历史失败无法补充真实原因。</p>}
  <div className={styles.list}>{items.map(item=><details key={item.id} className={styles.entry}><summary><time dateTime={item.time}>{new Date(item.time).toLocaleString("zh-CN")}</time><span className={styles.stage}>{stages[item.stage]||item.stage}</span><span className={styles.reason}>{item.message}</span></summary><div className={styles.detail}><div className={styles.actions}><span className="muted">{item.task_id?`任务 ${item.task_id}`:`请求 ${item.request_id}`}</span><button type="button" className="secondary-btn" onClick={()=>void copyDetails(item)}>复制错误详情</button></div><pre tabIndex={0} aria-label="错误完整详情">{errorText(item)}</pre></div></details>)}</div></section>;

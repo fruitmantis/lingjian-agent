@@ -28,6 +28,7 @@ async function fixture(page:Page){
 
 test("ordinary list shows simple messages including legacy failures",async({page})=>{
  await fixture(page);await page.goto("/tasks");
+ await expect(page.getByRole("button",{name:"任务报错",exact:true})).toHaveCount(0);
  const row=page.getByRole("row").filter({hasText:"合成验收：部分完成"});
  await expect(row).toContainText("本次处理失败，请重试。");
  await expect(row).not.toContainText("模型响应超时");
@@ -90,7 +91,7 @@ test("unconfirmed submission uses simple wording and keeps pending task",async({
  await expect(page.getByRole("button",{name:"核对任务"})).toBeVisible();
 });
 
-test("admin recent errors expand and copy redacted details",async({page,context})=>{
+test("admin task errors tab expands and copies redacted details",async({page,context})=>{
  const admin={...user,id:"fixture-admin",role:"admin"};
  await page.addInitScript(({admin})=>{localStorage.setItem("banfei:admin:token","isolated-admin");localStorage.setItem("banfei:admin:user",JSON.stringify(admin));},{admin});
  const latest={id:"error-latest",time:"2026-09-25T01:02:00Z",request_id:"req-2",task_id:"task-2",run_id:null,stage:"partner_match",exception_type:"ValueError",message:"推荐第 1 项 matchScore 无法解析为数字 <script>alert(1)</script>",model:"test-model",http_status:200,response_excerpt:'{"api_key":"[REDACTED]","matchScore":"92分"}',traceback:"File match.py: parse\nValueError: invalid matchScore"};
@@ -99,13 +100,24 @@ test("admin recent errors expand and copy redacted details",async({page,context}
   const path=url.pathname.replace(/^\/api/,"");
   if(path==="/auth/me")return route.fulfill({json:admin});
   if(path==="/health")return route.fulfill({json:{status:"ok"}});
+  if(path==="/admin/tasks")return route.fulfill({json:{items:[],page:1,pageSize:20,total:0,totalPages:0}});
   if(path==="/admin/system/errors")return route.fulfill({json:{items:[latest,{...latest,id:"error-older",time:"2026-09-25T01:01:00Z",task_id:null,request_id:"req-1",message:"database is unavailable",stage:"submission"}]}});
   if(path==="/admin/system/status")return route.fulfill({json:{overallStatus:"unknown",checkedAt:stamp,summary:{normalCount:0,warningCount:0,errorCount:0,unknownCount:0,abnormalModules:[]},services:[],database:[],llm:[],businessCapabilities:[],recentErrors:[]}});
   return route.fulfill({status:404,json:{detail:"Fixture route not defined"}});
  });
  await context.grantPermissions(["clipboard-read","clipboard-write"]);
  await page.goto("/admin/system");
- const panel=page.getByRole("region",{name:"最近错误"});
+ await expect(page.getByRole("heading",{name:"系统状态",exact:true})).toBeVisible();
+ await expect(page.getByRole("region",{name:/最近错误|任务报错/})).toHaveCount(0);
+ await page.goto("/admin/tasks");
+ await expect(page.getByRole("button",{name:"进行中",exact:true})).toHaveAttribute("aria-pressed","true");
+ await page.getByRole("button",{name:"已归档",exact:true}).click();
+ await expect(page.getByRole("heading",{name:"暂无已归档任务"})).toBeVisible();
+ await page.getByRole("button",{name:"任务报错",exact:true}).click();
+ await expect(page.getByRole("button",{name:"任务报错",exact:true})).toHaveAttribute("aria-pressed","true");
+ await expect(page.getByRole("button",{name:"已归档",exact:true})).toHaveAttribute("aria-pressed","false");
+ await expect(page.getByPlaceholder("搜索需求内容")).toHaveCount(0);
+ const panel=page.getByRole("region",{name:"任务报错"});
  const entries=panel.locator("details");await expect(entries).toHaveCount(2);
  await expect(entries.first()).toContainText("matchScore 无法解析为数字");
  await expect(entries.first().getByLabel("错误完整详情")).toBeHidden();
@@ -117,6 +129,10 @@ test("admin recent errors expand and copy redacted details",async({page,context}
  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(await detail.textContent());
  await entries.nth(1).locator("summary").click();await expect(entries.nth(1)).toContainText("请求 req-1");
  for(const width of [1366,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();if(process.env.TASK_FAILURE_SCREENSHOTS)await page.screenshot({path:`${process.env.TASK_FAILURE_SCREENSHOTS}/admin-errors-${width}.png`,fullPage:true});}
+ await page.getByRole("button",{name:"进行中",exact:true}).click();
+ await expect(panel).toHaveCount(0);
+ await expect(page.getByPlaceholder("搜索需求内容")).toBeVisible();
+ await expect(page.getByRole("heading",{name:"暂无任务",exact:true})).toBeVisible();
 });
 
 
