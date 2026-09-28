@@ -1,22 +1,30 @@
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
+import {match, plan} from './coze-fixtures';
 
 // Browser-only fixtures: no authentication, resource mutation or model request reaches the API.
 for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`,async({page})=>{
   await page.setViewportSize({width,height:width===1366?768:1080});
   await page.addInitScript(()=>{localStorage.setItem('banfei:user:token','synthetic-user');localStorage.setItem('banfei:admin:token','synthetic-admin');});
   let writes=0;
-  await page.route(/https?:\/\/(127\.0\.0\.1|localhost):8000\//,route=>{
-    const u=new URL(route.request().url()),p=u.pathname;
+  await page.route('**/*',route=>{
+    const u=new URL(route.request().url());
+    if(u.port!=='8000'&&!u.pathname.startsWith('/api/'))return ['localhost','127.0.0.1'].includes(u.hostname)?route.continue():route.abort();
+    const p=u.pathname.replace(/^\/api/,'');
     if(route.request().method()!=='GET'){writes++;return route.abort();}
     let json:unknown={items:[],total:0,page:1,pageSize:20,totalPages:0};
     const partner={id:'ui-preview',name:'合成视觉伙伴',capabilities:'数据库 · 系统集成',industries:'金融',service_areas:'广东',intro:'用于界面验证的合成数据。',ai_profile:'数据库交付及应用集成基础。',created_at:'2026-09-01',case_count:1,deliverable_count:1};
     if(p==='/auth/me')json={id:'ui-admin',username:'ui-admin',role:route.request().headers().authorization==='Bearer synthetic-admin'?'admin':'user',status:'active',must_change_password:false};
     else if(p==='/partners'||p==='/partners/profiles')json=[partner];
+    else if(p.startsWith('/partners/'))json=partner;
+    else if(p==='/agent/tasks/coze-match')json=match;
+    else if(p==='/agent/tasks/coze-plan')json={id:'coze-plan',task_type:'development_plan',taskStatus:'ready'};
+    else if(p==='/development/plans/coze-plan')json=plan;
+    else if(p==='/admin/partner-materials')json={items:[{kind:'case',id:'ui-material',partner_id:partner.id,partner_name:partner.name,title:'合成伙伴资料',description:'仅用于隔离界面检查。',category_id:'technical-3',visible:false,file_count:0,processing_status:'ready',updated_at:'2026-09-28'}],total:1,partners:[partner]};
     else if(p==='/enablement/context')json={partner,evidence:[],project:null,shared_case:null};
     else if(p==='/enablement/resource-filters')json={roles:[],zones:[],case_categories:[]};
-    else if(p==='/cases/ui-resource/deliverables')json=[];
+    else if(p.endsWith('/deliverables'))json=[];
     else if(p==='/enablement/resources')json={items:[{source_type:u.searchParams.get('source_type')||'course',source_id:'ui-resource',source_version:1,title:'用于布局验证的合成资源',summary:'此记录仅存在于浏览器请求拦截中。',source_url:'https://example.com/resource',capabilities:[],roles:[],zones:[],level:'advanced',category:'技术案例',subcategory:'架构设计',contributor_id:partner.id,contributor_name:partner.name}],total:1};
     else if(p.startsWith('/enablement/resources/'))json={source_type:p.split('/')[3],source_id:'ui-resource',source_version:1,title:'用于布局验证的合成资源',summary:'仅用于界面测试。',capabilities:[],roles:[],zones:[],level:'advanced',source_url:'https://example.com/resource',category:'技术案例',subcategory:'架构设计',contributor_id:partner.id,contributor_name:partner.name};
     else if(p==='/admin/reports')json={overview:{totalDemands:1,thisMonthDemands:1,totalPartners:1,partnersWithProfile:1,activePartners:1,noPartnerDemands:0,partialDemands:0,pendingSuggestions:0},capabilityDist:[],industryDist:[],regionDist:[],deliveryTypeDist:[],supplyGaps:[],activePartnerCount:0,activePartnerRatio:0,topRecommendedPartners:[],inactivePartners:[],topFormalTags:[],uncoveredClues:0,pendingSuggestions:0};
@@ -36,30 +44,64 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
   ]){
     await page.goto(url);const card=page.locator(selector).first();await expect(card).toBeVisible();
     await page.mouse.move(0,0);await page.waitForTimeout(220);
-    await expect(card).toHaveCSS('border-top-width','0px');await expect(card).toHaveCSS('border-radius','8px');
+    // At DPR 1 Chromium snaps the shared 0.5 CSS px border to one device pixel.
+    await expect(card).toHaveCSS('border-top-width','1px');await expect(card).toHaveCSS('border-top-color','rgb(228, 228, 231)');await expect(card).toHaveCSS('border-radius','16px');
+    const entry=card.locator('.card-entry-label');
+    await expect(entry).toHaveCSS('font-size','12px');await expect(entry).toHaveCSS('color','rgb(96, 96, 92)');
+    await expect(entry.locator('svg')).toHaveAttribute('width','14');
     shadows.push(await card.evaluate(e=>getComputedStyle(e).boxShadow));
-    await card.hover();await expect(card).toHaveCSS('transform','matrix(1, 0, 0, 1, 0, -2)');await page.waitForTimeout(220);
+    await card.hover();await expect(card).toHaveCSS('transform','none');await page.waitForTimeout(220);
+    await expect(card).toHaveCSS('background-color','rgb(244, 244, 243)');
+    await expect(entry).toHaveCSS('color','rgb(38, 38, 38)');
     hoverShadows.push(await card.evaluate(e=>getComputedStyle(e).boxShadow));
-    await card.locator('a').last().focus();await expect(card).toHaveCSS('outline-style','solid');
+    // Cancel this one navigation to inspect pointer focus and the native full-card link.
+    const href=await card.locator('a').last().getAttribute('href');
+    await card.evaluate(el=>el.addEventListener('click',event=>{
+      event.preventDefault();el.setAttribute('data-clicked-href',(event.target as HTMLElement).closest('a')?.getAttribute('href')||'');
+    },{capture:true,once:true}));
+    await card.click({position:{x:20,y:20}});await expect(card).toHaveAttribute('data-clicked-href',href!);
+    await expect(card).toHaveCSS('outline-style','none');
+    await page.keyboard.press('Tab');await card.locator('a').last().focus();await expect(card).toHaveCSS('outline-style','solid');
     await page.emulateMedia({reducedMotion:'reduce'});await expect(card).toHaveCSS('transform','none');await page.emulateMedia({reducedMotion:'no-preference'});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
     if(name==='partners'||name==='course'){await page.mouse.move(0,0);await page.screenshot({path:path.join(directory,`${name}-${width}.png`),fullPage:true});}
     if(['course','lab','case'].includes(name)){
-      await card.locator('h2 a').click();await expect(page).toHaveURL(new RegExp(`/resources/${name}/ui-resource`));
+      // The footer label must reach the same native link, including stretched course/lab links.
+      await entry.scrollIntoViewIfNeeded();const box=(await entry.boundingBox())!;
+      await page.mouse.click(box.x+box.width/2,box.y+box.height/2);await expect(page).toHaveURL(new RegExp(`/resources/${name}/ui-resource`));
       await expect(page.getByRole('heading',{name:'用于布局验证的合成资源',exact:true})).toBeVisible();
-      // Cases retain the existing whole-card link; compact course/lab cards use the title link above.
-      if(name==='case'){await page.goto(url);await page.locator(selector).first().click({position:{x:12,y:12}});
-        await expect(page).toHaveURL(new RegExp(`/resources/${name}/ui-resource`));}
     }
   }
-  expect(new Set(shadows).size).toBe(1);expect(shadows[0]).not.toBe('none');expect(new Set(hoverShadows).size).toBe(1);expect(hoverShadows[0]).not.toBe(shadows[0]);
+  expect(new Set(shadows).size).toBe(1);expect(shadows[0]).not.toBe('none');expect(hoverShadows).toEqual(shadows);
+  for(const [url,selector,href] of [
+    ['/tasks/coze-match','.recommendation-item','/partners/coze-partner'],
+    ['/tasks/coze-plan','.advisor-resource','/resources/lab/lab-0?source_version=1'],
+    ['/partners/ui-preview','.case-item','/resources/case/ui-resource'],
+  ]){
+    await page.goto(url);const card=page.locator(selector).first(),link=card.locator('.card-entry-link');
+    await expect(link).toBeVisible();await page.mouse.move(0,0);
+    await expect(link).toHaveCSS('border-top-width','0px');await expect(link).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+    await expect(link.locator('.card-entry-label')).toHaveCSS('color','rgb(96, 96, 92)');
+    await page.screenshot({path:path.join(directory,`${selector.slice(1)}-${width}.png`),fullPage:true});
+    await expect(link).toHaveAttribute('href',href);await link.focus();await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$'));
+  }
+  await page.goto('/admin/partner-materials');
+  const material=page.locator('.ui-catalog-card').first(),open=material.getByRole('button',{name:'查看与管理',exact:true});
+  await expect(open).toBeVisible();await page.mouse.move(0,0);
+  await expect(open).toHaveCSS('border-top-width','0px');await expect(open).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
+  await expect(open.locator('.card-entry-label')).toHaveCSS('font-size','12px');
+  await page.screenshot({path:path.join(directory,`material-entry-${width}.png`),fullPage:true});
+  await page.keyboard.press('Tab');await open.focus();await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog',{name:'合成伙伴资料'})).toBeVisible();
+  await page.getByRole('button',{name:'关闭',exact:true}).click();await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.goto('/?mode=development&partner_id=ui-preview');
   for(const selector of ['.development-context-row','.development-composer>.development-form']){
     const surface=page.locator(selector);await expect(surface).toBeVisible();await surface.hover();await expect(surface).toHaveCSS('transform','none');await expect(surface).toHaveCSS('border-top-width','0px');
   }
-  await expect(page.getByLabel('发展方向',{exact:true})).toHaveCSS('height','176px');
+  await expect(page.getByLabel('发展方向',{exact:true})).toHaveCSS('height','140px');
   await expect(page.getByLabel('选择目标伙伴')).toHaveCSS('height','40px');
-  await expect(page.getByRole('tab',{name:'能力发展',exact:true})).toHaveCSS('border-bottom-color','rgb(199, 0, 11)');
+  await expect(page.getByRole('tab',{name:'能力发展',exact:true})).toHaveAttribute('aria-selected','true');
   await page.getByLabel('发展方向',{exact:true}).fill('希望具备 Agent 项目交付能力');
   await expect(page.getByRole('button',{name:'生成能力发展建议',exact:true})).toHaveCSS('background-color','rgb(199, 0, 11)');
   await page.screenshot({path:path.join(directory,`development-${width}.png`),fullPage:true});

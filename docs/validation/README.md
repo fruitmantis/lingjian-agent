@@ -1,11 +1,12 @@
 # 验证文档索引
 
-更新日期：2026-09-28。当前正式工作区 main、PostgreSQL schema 17；运行与安全约束以根目录 [README](../../README.md) 和 [AGENTS](../../AGENTS.md) 为准。
+更新日期：2026-09-29。当前正式工作区 main、PostgreSQL schema 17；运行与安全约束以根目录 [README](../../README.md) 和 [AGENTS](../../AGENTS.md) 为准。
 
 ## 当前入口
 
 | 目的 | 文档 |
 |---|---|
+| Coze UI 提交边界与合并验证 | [Coze UI 合并验证](COZE_UI_MERGE_20260929.md) |
 | 当前统一理解、局部修改、固定模型及 11 次真实调用 | [统一任务流程验证](UNIFIED_TASK_FLOW_20260928.md) |
 | 最新工程验证、提交范围、数据边界 | [2026-09-26 Git 收口](GIT_CLOSEOUT_20260926.md) |
 | 新对话接续、已完成事项、不要重做的操作 | [项目交接](../handoff/CURRENT_HANDOFF_20260926.md) |

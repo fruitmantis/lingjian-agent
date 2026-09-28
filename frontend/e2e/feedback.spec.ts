@@ -75,7 +75,7 @@ test('feedback validates images and preserves draft after submission failure', a
   await page.getByLabel('问题描述').fill('保留这个描述');
   await page.route(`${API}/feedback`, route => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ detail: '问题提交失败，请稍后重试' }) }));
   await page.getByRole('button', { name: '提交问题', exact: true }).click();
-  await expect(page.locator('.feedback-error[role=alert]')).toContainText('问题提交失败');
+  await expect(page.locator('.feedback-error[role=alert]')).toContainText('服务异常，请联系管理员。');
   await expect(page.getByLabel('问题描述')).toHaveValue('保留这个描述');
   await expect(page.locator('.feedback-thumbnail')).toHaveCount(1);
   await page.screenshot({ path: '/tmp/banfei-feedback-form.png', fullPage: true });

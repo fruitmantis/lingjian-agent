@@ -63,7 +63,7 @@ export default function FeedbackPage() {
     finally { submitting.current = false; setBusy(false); }
   }
 
-  return <div className="feedback-page">
+  return <div className="page feedback-page">
     <h1>问题反馈</h1>
     <form className="card feedback-form" onSubmit={submit}>
       <label className="enablement-field" htmlFor="feedback-description"><span>问题描述<span aria-hidden="true"> *</span></span>

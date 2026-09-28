@@ -1,6 +1,7 @@
 "use client";
 
 import {INDUSTRIES, REGION_TYPES, standardValues} from "./business-taxonomy";
+import {useEffect, useId, useRef, useState} from "react";
 import styles from "./opportunity-ui.module.css";
 export {styles as opportunityStyles};
 
@@ -11,18 +12,54 @@ export type Opportunity = Record<OpportunityField, string | null> & {
   classification_pending?: Record<string, string[]>;
 };
 
-export function OpportunityFilter({kind, value, onChange}: {kind: "industry" | "region"; value: string; onChange: (value: string) => void}) {
+export function OpportunityFilter({kind, value, onChange, compact = false}: {kind: "industry" | "region"; value: string; onChange: (value: string) => void; compact?: boolean}) {
   const label = kind === "industry" ? "行业" : "区域";
   const selected = standardValues(value, kind);
   const groups = kind === "industry" ? [{name: "行业", values: INDUSTRIES}] : [{name: "国内", values: REGION_TYPES.domestic}, {name: "海外", values: REGION_TYPES.overseas}];
-  return <div className={styles.field}><span>{label}</span>
-    <details className={styles.filter} onKeyDown={event => {if (event.key === "Escape") {event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus();}}} onBlur={event => {if (!event.currentTarget.contains(event.relatedTarget as Node)) event.currentTarget.open = false;}}>
-      <summary aria-label={`${label}筛选`}><span>{selected.length ? `已选 ${selected.length} 项` : `全部${label}`}</span><span aria-hidden="true">⌄</span></summary>
-      <div className={styles.popover} role="group" aria-label={`${label}选项`}>
-        <div className={styles.filterHeader}><span>可多选</span><button type="button" className="text-btn" onClick={() => onChange("")}>清除</button></div>
-        {groups.map(group => <fieldset key={group.name}><legend>{group.name}</legend>{group.values.map(item => <label key={item}><input type="checkbox" checked={selected.includes(item)} onChange={event => onChange((event.target.checked ? [...selected, item] : selected.filter(value => value !== item)).join(","))}/>{item}</label>)}</fieldset>)}
-      </div>
-    </details>
+  return <MultiSelectFilter label={label} selected={selected} groups={groups} onChange={values => onChange(values.join(","))} compact={compact}/>;
+}
+
+export function MultiSelectFilter({label, selected, groups, onChange, searchable = false, compact = false}: {
+  label: string; selected: string[]; groups: {name: string; values: string[]}[];
+  onChange: (values: string[]) => void; searchable?: boolean; compact?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const optionsId = useId();
+  useEffect(() => {
+    if (!open) return;
+    const dismissOutside = (event: Event) => {
+      if (!filterRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    // A label click briefly blurs the trigger before focusing its checkbox.
+    // Close on an actual outside interaction, not that intermediate blur.
+    document.addEventListener("pointerdown", dismissOutside, true);
+    document.addEventListener("focusin", dismissOutside, true);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside, true);
+      document.removeEventListener("focusin", dismissOutside, true);
+    };
+  }, [open]);
+  const visibleGroups = groups.map(group => ({...group, values: group.values.filter(item => item.toLowerCase().includes(query.trim().toLowerCase()))}));
+  // Keep the popup outside a native details/summary subtree: changing its checked
+  // descendants can crash Edge 154 with Windows native accessibility enabled.
+  return <div className={`${styles.field} ${compact ? styles.compactFilter : ""}`}>{!compact && <span>{label}</span>}
+    <div ref={filterRef} className={styles.filter} data-filter-popover="" onKeyDown={event => {if (event.key === "Escape") {setOpen(false); triggerRef.current?.focus();}}}>
+      <button type="button" ref={triggerRef} className={styles.filterTrigger} aria-label={`${label}筛选`} aria-expanded={open} aria-controls={optionsId} onClick={() => setOpen(value => !value)}>
+        {compact ? <span className={styles.triggerLabel}>{label}{selected.length > 0 && <span className={styles.selectionCount} aria-label={`已选 ${selected.length} 项`}>{selected.length}</span>}</span> : <span>{selected.length ? `已选 ${selected.length} 项` : `全部${label}`}</span>}
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+      </button>
+      {open && <div id={optionsId} className={styles.popover} role="group" aria-label={`${label}选项`}>
+        <div className={styles.filterHeader}><span>可多选</span><button type="button" className={compact ? styles.filterClear : "text-btn"} onClick={() => onChange([])}>清除</button></div>
+        {searchable && <input className={styles.filterSearch} aria-label={`搜索${label}选项`} placeholder={`搜索${label}`} value={query} onChange={event => setQuery(event.target.value)}/>}
+        <div className={compact ? styles.filterOptions : undefined}>
+          {visibleGroups.filter(group => group.values.length).map(group => <fieldset key={group.name}><legend className={compact && groups.length === 1 ? "sr-only" : undefined}>{group.name}</legend>{group.values.map(item => <label key={item}><input type="checkbox" checked={selected.includes(item)} onChange={event => onChange(event.target.checked ? [...selected, item] : selected.filter(value => value !== item))}/>{item}</label>)}</fieldset>)}
+          {!visibleGroups.some(group => group.values.length) && <p className="muted">{query.trim() ? "没有匹配的选项" : "暂无可选标签"}</p>}
+        </div>
+      </div>}
+    </div>
   </div>;
 }
 

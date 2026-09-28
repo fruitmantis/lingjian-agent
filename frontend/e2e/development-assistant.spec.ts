@@ -30,7 +30,7 @@ for(const width of [1366,1920])test(`Advisor UX content, discuss and revision ${
  await expect(labAdvice.first()).toContainText('1.5 小时');await expect(page.getByTestId('resource-advice').first()).toContainText('进阶');await snap('01-full-advice');
  const d=await detail(),v1=d.plan.current_version_id;expect(d.plan).not.toHaveProperty("confirmed_version_id");
  // Current advice can open resources without confirmation, including the backend-resolved redirect action.
- await page.getByRole('link',{name:'查看资源 →'}).first().click();await expect(page).toHaveURL(/resources\//);await expect(page.getByRole('button',{name:/前往课程|前往实验/})).toBeVisible();await page.goto('/tasks/'+id);
+ await page.getByRole('link',{name:'查看资源',exact:true}).first().click();await expect(page).toHaveURL(/resources\//);await expect(page.getByRole('button',{name:/前往课程|前往实验/})).toBeVisible();await page.goto('/tasks/'+id);
  for(const [index,message] of ['为什么推荐 RAG？','这两个实验有什么区别？','还需要补哪些准备？'].entries()){
   await page.getByLabel('消息',{exact:true}).fill(message);await page.getByRole('button',{name:'发送',exact:true}).click();await expect.poll(async()=> (await detail()).conversation.length).toBe(index+1);await expect(page.getByTestId('conversation')).toContainText(message);
   const answer=page.getByTestId('advisor-answer').nth(index);

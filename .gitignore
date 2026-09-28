@@ -51,3 +51,21 @@ frontend/app/**/page.ts
 /docs/archive/v1.1/RC_PREPARATION_REPORT.md
 /docs/archive/v1.1/PILOT_DATA_INTAKE_REPORT.md
 /docs/archive/v1.1/PILOT_IMPORT_READINESS_REPORT.md
+
+# Local Coze UI screenshots and browser diagnostics (may contain account/content data).
+/artifacts/admin-heading-alignment/
+/artifacts/card-border-fix/
+/artifacts/card-entry/
+/artifacts/card-interaction/
+/artifacts/catalog-type-sync/
+/artifacts/coze-all-pages/
+/artifacts/coze-polish/
+/artifacts/coze-ui/
+/artifacts/partner-fields/
+/artifacts/partner-filter-fix/
+/artifacts/partner-filters/
+/artifacts/partner-pills/
+/artifacts/partner-tag-summary/
+/artifacts/system-font-trial/
+/banfei.png
+/coze.png

@@ -221,7 +221,7 @@ export function CapabilityTagsTab() {
                   const ic = editCatId === c.id;
                   return (
                     <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "var(--bg-hover)" : undefined }}>
-                      <td >{ic ? <input type="text" value={cN} onChange={(e) => setCN(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{c.name}</span>}</td>
+                      <td >{ic ? <input type="text" value={cN} onChange={(e) => setCN(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 400 }}>{c.name}</span>}</td>
                                             <td >{ic ? <input type="text" value={cD} onChange={(e) => setCD(e.target.value)} placeholder="选填" style={inpStyle} /> : <span style={{ fontSize: "13px", color: "var(--muted)" }}>{c.description || "-"}</span>}</td>
                       <td >{ic ? <input type="number" value={cS} onChange={(e) => setCS(parseInt(e.target.value)||0)} style={{ ...inpStyle, width: "60px" }} /> : <span style={{ fontSize: "13px" }}>{c.sortOrder}</span>}</td>
                       <td ><span className="ui-status-badge" style={{ background: !c.enabled ? "#fef2f2" : !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}` }}>{!c.enabled ? "停用" : !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>
@@ -342,7 +342,7 @@ export function CapabilityTagsTab() {
                 return (
                   <tr key={t.id} style={{ borderBottom: "1px solid var(--line)", background: isThisEditing ? "var(--bg-hover)" : undefined }}>
                     <td >
-                      {isThisEditing ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 600 }}>{t.name}</span>}
+                      {isThisEditing ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inpStyle} /> : <span style={{ fontSize: "14px", fontWeight: 400 }}>{t.name}</span>}
                     </td>
                     <td >
                       {isThisEditing ? <select value={eCat} onChange={(e) => setECat(e.target.value)} style={inpStyle}>{categories.map(c => <option key={c} value={c}>{c}</option>)}</select> : <span style={{ fontSize: "13px" }}>{t.category}</span>}
@@ -417,7 +417,7 @@ export function SystemStatusTab() {
           {items.map((item, i) => (
             <div key={i} className="ui-status-row">
               <div>
-                <span style={{ fontSize: "14px", fontWeight: 600 }}>{item.name}</span>
+                <span style={{ fontSize: "14px", fontWeight: 400 }}>{item.name}</span>
                 <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "8px" }}>{item.message}</span>
                 {item.detail && <p className="muted" style={{ margin: "4px 0 0", fontSize: "13px" }}>{item.detail}</p>}
               </div>
@@ -455,10 +455,10 @@ export function SystemStatusTab() {
         </div>
         {/* Stats */}
         <div className="ui-status-summary">
-          <div><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--success)" }}>{data.summary.normalCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>正常</span></div>
-          <div><span style={{ fontSize: "20px", fontWeight: 700, color: "#e8a317" }}>{data.summary.warningCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>警告</span></div>
-          <div><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--danger)" }}>{data.summary.errorCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>异常</span></div>
-          <div><span style={{ fontSize: "20px", fontWeight: 700, color: "var(--muted)" }}>{data.summary.unknownCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>未知</span></div>
+          <div><span style={{ fontSize: "20px", fontWeight: 400, color: "var(--success)" }}>{data.summary.normalCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>正常</span></div>
+          <div><span style={{ fontSize: "20px", fontWeight: 400, color: "#e8a317" }}>{data.summary.warningCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>警告</span></div>
+          <div><span style={{ fontSize: "20px", fontWeight: 400, color: "var(--danger)" }}>{data.summary.errorCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>异常</span></div>
+          <div><span style={{ fontSize: "20px", fontWeight: 400, color: "var(--muted)" }}>{data.summary.unknownCount}</span> <span style={{ fontSize: "12px", color: "var(--muted)" }}>未知</span></div>
         </div>
         {/* Abnormal modules */}
         {data.summary.abnormalModules.length > 0 && (
@@ -467,7 +467,7 @@ export function SystemStatusTab() {
             {data.summary.abnormalModules.map((m: any, i: number) => (
               <div key={i} className="ui-status-issue">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#991b1b" }}>{m.module}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 400, color: "#991b1b" }}>{m.module}</span>
                   {statusBadge(m.status)}
                 </div>
                 <div style={{ fontSize: "13px", color: "#666" }}><strong>异常:</strong> {m.message}</div>
@@ -648,7 +648,7 @@ export function ModelConfigTab() {
         <div style={{ marginTop: "12px" }}>
           {usages.map((u) => (
             <div key={u.sceneKey} className="ui-model-binding">
-              <div><span style={{ fontSize: "14px", fontWeight: 600 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "自动选择模型"}</span></div>
+              <div><span style={{ fontSize: "14px", fontWeight: 400 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "自动选择模型"}</span></div>
               {u.sceneKey === "recommendation_summary" && <span className="placeholder-text">当前暂无独立调用，推荐理由随伙伴匹配生成。</span>}
               <select aria-label={`${u.sceneName}模型`} disabled={saving} value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} >
                 <option value="">自动选择模型</option>

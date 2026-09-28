@@ -50,8 +50,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [health, setHealth] = useState<boolean | null>(null);
+  const [navigationOpen, setNavigationOpen] = useState(false);
   const isStandalone = pathname === "/admin/login" || pathname === "/login" || pathname === "/403" || pathname === PASSWORD_CHANGE_PATH;
   const isAdmin = pathname.startsWith("/admin");
+
+  useEffect(() => { setNavigationOpen(false); }, [pathname]);
 
   useEffect(() => {
     if (isStandalone) return;
@@ -62,15 +65,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (isStandalone) return <>{children}</>;
 
   return (
-    <div className={`app-layout ${isAdmin ? "admin-layout" : "workspace-layout"}`}>
+    <div className={`app-layout ${isAdmin ? "admin-layout" : "workspace-layout"} coze-workspace${navigationOpen ? " navigation-open" : ""}`}>
       <aside className="sidebar">
         <div className="sidebar-header">
           <Link href={isAdmin ? "/admin" : "/"} className="sidebar-brand">
             <LingjianMark />
             <span><span className="brand-text">伴飞 Agent</span><small>{isAdmin ? "平台运营与系统管理" : "伙伴能力智能助手"}</small></span>
           </Link>
+          <button type="button" className="workspace-nav-toggle" aria-expanded={navigationOpen} aria-controls="workspace-navigation workspace-footer" onClick={() => setNavigationOpen(value => !value)}><UiIcon name="apps" size={18}/><span>{navigationOpen ? "收起导航" : "展开导航"}</span></button>
         </div>
-        <nav className="sidebar-nav" aria-label={isAdmin ? "后台导航" : "工作台导航"}>
+        <nav id="workspace-navigation" className="sidebar-nav" aria-label={isAdmin ? "后台导航" : "工作台导航"}>
           {isAdmin ? adminNav.map(group => (
             <div className="nav-group" key={group.group}>
               <div className="nav-group-title">{group.group}</div>
@@ -86,7 +90,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </>
           )}
         </nav>
-        <div className="sidebar-footer">
+        <div id="workspace-footer" className="sidebar-footer">
           {!isAdmin && <Link href="/feedback" className={`sidebar-footer-link ${pathname === "/feedback" ? "active" : ""}`} aria-current={pathname === "/feedback" ? "page" : undefined}><UiIcon name="file" size={18} /><span>问题反馈</span></Link>}
           <Link href={isAdmin ? "/admin/account" : "/account"} className={`sidebar-footer-link ${!isAdmin && pathname === "/account" ? "active" : ""}`} aria-current={pathname === "/account" ? "page" : undefined}><UiIcon name="user" size={18} /><span>个人中心</span></Link>
           {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回伴飞 Agent</span></Link> : <Link href="/admin/login" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link>}

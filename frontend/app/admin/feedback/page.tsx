@@ -21,11 +21,11 @@ export default function AdminFeedbackPage() {
     }
     void load(); return () => { live = false; };
   }, [offset]);
-  return <div className="feedback-admin"><h1>问题反馈</h1>
+  return <div className="page feedback-admin"><h1>问题反馈</h1>
     {error && <p role="alert" className="feedback-error">{error}</p>}
     <div className="card">
       {loading ? <p role="status">正在加载…</p> : error ? null : !items.length ? <p className="muted">暂无问题反馈</p> : <>
-        <div className="feedback-table-wrap"><table><thead><tr><th>提交时间</th><th>提交人</th><th>问题摘要</th><th>截图数量</th><th>状态</th></tr></thead>
+        <div className="feedback-table-wrap"><table className="data-table"><thead><tr><th>提交时间</th><th>提交人</th><th>问题摘要</th><th>截图数量</th><th>状态</th></tr></thead>
           <tbody>{items.map(item => <tr key={item.id}><td>{new Date(item.created_at).toLocaleString("zh-CN", { hour12: false })}</td><td>{item.submitter}</td>
             <td className="feedback-summary"><Link href={`/admin/feedback/${item.id}`}>{item.summary}</Link></td><td>{item.screenshot_count}</td>
             <td><span className={`feedback-status ${item.status}`}>{item.status === "pending" ? "待处理" : "已处理"}</span></td></tr>)}</tbody>
