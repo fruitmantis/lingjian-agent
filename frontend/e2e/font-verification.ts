@@ -7,12 +7,17 @@ export async function createFontVerification(page: Page) {
   await cdp.send('CSS.enable');
   await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
   const network: { url: string; status: number }[] = [];
+  const fontRequests: string[] = [];
   const blocked: string[] = [];
   await page.context().route('**/*', async route => {
     const url = new URL(route.request().url());
     if (['http:', 'https:'].includes(url.protocol) && !['127.0.0.1', 'localhost'].includes(url.hostname)) {
       blocked.push(url.origin); await route.abort();
     } else await route.continue();
+  });
+  // Count attempted requests too, including blocked or failed font downloads.
+  page.on('request', request => {
+    if (request.resourceType() === 'font') fontRequests.push(request.url());
   });
   page.on('response', response => {
     if (response.request().resourceType() === 'font') network.push({ url: response.url(), status: response.status() });
@@ -26,7 +31,10 @@ export async function createFontVerification(page: Page) {
   async function inspect(name: string) {
     await page.evaluate(() => document.fonts.ready);
     const fonts = await page.evaluate(() => [...document.fonts].map(f => ({ family: f.family, weight: f.weight, status: f.status })));
-    expect(fonts, 'UI uses installed system fonts without web-font registration').toHaveLength(0);
+    // Next.js DevTools registers its own faces in development, outside the app UI.
+    const devToolsFonts = fonts.filter(font => /^["']?__nextjs-/.test(font.family));
+    const applicationFonts = fonts.filter(font => !devToolsFonts.includes(font));
+    expect(applicationFonts, 'Application uses installed system fonts without web-font registration').toHaveLength(0);
     const controls = await page.evaluate(() => [...document.querySelectorAll('button,input,textarea,select,option')].map(e => ({ tag: e.tagName, className: e.className, family: getComputedStyle(e).fontFamily })));
     expect(controls.filter(c => !c.family.includes('Segoe UI')), 'Application controls inherit the shared system UI stack (excluding Next.js debug shadow DOM)').toEqual([]);
     const samples = [];
@@ -50,8 +58,9 @@ export async function createFontVerification(page: Page) {
       probes.push({ kind, weight, rendered: actual });
       await page.locator('#typography-character-probe').evaluate(e => e.remove());
     }
+    expect(fontRequests, 'Application must not attempt any web-font request').toEqual([]);
     expect(network, 'System fonts need no network requests').toEqual([]);
-    pages.push({ name, fonts, controls, samples, probes });
+    pages.push({ name, fonts, devToolsFonts, applicationFonts, controls, samples, probes });
   }
-  return { inspect, evidence: () => ({ network, blockedOrigins: [...new Set(blocked)], externalNetworkBlocked: true, systemFonts: true, requestedWeights: [400,500], pages }) };
+  return { inspect, evidence: () => ({ network, fontRequests, blockedOrigins: [...new Set(blocked)], externalNetworkBlocked: true, systemFonts: true, requestedWeights: [400,500], pages }) };
 }
