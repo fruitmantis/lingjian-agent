@@ -5,6 +5,7 @@ import {ClassificationFields, ClassificationNotice} from "@/components/business-
 
 import {FailureNotice,type FailureDetail} from "./task-failure";
 import Link from "next/link";
+import { CardEntry } from "./card-entry";
 import {DevelopmentPlanDetail} from "./development-assistant";
 import { FormEvent, use, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -158,16 +159,16 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   if (!task) return <main className="page"><div className="card empty-state"><h1>无法查看任务</h1><p className="error-text">{error || "任务不存在"}</p><div className="table-actions"><button className="secondary-btn" onClick={() => void load()}>重试</button><Link href={returnHref} className="btn-primary-lg">返回任务列表</Link></div></div></main>;
 
   return (
-    <main className="page">
+    <main className="page match-detail">
       <div className="page-heading-row"><div><h1>任务详情</h1><span className="enablement-badge">{task.task_type === "development_plan" ? "能力发展" : "资源匹配"}</span><p className="lead">创建于 {new Date(task.createdAt).toLocaleString("zh-CN")} · 创建人 {task.createdBy || "历史数据"}</p></div><Link href={returnHref} className="secondary-btn">返回任务列表</Link></div>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重新加载</button></div>}
       {(task.task_type || "partner_match") === "partner_match" ? <>
       {(task.taskStatus === "partial" || task.taskStatus === "failed") ? <FailureNotice details={task.failureDetails} stages={task.lastErrorStage} partial={task.recommendations.length>0} title={task.recommendations.length>0?"部分完成 · 伙伴推荐可用":"本次匹配未完成"} impact={task.recommendations.length>0?"已保存的伙伴推荐可继续查看。重试将补充未完成的步骤。":"项目需求已保留，可重新执行。"}><button onClick={()=>void retryTask()} disabled={retrying||!!task.archivedAt}>{retrying?"重试中…":"重试"}</button></FailureNotice> : task.taskStatus!=="ready" && <div className="notice-warning task-status-notice"><strong>{taskStatusText[task.taskStatus]}</strong></div>}
-      <section className="card"><h2>项目需求</h2><p className="requirement-block">{task.requirement}</p></section>
-      {task.answer&&<section className="card"><AdvisorAnswer text={task.answer}/></section>}
+      <section className="card task-request"><h2>项目需求</h2><p className="requirement-block">{task.requirement}</p></section>
+      {task.answer&&<section className="card task-answer"><AdvisorAnswer text={task.answer}/></section>}
       <section className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">{task.taskStatus==="ready"||task.taskStatus==="partial"?"没有匹配项，可调整需求后重新匹配。":"暂未生成推荐结果。"}</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
         <article className="recommendation-item" key={item.partnerId}>
-          <div className="recommendation-title"><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><Link href={`/partners/${item.partnerId}`} className="secondary-btn">查看伙伴</Link></div>
+          <div className="recommendation-title"><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><CardEntry href={`/partners/${item.partnerId}`}>查看伙伴</CardEntry></div>
           <div className="evidence-grid"><div><strong>匹配能力</strong><p>{text(item.matchedCapabilities)}</p></div><div><strong>行业经验</strong><p>{text(item.matchedIndustries)}</p></div><div><strong>覆盖区域</strong><p>{text(item.matchedRegions)}</p></div><div><strong>推荐理由</strong><p>{text(item.recommendationReason)}</p></div><div><strong>支撑案例</strong><p>{text(item.evidenceCases)}</p></div><div><strong>支撑交付物</strong><p>{text(item.evidenceDeliverables)}</p></div></div>
           <div className="risk-note"><strong>风险或缺口</strong><p>{text(item.riskNotes)}</p></div>
           <div className="enablement-actions"><Link className="secondary-btn" href={`/?mode=development&partner_id=${encodeURIComponent(item.partnerId)}&task_id=${encodeURIComponent(task.id)}`}>针对该伙伴制定发展建议</Link></div>

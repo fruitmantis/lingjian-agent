@@ -1,5 +1,6 @@
 "use client";
 import Link from 'next/link';
+import {CardEntryLabel} from './card-entry';
 import {FormEvent,useCallback,useEffect,useRef,useState} from 'react';
 import {useRouter,useSearchParams} from 'next/navigation';
 import {adminApiFetch} from './auth-provider';
@@ -64,7 +65,7 @@ export function PartnerMaterialsManager(){
       <div className={styles.cardTop}><span className={styles.tag}>{categoryName(entry.category_id)}</span><small>{entry.visible?'已展示':'未展示'}</small></div>
       <h3><button onClick={()=>setSelected(entry)}>{entry.title}</button></h3><p className={styles.partner}>{entry.partner_name}</p>
       <p className={styles.description}>{entry.description||'暂无简介'}</p><div className={styles.meta}><span>{entry.file_count} 个文件</span><span>{states[entry.processing_status]||entry.processing_status}</span></div>
-      <div className={styles.cardBottom}><small>更新于 {new Date(entry.updated_at).toLocaleDateString('zh-CN')}</small><button className="secondary-btn" onClick={()=>setSelected(entry)}>查看与管理</button></div>
+      <div className={styles.cardBottom}><small>更新于 {new Date(entry.updated_at).toLocaleDateString('zh-CN')}</small><button className="card-entry-link" onClick={()=>setSelected(entry)}><CardEntryLabel>查看与管理</CardEntryLabel></button></div>
     </article>)}</div></section>;})}
     {!loading&&!error&&!data.total&&<section className="card"><p className="placeholder-text">暂无符合条件的资料。</p></section>}
     <Pagination page={page} pageSize={12} total={data.total} disabled={loading||!!error} onPageChange={n=>filter({page:String(n)})} label="伙伴资料分页"/>

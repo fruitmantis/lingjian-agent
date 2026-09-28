@@ -1,4 +1,5 @@
 "use client";
+import { CardEntryLabel } from "@/components/card-entry";
 import {failureMessage} from "@/components/task-failure";
 
 import Link from "next/link";
@@ -92,7 +93,7 @@ function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; 
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
       {tags.map((tag, i) => (
-        <span key={i} style={{ display: "inline-block", padding: "4px 10px", fontSize: "13px", borderRadius: "6px", background: bg, color, border: `1px solid ${border}`, fontWeight: 500 }}>{tag}</span>
+        <span key={i} style={{ display: "inline-block", padding: "4px 10px", fontSize: "13px", borderRadius: "6px", background: bg, color, border: `1px solid ${border}`, fontWeight: 400 }}>{tag}</span>
       ))}
     </div>
   );
@@ -249,17 +250,17 @@ function ProjectMatchTask({active}:{active:boolean}) {
 
       {/* 本次项目需求卡片 - only show after submit */}
       {!loading && submittedRequirement && (
-        <section className="card" style={{ borderColor: "var(--brand)", borderWidth: "1px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+        <section className="card">
+          <div className="ui-surface-heading">
             <h2 style={{ margin: 0 }}>本次项目需求</h2>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => { const text = submittedRequirement; copyToClipboard(text); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>复制需求</button>
-              <button onClick={() => { setActiveTaskId(null); router.replace("/", { scroll: false }); setRequirement(submittedRequirement); setSubmittedRequirement(""); setRecommendations([]); setHasSearched(false); document.getElementById("requirement")?.focus(); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>重新编辑</button>
-              <button onClick={() => { const req = submittedRequirement; handleMatchDirect(req); }} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px", color: "var(--brand)", borderColor: "var(--brand)" }}>再次寻源</button>
+            <div className="ui-control-row">
+              <button onClick={() => { const text = submittedRequirement; copyToClipboard(text); }} className="secondary-btn" >复制需求</button>
+              <button onClick={() => { setActiveTaskId(null); router.replace("/", { scroll: false }); setRequirement(submittedRequirement); setSubmittedRequirement(""); setRecommendations([]); setHasSearched(false); document.getElementById("requirement")?.focus(); }} className="secondary-btn" >重新编辑</button>
+              <button onClick={() => { const req = submittedRequirement; handleMatchDirect(req); }} className="secondary-btn" style={{ color: "var(--brand)" }}>再次寻源</button>
             </div>
           </div>
-          <div style={{ padding: "14px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)" }}>
-            <p style={{ fontSize: "14px", lineHeight: 1.8, margin: 0, whiteSpace: "pre-wrap" }}>{submittedRequirement}</p>
+          <div className="ui-inset">
+            <p className="ui-reading-text" style={{ margin: 0, whiteSpace: "pre-wrap" }}>{submittedRequirement}</p>
           </div>
         </section>
       )}
@@ -304,13 +305,13 @@ function ProjectMatchTask({active}:{active:boolean}) {
                         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
                           <span className="ui-match-rank">{rank}</span><h3 style={{ margin: 0 }}><a href={`/partners/${r.partnerId}`}>{r.partnerName}</a></h3>
                           <span style={{
-                            padding: "4px 12px", borderRadius: "999px", fontSize: "12px", fontWeight: 600,
+                            padding: "3px 8px", borderRadius: "6px", fontSize: "13px", fontWeight: 400,
                             background: level.bg, color: level.color, border: `1px solid ${level.color}40`,
                           }}>{level.label}</span>
                         </div>
                         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                           <span className="score-tag">匹配度: {r.matchScore}</span>
-                          <button onClick={() => handleCopy(rank, r)} className="secondary-btn" style={{ fontSize: "12px", padding: "4px 12px" }}>
+                          <button onClick={() => handleCopy(rank, r)} className="secondary-btn" >
                             {copiedRank === rank ? "已复制 ✓" : "复制推荐说明"}
                           </button>
                         </div>
@@ -320,22 +321,22 @@ function ProjectMatchTask({active}:{active:boolean}) {
 
                       {/* Recommendation reason */}
                       <div className="ui-match-reason">
-                        <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>推荐理由</div>
-                        <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{r.recommendationReason || "暂无推荐理由"}</div>
+                        <div className="ui-field-caption">推荐理由</div>
+                        <div className="ui-reading-text">{r.recommendationReason || "暂无推荐理由"}</div>
                       </div>
 
                       {/* Matched tags */}
                       <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
                         <div style={{ flex: "1 1 180px" }}>
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配能力标签</div>
+                          <div className="ui-field-caption">匹配能力标签</div>
                           <TagPills tags={capTags} color="var(--brand-dark)" bg="var(--brand-soft)" border="var(--brand-border)" />
                         </div>
                         <div style={{ flex: "1 1 180px" }}>
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配行业经验</div>
+                          <div className="ui-field-caption">匹配行业经验</div>
                           <TagPills tags={indTags} color="var(--success)" bg="#f0fdf4" border="#bbf7d0" />
                         </div>
                         <div style={{ flex: "1 1 180px" }}>
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>匹配覆盖区域</div>
+                          <div className="ui-field-caption">匹配覆盖区域</div>
                           <TagPills tags={areaTags} color="var(--accent-teal)" bg="var(--accent-teal-soft)" border="var(--accent-teal-border)" />
                         </div>
                       </div>
@@ -343,19 +344,19 @@ function ProjectMatchTask({active}:{active:boolean}) {
                       {/* Evidence */}
                       <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
                         <div className="ui-match-evidence">
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>支撑案例</div>
-                          <div style={{ fontSize: "13px", lineHeight: 1.6 }}>{r.evidenceCases || "暂无支撑案例"}</div>
+                          <div className="ui-field-caption">支撑案例</div>
+                          <div className="ui-reading-text">{r.evidenceCases || "暂无支撑案例"}</div>
                         </div>
                         <div className="ui-match-evidence">
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "4px" }}>支撑交付物</div>
-                          <div style={{ fontSize: "13px", lineHeight: 1.6 }}>{r.evidenceDeliverables || "暂无交付物证据"}</div>
+                          <div className="ui-field-caption">支撑交付物</div>
+                          <div className="ui-reading-text">{r.evidenceDeliverables || "暂无交付物证据"}</div>
                         </div>
                       </div>
 
                       {/* Risk notes */}
-                      <div style={{ marginTop: "12px", padding: "12px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
-                        <div style={{ fontSize: "12px", color: "var(--danger)", fontWeight: 600, marginBottom: "4px" }}>风险/缺口提示</div>
-                        <div style={{ fontSize: "13px", lineHeight: 1.6, color: "#991b1b" }}>{r.riskNotes || "暂无风险提示"}</div>
+                      <div className="ui-risk-note">
+                        <div >风险/缺口提示</div>
+                        <div >{r.riskNotes || "暂无风险提示"}</div>
                       </div>
                     </div>
                   </div>
@@ -366,8 +367,8 @@ function ProjectMatchTask({active}:{active:boolean}) {
         </>
       )}
 
-      <section className="assistant-section" aria-labelledby="featured-heading">
-        <h2 className="sr-only" id="featured-heading">猜你想做</h2>
+      <details className="assistant-section home-scene-disclosure">
+        <summary id="featured-heading">从场景开始<span>查看现有场景与示例</span></summary>
         <div className="assistant-category-row">
           <div className="assistant-category-tabs" role="tablist" aria-label="推荐场景分类">
             {HOME_CATEGORIES.map(item => <button key={item} type="button" role="tab" aria-selected={selectedCategory === item} className={selectedCategory === item ? "active" : ""} onClick={() => { setSelectedCategory(item); setSceneOffset(0); }}>{item}</button>)}
@@ -384,13 +385,13 @@ function ProjectMatchTask({active}:{active:boolean}) {
                 </div>
                 <p>{scene.description}</p>
                 <ul className="featured-scene-queries">{scene.exampleQueries.slice(0, 2).map(query => <li key={query}>{query}</li>)}</ul>
-                <div className="featured-scene-action">{scene.actionLabel}<UiIcon name="send" size={15} /></div>
+                <div className="featured-scene-action"><CardEntryLabel>{scene.actionLabel}</CardEntryLabel></div>
               </>
             );
             return scene.actionHref ? <Link className="featured-scene-card" href={scene.actionHref} key={scene.id}>{content}</Link> : <article className="featured-scene-card disabled" key={scene.id}>{content}</article>;
           })}
         </div>
-      </section>
+      </details>
 
     </div>
   );

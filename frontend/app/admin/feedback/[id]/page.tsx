@@ -52,7 +52,7 @@ export default function FeedbackDetailPage() {
     } catch (reason) { setError((reason as Error).message); }
     finally { setBusy(false); }
   }
-  return <div className="feedback-page"><Link href="/admin/feedback">← 返回问题清单</Link><h1>问题详情</h1>
+  return <div className="page feedback-page"><Link href="/admin/feedback">← 返回问题清单</Link><h1>问题详情</h1>
     {error && <p role="alert" className="feedback-error">{error}</p>}
     {!issue ? !error && <p role="status">正在加载…</p> : <section className="card feedback-form">
       <div className="feedback-detail-heading"><p className="muted">{issue.submitter} · {new Date(issue.created_at).toLocaleString("zh-CN", { hour12: false })}</p>

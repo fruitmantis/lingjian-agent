@@ -19,7 +19,7 @@ for(const width of [1366,1920])test(`task history typography and status hierarch
   const list=page.locator('.sidebar-task-list'),selected=list.locator('[data-task-id="history-0"]'),plan=list.locator('[data-task-id="history-1"]');
   await expect(list.locator('a.sidebar-task-item')).toHaveCount(10);
   await expect(selected).toHaveAttribute('aria-current','page');
-  await expect(selected.locator('strong')).toHaveCSS('font-weight','700');
+  await expect(selected.locator('strong')).toHaveCSS('font-weight','400');
   await expect(selected.locator('time')).toHaveCSS('font-weight','400');
   await expect(selected.locator('em')).toHaveCSS('font-weight','400');
   await expect(selected).toHaveCSS('border-radius','8px');

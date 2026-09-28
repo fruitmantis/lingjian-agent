@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { CardEntry } from "@/components/card-entry";
 import { Pagination } from "@/components/pagination";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -116,7 +116,7 @@ export default function ScenesPage() {
                   <p>“{scene.exampleQueries[0]}”</p>
                 </div>
                 {scene.actionHref ? (
-                  <Link href={scene.actionHref} className="scene-card-action">{scene.actionLabel}<UiIcon name="send" size={15} /></Link>
+                  <CardEntry href={scene.actionHref} className="scene-card-action">{scene.actionLabel}</CardEntry>
                 ) : (
                   <span className="scene-card-action disabled" aria-disabled="true">{scene.actionLabel}<span aria-hidden="true">—</span></span>
                 )}

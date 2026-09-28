@@ -179,7 +179,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
               <MetricCard label="平均推荐伙伴数" value={data.overview.avgPartnerCount} />
             </div>
             <div style={{ marginTop: "12px", padding: "12px 16px", background: "var(--brand-soft)", borderRadius: "8px", border: "1px solid var(--brand-border)" }}>
-              <span style={{ fontSize: "13px", color: "var(--brand-dark)", fontWeight: 600 }}>高频能力标签：</span>
+              <span style={{ fontSize: "13px", color: "var(--brand-dark)", fontWeight: 400 }}>高频能力标签：</span>
               <span style={{ fontSize: "14px" }}>{data.overview.topCapabilityTags}</span>
             </div>
           </section>
@@ -206,7 +206,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                   <div key={p.id} className="case-item" style={{ padding: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.requirementText}</div>
+                        <div style={{ fontSize: "14px", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.requirementText}</div>
                         <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
                           <span>行业: {p.industryTags || "未分类"}</span>
                           <span>能力: {p.capabilityTags || "未分类"}</span>
@@ -224,43 +224,43 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                     {isExpanded && (
                       <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--line)" }}>
                         <div style={{ padding: "14px 16px", background: "var(--bg-hover)", borderRadius: "8px", border: "1px solid var(--line)", marginBottom: "12px" }}>
-                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>原始需求</div>
+                          <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 400, marginBottom: "6px" }}>原始需求</div>
                           <div style={{ fontSize: "14px", lineHeight: 1.7 }}>{p.requirementText}</div>
                         </div>
                         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
                           <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "var(--brand-soft)", borderRadius: "8px", border: "1px solid var(--brand-border)" }}>
-                            <div style={{ fontSize: "12px", color: "var(--brand-dark)", fontWeight: 600, marginBottom: "6px" }}>行业标签</div>
+                            <div style={{ fontSize: "12px", color: "var(--brand-dark)", fontWeight: 400, marginBottom: "6px" }}>行业标签</div>
                             <TagsDisplay val={p.industryTags} /><ClassificationNotice pending={p.classification_pending}/>
                           </div>
                           <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#f0fdf4", borderRadius: "8px", border: "1px solid #bbf7d0" }}>
-                            <div style={{ fontSize: "12px", color: "var(--success)", fontWeight: 600, marginBottom: "6px" }}>能力标签</div>
+                            <div style={{ fontSize: "12px", color: "var(--success)", fontWeight: 400, marginBottom: "6px" }}>能力标签</div>
                             <TagsDisplay val={p.capabilityTags} />
                           </div>
                           <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "var(--accent-teal-soft)", borderRadius: "8px", border: "1px solid var(--accent-teal-border)" }}>
-                            <div style={{ fontSize: "12px", color: "var(--accent-teal)", fontWeight: 600, marginBottom: "6px" }}>区域标签</div>
+                            <div style={{ fontSize: "12px", color: "var(--accent-teal)", fontWeight: 400, marginBottom: "6px" }}>区域标签</div>
                             <TagsDisplay val={p.regionTags} />
                           </div>
                         </div>
                         <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginTop: "12px" }}>
                           <div style={{ flex: "1 1 150px", padding: "12px 14px", background: "#fafafa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>交付类型</div>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 400, marginBottom: "6px" }}>交付类型</div>
                             <TagsDisplay val={p.deliveryTypeTags} />
                           </div>
                           <div style={{ flex: "1 1 120px", padding: "12px 14px", background: "#fafafa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>复杂度</div>
-                            <span style={{ fontSize: "13px", fontWeight: 500 }}>{p.complexityLevel || "中"}</span>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 400, marginBottom: "6px" }}>复杂度</div>
+                            <span style={{ fontSize: "13px", fontWeight: 400 }}>{p.complexityLevel || "中"}</span>
                           </div>
                           <div style={{ flex: "1 1 120px", padding: "12px 14px", background: "#fafafa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>紧急度</div>
-                            <span style={{ fontSize: "13px", fontWeight: 500 }}>{p.urgencyLevel || "中"}</span>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 400, marginBottom: "6px" }}>紧急度</div>
+                            <span style={{ fontSize: "13px", fontWeight: 400 }}>{p.urgencyLevel || "中"}</span>
                           </div>
                           <div style={{ flex: "1 1 180px", padding: "12px 14px", background: "#fafafa", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 600, marginBottom: "6px" }}>推荐伙伴</div>
-                            <span style={{ fontSize: "13px", fontWeight: 500 }}>{p.topPartnerNames || "无"}</span>
+                            <div style={{ fontSize: "12px", color: "var(--muted)", fontWeight: 400, marginBottom: "6px" }}>推荐伙伴</div>
+                            <span style={{ fontSize: "13px", fontWeight: 400 }}>{p.topPartnerNames || "无"}</span>
                           </div>
                         </div>
                         <div style={{ marginTop: "12px", padding: "14px 16px", background: "#fef2f2", borderRadius: "8px", border: "1px solid #fecaca" }}>
-                          <div style={{ fontSize: "12px", color: "var(--danger)", fontWeight: 600, marginBottom: "6px" }}>缺口分析</div>
+                          <div style={{ fontSize: "12px", color: "var(--danger)", fontWeight: 400, marginBottom: "6px" }}>缺口分析</div>
                           <div style={{ fontSize: "14px", lineHeight: 1.6, color: "#991b1b" }}>{p.gapAnalysis || "暂无分析"}</div>
                         </div>
                       </div>
@@ -284,7 +284,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
                   return (
                     <div key={p.id} style={{ padding: "12px 16px", background: badge.bg, borderRadius: "8px", border: `1px solid ${badge.border}` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                        <span style={{ fontSize: "14px", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.requirementText}</span>
+                        <span style={{ fontSize: "14px", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.requirementText}</span>
                         <span className="ui-status-badge" style={{ background: "white", color: badge.color, border: `1px solid ${badge.border}`, flexShrink: 0, marginLeft: "8px" }}>{badge.label}</span>
                       </div>
                       <div style={{ fontSize: "13px", color: "#666", lineHeight: 1.6 }}>{p.gapAnalysis || "暂无分析"}</div>
@@ -397,13 +397,13 @@ function ReportTab({ report, loading, error, filterDays, setFilterDays, filterIn
       <section className="card"><h2>伙伴活跃度</h2><div style={{ marginTop: "12px" }}>
         <p style={{ fontSize: "14px" }}>筛选范围内被推荐伙伴：<strong>{report.activePartnerCount}</strong> / 全库 {report.overview.totalPartners} 家（{report.activePartnerRatio}%）</p>
         <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>
-          <div style={{ flex: "1 1 300px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>被推荐次数 TOP 10</h3>{report.topRecommendedPartners.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.topRecommendedPartners.map((p: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{i+1}. {p.partnerName}</span><span style={{ fontSize: "13px", color: "var(--brand)", fontWeight: 600 }}>{p.recommendCount}次</span></div>))}</div>
+          <div style={{ flex: "1 1 300px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>被推荐次数 TOP 10</h3>{report.topRecommendedPartners.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.topRecommendedPartners.map((p: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{i+1}. {p.partnerName}</span><span style={{ fontSize: "13px", color: "var(--brand)", fontWeight: 400 }}>{p.recommendCount}次</span></div>))}</div>
           <div style={{ flex: "1 1 300px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>筛选范围内未被推荐伙伴</h3>{report.inactivePartners.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.inactivePartners.map((p: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{p.partnerName}</span><span style={{ fontSize: "12px", color: "var(--muted)" }}>资料更新 {p.lastUpdated}</span></div>))}</div>
         </div>
       </div></section>
       <section className="card"><h2>标签运营</h2><div style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "16px" }}>
-        <div style={{ flex: "1 1 200px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>高频正式能力标签</h3>{report.topFormalTags.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.topFormalTags.map((t: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{t.label}</span><span style={{ fontSize: "13px", color: "var(--brand)", fontWeight: 600 }}>{t.count}</span></div>))}</div>
-        <div style={{ flex: "1 1 200px" }}><div style={{ padding: "16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a", marginBottom: "8px" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "#e8a317" }}>{report.uncoveredClues}</div><div style={{ fontSize: "12px", color: "var(--muted)" }}>未覆盖能力线索</div></div><div style={{ padding: "16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a" }}><div style={{ fontSize: "24px", fontWeight: 700, color: "#e8a317" }}>{report.pendingSuggestions}</div><div style={{ fontSize: "12px", color: "var(--muted)" }}>待采纳AI建议</div></div></div>
+        <div style={{ flex: "1 1 200px" }}><h3 style={{ fontSize: "14px", marginBottom: "8px" }}>高频正式能力标签</h3>{report.topFormalTags.length === 0 ? <p className="placeholder-text">暂无数据</p> : report.topFormalTags.map((t: any, i: number) => (<div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)" }}><span style={{ fontSize: "13px" }}>{t.label}</span><span style={{ fontSize: "13px", color: "var(--brand)", fontWeight: 400 }}>{t.count}</span></div>))}</div>
+        <div style={{ flex: "1 1 200px" }}><div style={{ padding: "16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a", marginBottom: "8px" }}><div style={{ fontSize: "24px", fontWeight: 400, color: "#e8a317" }}>{report.uncoveredClues}</div><div style={{ fontSize: "12px", color: "var(--muted)" }}>未覆盖能力线索</div></div><div style={{ padding: "16px", background: "#fffbeb", borderRadius: "8px", border: "1px solid #fde68a" }}><div style={{ fontSize: "24px", fontWeight: 400, color: "#e8a317" }}>{report.pendingSuggestions}</div><div style={{ fontSize: "12px", color: "var(--muted)" }}>待采纳AI建议</div></div></div>
       </div></section>
       </>}
     </>
