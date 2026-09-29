@@ -4,7 +4,7 @@ import os
 import sqlite3
 from pathlib import Path
 import pytest
-from backend.app import database,partner_materials_schema as schema
+from backend.app import database,partner_materials_schema as schema,model_timeout_schema
 from backend.app.postgres_storage import Connection,engine_for
 from .postgres_support import empty_postgres_schema
 
@@ -15,6 +15,7 @@ def legacy(path,monkeypatch):
         patch.setattr(database,'DATABASE_PATH',path)
         patch.setattr(database,'DATA_DIR',path.parent)
         patch.setattr(schema,'migrate',lambda *_:None)
+        patch.setattr(model_timeout_schema,'migrate',lambda *_:None)
         database.initialize_storage()
     conn=sqlite3.connect(path);conn.row_factory=sqlite3.Row
     # Fixtures only. The normal authentication bootstrap isn't needed for a schema replay.

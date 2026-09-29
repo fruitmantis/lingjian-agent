@@ -46,7 +46,7 @@ def generate_profile(partner_id: str) -> ProfileOut:
     else: parts.append("上传文档: 暂无")
     context = "\n".join(parts)
     # An explicit conservative input budget; originals/cache are never truncated.
-    limit=max(1000,int(os.getenv('BANFEI_PROFILE_INPUT_MAX_CHARS','60000')))
+    limit=max(1000,int(os.getenv('BANFEI_PROFILE_INPUT_MAX_CHARS','100000')))
     if len(context)>limit:
         raise HTTPException(422,f'资料文字共 {len(context)} 字，超过本次画像输入上限 {limit} 字，未生成新画像，原画像保持不变。请精简资料后重试。')
     # Get enabled standard capability tags for LLM constraint
@@ -59,7 +59,7 @@ def generate_profile(partner_id: str) -> ProfileOut:
         struct_raw = chat_completion([
             {"role": "system", "content": f"根据资料提取结构化标签。{taxonomy_prompt()}返回JSON含三个字段：capabilities(能力标签，只能从以下标准标签中选择：[{std_tags_str}]，选择3-4个匹配的，逗号分隔，不允许创造新标签，无匹配则返回空字符串)，service_areas(覆盖区域，3-4个，每个不超过10字，逗号分隔)，industries(行业经验，3-4个，每个不超过10字，逗号分隔)。只返回JSON。"},
             {"role": "user", "content": context}
-        ], timeout=60, scene="partner_profile")
+        ], scene="partner_profile")
         clean = struct_raw.strip()
         if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
         if clean.endswith("```"): clean = clean[:-3]
@@ -94,7 +94,7 @@ def generate_profile(partner_id: str) -> ProfileOut:
         ai_profile = chat_completion([
             {"role": "system", "content": "你是交付伙伴能力分析专家。根据资料和文档生成能力画像摘要：优势领域、核心技术能力、行业经验总结、交付能力评估、潜在风险或缺口。用中文分点描述，不编造，证据不足时说明。"},
             {"role": "user", "content": context}
-        ], timeout=90, scene="partner_profile")
+        ], scene="partner_profile")
         if not isinstance(ai_profile, str) or not ai_profile.strip():
             raise ModelResponseError("Empty profile")
         # A prose profile must not expose an unexpected structured response.

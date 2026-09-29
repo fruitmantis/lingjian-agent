@@ -1,18 +1,6 @@
-"""Bounded execution limits. Test overrides may shorten, never extend, limits."""
-import os
-
-
-def seconds(name, maximum):
-    try:
-        value = float(os.getenv(name, str(maximum)))
-        return value if 0 < value <= maximum else float(maximum)
-    except ValueError:
-        return float(maximum)
-
-
-def model_timeout():
-    return seconds('DEVELOPMENT_MODEL_TIMEOUT_SECONDS', 180)
+"""Task deadlines derived from the single administrator-managed model policy."""
+from .model_timeout_settings import get_settings
 
 
 def run_timeout():
-    return seconds('DEVELOPMENT_RUN_TIMEOUT_SECONDS', 600)
+    return get_settings().run_budget()

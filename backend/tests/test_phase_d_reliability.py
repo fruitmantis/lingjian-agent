@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 from backend.app import development_lifecycle as life
 from backend.app.database import get_db
+from backend.app.development_deadlines import run_timeout
 from backend.tests.test_development_lifecycle import prepared, start, complete, plan
 
 
@@ -13,7 +14,7 @@ def test_expired_run_cannot_save_without_a_read_or_restart(prepared):
     accepted, run = start(prepared)
     with get_db() as conn:
         conn.execute('UPDATE development_runs SET started_at=? WHERE id=?',
-                     ((datetime.now(timezone.utc)-timedelta(seconds=601)).isoformat(), accepted['run_id']))
+                     ((datetime.now(timezone.utc)-timedelta(seconds=run_timeout()+1)).isoformat(), accepted['run_id']))
     with pytest.raises(HTTPException) as error:
         complete(prepared, accepted, run)
     assert error.value.status_code == 409
@@ -33,17 +34,12 @@ from backend.tests.test_development_api import stages
 from backend.tests.conftest import auth_headers
 
 
-def test_default_deadlines_and_bounded_test_overrides(monkeypatch):
-    from backend.app.development_deadlines import model_timeout, run_timeout
-    for key in ['DEVELOPMENT_MODEL_TIMEOUT_SECONDS','DEVELOPMENT_RUN_TIMEOUT_SECONDS']:
-        monkeypatch.delenv(key, raising=False)
-    assert (model_timeout(), run_timeout()) == (180, 600)
-    for value in ['-1', 'nan', 'inf', 'invalid', '9999']:
-        monkeypatch.setenv('DEVELOPMENT_MODEL_TIMEOUT_SECONDS', value)
-        monkeypatch.setenv('DEVELOPMENT_RUN_TIMEOUT_SECONDS', value)
-        assert (model_timeout(), run_timeout()) == (180, 600)
-    monkeypatch.setenv('DEVELOPMENT_RUN_TIMEOUT_SECONDS', '.2')
-    assert run_timeout() == .2
+def test_default_deadlines_derive_from_saved_policy():
+    from backend.app.model_timeout_settings import save, TimeoutSettings
+    assert run_timeout() == 2460
+    save(TimeoutSettings(timeoutSeconds=420, timeoutRetries=1))
+    assert run_timeout() == 1740
+
 
 
 def test_run_watchdog_without_polling_preserves_confirmed_and_retries(scenario, monkeypatch):
@@ -55,7 +51,8 @@ def test_run_watchdog_without_polling_preserves_confirmed_and_retries(scenario, 
         entered.set(); assert held.wait(5)
         return original(*args)
     monkeypatch.setattr(model, 'completion', slow)
-    monkeypatch.setenv('DEVELOPMENT_RUN_TIMEOUT_SECONDS', '.2')
+    monkeypatch.setattr(engine, 'run_timeout', lambda: .2)
+    monkeypatch.setattr(life, 'run_timeout', lambda: .2)
     second = life.revise(pid, Revise(submission_id='watchdog-revise', based_on_version_id=v1, instruction='缩短周期', request=request), user)
     worker = threading.Thread(target=engine.execute, args=(second['run_id'],))
     worker.start()
@@ -71,7 +68,8 @@ def test_run_watchdog_without_polling_preserves_confirmed_and_retries(scenario, 
         held.set(); worker.join(5)
     assert not worker.is_alive()
     assert (plan(pid)['current_version_id'], plan(pid)['confirmed_version_id']) == (v1,v1)
-    monkeypatch.delenv('DEVELOPMENT_RUN_TIMEOUT_SECONDS')
+    monkeypatch.setattr(engine, 'run_timeout', run_timeout)
+    monkeypatch.setattr(life, 'run_timeout', run_timeout)
     monkeypatch.setattr(model, 'completion', original)
     retry = life.revise(pid, Revise(submission_id='watchdog-retry', based_on_version_id=v1, instruction='重试', request=request), user)
     engine.execute(retry['run_id'])

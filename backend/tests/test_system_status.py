@@ -121,7 +121,7 @@ def test_status_remains_admin_only(client):
     assert client.get("/admin/system/status", headers=auth_headers(user)).status_code == 403
 
 
-@pytest.mark.parametrize("field,value", [("temperature", "bad-value"), ("top_p", 2), ("max_tokens", 1.5), ("timeout_seconds", -1)])
+@pytest.mark.parametrize("field,value", [("temperature", "bad-value"), ("top_p", 2), ("max_tokens", 1.5)])
 def test_legacy_invalid_numeric_configuration_does_not_break_status(client, field, value):
     admin = make_user("numeric_status_admin", role="admin")
     with get_db() as conn:

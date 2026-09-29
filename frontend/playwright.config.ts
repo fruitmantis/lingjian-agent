@@ -24,7 +24,6 @@ const validationEnvironment = {
   JWT_SECRET_KEY: "e2e-validation-secret-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ",
   BOOTSTRAP_ADMIN_USERNAME: "unused_bootstrap",
   BOOTSTRAP_ADMIN_PASSWORD: "UnusedBootstrap123",
-  TASK_STALE_SECONDS: process.env.TASK_STALE_SECONDS || "60",
   USER_APPLICATION_RATE_LIMIT: "1000",
   USER_APPLICATION_PENDING_LIMIT: "200",
   VALIDATION_FAKE_LLM_BASE_URL: replay ? "http://127.0.0.1:18180/v1" : "",
@@ -35,7 +34,7 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: replay ? "**/*.spec.ts" : [
     "**/business-taxonomy.spec.ts", "**/partner-delete.spec.ts", "**/model-boundary.spec.ts", "**/resource-transfer.spec.ts",
-    "**/partner-materials.spec.ts", "**/pagination.spec.ts", "**/arm-runtime.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts", "**/first-login.spec.ts", "**/local-identity.spec.ts",
+    "**/partner-materials.spec.ts", "**/partner-select.spec.ts", "**/pagination.spec.ts", "**/arm-runtime.spec.ts", "**/model-timeout-settings.spec.ts", "**/model-timeout-transport.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts", "**/first-login.spec.ts", "**/local-identity.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,

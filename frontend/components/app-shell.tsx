@@ -12,7 +12,7 @@ type NavItem = { label: string; href: string; icon: IconName };
 
 const workspaceNav: NavItem[] = [
   { label: "场景广场", href: "/scenes", icon: "apps" },
-  { label: "伙伴洞察", href: "/partners", icon: "users" },
+  { label: "伙伴画像", href: "/partners", icon: "users" },
   { label: "资源中心", href: "/resources", icon: "grid" },
 ];
 

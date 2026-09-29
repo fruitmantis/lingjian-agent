@@ -1,3 +1,4 @@
+import {selectPartner} from './partner-select-helper';
 import {fixtureLogin} from "./identity-fixture";
 import {evidenceRoot} from "./evidence-path";
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
@@ -32,9 +33,9 @@ test.beforeAll(async({request})=>{
 
 test('NAV-01/SCN-01 center preserves navigation and offers truthful scene entries',async({page,request})=>{
   await login(request,'admin1',page);await page.goto('/enablement');
-  for(const name of ['开启新任务','场景广场','伙伴洞察','全部任务','个人中心','管理后台','资源中心'])await expect(page.locator('aside').getByRole('link',{name,exact:true})).toBeVisible();
+  for(const name of ['开启新任务','场景广场','伙伴画像','全部任务','个人中心','管理后台','资源中心'])await expect(page.locator('aside').getByRole('link',{name,exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'生成能力发展建议',exact:true})).toBeVisible();
-  await page.getByLabel('选择目标伙伴').selectOption('partner-1');
+  await selectPartner(page, 'partner-1');
   await expect(page.getByRole('heading',{name:'当前伙伴画像摘要',exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'生成方案',exact:true})).toHaveCount(0);
   await page.goto('/scenes?category='+encodeURIComponent('能力发展'));
@@ -133,7 +134,7 @@ test('PRT-01/CASE-05 partner shared case and center exchange authorized identifi
   await page.getByRole('link',{name:'伙伴迁移实践共享案例（合成验证）',exact:true}).click();
   await page.getByRole('link',{name:'围绕此案例制定发展建议',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`case_id=${sharedCase}`));
-  await expect(page.getByLabel('选择目标伙伴')).toHaveValue('partner-1');
+  await expect(page.getByLabel('选择目标伙伴')).toHaveAttribute('data-partner-id','partner-1');
   await expect(page.getByRole('link',{name:'伙伴迁移实践共享案例（合成验证）',exact:true})).toBeVisible();
   await expect(page.locator('main')).not.toContainText('INTERNAL_SECRET_PHASE_B');
 });
@@ -146,7 +147,7 @@ test('MAT-01/NAV-02 project risks are context, old tasks and type filters remain
   await expect(page.locator('main').getByText('A-ready',{exact:true})).toBeVisible();
   await expect(page.getByText('资料需复核',{exact:true})).toBeVisible();
   await expect(page.getByLabel('发展方向',{exact:true})).toHaveValue('');
-  await expect(page.getByLabel('选择目标伙伴')).toHaveValue('partner-1');
+  await expect(page.getByLabel('选择目标伙伴')).toHaveAttribute('data-partner-id','partner-1');
   await page.getByLabel('发展方向',{exact:true}).fill('人工整理诉求，不应创建任务');
   const after=await checked(await request.get(API+'/agent/tasks',{headers}));expect(after.total).toBe(before.total);
   await page.goto('/?task=task-a-ready');await expect(page.getByRole('link',{name:'针对该伙伴制定发展建议',exact:true})).toBeVisible();

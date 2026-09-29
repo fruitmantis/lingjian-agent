@@ -46,7 +46,7 @@ def source_inventory(source):
         if c.execute('PRAGMA foreign_key_check').fetchall():raise RuntimeError('Source has foreign-key violations; no import allowed')
         names={r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
         if names-set(metadata.tables) or set(metadata.tables)-names-{'feedback_issue','feedback_attachment','identity_credentials','identity_challenges','user_identity_keys','revoked_identity_keys'}:raise RuntimeError('Source table set differs from the v12 mapping')
-        if c.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone() not in (('12',),('13',),('14',),('15',),('16',),('17',)):raise RuntimeError('Only schema v12/v13/v14/v15/v16/v17 is supported')
+        if c.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone() not in (('12',),('13',),('14',),('15',),('16',),('17',),('18',)):raise RuntimeError('Only schema v12/v13/v14/v15/v16/v17/v18 is supported')
         inventory={}
         for table in metadata.tables.values():
             if table.name not in names:
@@ -56,7 +56,8 @@ def source_inventory(source):
             expected=list(table.c.keys())
             legacy_errors=(table.name=='match_records' and actual==[name for name in expected if name!='last_error_details'])
             legacy_activity=(table.name=='users' and actual==[name for name in expected if name!='last_active_at'])
-            if set(actual)!=set(expected) and not legacy_errors and not legacy_activity:raise RuntimeError('Column mapping differs for '+table.name)
+            retired_timeout=(table.name=='model_configs' and set(actual)-{'timeout_seconds'}==set(expected))
+            if set(actual)!=set(expected) and not legacy_errors and not legacy_activity and not retired_timeout:raise RuntimeError('Column mapping differs for '+table.name)
             # Older v12 snapshots have no diagnostics; keep the source read-only.
             projection=','.join('NULL AS "'+name+'"' if (legacy_errors and name=='last_error_details') or (legacy_activity and name=='last_active_at') else '"'+name+'"' for name in expected)
             rows=c.execute('SELECT '+projection+' FROM "'+table.name+'"').fetchall()
@@ -93,7 +94,7 @@ def import_snapshot(source,url,*,fault=None):
             for table in ordered_tables():
                 if table.name not in source_tables:continue
                 cursor=src.execute('SELECT * FROM "'+table.name+'"')
-                while batch:=cursor.fetchmany(500):conn.execute(table.insert(),[dict(row) for row in batch])
+                while batch:=cursor.fetchmany(500):conn.execute(table.insert(),[{key: row[key] for key in row.keys() if key in table.c} for row in batch])
                 if fault:fault(table.name)
         conn.exec_driver_sql('SET CONSTRAINTS ALL IMMEDIATE')
         sequence_count=0

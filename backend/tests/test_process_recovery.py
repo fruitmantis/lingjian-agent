@@ -84,7 +84,6 @@ def test_real_process_crash_recovers_task_and_allows_retry(tmp_path, crash_stage
         "JWT_SECRET_KEY": PROCESS_SECRET,
         "BOOTSTRAP_ADMIN_USERNAME": "unused_bootstrap",
         "BOOTSTRAP_ADMIN_PASSWORD": "UnusedBootstrap123",
-        "TASK_STALE_SECONDS": "1",
         "VALIDATION_FAKE_LLM_BASE_URL": f"http://127.0.0.1:{fake_port}/v1",
     })
     fake_env = base_env.copy()
@@ -143,7 +142,9 @@ def test_real_process_crash_recovers_task_and_allows_retry(tmp_path, crash_stage
         backend.kill()
         backend.wait(timeout=5)
         thread.join(timeout=6)
-        time.sleep(1.2)
+        # Simulate the recovery deadline in this disposable DB, without a runtime override.
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("UPDATE match_records SET updated_at=? WHERE id=?", ((datetime.now(timezone.utc)-timedelta(days=1)).isoformat(), state[0]))
         restarted = subprocess.Popen(
             [sys.executable, "-m", "uvicorn", "app.main:app", "--app-dir", "backend", "--host", "127.0.0.1", "--port", str(backend_port)],
             cwd=PROJECT_ROOT, env=base_env, stdout=backend_log, stderr=subprocess.STDOUT,

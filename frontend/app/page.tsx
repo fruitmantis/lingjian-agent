@@ -403,8 +403,8 @@ export default function HomePage() {
   return <div className={`page assistant-page unified-task-page${development?" development-task-page":""}`}>
     <header className="unified-task-heading"><div className="assistant-title"><h1>开启新任务</h1></div>
       <nav className="enablement-tabs task-mode-tabs" role="tablist" aria-label="任务模式">
-        <Link id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" href="/" className={!development?"active":""}>资源匹配</Link>
-        <Link id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" href="/?mode=development" className={development?"active":""}>能力发展</Link>
+        <Link id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" href="/" className={!development?"active":""}>伙伴匹配</Link>
+        <Link id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" href="/?mode=development" className={development?"active":""}>伙伴发展</Link>
       </nav>
     </header>
     <ProjectMatchTask active={!development}/>

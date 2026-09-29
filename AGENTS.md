@@ -6,7 +6,7 @@
 - 正式工作目录：`/home/yuan/project/lingjian-agent-enablement`；当前开发分支：`main`。
 - 该目录已升格为正式 main 工作区，不再是独立功能试验环境。legacy 目录、旧 feature 分支和其他历史 worktree 均不得作为正式开发环境；不修改或启动 legacy 服务。
 - WSL Ubuntu 24.04；前端 Next.js 15 / React 19 / TypeScript，端口 **3000**；后端 FastAPI / Python，端口 **8000**。
-- 正式数据库：**PostgreSQL 16，schema version 17**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
+- 正式数据库：**PostgreSQL 16，schema version 18**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
 - 连接由私有 `.isolation/runtime/dev/environment.json` 中 `DATABASE_URL` 指定，缺失或失败直接报错，不自动回退其他数据库。
 - 上传目录 `.isolation/runtime/dev/uploads`，日志 `.isolation/logs/`；原 `.isolation/runtime/dev/app.db` 及迁移备份只作保留，不参与日常运行。
 - 工程、模块、API、字段及 `LINGJIAN_*` 技术标识不因产品更名而重命名。
@@ -50,7 +50,8 @@
 - 伙伴资料和案例附件复用原表、磁盘上传目录和后台处理。全文存 PostgreSQL，不在保存或画像输入中静默截断。TXT/Markdown/HTML 安全只读查看，PDF 预览原件，DOCX/PPTX 用本机 LibreOffice 一次转换并缓存 PDF。图片和扫描内容不进入画像输入；浏览不触发重新解析。
 - 管理后台“伙伴资料”与伙伴详情“管理资料”共用 `/admin/partner-materials`，按一级分类分组三列卡片，伙伴/分类/名称筛选与分页。伙伴详情不再内嵌第二套资料管理。画像导入原件仅在画像区域，旧独立资料待分类；管理员显式归类复用原文件 ID/路径/缓存，不自动迁移，不改 schema。
 - 每条案例必须关联伙伴，表单仅伙伴、标题、两级分类、文件和可选简介；展示开关默认关闭，展示包含全部当前附件。案例改变标记画像待更新，不自动调用 AI。不复制案例、不维护共享副本，不要求外部链接。
-- DOCX 初始化画像直接采用完整提取正文，不调用 AI；原件与完整画像仅管理员查看。手动更新画像读取完整缓存；`BANFEI_PROFILE_INPUT_MAX_CHARS` 默认 60000 字，超预算明确拒绝，保留旧画像，不假装全文分析成功。生成失败或材料并发变化不覆盖旧画像。
+- DOCX 初始化画像直接采用完整提取正文，不调用 AI；原件与完整画像仅管理员查看。手动更新画像读取完整缓存；`BANFEI_PROFILE_INPUT_MAX_CHARS` 默认 100000 字（合并后的伙伴名称、案例和文档正文），超预算明确拒绝，保留旧画像，不假装全文分析成功。生成失败或材料并发变化不覆盖旧画像。
+- schema 18 由 `scripts/migrate_model_timeouts.py` 显式备份后事务清理废弃的单模型超时列；模型连接、场景绑定与业务数据保持不变，超时与重试配置复用 app_metadata。
 - schema 17 由 `scripts/migrate_partner_materials.py` 显式备份后事务迁移；保留伙伴/案例/文件 ID、原件和原文，移除旧案例共享配置、共享版本及核验表。不同的旧公开摘要保存在既有审计及私有完整备份中，不能用旧授权自动公开内部全文/附件。新环境须预装 LibreOffice Writer/Impress 和中文字体；不安装 OCR 依赖。
 
 ## 账号安全
@@ -75,7 +76,7 @@
 - 普通 UI、文档、静态检查不调用模型。不向用户展示 Prompt、原始模型 JSON、密钥、内部日志或异常堆栈。
 - 普通错误提示使用简短可操作文案；后台“全量任务 → 任务报错”与“进行中 / 已归档”并列，仅管理员可读，系统状态不再展示错误记录面板。真实失败原因在转换前脱敏追加到 `.isolation/logs/errors.jsonl` 并写服务器日志，保留关联标识、模型信息、必要返回片段和堆栈；不采集请求正文/Prompt，不因重试成功删除历史。测试诊断日志仅写 `/tmp`。
 - 结构容错和模型路由不放宽资源 ID/版本、URL、权限、enum 和强结论来源校验；没有启用模型时明确报配置错误，网络、认证和返回校验失败保留原有真实错误机制，不自动向多个模型重复发送业务请求。
-- 模型调用统一读取已有配置中的 temperature、top_p、max_tokens 和 timeout_seconds；场景时限只能缩短配置时限。能力发展、匹配统一理解和后台连接测试共用 `json_object` + 完整 schema 提示，不默认供应商支持 `json_schema`，结果仍经原有严格校验。结构化单次调用保留 180 秒墙钟上限和 Run 总时限；不再使用 16384/64/10 token 隐含上限或 smoke 的 4096 覆盖。连接测试只发送合成 JSON 探测，不建业务任务；新增模型先用现有测试按钮验证，不新增适配配置表或自动探测/重试流程。接口能力、配额和输出质量仍以具体供应商为准。
+- 模型调用继续读取已有配置中的 temperature、top_p、max_tokens；超时与重试统一在“管理后台 → 模型配置 → 超时与重试”维护，存于 app_metadata；默认单次 300 秒、重试 3 次（首次请求外再试 3 次），保存后新调用立即生效，进行中的调用及其重试保留原设置。环境变量入口、单模型 timeout_seconds 与场景短时限已删除，仅 TimeoutError / HTTPX 请求超时重试，重用原输入且不产生中间业务结果或 Version；耗尽后保留真实异常与重试次数。能力发展、匹配统一理解和后台连接测试共用 `json_object` + 完整 schema 提示，不默认供应商支持 `json_schema`，结果仍经原有严格校验。结构化每次尝试保留配置时长的墙钟上限；Run、任务回收和前端等待预算从同一策略计算；同源代理不另设固定模型请求时限；不再使用 16384/64/10 token 隐含上限或 smoke 的 4096 覆盖。连接测试只发送合成 JSON 探测，不建业务任务；新增模型先用现有测试按钮验证，不新增适配配置表或自动探测流程。接口能力、配额和输出质量仍以具体供应商为准。
 
 ## 视觉与范围
 

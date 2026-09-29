@@ -9,6 +9,7 @@ import contract from "../../shared/partner-materials.json";
 import { Pagination } from "./pagination";
 import {UiIcon} from "./ui-icons";
 import {DevelopmentRequestForm} from "./development-assistant";
+import {PartnerSelect} from "./partner-select";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "./auth-provider";
@@ -72,7 +73,7 @@ export function DevelopmentEntry() {
   return <div className="development-entry">
     <p className="assistant-subtitle">选择伙伴，说说你希望发展的方向</p>
     <div className="development-composer"><div className={`development-context-row${project||shared?" has-source":""}`} >
-    <section className="card development-partner"><label className="enablement-field"><span>目标伙伴</span><select aria-label="选择目标伙伴" value={search.get("partner_id")||""} disabled={!!search.get("task_id")} onChange={e=>selectPartner(e.target.value)}><option value="">请选择伙伴</option>{partners.data?.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}
+    <section className="card development-partner"><div className="enablement-field"><span>目标伙伴</span><PartnerSelect label="选择目标伙伴" partners={partners.data||[]} value={search.get("partner_id")||""} disabled={!!search.get("task_id")} onChange={selectPartner}/></div>{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}
     {search.get("task_id")&&<p className="muted">目标伙伴来自所选匹配结果。切换伙伴请返回匹配结果选择。</p>}
     {context.error?<ReadError message={context.error} retry={context.retry}/>:!context.data?<p role="status">正在核验来源上下文…</p>:partner&&<details className="development-profile"><summary>当前伙伴画像摘要</summary><div className="development-profile-heading"><CardEntry href={`/partners/${encodeURIComponent(partner.id)}`}>查看伙伴资料</CardEntry></div><dl className="development-profile-facts">{[["正式能力",partner.capabilities],["行业经验",partner.industries],["服务区域",partner.service_areas]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||"暂无已维护信息"}</dd></div>)}</dl><ClassificationNotice pending={partner.classification_pending}/><p className="profile-preview">{partner.ai_profile||partner.intro||"当前画像依据有限，可继续描述发展方向。"}</p><details className="development-profile-evidence"><summary>查看获准引用的依据</summary><h3>当前可访问的证据引用</h3>{context.data.evidence.length?<ul>{context.data.evidence.map(e=><li key={e.source_type+e.source_id}>{e.title}</li>)}</ul>:<p className="muted">暂无可引用证据。</p>}<p className="muted">内部资料可见不代表获准发送模型或对伙伴外发。</p></details></details>}
     </section>

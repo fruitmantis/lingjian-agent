@@ -11,12 +11,5 @@ if (buildCpus !== undefined && (!Number.isInteger(buildCpus) || buildCpus < 1)) 
   throw new Error('BANFEI_BUILD_CPUS must be a positive integer');
 }
 export default {
-  ...((buildCpus || apiTarget) ? {experimental: {
-    ...(buildCpus ? {cpus: buildCpus} : {}),
-    // Cover existing batch calls and scope + legacy synchronous matching.
-    ...(apiTarget ? {proxyTimeout: 600_000} : {}),
-  }} : {}),
-  async rewrites() {
-    return apiTarget ? [{source: '/api/:path*', destination: `${apiTarget}/:path*`}] : [];
-  },
+  ...(buildCpus ? {experimental: {cpus: buildCpus}} : {}),
 };

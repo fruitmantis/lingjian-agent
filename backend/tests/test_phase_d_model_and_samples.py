@@ -73,8 +73,9 @@ def test_loopback_supplier_schema_error_timeout_and_retry(scenario,supplier,monk
     accepted,_,_=execute(scenario);user,_,_,request=scenario[0];pid=accepted['plan_id']
     v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
     supplier['mode']=mode
-    if mode=='slow':monkeypatch.setenv('DEVELOPMENT_MODEL_TIMEOUT_SECONDS','.08')
-    if mode=='dribble':monkeypatch.setenv('DEVELOPMENT_MODEL_TIMEOUT_SECONDS','.25')
+    from backend.app.model_timeout_settings import save, TimeoutSettings
+    if mode=='slow':save(TimeoutSettings(timeoutSeconds=.08, timeoutRetries=0))
+    if mode=='dribble':save(TimeoutSettings(timeoutSeconds=.25, timeoutRetries=0))
     second=life.revise(pid,Revise(submission_id='supplier-revise-'+mode,based_on_version_id=v1,instruction='缩短周期',request=request),user)
     started=time.perf_counter();engine.execute(second['run_id']);elapsed=time.perf_counter()-started
     with get_db() as conn:status=conn.execute('SELECT status FROM development_runs WHERE id=?',(second['run_id'],)).fetchone()[0]
@@ -82,7 +83,7 @@ def test_loopback_supplier_schema_error_timeout_and_retry(scenario,supplier,monk
     else:
         assert status=='failed' and plan(pid)['current_version_id']==v1
         assert plan(pid)['confirmed_version_id']==v1 and views.transferable(pid,user)['text']
-        supplier['mode']='normal';monkeypatch.delenv('DEVELOPMENT_MODEL_TIMEOUT_SECONDS',raising=False)
+        supplier['mode']='normal';save(TimeoutSettings())
         retry=life.revise(pid,Revise(submission_id='supplier-retry-'+mode,based_on_version_id=v1,instruction='重试',request=request),user)
         engine.execute(retry['run_id']);assert plan(pid)['current_version_id']!=v1
     if mode=='slow':assert elapsed<2

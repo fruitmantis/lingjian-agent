@@ -1,0 +1,17 @@
+.root { display:flex; flex-direction:column; flex:1; gap:8px; min-width:0; width:100%; }
+.caption { color:var(--text-secondary); font-size:13px; line-height:20px; }
+.control { position:relative; min-width:0; }
+.control .input { display:block; width:100%; min-width:0; height:40px; margin:0; padding:0 38px 0 12px; border:1px solid var(--border-strong); border-radius:var(--radius-sm); background:var(--bg-surface); color:var(--text-primary); font:400 14px/1.5 var(--font-body); text-overflow:ellipsis; }
+.control .input:focus { border-color:var(--border-hover); outline:2px solid var(--border-strong); outline-offset:1px; box-shadow:none; }
+.control .input:disabled { background:var(--bg-hover); color:var(--text-secondary); cursor:not-allowed; }
+.control .toggle { position:absolute; inset:1px 1px 1px auto; display:flex; align-items:center; justify-content:center; width:34px; min-height:0; margin:0; padding:0; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--text-secondary); box-shadow:none; }
+.toggle:disabled { cursor:not-allowed; }
+.popup { position:fixed; z-index:1100; display:flex; flex-direction:column; overflow:hidden; padding:6px; background:var(--bg-surface); color:var(--text-primary); border:1px solid var(--border-default); border-radius:var(--radius-md); box-shadow:var(--shadow-overlay); font:400 14px/1.5 var(--font-body); }
+.count { flex-shrink:0; padding:6px 8px 8px; color:var(--text-secondary); font-size:12px; }
+.options { overflow-y:auto; overscroll-behavior:contain; min-height:0; }
+.options .option { display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; min-height:36px; margin:0; padding:8px; border:0; border-radius:6px; background:transparent; color:var(--text-primary); font:inherit; text-align:left; box-shadow:none; white-space:normal; overflow-wrap:anywhere; cursor:pointer; }
+.option span:first-child { min-width:0; }
+.option span + span { flex-shrink:0; }
+.options .option:hover,.options .highlighted { background:var(--bg-hover); }
+.options .option:active { background:var(--bg-selected); }
+.empty { margin:8px; color:var(--text-secondary); font-size:13px; }

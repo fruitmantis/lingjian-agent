@@ -4,19 +4,30 @@ import uuid
 import time
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field, StrictBool
 
 from ..database import get_db
-from ..auth import require_admin, record_audit
+from ..auth import require_admin, require_active_user, record_audit
 from ..model_resolver import _resolve_api_key
 from ..ai_client import ModelResponseError, model_error_message
 from .. import development_model
+from .. import model_timeout_settings
+from ..model_timeout_settings import TimeoutSettings
 
 
 router = APIRouter(prefix="/admin/model-configs", tags=["model-configs"], dependencies=[Depends(require_admin)])
 
-_MC_COLS = "id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, timeout_seconds, enabled, is_default, created_at, updated_at"
+policy_router = APIRouter(tags=["model-settings"], dependencies=[Depends(require_active_user)])
+
+
+@policy_router.get('/model-timeout-settings')
+def read_timeout_policy(response: Response):
+    response.headers['Cache-Control'] = 'no-store'
+    return model_timeout_settings.describe()
+
+
+_MC_COLS = "id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at"
 
 
 class ModelConfigOut(BaseModel):
@@ -30,7 +41,6 @@ class ModelConfigOut(BaseModel):
     temperature: float
     topP: float
     maxTokens: int
-    timeoutSeconds: int
     enabled: bool
     isDefault: bool
     createdAt: str
@@ -46,7 +56,6 @@ class ModelConfigCreate(BaseModel):
     temperature: float = Field(default=0.3, ge=0, allow_inf_nan=False)
     topP: float = Field(default=1.0, ge=0, le=1, allow_inf_nan=False)
     maxTokens: int = Field(default=131072, gt=0)
-    timeoutSeconds: int = Field(default=60, gt=0)
 
 
 class ModelConfigUpdate(BaseModel):
@@ -58,7 +67,6 @@ class ModelConfigUpdate(BaseModel):
     temperature: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     topP: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
     maxTokens: int | None = Field(default=None, gt=0)
-    timeoutSeconds: int | None = Field(default=None, gt=0)
 
 
 class UsageConfigOut(BaseModel):
@@ -84,13 +92,25 @@ class _ConnectionProbe(BaseModel):
     ok: StrictBool
 
 
+@router.get('/timeout-settings')
+def get_timeout_settings(response: Response):
+    response.headers['Cache-Control'] = 'no-store'
+    return model_timeout_settings.describe()
+
+
+@router.put('/timeout-settings')
+def save_timeout_settings(payload: TimeoutSettings, response: Response):
+    response.headers['Cache-Control'] = 'no-store'
+    return model_timeout_settings.save(payload)
+
+
 def _to_out(r) -> ModelConfigOut:
     return ModelConfigOut(
         id=r["id"], name=r["name"], provider=r["provider"], baseUrl=r["base_url"],
         apiKeyConfigured=bool(_resolve_api_key(r)),
         apiKeySource=r["api_key_source"], modelName=r["model_name"],
         temperature=r["temperature"], topP=r["top_p"], maxTokens=r["max_tokens"],
-        timeoutSeconds=r["timeout_seconds"], enabled=bool(r["enabled"]), isDefault=bool(r["is_default"]),
+        enabled=bool(r["enabled"]), isDefault=bool(r["is_default"]),
         createdAt=r["created_at"], updatedAt=r["updated_at"]
     )
 
@@ -108,8 +128,8 @@ def create_config(payload: ModelConfigCreate) -> ModelConfigOut:
     mc_id = str(uuid.uuid4())
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, timeout_seconds, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'db', 'LLM_API_KEY', ?, ?, ?, ?, ?, 1, 0, ?, ?)",
-            (mc_id, payload.name, payload.provider, payload.baseUrl, payload.apiKey, payload.modelName, payload.temperature, payload.topP, payload.maxTokens, payload.timeoutSeconds, now, now)
+            "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'db', 'LLM_API_KEY', ?, ?, ?, ?, 1, 0, ?, ?)",
+            (mc_id, payload.name, payload.provider, payload.baseUrl, payload.apiKey, payload.modelName, payload.temperature, payload.topP, payload.maxTokens, now, now)
         )
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
     return _to_out(row)
@@ -139,8 +159,6 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
             updates.append("top_p = ?"); params.append(payload.topP)
         if payload.maxTokens is not None:
             updates.append("max_tokens = ?"); params.append(payload.maxTokens)
-        if payload.timeoutSeconds is not None:
-            updates.append("timeout_seconds = ?"); params.append(payload.timeoutSeconds)
         # Only update api_key if explicitly provided and non-empty
         if payload.apiKey is not None and payload.apiKey.strip():
             updates.append("api_key = ?"); params.append(payload.apiKey)

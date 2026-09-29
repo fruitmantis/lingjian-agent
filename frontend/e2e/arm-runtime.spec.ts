@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { webcrypto } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { newTaskId } from "../components/task-navigation";
-import { requestTimeoutMs } from "../lib/api-request";
+import { modelRequestCalls, modelRequestBudgetMs, type ModelTimeoutSettings } from "../lib/api-request";
 
 test("HTTP origins without randomUUID keep safe unique submission IDs", () => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, "crypto");
@@ -17,18 +17,21 @@ test("HTTP origins without randomUUID keep safe unique submission IDs", () => {
   }
 });
 
+const policy: ModelTimeoutSettings = {timeoutSeconds:300, timeoutRetries:3};
+const requestTimeoutMs = (input: string, method: string) => modelRequestCalls(input, method) ? modelRequestBudgetMs(policy, modelRequestCalls(input, method)) : 30_000;
+
 test("same-origin proxy preserves direct API model request budgets", () => {
   const cases: [string, string, number][] = [
-    ["/agent/match", "POST", 510_000],
-    ["/agent/tasks/task-id/retry", "POST", 510_000],
-    ["/partners/partner-id/profile", "POST", 180_000],
-    ["/admin/model-configs/model-id/test", "POST", 210_000],
-    ["/agent/tasks", "POST", 210_000],
-    ["/development/plans", "POST", 210_000],
-    ["/development/plans/plan-id/revise", "POST", 210_000],
-    ["/development/plans/plan-id/retry", "POST", 210_000],
+    ["/agent/match", "POST", 2_430_000],
+    ["/agent/tasks/task-id/retry", "POST", 2_430_000],
+    ["/partners/partner-id/profile", "POST", 2_430_000],
+    ["/admin/model-configs/model-id/test", "POST", 1_230_000],
+    ["/agent/tasks", "POST", 1_230_000],
+    ["/development/plans", "POST", 1_230_000],
+    ["/development/plans/plan-id/revise", "POST", 1_230_000],
+    ["/development/plans/plan-id/retry", "POST", 1_230_000],
     ["/agent/tasks", "GET", 30_000],
-    ["/development/plans/plan-id/conversation", "POST", 390_000],
+    ["/development/plans/plan-id/conversation", "POST", 2_430_000],
   ];
   for (const [path, method, budget] of cases) {
     expect(requestTimeoutMs("http://localhost:8000" + path, method)).toBe(budget);
@@ -37,11 +40,16 @@ test("same-origin proxy preserves direct API model request budgets", () => {
   }
 });
 
-test("optional proxy leaves direct development config unchanged", () => {
-  const code = `import config from './next.config.mjs'; console.log(JSON.stringify({rules:await config.rewrites(),experimental:config.experimental}));`;
-  const run = (extra: Record<string,string>) => JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", code], { cwd: process.cwd(), env: { ...process.env, BANFEI_API_PROXY_TARGET: "", BANFEI_BUILD_CPUS: "", ...extra }, encoding: "utf8" }));
-  expect(run({})).toEqual({ rules: [] });
-  const proxy=run({ BANFEI_API_PROXY_TARGET: "http://localhost:8000", BANFEI_BUILD_CPUS: "1" });
-  expect(proxy.rules).toEqual([{ source: "/api/:path*", destination: "http://localhost:8000/:path*" }]);
-  expect(proxy.experimental).toEqual({ cpus: 1, proxyTimeout: 600_000 });
+test("proxy configuration has no build-time model timeout setting", () => {
+  const code = `import config from './next.config.mjs'; console.log(JSON.stringify(config));`;
+  const result = JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", code], {
+    cwd: process.cwd(), env: {...process.env, BANFEI_BUILD_CPUS:"1", BANFEI_API_PROXY_TARGET:"http://localhost:8000"}, encoding:"utf8"}));
+  expect(result).toEqual({experimental:{cpus:1}});
+});
+
+test("current policy determines timeout and retry budget without a rebuild", () => {
+  expect(modelRequestBudgetMs({timeoutSeconds:60, timeoutRetries:1})).toBe(150_000);
+  expect(modelRequestBudgetMs({timeoutSeconds:60, timeoutRetries:1}, 2)).toBe(270_000);
+  expect(modelRequestBudgetMs({timeoutSeconds:60, timeoutRetries:0})).toBe(90_000);
+  expect(modelRequestCalls("/api/agent/tasks", "GET")).toBe(0);
 });

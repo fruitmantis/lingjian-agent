@@ -18,7 +18,6 @@ class ResolvedModelConfig:
     temperature: float
     top_p: float
     max_tokens: int
-    timeout_seconds: int
     source: str  # "db" / "env" / "default"
 
 
@@ -86,6 +85,15 @@ def resolve_model_config(scene: str = "default", *, read_only: bool = False) -> 
     return model_config_from_record(resolve_model_record(scene, read_only=read_only))
 
 
+def validate_model_retry(config: dict):
+    """Do not switch providers or send another request after settings/enablement change."""
+    with get_readonly_db() as conn:
+        row = conn.execute('SELECT * FROM model_configs WHERE id=?', (config['id'],)).fetchone()
+    if (row is None or row['enabled'] != config['enabled']
+            or configuration_stamp(dict(row)) != configuration_stamp(config)):
+        raise ModelConfigurationError('本次运行的模型配置已变化，请重试以使用当前配置')
+
+
 def model_config_from_record(record) -> ResolvedModelConfig:
     """Use the same saved settings for text, structured output and connection tests."""
     row = dict(record)
@@ -96,7 +104,6 @@ def model_config_from_record(record) -> ResolvedModelConfig:
         temperature=row["temperature"] if row.get("temperature") is not None else 0.3,
         top_p=row["top_p"] if row.get("top_p") is not None else 1.0,
         max_tokens=row["max_tokens"] if row.get("max_tokens") is not None else 131072,
-        timeout_seconds=row["timeout_seconds"] if row.get("timeout_seconds") is not None else 60,
         source="db",
     )
 

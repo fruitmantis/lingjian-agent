@@ -161,11 +161,11 @@ test("unconfirmed submission survives reload and only queries its original ID", 
   await page.goto("/");
   await page.locator("#requirement").fill("暂未确认的任务");
   await page.getByRole("button", { name: "开始匹配", exact: true }).click();
-  await expect(page.locator(".pending-task")).toContainText("提交未确认");
+  await expect(page.locator(".pending-task")).toContainText("正在获取任务结果");
   await page.reload();
-  await expect(page.locator(".pending-task")).toContainText("待确认的提交");
+  await expect(page.locator(".pending-task")).toContainText("待恢复的任务");
   records.push({ ...task(0), id: taskId, taskStatus: "failed" });
-  await page.getByRole("button", { name: "核对任务", exact: true }).click();
+  await page.getByRole("button", { name: "刷新查看", exact: true }).click();
   await expect(page.locator(".pending-task")).toHaveCount(0);
   await expect(rows(page)).toContainText("失败");
   expect(attempts).toBe(1);

@@ -35,6 +35,7 @@ async function allPagesFixture(page:Page){
     else if(p==='/admin/opportunities')json=[opportunity];
     else if(p==='/admin/reports')json={overview:{totalDemands:1,thisMonthDemands:1,totalPartners:12,partnersWithProfile:9,activePartners:8,noPartnerDemands:0,partialDemands:1,pendingSuggestions:0},capabilityDist:[{name:'数据库',count:1}],industryDist:[],regionDist:[],deliveryTypeDist:[],supplyGaps:[],activePartnerCount:8,activePartnerRatio:0.67,topRecommendedPartners:[],inactivePartners:[],topFormalTags:[],uncoveredClues:0,pendingSuggestions:0};
     else if(p==='/admin/model-configs')json=[{id:'model-1',name:'界面验收配置',provider:'合成供应商',modelName:'example-model',maxTokens:8192,baseUrl:'https://example.com/v1',apiKeyConfigured:true,enabled:true,isDefault:true}];
+    else if(p==='/admin/model-configs/timeout-settings')json={timeoutSeconds:300,timeoutRetries:3};
     else if(p==='/admin/model-configs/usage')json=[{sceneKey:'partner_matching',sceneName:'伙伴匹配',modelConfigId:'model-1',modelConfigName:'界面验收配置'}];
     else if(p==='/admin/enablement/resources')json=[resource];
     else if(p==='/admin/enablement/resources/resource-1')json=resource;

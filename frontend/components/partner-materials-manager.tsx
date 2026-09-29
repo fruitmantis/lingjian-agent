@@ -6,6 +6,7 @@ import {useRouter,useSearchParams} from 'next/navigation';
 import {adminApiFetch} from './auth-provider';
 import {CaseCategory,MaterialFiles,materialAccept,uploadMaterials,validateMaterials} from './material-files';
 import {Pagination} from './pagination';
+import {PartnerSelect} from './partner-select';
 import {UiIcon} from './ui-icons';
 import {responseError} from '@/lib/api-request';
 import contract from '../../shared/partner-materials.json';
@@ -53,7 +54,7 @@ export function PartnerMaterialsManager(){
     <div className="page-heading-row"><div><p className="eyebrow">Partner Materials</p><h1>伙伴资料</h1><p className="lead">集中维护伙伴案例与资料，展示和画像更新由你决定。</p></div><button onClick={()=>setCreating(true)}>新增资料</button></div>
     {partnerId&&<div className={styles.context}><strong>当前伙伴：{current?.name||'加载中…'}</strong><div className={styles.contextActions}><Link href={`/admin/partners/${encodeURIComponent(partnerId)}`} className={`secondary-btn ${styles.contextAction}`}><UiIcon name="send" size={16} className={styles.backIcon}/><span>返回伙伴详情</span></Link><button className={`secondary-btn ${styles.contextAction}`} onClick={()=>filter({partner_id:null})}><UiIcon name="apps" size={16}/><span>查看全部伙伴资料</span></button></div></div>}
     <form className={styles.filters} onSubmit={e=>{e.preventDefault();filter({q:q.trim()});}}>
-      <label>所属伙伴<select aria-label="筛选伙伴" value={partnerId} onChange={e=>filter({partner_id:e.target.value})}><option value="">全部伙伴</option>{data.partners.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      <PartnerSelect caption="所属伙伴" label="筛选伙伴" partners={data.partners} value={partnerId} placeholder="全部伙伴" onChange={value=>filter({partner_id:value})}/>
       <label>一级分类<select aria-label="筛选一级分类" value={group} onChange={e=>filter({category_group:e.target.value,category_id:null})}><option value="">全部分类</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
       <label>二级分类<select aria-label="筛选二级分类" value={category} disabled={!group||group==='unclassified'} onChange={e=>filter({category_id:e.target.value})}><option value="">全部</option>{contract.categories.find(g=>g.id===group)?.children.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       <label className={styles.search}>名称搜索<div><input aria-label="资料名称" value={q} maxLength={200} placeholder="搜索资料名称" onChange={e=>setQ(e.target.value)}/><button className="secondary-btn" type="submit">搜索</button></div></label>
@@ -100,7 +101,7 @@ function MaterialEditor({partners,partnerId,entry,onSaved}:{partners:Partner[];p
     onSaved({...saved,kind:'case',partner_name:partners.find(p=>p.id===partner)?.name||'',file_count:entry?.file_count||0,processing_status:'processing',profile_needs_update:true});
   }catch(e){setError((savedId.current?'资料条目已保存；请检查文件后重试。':'')+(e as Error).message);}finally{setBusy(false);}}
   return <form className="form-grid compact-form" onSubmit={submit}>
-    <label className="form-row">关联伙伴<select required value={partner} onChange={e=>setPartner(e.target.value)}><option value="">请选择伙伴</option>{partners.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+    <PartnerSelect className="form-row" caption="关联伙伴" label="关联伙伴" required partners={partners} value={partner} onChange={setPartner}/>
     <label className="form-row">标题<input required maxLength={300} value={title} onChange={e=>setTitle(e.target.value)}/></label><div className="form-span-two"><CaseCategory value={category} onChange={setCategory}/></div>
     <label className="form-row form-span-two">简介（选填）<textarea rows={3} value={description} onChange={e=>setDescription(e.target.value)}/></label>
     <label className="form-row form-span-two">上传文件<input type="file" multiple accept={materialAccept} onChange={e=>{const list=Array.from(e.target.files||[]);try{validateMaterials(list);setFiles(list);setError('');}catch(error){setError((error as Error).message);e.target.value='';setFiles([]);}}}/><small>{contract.upload_notice}</small></label>

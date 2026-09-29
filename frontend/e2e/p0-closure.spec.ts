@@ -18,7 +18,7 @@ for (const width of [1366,1920]) test(`P0 scene shortcuts, combined counts and d
   await expect(card).not.toContainText('能力建设中');
   await card.getByRole('link',{name:'开始分析'}).click();
   await expect(page).toHaveURL('/?mode=development');
-  await expect(page.getByRole('tab',{name:'能力发展',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(page.getByRole('tab',{name:'伙伴发展',exact:true})).toHaveAttribute('aria-selected','true');
   for(const name of ['伙伴能力查询','伙伴AI画像','伙伴案例查询']){
     await page.goto('/scenes');await page.getByLabel('搜索场景').fill(name);
     const shortcut=page.locator('article').filter({has:page.getByRole('heading',{name,exact:true})});

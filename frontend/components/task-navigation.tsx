@@ -8,10 +8,10 @@ import { userApiFetch as apiFetch, PASSWORD_CHANGE_PATH, useAuth } from "./auth-
 export const TASKS_CHANGED = "lingjian:tasks-changed";
 export const NEW_TASK = "lingjian:new-task";
 export const taskLabels: Record<string, string> = {
-  matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "失败",
-  submitting: "提交中", unconfirmed: "提交未确认",
+  matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "生成失败，可重试",
+  submitting: "提交中", unconfirmed: "正在获取任务结果",
 };
-import {responseError} from "../lib/api-request";
+import {responseError,submissionIsUncertain} from "../lib/api-request";
 import {PlanStatus,type PlanPresentation} from "./plan-status";
 
 export type NavigationTask = { planPresentation?: PlanPresentation | null; task_type?: string; id: string; requirement: string; createdAt: string; taskStatus: string; archivedAt?: string | null };
@@ -77,7 +77,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
         const saved: unknown = JSON.parse(sessionStorage.getItem(key) || "[]");
         if (Array.isArray(saved)) {
           const restored: PendingTask[] = saved.filter(item => typeof item?.id === "string" && /^[a-f0-9-]{36}$/i.test(item.id) && typeof item.createdAt === "string")
-            .map(item => ({ id: item.id, createdAt: item.createdAt, requirement: "待确认的提交", taskStatus: "unconfirmed" }));
+            .map(item => ({ id: item.id, createdAt: item.createdAt, requirement: "待恢复的任务", taskStatus: "unconfirmed" }));
           update(restored);
           restored.forEach(item => { void check(item.id); });
         }
@@ -97,7 +97,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
       if (!response.ok) {
         rejected = response.status >= 400 && response.status < 500 && response.status !== 408;
         const error = await responseError(response);
-        rejected ||= error.submissionAccepted === false;
+        rejected ||= error.submissionAccepted === false || (!!error.failureCode && error.failureCode !== "persistence");
         throw error;
       }
       const result = await response.json();
@@ -107,15 +107,21 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
       }
       return id;
     } catch (reason) {
-      if (rejected) {
+      // Always resolve an accepted task first, including a failed Run with no result.
+      if (await check(id)) return id;
+      if (rejected || !submissionIsUncertain(reason)) {
         update(pendingRef.current.filter(item => item.id !== id));
         throw reason;
       }
-      if (await check(id)) return id;
       update(pendingRef.current.map(item => item.id === id ? { ...item, taskStatus: "unconfirmed" } : item));
       throw new Error("暂未确认结果，请刷新查看。");
     }
   }
+  useEffect(() => {
+    if (!key || !pending.length) return;
+    const timer = setInterval(() => { pendingRef.current.filter(item => item.taskStatus === "unconfirmed").forEach(item => void check(item.id)); }, 4000);
+    return () => clearInterval(timer);
+  }, [key, pending.length]);
   return <NavigationContext.Provider value={{ pending, submit, confirm: async id => { await check(id); } }}>{children}</NavigationContext.Provider>;
 }
 
@@ -262,7 +268,7 @@ function UserTaskSidebar({ pathname, selectedId }: { pathname: string; selectedI
     <Link href="/tasks" className={`sidebar-all-tasks ${pathname === "/tasks" ? "active" : ""}`} aria-current={pathname === "/tasks" ? "page" : undefined}>全部任务<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></Link>
     <div className="sidebar-task-list" ref={scroll} aria-label="最近任务">
       {pending.filter(task => !items.some(item => item.id === task.id)).map(task => <div key={task.id} className="sidebar-task-item pending-task" data-task-id={task.id}>
-        <strong title={task.requirement}>{task.requirement}</strong><span><em>{taskLabels[task.taskStatus]}</em>{task.taskStatus === "unconfirmed" && <button type="button" className="sidebar-check-task" disabled={checking === task.id} onClick={async () => { setChecking(task.id); await confirm(task.id); setChecking(null); }}>{checking === task.id ? "核对中" : "核对任务"}</button>}</span>
+        <strong title={task.requirement}>{task.requirement}</strong><span><em>{taskLabels[task.taskStatus]}</em>{task.taskStatus === "unconfirmed" && <button type="button" className="sidebar-check-task" disabled={checking === task.id} onClick={async () => { setChecking(task.id); await confirm(task.id); setChecking(null); }}>{checking === task.id ? "正在刷新" : "刷新查看"}</button>}</span>
       </div>)}
       {selected && !items.some(item => item.id === selected.id) && <div className="sidebar-selected-task"><small>当前查看</small>{row(selected)}</div>}
       {items.map(row)}

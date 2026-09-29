@@ -153,7 +153,7 @@ def test_shared_model_routing_and_external_provider_transport(prepared,monkeypat
     with get_db() as conn:
         row=conn.execute('SELECT id FROM model_configs LIMIT 1').fetchone();conn.execute("UPDATE model_usage_configs SET model_config_id=? WHERE scene_key='partner_development'",(row[0],))
     chosen=model.configuration();assert chosen['id']==row[0]
-    chosen.update(base_url=host,model_name=name,api_key='synthetic-transport-key',temperature=0,top_p=.85,max_tokens=131072,timeout_seconds=123)
+    chosen.update(base_url=host,model_name=name,api_key='synthetic-transport-key',temperature=0,top_p=.85,max_tokens=131072)
     import httpx
     requests=[]
     async def handle(request):
@@ -172,7 +172,7 @@ def test_shared_model_routing_and_external_provider_transport(prepared,monkeypat
     assert payload['response_format']=={'type':'json_object'}
     assert json.dumps(schema,ensure_ascii=False) in payload['messages'][0]['content']
     assert (payload['temperature'],payload['top_p'],payload['max_tokens'])==(0,.85,131072)
-    assert options[0]['timeout']==123
+    assert options[0]['timeout']==300
     assert messages==[{'role':'user','content':'transport validation'}]
     for invalid in ['file:///tmp/model','https://user:password@model.invalid/v1']:
         with pytest.raises(ModelConfigurationError):model.completion(dict(chosen,base_url=invalid),[],{})

@@ -101,7 +101,7 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
   }
   await expect(page.getByLabel('发展方向',{exact:true})).toHaveCSS('height','140px');
   await expect(page.getByLabel('选择目标伙伴')).toHaveCSS('height','40px');
-  await expect(page.getByRole('tab',{name:'能力发展',exact:true})).toHaveAttribute('aria-selected','true');
+  await expect(page.getByRole('tab',{name:'伙伴发展',exact:true})).toHaveAttribute('aria-selected','true');
   await page.getByLabel('发展方向',{exact:true}).fill('希望具备 Agent 项目交付能力');
   await expect(page.getByRole('button',{name:'生成能力发展建议',exact:true})).toHaveCSS('background-color','rgb(199, 0, 11)');
   await page.screenshot({path:path.join(directory,`development-${width}.png`),fullPage:true});

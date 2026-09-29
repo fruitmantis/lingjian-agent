@@ -1,10 +1,10 @@
 """Shared model routing and guarded OpenAI-compatible adapter for Phase C."""
 import asyncio
-from .development_deadlines import model_timeout
+from .model_timeout_settings import get_settings
 from urllib.parse import urlsplit
 import httpx
-from .model_resolver import ModelConfigurationError,model_config_from_record,resolve_model_record
-from .ai_client import _completion_content, completion_payload
+from .model_resolver import ModelConfigurationError,model_config_from_record,resolve_model_record,validate_model_retry
+from .ai_client import _completion_content, completion_payload, retry_model_timeout
 
 
 def configuration(*, read_only=False, connection=None):
@@ -21,7 +21,8 @@ def completion(config,messages,schema):
         parsed=urlsplit(selected.base_url)
         if parsed.username or parsed.password or parsed.scheme not in ('http','https'):raise ModelConfigurationError('Invalid model endpoint')
         payload=completion_payload(selected,messages,schema)
-        limit=min(selected.timeout_seconds,model_timeout())
+        policy=get_settings()
+        limit=policy.timeoutSeconds
         async def send():
             # Wall-clock cancellation also bounds slow/chunked responses that keep resetting read timeouts.
             async with asyncio.timeout(limit):
@@ -31,7 +32,8 @@ def completion(config,messages,schema):
                     response.raise_for_status()
                     return _completion_content(response.json())
         # Development execution already runs in the existing worker threads, outside the API event loop.
-        return asyncio.run(send())
+        return retry_model_timeout(lambda: asyncio.run(send()), policy=policy,
+                                   before_retry=lambda: validate_model_retry(config))
     except Exception as error:
         record_error(error)
         raise

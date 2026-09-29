@@ -15,7 +15,7 @@ from .. import match_understanding as understanding
 from ..model_resolver import pinned_configuration
 from .. import development_model
 from ..error_diagnostics import diagnostic_scope, bind_context, record_error
-from ..task_failures import failure, public_failures, PublicTaskError
+from ..task_failures import failure, public_failures, PublicTaskError, prepare_or_timeout
 from ..opportunity_extraction import normalize_opportunity
 from ..ai_client import chat_completion, model_error_message
 from ..model_resolver import ModelConfigurationError
@@ -678,7 +678,7 @@ def _run_task_enrichment(
 def match_partners(req: MatchRequest, user: dict = Depends(require_active_user)) -> MatchResponse:
     if not req.requirement.strip():
         raise HTTPException(422, detail="请输入项目需求")
-    snapshot=understanding.prepare(req.requirement)
+    snapshot, timeout_error=prepare_or_timeout(understanding.prepare,req.requirement)
     record_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     try:
@@ -698,6 +698,9 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
         record_error(error, "submission", task_id=record_id)
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="服务异常，请联系管理员。")
 
+    if timeout_error:
+        _set_task_state(record_id, 'failed', 'understanding', failures=[failure('understanding',timeout_error)])
+        return MatchResponse(requirement=req.requirement,recommendations=[],recordId=record_id,taskStatus='failed')
     with get_db() as conn:understanding.save(conn,record_id,snapshot)
     return _execute_match(record_id, req.requirement, now)
 
@@ -780,7 +783,7 @@ def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks, user:
             if existing["requirement"] != requirement:
                 raise HTTPException(409, detail="该提交标识已用于其他需求，请重新发起任务")
             return TaskAccepted(recordId=record_id, taskStatus=existing["task_status"])
-    snapshot=understanding.prepare(requirement)
+    snapshot, timeout_error=prepare_or_timeout(understanding.prepare,requirement)
     with get_db() as conn:
         conn.execute("BEGIN IMMEDIATE")
         ensure_account_active(conn, user["id"])
@@ -798,7 +801,12 @@ def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks, user:
                VALUES (?, ?, '[]', ?, ?, ?, 'matching', NULL, ?)""",
             (record_id, requirement, now, user["username"], user["id"], now),
         )
-        understanding.save(conn,record_id,snapshot)
+        if timeout_error:
+            conn.execute("UPDATE match_records SET task_status='failed',last_error_stage='understanding',last_error_details=? WHERE id=?",
+                         (json.dumps([failure('understanding',timeout_error)],ensure_ascii=False),record_id))
+        else:
+            understanding.save(conn,record_id,snapshot)
+    if timeout_error:return TaskAccepted(recordId=record_id,taskStatus='failed')
     background_tasks.add_task(_process_created_task, record_id, requirement, now)
     return TaskAccepted(recordId=record_id, taskStatus="matching")
 
@@ -823,7 +831,7 @@ def _extract_project_opportunity(
             raw = chat_completion([
                 {"role": "system", "content": taxonomy_prompt() + "从项目需求中抽取结构化项目信息。返回JSON含: customerName(客户名称),projectName(项目名称),industry(行业),region(区域),projectStage(项目阶段如需求调研/方案设计/招投标/实施交付),businessNeeds(业务诉求),technicalNeeds(技术诉求),deliveryNeeds(交付诉求),qualificationRequirements(资质要求),caseRequirements(案例要求),onsiteRequirement(驻场要求),timelineRequirement(时间要求),cloudPlatformPreference(云平台偏好),followUpQuestions(建议补充问题,数组)。本次返回一个项目对象。industry、region是文本字段：多选标准值用逗号分隔，不要返回分组对象。其他字段为字符串，followUpQuestions为字符串数组。信息缺失填'未知'，保留能提取的其他信息，不猜测。只返回JSON。"},
                 {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴: {rec_names}"}
-            ], timeout=60, scene="demand_profile")
+            ], scene="demand_profile")
             if strict:
                 clean = raw.strip()
                 if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
@@ -883,7 +891,7 @@ def _generate_tag_suggestions(requirement: str, match_record_id: str, *, items: 
             raw = chat_completion([
                 {"role": "system", "content": f"分析项目需求，找出标准能力标签无法覆盖的新能力诉求。当前标准标签：[{std_tags_str}]。如果存在未覆盖的能力诉求，返回JSON数组，每项含suggestedName,suggestedCategoryName(从:AI与智能体,云平台与迁移,数据与数据库,应用开发与现代化,运维与安全,咨询与项目管理,其他),description,evidenceText,confidence(0-1)。不要把行业/区域误判为能力标签。无新诉求返回[]。只返回JSON。"},
                 {"role": "user", "content": f"项目需求: {requirement}"}
-            ], timeout=30, scene="tag_suggestion")
+            ], scene="tag_suggestion")
             clean = raw.strip()
             if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
             if clean.endswith("```"): clean = clean[:-3]
@@ -939,7 +947,7 @@ def _generate_demand_profile(
                 {"role": "system", "content": taxonomy_prompt() + f"你是项目需求分析专家。根据项目需求文本，提取结构化标签。返回JSON含：industryTags(行业,逗号分隔), capabilityTags(能力标签，只能从以下标准标签中选择：[{std_tags_str}]，选择匹配的，逗号分隔，不允许创造新标签，无匹配则返回空字符串), deliveryTypeTags(交付类型如全栈/运维/咨询,逗号分隔), regionTags(区域,逗号分隔), complexityLevel(高/中/低), urgencyLevel(高/中/低), projectKeywords(关键词,逗号分隔), supplyStatus(sufficient/partial/gap), gapAnalysis(缺口分析一句话)。只返回JSON。"},
                 {"role": "user", "content": f"项目需求: {requirement}\n推荐伙伴数: {partner_count}\n推荐伙伴: {top_names}"},
             ]
-            raw = chat_completion(llm_messages, timeout=30, scene="demand_profile")
+            raw = chat_completion(llm_messages, scene="demand_profile")
             clean = raw.strip()
             if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
             if clean.endswith("```"): clean = clean[:-3]
@@ -999,9 +1007,9 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
 
     requirement=row['requirement'];created_at=row['created_at']
     with get_db() as conn:cached=understanding.load(conn,record_id)
-    snapshot=understanding.prepare(requirement,cached)
     _claim_task_retry(record_id,row['task_status'],'matching',user['id'])
     try:
+        snapshot=understanding.prepare(requirement,cached)
         if cached and snapshot is not cached:snapshot['visible_answer']=cached.get('visible_answer','')
         with get_db() as conn:understanding.save(conn,record_id,snapshot)
         reusable=(snapshot is cached and cached.get('outcome') and cached.get('candidate_stamp')==_candidate_stamp())

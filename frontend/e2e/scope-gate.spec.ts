@@ -1,3 +1,4 @@
+import {selectPartner} from './partner-select-helper';
 import {test,expect,type Page,type APIRequestContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {fixtureLogin} from './identity-fixture';
@@ -21,7 +22,7 @@ for(const mode of ['match','development'] as const)test(`${mode} repeated off-to
  test.setTimeout(90_000);
  const {total,errors}=await setup(page,request);const before=await total(),diagnostics=await errors();
  await page.goto(mode==='match'?'/':'/?mode=development');
- if(mode==='development')await page.getByLabel('选择目标伙伴').selectOption('partner-1');
+ if(mode==='development')await selectPartner(page, 'partner-1');
  for(const text of offTopic)for(let repeat=0;repeat<3;repeat++){
   const endpoint=mode==='match'?'/agent/tasks':'/development/plans';
   await (mode==='match'?page.locator('#requirement'):page.getByLabel('发展方向',{exact:true})).fill(text);

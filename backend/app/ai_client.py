@@ -4,6 +4,7 @@ import json
 import httpx
 from urllib.parse import urlsplit
 from .model_resolver import ModelConfigurationError, ResolvedModelConfig, resolve_model_config
+from .model_timeout_settings import get_settings
 
 
 def provider_request_options(base_url: str, model: str) -> dict:
@@ -38,7 +39,7 @@ def model_error_message(error: Exception) -> str:
     """Return only fixed public messages, never upstream bodies, URLs or exceptions."""
     if isinstance(error, ModelConfigurationError):
         return "暂无可用模型，请管理员检查启用状态和连接配置"
-    if isinstance(error, httpx.TimeoutException):
+    if isinstance(error, (httpx.TimeoutException, TimeoutError)):
         return "模型响应超时，请稍后重试"
     if isinstance(error, httpx.HTTPStatusError):
         if error.response.status_code in (401, 403):
@@ -84,7 +85,29 @@ def _completion_content(data: dict) -> str:
     return content
 
 
-def chat_completion(messages: list[dict], timeout: int | None = None, scene: str = "default") -> str:
+def retry_model_timeout(send, *, policy, before_retry):
+    """Retry only the transport request, never the enclosing business operation."""
+    from .error_diagnostics import record_error
+    retries = policy.timeoutRetries
+    for retry_count in range(retries + 1):
+        if retry_count:
+            before_retry()
+        try:
+            return send()
+        except (TimeoutError, httpx.TimeoutException) as error:
+            # Keep the original exception class, message and traceback for administrators.
+            if retry_count and hasattr(error, '_banfei_diagnostic_id'):
+                del error._banfei_diagnostic_id
+            error.model_timeout_details = {
+                'timeout_seconds': policy.timeoutSeconds, 'retry_count': retry_count,
+                'attempt_count': retry_count + 1, 'max_retries': retries,
+            }
+            record_error(error)
+            if retry_count == retries:
+                raise
+
+
+def chat_completion(messages: list[dict], scene: str = "default") -> str:
     from .error_diagnostics import bind_context, register_secret, model_response, record_error, current_stage
     stage = current_stage(scene)
     bind_context(stage=stage, model=None, http_status=None, response_excerpt=None)
@@ -98,14 +121,21 @@ def chat_completion(messages: list[dict], timeout: int | None = None, scene: str
         url = f"{cfg.base_url.rstrip('/')}/chat/completions"
         headers = {"Authorization": f"Bearer {cfg.api_key}", "Content-Type": "application/json"}
         payload = completion_payload(cfg, messages)
-        actual_timeout = cfg.timeout_seconds if timeout is None else min(timeout, cfg.timeout_seconds)
+        # Freeze both values for this call and its retries; the next call reads saved settings.
+        policy = get_settings()
 
-        with httpx.Client(timeout=actual_timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
-            model_response(resp, cfg.model)
-            resp.raise_for_status()
-            data = resp.json()
-            return _completion_content(data)
+        def send():
+            with httpx.Client(timeout=policy.timeoutSeconds) as client:
+                resp = client.post(url, headers=headers, json=payload)
+                model_response(resp, cfg.model)
+                resp.raise_for_status()
+                return _completion_content(resp.json())
+
+        def before_retry():
+            if resolve_model_config(scene) != cfg:
+                raise ModelConfigurationError('本次运行的模型参数已变化，请重试以使用当前配置')
+
+        return retry_model_timeout(send, policy=policy, before_retry=before_retry)
     except Exception as error:
         record_error(error, stage)
         raise

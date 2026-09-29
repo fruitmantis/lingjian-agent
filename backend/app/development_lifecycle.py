@@ -10,6 +10,7 @@ from . import enablement_catalog
 from .development_deadlines import run_timeout
 from .development_types import DevelopmentRequest,Revise
 from .error_diagnostics import record_error, bind_context
+from .task_failures import prepare_or_timeout
 
 
 def now():return datetime.now(timezone.utc).isoformat()
@@ -71,6 +72,16 @@ def insert_run(conn,plan_id,user,submission_id,base,payload,run_type,request_has
     return {'plan_id':plan_id,'run_id':run_id,'task_type':'development_plan','replayed':False}
 
 
+def preparation_failed(conn, result, error):
+    from .task_failures import failure
+    stamp = now()
+    conn.execute("UPDATE development_runs SET status='failed',ended_at=?,error_stage='understanding',safe_error_message=? WHERE id=?",
+                 (stamp, dump([failure('understanding', error)]), result['run_id']))
+    conn.execute('UPDATE development_plans SET active_run_id=NULL,updated_at=? WHERE id=? AND active_run_id=?',
+                 (stamp, result['plan_id'], result['run_id']))
+    return {**result, 'status':'failed'}
+
+
 def create(payload,user):
     bind_context(request_id=payload.submission_id,stage='submission')
     digest=fingerprint(payload.model_dump())
@@ -79,7 +90,7 @@ def create(payload,user):
         if replay:return replay
     data=checked_request(payload.request,user)
     from .development_engine import prepare
-    understanding=prepare(data,user)
+    understanding, timeout_error=prepare_or_timeout(prepare,data,user)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
         replay=duplicate(conn,user,payload.submission_id,digest)
@@ -87,7 +98,8 @@ def create(payload,user):
         request_id=uid();plan_id=uid();stamp=now()
         conn.execute('INSERT INTO development_requests VALUES (?,?,?,?,?,?)',(request_id,user['id'],data['target_partner_id'],dump(data),stamp,user['id']))
         conn.execute('''INSERT INTO development_plans(id,owner_user_id,request_id,target_partner_id,status,created_at,updated_at) VALUES (?,?,?,?,'active',?,?)''',(plan_id,user['id'],request_id,data['target_partner_id'],stamp,stamp))
-        return insert_run(conn,plan_id,user,payload.submission_id,None,{'request':data,'instruction':'','understanding':understanding},'generate',digest)
+        result=insert_run(conn,plan_id,user,payload.submission_id,None,{'request':data,'instruction':'','understanding':understanding},'generate',digest)
+        return preparation_failed(conn,result,timeout_error) if timeout_error else result
 
 
 def writable(plan,base):
@@ -117,8 +129,8 @@ def revise(plan_id,payload,user):
         if data['target_partner_id']!=plan['target_partner_id']:fail(409,'同一方案不能更换目标伙伴')
     data=checked_request(DevelopmentRequest.model_validate(data),user)
     if payload.request is not None:data['_explicit_request']=True
-    understanding=engine.prepare(data,user,plan_id=plan_id,base=payload.based_on_version_id,instruction=payload.instruction)
-    if understanding['analysis']['action']=='answer' and payload.based_on_version_id:
+    understanding, timeout_error=prepare_or_timeout(engine.prepare,data,user,plan_id=plan_id,base=payload.based_on_version_id,instruction=payload.instruction)
+    if understanding and understanding['analysis']['action']=='answer' and payload.based_on_version_id:
         return save_answer(plan_id,payload,user,data,understanding,digest)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
@@ -126,7 +138,7 @@ def revise(plan_id,payload,user):
         if replay:return {'kind':'revise',**replay}
         writable(plan,payload.based_on_version_id)
         result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':payload.instruction,'understanding':understanding},'revise',digest)
-        return {'kind':'revise',**result}
+        return {'kind':'revise',**(preparation_failed(conn,result,timeout_error) if timeout_error else result)}
 
 
 def save_answer(plan_id,payload,user,data,understanding,digest):
@@ -231,6 +243,14 @@ def archive(plan_id,user,restore=False):
 def recover(startup=False,owner_user_id=None,plan_id=None):
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE')
+        # A terminal Run cannot own the execution lock. Repair old interrupted
+        # finalization without changing the current result or creating a task.
+        conn.execute("""UPDATE development_plans SET active_run_id=NULL
+            WHERE (? IS NULL OR owner_user_id=?) AND (? IS NULL OR id=?)
+              AND EXISTS (SELECT 1 FROM development_runs r
+                  WHERE r.id=development_plans.active_run_id AND r.plan_id=development_plans.id
+                    AND r.status IN ('failed','partial','interrupted','ready'))""",
+                     (owner_user_id,owner_user_id,plan_id,plan_id))
         threshold=(datetime.now(timezone.utc)-timedelta(seconds=run_timeout())).isoformat()
         rows=conn.execute("SELECT id,plan_id FROM development_runs WHERE status IN ('pending','running') AND (?=1 OR COALESCE(started_at,created_at)<?) AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(int(startup),threshold,owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
         for row in rows:
@@ -240,6 +260,8 @@ def recover(startup=False,owner_user_id=None,plan_id=None):
 
 
 def retry(plan_id,payload,user):
+    with get_db() as conn:authorize(conn,plan_id,user)
+    recover(plan_id=plan_id,owner_user_id=None if user['role']=='admin' else user['id'])
     bind_context(task_id=plan_id,request_id=payload.submission_id,stage='submission')
     digest=fingerprint({'plan_id':plan_id,'retry_run_id':payload.run_id,**payload.model_dump()})
     with get_db() as conn:
@@ -263,8 +285,8 @@ def retry(plan_id,payload,user):
     data=checked_request(DevelopmentRequest.model_validate({k:v for k,v in snapshot['request'].items() if k in DevelopmentRequest.model_fields}),user)
     if snapshot['request'].get('_explicit_request'):data['_explicit_request']=True
     from .development_engine import prepare
-    understanding=prepare(data,user,plan_id=plan_id,base=payload.based_on_version_id,instruction=snapshot['instruction'],cached=snapshot.get('understanding'))
-    if understanding['analysis']['action']=='answer' and payload.based_on_version_id:
+    understanding, timeout_error=prepare_or_timeout(prepare,data,user,plan_id=plan_id,base=payload.based_on_version_id,instruction=snapshot['instruction'],cached=snapshot.get('understanding'))
+    if understanding and understanding['analysis']['action']=='answer' and payload.based_on_version_id:
         return save_answer(plan_id,Revise(submission_id=payload.submission_id,based_on_version_id=payload.based_on_version_id,instruction=snapshot['instruction']),user,data,understanding,digest)
     with get_db() as conn:
         conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
@@ -274,4 +296,5 @@ def retry(plan_id,payload,user):
         latest=conn.execute('SELECT * FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(plan_id,)).fetchone()
         if latest['id']!=payload.run_id or latest['status'] not in ('failed','partial','interrupted'):fail(409,'运行状态已变化，请重新载入')
         if latest['based_on_version_id']!=payload.based_on_version_id:fail(409,'版本冲突：请基于当前建议重新提出调整')
-        return insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction'],'understanding':understanding},latest['run_type'],digest)
+        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction'],'understanding':understanding},latest['run_type'],digest)
+        return preparation_failed(conn,result,timeout_error) if timeout_error else result

@@ -15,7 +15,7 @@ from .conftest import auth_headers, make_user, make_partner, recommendation
 
 
 def model_reply(monkeypatch, content, status=200):
-    config = ResolvedModelConfig('opaque-provider-credential', 'https://model.invalid/v1', 'test-model', .2, 1, 1000, 30, 'db')
+    config = ResolvedModelConfig('opaque-provider-credential', 'https://model.invalid/v1', 'test-model', .2, 1, 1000, 'db')
     monkeypatch.setattr(ai_client, 'resolve_model_config', lambda scene: config)
     def post(client, url, **kwargs):
         body = {'choices': [{'finish_reason': 'stop', 'message': {'content': content}}]} if status == 200 else {'error': {'message': content}}

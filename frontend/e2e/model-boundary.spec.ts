@@ -4,7 +4,7 @@ test('model deletion supports cancel, success and server errors', async ({page})
   const configs = ['unused', 'referenced'].map(id => ({
     id, name: id === 'unused' ? '默认首选模型' : '待删除模型', provider: 'Synthetic',
     baseUrl: 'https://model.invalid/v1', modelName: 'synthetic', maxTokens: 1024,
-    temperature: 0.3, timeoutSeconds: 60, enabled: true, isDefault: id === 'unused', apiKeyConfigured: true,
+    temperature: 0.3, enabled: true, isDefault: id === 'unused', apiKeyConfigured: true,
   }));
   const deleted: string[] = [];
   const unexpected: string[] = [];
@@ -16,6 +16,7 @@ test('model deletion supports cancel, success and server errors', async ({page})
     if (path === '/health') return route.fulfill({json:{status:'ok'}});
     if (path === '/auth/me') return route.fulfill({json: {id:'admin',role:'admin',status:'active',must_change_password:false}});
     if (path === '/admin/model-configs') return route.fulfill({json: configs.filter(c => !deleted.includes(c.id))});
+    if (path === '/admin/model-configs/timeout-settings') return route.fulfill({json:{timeoutSeconds:300,timeoutRetries:3}});
     if (path === '/admin/model-configs/usage') return route.fulfill({json: []});
     if (route.request().method() === 'DELETE' && path === '/admin/model-configs/unused') {
       deleted.push('unused'); return route.fulfill({status:204});
@@ -55,5 +56,5 @@ test('UI tests do not require a model: login, navigation and resource browsing',
   await page.getByRole('link', {name:'资源中心', exact:true}).click();
   await expect(page.getByRole('heading', {name:'资源中心', exact:true})).toBeVisible();
   await page.getByRole('link', {name:'开启新任务', exact:true}).click();
-  await expect(page.getByRole('tablist', {name:'任务模式'}).getByRole('tab', {name:'能力发展', exact:true})).toBeVisible();
+  await expect(page.getByRole('tablist', {name:'任务模式'}).getByRole('tab', {name:'伙伴发展', exact:true})).toBeVisible();
 });

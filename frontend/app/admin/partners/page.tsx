@@ -102,7 +102,7 @@ export default function AdminPartnersPage() {
     try {
       const response = await apiFetch("/partners/batch-profile", {
         method: "POST",
-        timeoutMs: Math.max(1, partners.filter(item => item.status === "active").length) * 180_000 + 30_000,
+        modelCalls: 2 * Math.max(1, partners.filter(item => item.status === "active").length),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.detail || "批量生成失败");

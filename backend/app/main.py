@@ -66,6 +66,8 @@ async def public_http_error(request, error):
     else:
         detail = error.detail
     body = {'detail': detail}
+    if getattr(error, 'failure_code', None):
+        body['failureCode'] = error.failure_code
     if getattr(error, 'submission_accepted', None) is False:
         body['submissionAccepted'] = False
     return JSONResponse(body, status_code=error.status_code, headers=error.headers)
@@ -90,6 +92,7 @@ app.include_router(demand.admin_router)
 app.include_router(capability_tags.router)
 app.include_router(system.router)
 app.include_router(model_config.router)
+app.include_router(model_config.policy_router)
 
 app.include_router(enablement.router)
 app.include_router(enablement_workspace.router)

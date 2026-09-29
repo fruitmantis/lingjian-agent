@@ -1,3 +1,4 @@
+import {selectPartner} from './partner-select-helper';
 import {fixtureLogin} from './identity-fixture';
 import { test, expect } from '@playwright/test';
 import { mkdir, readFile, readdir } from 'node:fs/promises';
@@ -104,10 +105,10 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
   await page.locator('#requirement').fill('寻找具备数据库迁移与系统集成经验的交付伙伴');
   await expect(page.getByRole('button', { name: '开始匹配', exact: true })).toHaveCSS('background-color', 'rgb(199, 0, 11)');
   await capture('01-project-match');
-  await page.getByRole('tablist', { name: '任务模式', exact: true }).getByRole('tab', { name: '能力发展', exact: true }).click();
-  await page.getByLabel('选择目标伙伴').selectOption('partner-1');
+  await page.getByRole('tablist', { name: '任务模式', exact: true }).getByRole('tab', { name: '伙伴发展', exact: true }).click();
+  await selectPartner(page, 'partner-1');
   await page.getByLabel('发展方向', { exact: true }).fill('希望形成企业级 Agent 应用交付能力');
-  await expect(page.getByRole('tablist', { name: '任务模式', exact: true }).getByRole('tab', { name: '能力发展', exact: true })).toHaveCSS('border-bottom-color', 'rgb(199, 0, 11)');
+  await expect(page.getByRole('tablist', { name: '任务模式', exact: true }).getByRole('tab', { name: '伙伴发展', exact: true })).toHaveCSS('border-bottom-color', 'rgb(199, 0, 11)');
   await capture('02-development');
   await page.getByRole('button', { name: '生成能力发展建议', exact: true }).click();
   await expect(page).toHaveURL(/\/tasks\/[^/?]+$/);

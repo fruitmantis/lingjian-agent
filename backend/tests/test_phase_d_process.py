@@ -21,7 +21,6 @@ def test_development_kill_restart_retry_and_http_creation(tmp_path,record_proper
          'BOOTSTRAP_ADMIN_USERNAME':'unused_bootstrap','BOOTSTRAP_ADMIN_PASSWORD':'UnusedBootstrap123',
          'VALIDATION_FAKE_LLM_BASE_URL':f'http://127.0.0.1:{fake_port}/v1'}
     env.pop('LINGJIAN_ALLOW_REAL_DEVELOPMENT_MODEL',None)
-    for key in ['DEVELOPMENT_MODEL_TIMEOUT_SECONDS','DEVELOPMENT_RUN_TIMEOUT_SECONDS']:env.pop(key,None)
     fake=backend=restarted=None
     with (tmp_path/'mock.log').open('w') as fl,(tmp_path/'backend.log').open('w') as bl:
         try:

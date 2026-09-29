@@ -169,10 +169,8 @@ def recover_stale_tasks(
 ) -> int:
     """Make interrupted in-flight tasks retryable without a background queue."""
     if stale_after_seconds is None:
-        try:
-            stale_after_seconds = int(os.getenv("TASK_STALE_SECONDS", "900"))
-        except ValueError:
-            stale_after_seconds = 900
+        from .development_deadlines import run_timeout
+        stale_after_seconds = max(900, run_timeout())
     stale_after_seconds = max(stale_after_seconds, 1)
     cutoff = (datetime.now(timezone.utc) - timedelta(seconds=stale_after_seconds)).isoformat()
     conditions = ["task_status IN ('matching', 'enriching')", "updated_at < ?"]
@@ -333,7 +331,7 @@ def initialize_storage() -> None:
             base_url TEXT, api_key TEXT, api_key_source TEXT DEFAULT 'env',
             api_key_env_name TEXT DEFAULT 'LLM_API_KEY', model_name TEXT,
             temperature REAL DEFAULT 0.3, top_p REAL DEFAULT 1.0, max_tokens INTEGER DEFAULT 131072,
-            timeout_seconds INTEGER DEFAULT 60, enabled INTEGER DEFAULT 1, is_default INTEGER DEFAULT 0,
+            enabled INTEGER DEFAULT 1, is_default INTEGER DEFAULT 0,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
         connection.execute("""CREATE TABLE IF NOT EXISTS model_usage_configs (
             scene_key TEXT PRIMARY KEY, scene_name TEXT NOT NULL, model_config_id TEXT,
@@ -343,7 +341,7 @@ def initialize_storage() -> None:
             env_base = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
             env_model = os.getenv("LLM_MODEL", "gpt-4o")
             connection.execute(
-                "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, timeout_seconds, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, 'env', 'LLM_API_KEY', ?, 0.3, 1.0, 131072, 60, 1, 1, ?, ?)",
+                "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, 'env', 'LLM_API_KEY', ?, 0.3, 1.0, 131072, 1, 1, ?, ?)",
                 (str(uuid.uuid4()), "当前默认模型配置", "OpenAI Compatible", env_base, env_model, now, now)
             )
         existing_muc = connection.execute("SELECT COUNT(*) FROM model_usage_configs").fetchone()[0]
@@ -378,4 +376,7 @@ def initialize_storage() -> None:
         connection.commit()
         from .partner_materials_schema import migrate
         migrate(connection)
+        connection.commit()
+        from .model_timeout_schema import migrate as migrate_model_timeouts
+        migrate_model_timeouts(connection)
         connection.commit()

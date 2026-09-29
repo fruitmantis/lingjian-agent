@@ -1,5 +1,6 @@
 "use client";
 import { adminApiFetch } from "./auth-provider";
+import { ModelTimeoutSettings } from "./model-timeout-settings";
 
 import { useState, useEffect } from "react";
 import { responseError } from "../lib/api-request";
@@ -499,7 +500,7 @@ export function ModelConfigTab() {
   const [eName, setEName] = useState(""); const [eProvider, setEProvider] = useState("OpenAI Compatible");
   const [eUrl, setEUrl] = useState(""); const [eKey, setEKey] = useState(""); const [eModel, setEModel] = useState("");
   const [eTemp, setETemp] = useState(0.3); const [eMaxTokens, setEMaxTokens] = useState(131072);
-  const [eTimeout, setETimeout] = useState(60); const [testing, setTesting] = useState<string | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -516,15 +517,15 @@ export function ModelConfigTab() {
   }
   useEffect(() => { loadData(); }, []);
 
-  function startEdit(c: any) { setEditingId(c.id); setIsNew(false); setEName(c.name); setEProvider(c.provider||""); setEUrl(c.baseUrl||""); setEKey(""); setEModel(c.modelName||""); setETemp(c.temperature); setEMaxTokens(c.maxTokens); setETimeout(c.timeoutSeconds); }
-  function startNew() { setIsNew(true); setEditingId(null); setEName(""); setEProvider("OpenAI Compatible"); setEUrl(""); setEKey(""); setEModel(""); setETemp(0.3); setEMaxTokens(131072); setETimeout(60); }
+  function startEdit(c: any) { setEditingId(c.id); setIsNew(false); setEName(c.name); setEProvider(c.provider||""); setEUrl(c.baseUrl||""); setEKey(""); setEModel(c.modelName||""); setETemp(c.temperature); setEMaxTokens(c.maxTokens); }
+  function startNew() { setIsNew(true); setEditingId(null); setEName(""); setEProvider("OpenAI Compatible"); setEUrl(""); setEKey(""); setEModel(""); setETemp(0.3); setEMaxTokens(131072); }
   function cancelEdit() { setEditingId(null); setIsNew(false); }
 
   async function saveEdit(id: string | null) {
     if (saving) return;
     setSaving(true); setError(null);
     try {
-      const body = JSON.stringify({ name: eName, provider: eProvider, baseUrl: eUrl || undefined, apiKey: eKey || undefined, modelName: eModel || undefined, temperature: eTemp, maxTokens: eMaxTokens, timeoutSeconds: eTimeout });
+      const body = JSON.stringify({ name: eName, provider: eProvider, baseUrl: eUrl || undefined, apiKey: eKey || undefined, modelName: eModel || undefined, temperature: eTemp, maxTokens: eMaxTokens });
       const url = id ? `${apiBaseUrl}/admin/model-configs/${id}` : `${apiBaseUrl}/admin/model-configs`;
       const method = id ? "PUT" : "POST";
       const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body });
@@ -578,6 +579,7 @@ export function ModelConfigTab() {
 
   return (
     <div>
+      <ModelTimeoutSettings />
       {error && <div className="inline-error-actions"><p className="error-text" role="alert">{error}</p><button onClick={loadData} className="secondary-btn">重试</button></div>}
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>

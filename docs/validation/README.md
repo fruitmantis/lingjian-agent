@@ -1,11 +1,15 @@
 # 验证文档索引
 
-更新日期：2026-09-29。当前正式工作区 main、PostgreSQL schema 17；运行与安全约束以根目录 [README](../../README.md) 和 [AGENTS](../../AGENTS.md) 为准。
+更新日期：2026-09-29。当前正式工作区 main、本地 PostgreSQL schema 18；运行与安全约束以根目录 [README](../../README.md) 和 [AGENTS](../../AGENTS.md) 为准。
 
 ## 当前入口
 
 | 目的 | 文档 |
 |---|---|
+| 本轮改动提交范围、最新回归及发布边界 | [2026-09-29 Git 收口](GIT_CLOSEOUT_20260929.md) |
+| 伙伴选择搜索、500 家伙伴及三种视口验证 | [伙伴搜索选择验证](PARTNER_SELECT_SEARCH_20260929.md) |
+| 模型超时失败、原任务重试与提交恢复 | [超时任务恢复验证](TASK_TIMEOUT_RECOVERY_20260929.md) |
+| 模型超时配置归口、重试与 schema 18 清理 | [超时与重试验证](MODEL_TIMEOUT_RETRIES_20260929.md) |
 | Coze UI 提交边界与合并验证 | [Coze UI 合并验证](COZE_UI_MERGE_20260929.md) |
 | 当前统一理解、局部修改、固定模型及 11 次真实调用 | [统一任务流程验证](UNIFIED_TASK_FLOW_20260928.md) |
 | 最新工程验证、提交范围、数据边界 | [2026-09-26 Git 收口](GIT_CLOSEOUT_20260926.md) |

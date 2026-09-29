@@ -91,7 +91,8 @@ def test_safe_preview_has_no_active_or_remote_content(client,access):
 def test_direct_docx_profile_adoption_and_failure_preserve_old(client,access,monkeypatch):
     from backend.app.routers import profile
     monkeypatch.setattr(profile,'chat_completion',lambda *_a,**_k:pytest.fail('Import must not call AI'))
-    text='原样采用的完整画像'*5000
+    text='原样采用的完整画像'*12000
+    assert len(text)>100000  # Direct DOCX adoption does not use the AI input budget.
     row=upload(client,access,'profile.docx',docx_bytes(text),True)
     with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]==text
     monkeypatch.setattr(material_files,'extract_text',lambda *_:(_ for _ in ()).throw(ValueError('synthetic extraction failure')))
@@ -124,10 +125,41 @@ def test_manual_profile_full_input_budget_and_failed_generation(client,access,mo
     monkeypatch.setenv('BANFEI_PROFILE_INPUT_MAX_CHARS','1000');messages.clear()
     response=client.post(f'/partners/{access[2]}/profile',headers=access[0]);assert response.status_code==422 and not messages
     with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]=='新的伙伴画像'
-    monkeypatch.setenv('BANFEI_PROFILE_INPUT_MAX_CHARS','60000')
+    monkeypatch.delenv('BANFEI_PROFILE_INPUT_MAX_CHARS',raising=False)
     monkeypatch.setattr(profile,'chat_completion',lambda *_a,**_k:(_ for _ in ()).throw(RuntimeError('synthetic model failure')))
     assert client.post(f'/partners/{access[2]}/profile',headers=access[0]).status_code==502
     with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]=='新的伙伴画像'
+
+
+@pytest.mark.parametrize('context_chars',[100000,100001])
+def test_default_profile_budget_boundary_keeps_full_input_and_old_profile(client,access,monkeypatch,context_chars):
+    from backend.app.routers import profile
+    monkeypatch.delenv('BANFEI_PROFILE_INPUT_MAX_CHARS',raising=False)
+    source='首尾';row=upload(client,access,'boundary.txt',source.encode())
+    messages=[]
+    def complete(msg,**kwargs):
+        messages.append(msg)
+        return '{}' if len(messages)%2 else '合成边界画像'
+    monkeypatch.setattr(profile,'chat_completion',complete)
+    endpoint=f'/partners/{access[2]}/profile'
+    assert client.post(endpoint,headers=access[0]).status_code==200
+    overhead=len(messages[0][1]['content'])-len(source)
+    source='首'+'字'*(context_chars-overhead-2)+'尾'
+    with get_db() as conn:
+        conn.execute('UPDATE partner_documents SET extracted_text=? WHERE id=?',(source,row['id']))
+        before=dict(conn.execute('SELECT * FROM partners WHERE id=?',(access[2],)).fetchone())
+    messages.clear()
+    response=client.post(endpoint,headers=access[0])
+    if context_chars==100000:
+        assert response.status_code==200,response.text
+        assert len(messages)==2
+        assert all(len(m[1]['content'])==context_chars and source in m[1]['content'] for m in messages)
+    else:
+        assert response.status_code==422
+        assert '共 100001 字' in response.json()['detail'] and '上限 100000 字' in response.json()['detail']
+        assert not messages
+        with get_db() as conn:
+            assert dict(conn.execute('SELECT * FROM partners WHERE id=?',(access[2],)).fetchone())==before
 
 def test_case_visibility_files_categories_and_live_reference(client,access):
     admin,user,pid=access

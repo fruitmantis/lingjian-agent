@@ -170,7 +170,6 @@ def test_stale_matching_and_enriching_tasks_become_retryable(client, monkeypatch
     old = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     matching_id = make_task(user, "STALE-MATCHING", task_status="matching", recommendations=[], updated_at=old)
     enriching_id = make_task(user, "STALE-ENRICHING", task_status="enriching", updated_at=old)
-    monkeypatch.setenv("TASK_STALE_SECONDS", "1")
     response = client.get("/agent/tasks?pageSize=100", headers=auth_headers(user))
     assert response.status_code == 200
     with get_db() as conn:

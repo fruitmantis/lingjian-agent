@@ -207,7 +207,7 @@ def test_api_key_status_agrees_with_resolver_without_exposing_key(client, monkey
 @pytest.mark.parametrize("field,value", [
     ("temperature", -1), ("temperature", "NaN"), ("temperature", "Infinity"),
     ("topP", -1), ("topP", 1.1), ("topP", "NaN"),
-    ("maxTokens", 0), ("maxTokens", 1.5), ("timeoutSeconds", -1),
+    ("maxTokens", 0), ("maxTokens", 1.5),
 ])
 def test_rejects_invalid_numeric_parameters(client, method, field, value):
     admin = make_user("parameter_admin", role="admin")
@@ -232,9 +232,8 @@ def test_binding_api_validates_enabled_target_and_allows_unbind(client):
     assert response.status_code == 200 and response.json()["modelConfigId"] is None
 
 
-@pytest.mark.parametrize("timeout,expected", [(None, 123), (60, 60), (180, 123)])
-def test_client_honors_configured_timeout_and_sends_zero(monkeypatch, timeout, expected):
-    add_model(temperature=0, topP=0, timeoutSeconds=123)
+def test_client_honors_configured_timeout_and_sends_zero(monkeypatch):
+    add_model(temperature=0, topP=0)
     observed = {}
     class FakeClient:
         def __init__(self, **kwargs): observed.update(kwargs)
@@ -244,8 +243,8 @@ def test_client_honors_configured_timeout_and_sends_zero(monkeypatch, timeout, e
             observed.update(kwargs)
             return httpx.Response(200, request=httpx.Request("POST", url), json={"choices": [{"message": {"content": "synthetic result"}}]})
     monkeypatch.setattr(ai_client.httpx, "Client", FakeClient)
-    assert ai_client.chat_completion([], timeout=timeout) == "synthetic result"
-    assert observed["timeout"] == expected
+    assert ai_client.chat_completion([]) == "synthetic result"
+    assert observed["timeout"] == 300
     assert observed["json"]["temperature"] == 0
     assert observed["json"]["top_p"] == 0
 
@@ -270,8 +269,8 @@ def test_separate_admin_maintenance_calls_use_their_scenes(monkeypatch):
     from backend.app.routers.capability_tags import scan_suggestions
     scan_suggestions()
     assert calls == [
-        ("partner_profile", 60), ("partner_profile", 90), ("demand_profile", 30),
-        ("tag_suggestion", 30), ("demand_profile", 60), ("tag_suggestion", 30),
+        ("partner_profile", None), ("partner_profile", None), ("demand_profile", None),
+        ("tag_suggestion", None), ("demand_profile", None), ("tag_suggestion", None),
     ]
 
 

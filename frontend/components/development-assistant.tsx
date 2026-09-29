@@ -8,7 +8,7 @@ import {PlanStatus,type PlanPresentation} from "./plan-status";
 import {useEffect,useState,useRef} from "react";
 import {useRouter,usePathname} from "next/navigation";
 import {apiFetch,useAuth} from "./auth-provider";
-import {ApiResponseError,responseError} from "../lib/api-request";
+import {ApiResponseError,responseError,submissionIsUncertain} from "../lib/api-request";
 import {tasksChanged,newTaskId} from "./task-navigation";
 
 type Item={item_id?:string;source_type:string;source_id:string;source_version:number;capability_tag_id:string;focus?:string;reason:string;estimated_hours:number;note:string;title?:string;prerequisites?:string;availability?:string;conditions?:{duration_minutes?:number;level?:string;roles?:{id:string;name:string}[];zones?:{id:string;name:string}[];lab_requirements?:string;cost?:string;account_requirement?:string;environment_requirement?:string;language?:string;site?:string}};
@@ -40,7 +40,7 @@ export function DevelopmentRequestForm({partnerId,sourceTask=null,sourceCase=nul
   setError("");if(!partnerId||!direction.trim()){setError("请选择目标伙伴，并描述想发展的方向。");return;}
   setBusy(true);sessionStorage.setItem(storageKey,submission.current);
   try{const result=await request<{plan_id:string}>("/development/plans",{submission_id:submission.current,request:{target_partner_id:partnerId,development_direction:direction,source_task_id:sourceTask,source_case_id:sourceCase,source_case_version:sourceVersion,model_input_allowed:true}});sessionStorage.removeItem(storageKey);tasksChanged();router.push(`/tasks/${result.plan_id}`);}
-  catch(e){const text=(e as Error).message;setError(actionFailure(text,"建议"));if(!(e instanceof ApiResponseError)){setPending(submission.current);setError(uncertainResult);}else sessionStorage.removeItem(storageKey);}
+  catch(e){const text=(e as Error).message;setError(actionFailure(text,"建议"));if(submissionIsUncertain(e)){setPending(submission.current);setError(uncertainResult);}else sessionStorage.removeItem(storageKey);}
   finally{setBusy(false);}
  }
  return <section className="card development-form"><label className="enablement-field">你希望这个伙伴往什么方向发展？<textarea aria-label="发展方向" disabled={busy||!!pending} rows={5} maxLength={4000} value={direction} onChange={e=>{setDirection(e.target.value);submission.current=newTaskId();}} placeholder="例如：希望未来能够独立承担企业级 Agent 和 RAG 项目交付。也可以问：这个伙伴下一步适合往哪里发展？"/></label>{error&&<FailureNotice message={error} partial={false}>{pending&&<button className="secondary-btn" disabled={busy} onClick={()=>void check()}>刷新查看</button>}</FailureNotice>}<div className="development-form-actions"><p className="muted">点击生成，即允许本次分析使用你填写的方向、当前伙伴的最小画像摘要及页面带入的来源上下文。内部附件与案例原文不发送；学习资源仅用于准备，交付能力仍需真实项目验证。</p><button disabled={busy||!!pending||error===serviceFailure} onClick={()=>void submit()}>{busy?"正在处理…":error==="本次建议未生成，请重试。"?"重试":"生成能力发展建议"}</button></div></section>;
@@ -53,7 +53,7 @@ export function DevelopmentPlanDetail({id}:{id:string}){
  useEffect(()=>{if(panel)document.getElementById(`advisor-${panel}`)?.scrollIntoView({behavior:"smooth",block:"start"});},[panel]);
  const sequence=useRef(0),submission=useRef(newTaskId());
  const [actionError,setActionError]=useState<{text:string;retry:()=>Promise<void>}|null>(null),[pending,setPending]=useState("");
- const pendingRef=useRef(""),storageKey=`development:pending:${user?.id}:${id}`;
+ const pendingRef=useRef(""),inFlight=useRef(false),storageKey=`development:pending:${user?.id}:${id}`;
  function track(value:string){pendingRef.current=value;if(!value)setPending("");if(value)sessionStorage.setItem(storageKey,value);else sessionStorage.removeItem(storageKey);}
  async function load(){
   const seq=++sequence.current;
@@ -62,7 +62,7 @@ export function DevelopmentPlanDetail({id}:{id:string}){
    if(seq===sequence.current){
     setData(next);setError("");if(next.hidden)setPreview(null);
     const original=pendingRef.current;
-    if(original&&(next.runs.some(r=>r.submission_id===original)||next.conversation.some(m=>m.submission_id===original))){track("");setActionError(null);submission.current=newTaskId();setMessage("");tasksChanged();}
+    if(original&&(next.runs.some(r=>r.submission_id===original)||next.conversation.some(m=>m.submission_id===original)||(!inFlight.current&&!next.plan.active_run_id&&!next.plan.current_version_id&&["failed","partial","interrupted"].includes(next.runs[0]?.status)))){track("");setActionError(null);submission.current=newTaskId();setMessage("");tasksChanged();}
    }
   }catch(e){if(seq===sequence.current){if(e instanceof ApiResponseError&&[401,403,404].includes(e.status)){setData(null);setPreview(null);}setError((e as Error).message);}}
  }
@@ -71,13 +71,13 @@ export function DevelopmentPlanDetail({id}:{id:string}){
  useEffect(()=>{if(!preview)return;let live=true;async function refresh(){try{const r=await request<{text:string;version_id:string}>(`/development/plans/${id}/transferable`);if(live)setPreview(r);}catch{if(live)setPreview(null);}}const t=setInterval(()=>void refresh(),10000);window.addEventListener("focus",refresh);return()=>{live=false;clearInterval(t);window.removeEventListener("focus",refresh);};},[id,!!preview]);
  async function action(fn:()=>Promise<void>,operation="处理",submissionId?:string){
   if(busy||pendingRef.current)return;
-  setBusy(true);setActionError(null);
+  inFlight.current=true;setBusy(true);setActionError(null);
   if(submissionId)track(submissionId);
   try{await fn();if(submissionId)track("");await load();tasksChanged();}
   catch(e){
-   if(submissionId){if(e instanceof ApiResponseError)track("");else if(pendingRef.current)setPending(submissionId);else return;}
+   if(submissionId){if(!submissionIsUncertain(e))track("");else if(pendingRef.current)setPending(submissionId);else return;}
    setActionError({text:actionFailure((e as Error).message,operation),retry:()=>action(fn,operation,submissionId)});
-  }finally{setBusy(false);}
+  }finally{inFlight.current=false;setBusy(false);}
  }
  if(!data)return <div className="page">{error?<FailureNotice message={error} partial={false}>{error===uncertainResult&&<button className="secondary-btn" onClick={()=>void load()}>刷新查看</button>}</FailureNotice>:<p role="status">正在读取发展建议…</p>}</div>;
  const {plan,payload}=data,analysis=payload?.analysis,running=!!plan.active_run_id,locked=busy||running||!!pending||plan.status==="archived",historical=!!selected&&selected!==plan.current_version_id;
@@ -87,7 +87,7 @@ export function DevelopmentPlanDetail({id}:{id:string}){
  const legacyAnswer=analysis?[analysis.interpretation,...analysis.priorities.map((p,i)=>`${i+1}. ${p.name}：${p.reason}`)].filter(Boolean).join("\n\n"):"";
  const items=payload?.stages.flatMap(s=>s.items)||[];
  const latest=data.runs[0],failed=latest&&["failed","partial","interrupted"].includes(latest.status);
- const summary=data.presentation.state==="archived"?"已归档":data.hidden?"部分内容已受限":payload?"建议可用":running?"正在整理建议":"暂未生成建议";
+ const summary=data.presentation.state==="archived"?"已归档":data.hidden?"部分内容已受限":payload?"建议可用":running?"正在整理建议":failed?"生成失败，可重试":"暂未生成建议";
  function suggest(text:string){if(locked||historical)return;setActionError(null);setMessage(text);submission.current=newTaskId();document.getElementById("advisor-chat")?.scrollIntoView({behavior:"smooth",block:"center"});}
  return <div className="page development-detail advisor-detail"><Link href={pathname.startsWith("/admin") ? "/admin/tasks" : "/tasks"}>← 全部任务</Link>
  <header className="advisor-heading"><div><p className="eyebrow">{data.partner_name}</p><h1>能力发展建议</h1><p className="advisor-status" data-testid="advisor-status">{summary}</p></div><details className="advisor-more"><summary>更多</summary><div className="advisor-menu" onClick={e=>{if((e.target as HTMLElement).closest("button"))e.currentTarget.closest("details")?.removeAttribute("open");}}><button className="secondary-btn" onClick={()=>setPanel(panel==="history"?null:"history")}>历史版本</button><button className="secondary-btn" disabled={busy||historical||!plan.current_version_id||data.hidden||plan.status==="archived"} onClick={()=>void action(async()=>{setPreview(await request<{text:string;version_id:string}>(`/development/plans/${id}/transferable`));})}>伙伴可传递视图预览</button><button className="secondary-btn" onClick={()=>setPanel(panel==="runs"?null:"runs")}>运行记录</button><button className="secondary-btn" disabled={busy||running||!!pending} onClick={()=>void action(async()=>{await request(`/agent/tasks/${id}/${plan.status==="archived"?"restore":"archive"}`,{},"PATCH");})}>{plan.status==="archived"?"恢复方案":"归档方案"}</button></div></details></header>

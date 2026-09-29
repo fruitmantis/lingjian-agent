@@ -19,7 +19,7 @@
 .coze-workspace .sidebar-new-task svg { color:var(--brand-primary); }
 .coze-workspace :is(.nav-item,.sidebar-footer-link,.sidebar-task-item,.sidebar-all-tasks) { border-radius:8px; }
 .coze-workspace .nav-item { padding:10px 12px; }
-.coze-workspace .sidebar .nav-item.active,.coze-workspace .sidebar-task-item.active { background:var(--bg-selected); box-shadow:none; border:0; }
+.coze-workspace .sidebar :is(.nav-item,.sidebar-all-tasks,.sidebar-footer-link).active,.coze-workspace .sidebar-task-item.active { background:var(--bg-selected); color:var(--text-primary); box-shadow:none; border:0; }
 .coze-workspace .sidebar-task-section { border-top:1px solid var(--border-default); padding-top:12px; }
 .coze-workspace .sidebar-all-tasks { color:var(--text-secondary); }
 .coze-workspace .sidebar-task-item { padding:9px 12px; }

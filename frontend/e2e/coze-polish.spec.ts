@@ -1,3 +1,4 @@
+import {selectPartner} from './partner-select-helper';
 import {test, expect, type Page} from '@playwright/test';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
@@ -61,9 +62,9 @@ for (const [width, height] of [[1366,768], [1920,1080], [390,844]]) {
         if(phase==='after')expect(actual.some(f=>!f.isCustomFont),`${name}: actual system font`).toBeTruthy();
       }
     }
-    await page.goto('/'); await expect(page.getByRole('tab',{name:'资源匹配',exact:true})).toHaveAttribute('aria-selected','true');
+    await page.goto('/'); await expect(page.getByRole('tab',{name:'伙伴匹配',exact:true})).toHaveAttribute('aria-selected','true');
     await page.locator('#requirement').fill(match.requirement); await capture('01-home','.assistant-composer');
-    await page.goto('/?mode=development'); await page.getByLabel('选择目标伙伴').selectOption(partner.id);
+    await page.goto('/?mode=development'); await selectPartner(page, partner.id);
     await expect(page.getByText('当前伙伴画像摘要',{exact:true})).toBeVisible();
     await page.getByLabel('发展方向',{exact:true}).fill(plan.request.development_direction);await capture('02-development','.development-composer');
     await page.goto('/?task=coze-match'); await expect(page.getByRole('heading',{name:'本次项目需求'})).toBeVisible();
@@ -84,6 +85,7 @@ for (const [width, height] of [[1366,768], [1920,1080], [390,844]]) {
     const admin={id:'ui-admin',username:'ui-admin',display_name:'合成管理员',role:'admin',status:'active',must_change_password:false};
     await page.addInitScript(admin=>{localStorage.setItem('banfei:admin:token','synthetic-admin-only');localStorage.setItem('banfei:admin:user',JSON.stringify(admin));},admin);
     await page.route('**/auth/me',r=>r.fulfill({json:admin}));
+    await page.route('**/admin/model-configs/timeout-settings',r=>r.fulfill({json:{timeoutSeconds:300,timeoutRetries:3}}));
     await page.route(/\/admin\/model-configs(?:\/usage)?$/,r=>r.fulfill({json: r.request().url().includes('/usage') ? [] : [{id:'synthetic-config',name:'界面验收配置',provider:'示例供应商',modelName:'example-model',maxTokens:8192,baseUrl:'https://example.com/v1',apiKeyConfigured:true,enabled:true,isDefault:true}]}));
     await page.goto('/admin/models');await expect(page.getByRole('button',{name:'编辑',exact:true})).toBeVisible();
     await capture('08-admin-models','.data-table');

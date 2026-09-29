@@ -14,7 +14,7 @@ FILE_COLUMNS = {
 
 def migrate(conn, fault=None):
     version = conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0]
-    if str(version) == '17': return {'schema_version': 17, 'already_current': True}
+    if int(version) >= 17: return {'schema_version': int(version), 'already_current': True}
     if str(version) != '16': raise RuntimeError('Partner materials migration requires schema 16')
     conn.execute('BEGIN IMMEDIATE')
     for name, kind in {'category_id':'TEXT', 'visible':'INTEGER NOT NULL DEFAULT 0', 'updated_at':'TEXT'}.items():

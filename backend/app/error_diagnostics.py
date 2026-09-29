@@ -137,6 +137,11 @@ def record_error(error, stage=None, **values):
         'model': context.get('model'), 'http_status': context.get('http_status'),
         'response_excerpt': context.get('response_excerpt'),
     }
+    timeout_details = getattr(original, 'model_timeout_details', None)
+    if timeout_details:
+        record.update(timeout_details)
+        # The existing admin detail view displays message; no new UI or log endpoint is needed.
+        record['message'] += f" [attempts={timeout_details['attempt_count']}, retries={timeout_details['retry_count']}/{timeout_details['max_retries']}]"
     response = getattr(original, 'response', None)
     if response is not None:
         record['http_status'] = response.status_code

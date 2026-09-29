@@ -36,7 +36,7 @@ test('one materials page: partner shortcut, private profile originals and legacy
   await expect(page.locator(`[data-material-id="${legacy.id}"]`)).toContainText('已归类资料');
   expect((await request.get(`${API}/cases/${legacy.id}/deliverables`,{headers})).ok()).toBeTruthy();
   const after=await (await request.get(`${API}/cases/${legacy.id}/deliverables`,{headers})).json();expect(after[0].id).toBe(legacy.id);
-  await page.getByRole('button',{name:'查看全部伙伴资料'}).click();await expect(page.getByLabel('筛选伙伴')).toHaveValue('');
+  await page.getByRole('button',{name:'查看全部伙伴资料'}).click();await expect(page.getByLabel('筛选伙伴')).toHaveAttribute('data-partner-id','');
   await page.getByRole('navigation',{name:'后台导航'}).getByRole('link',{name:'伙伴资料',exact:true}).click();await expect(page.getByRole('heading',{name:'伙伴资料',exact:true})).toBeVisible();
 });
 
@@ -44,7 +44,7 @@ test('multiple files in one card, safe preview, same-ID replacement and live dis
   const session=adminSession(),headers={Authorization:`Bearer ${session.access_token}`};await setSession(page,session);
   const p=await (await request.post(API+'/partners',{headers,data:{name:'案例验证 '+randomUUID()}})).json();
   await page.goto('/admin/partner-materials?partner_id='+p.id);await page.getByRole('button',{name:'新增资料',exact:true}).click();
-  const form=page.getByRole('dialog',{name:'新增资料'});await expect(form.getByLabel('关联伙伴')).toHaveValue(p.id);
+  const form=page.getByRole('dialog',{name:'新增资料'});await expect(form.getByLabel('关联伙伴')).toHaveAttribute('data-partner-id',p.id);
   await form.getByLabel('标题',{exact:true}).fill('数据库原生文档案例');await form.getByLabel('一级分类',{exact:true}).selectOption('technical');await form.getByLabel('二级分类',{exact:true}).selectOption('technical-3');await form.getByLabel('简介（选填）').fill('案例简介');
   await form.locator('input[type=file]').setInputFiles({name:'image.png',mimeType:'image/png',buffer:Buffer.from('not allowed')});await expect(form.getByRole('alert')).toContainText('不支持此格式');
   await form.locator('input[type=file]').setInputFiles([{name:'案例材料.md',mimeType:'text/markdown',buffer:Buffer.from('# 案例文档\n\n正文内容')},{name:'静态.html',mimeType:'text/html',buffer:Buffer.from('<h1>安全正文</h1><script>window.injected=1</script><img src="https://example.invalid/leak">')}]);
@@ -74,6 +74,6 @@ test('global partner/category search, three-column groups and total-page jump',a
   await expect(page.getByRole('navigation',{name:'伙伴资料分页'})).toContainText('共 2 页');await page.getByLabel('跳转页码').fill('2');await page.getByRole('button',{name:'跳转',exact:true}).click();await expect(cards).toHaveCount(2);
   await page.getByLabel('筛选一级分类').selectOption('technical');await page.getByLabel('筛选二级分类').selectOption('technical-3');await expect(cards).toHaveCount(7);
   await page.getByLabel('资料名称').fill('目录验证 13');await page.getByRole('button',{name:'搜索',exact:true}).click();await expect(cards).toHaveCount(1);await expect(cards).toContainText('目录验证 13');
-  await page.getByRole('button',{name:'查看全部伙伴资料'}).click();await expect(page.getByLabel('筛选伙伴')).toHaveValue('');await expect(cards).toHaveCount(1);
+  await page.getByRole('button',{name:'查看全部伙伴资料'}).click();await expect(page.getByLabel('筛选伙伴')).toHaveAttribute('data-partner-id','');await expect(cards).toHaveCount(1);
   await page.goto('/admin/partner-materials?partner_id='+p.id);await expect(cards).toHaveCount(12);await page.screenshot({path:'/tmp/banfei-material-manager.png',fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });

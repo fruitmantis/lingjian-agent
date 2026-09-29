@@ -16,6 +16,7 @@ async function fixture(page:Page){
   let json:unknown={};
   if(path==="/auth/me")json=user;
   else if(path==="/health")json={status:"ok"};
+  else if(path==="/model-timeout-settings")json={timeoutSeconds:300,timeoutRetries:3};
   else if(path==="/agent/tasks")json={items:[summary,{...summary,id:"legacy-fixture",requirement:"合成验收：历史失败",taskStatus:"failed",failureDetails:[],partnerCount:0},{...summary,id:"plan-fixture",requirement:"合成验收：旧建议可用",task_type:"development_plan",planPresentation:presentation,taskStatus:"failed"}],page:1,pageSize:20,total:3,totalPages:1};
   else if(path==="/agent/tasks/failed-fixture")json={...summary,id:"failed-fixture",taskStatus:"failed",lastErrorStage:"partner_match",failureDetails:[{...reason,stage:"partner_match",stageLabel:"伙伴匹配",code:"authentication",message:"模型服务认证失败",action:"联系管理员检查模型访问凭据"}],recommendations:[],demandProfile:null,opportunity:null};
   else if(path.startsWith("/agent/tasks/"))json={...summary,id:path.split("/").pop(),task_type:path.endsWith("plan-fixture")?"development_plan":"partner_match",recommendations:[{partnerId:"fixture-partner",partnerName:"合成伙伴",matchScore:"80",matchedCapabilities:"测试",matchedIndustries:"金融",matchedRegions:"广东",recommendationReason:"仅限隔离验收",evidenceCases:"",evidenceDeliverables:"",riskNotes:""}],demandProfile:null,opportunity:null};
@@ -80,15 +81,93 @@ test("empty match is a normal outcome",async({page})=>{
  await expect(page.getByRole("region",{name:"任务未完成说明"})).toHaveCount(0);
 });
 
-test("unconfirmed submission uses simple wording and keeps pending task",async({page})=>{
+for(const outcome of ["disconnect","commit-error"])test(`uncertain ${outcome} uses simple wording and keeps original pending task`,async({page})=>{
  await fixture(page);
- await page.route("**/agent/tasks",route=>route.request().method()==="POST"?route.abort():route.fallback());
+ let posts=0;
+ await page.route("**/agent/tasks",route=>{if(route.request().method()!=="POST")return route.fallback();posts++;return outcome==="disconnect"?route.abort():route.fulfill({status:500,json:{detail:"synthetic commit failure"}});});
  await page.route(/\/agent\/tasks\/[a-f0-9-]{36}$/,route=>route.fulfill({status:404,json:{detail:"not yet confirmed"}}));
  await page.goto("/");
  await page.getByPlaceholder(/例如：寻找/).fill("隔离验证需求");
  await page.getByRole("button",{name:/开始匹配|匹配伙伴|开始分析/}).click();
  await expect(page.getByText("暂未确认结果，请刷新查看。",{exact:true})).toBeVisible();
- await expect(page.getByRole("button",{name:"核对任务"})).toBeVisible();
+ const navigation=page.getByRole("button",{name:"展开导航",exact:true});
+ if(await navigation.isVisible())await navigation.click();
+ await expect(page.getByRole("button",{name:"刷新查看"})).toBeVisible();
+ await page.getByRole("button",{name:"刷新查看"}).click();
+ expect(posts).toBe(1);
+ await expect(page.locator("body")).not.toContainText(/提交未确认|核对任务/);
+});
+
+for(const status of [202,502,500])test(`accepted matching timeout recovers original task after HTTP ${status}`,async({page})=>{
+ await fixture(page);let identifier="",posts=0,retries=0;
+ const failed=()=>({...summary,id:identifier,taskStatus:"failed",failureDetails:[{...reason,stage:"understanding"}],recommendations:[],demandProfile:null,opportunity:null});
+ await page.route("**/agent/tasks",route=>{if(route.request().method()!=="POST")return route.fallback();posts++;identifier=route.request().postDataJSON().requestId;return route.fulfill({status,json:status===202?{recordId:identifier,taskStatus:"failed"}:{detail:"本次处理失败，请重试。",...(status===502?{failureCode:"timeout"}:{})}});});
+ await page.route(/\/agent\/tasks\/[a-f0-9-]{36}$/,route=>route.fulfill({json:failed()}));
+ await page.route(/\/agent\/tasks\/[a-f0-9-]{36}\/retry$/,route=>{retries++;expect(route.request().url()).toContain(identifier);return route.fulfill({status:502,json:{detail:"本次处理失败，请重试。",failureCode:"timeout"}});});
+ await page.goto("/");
+ await page.getByPlaceholder(/例如：寻找/).fill("合成超时恢复需求");
+ await page.getByRole("button",{name:/开始匹配|匹配伙伴|开始分析/}).click();
+ await expect(page.locator(".current-task-summary")).toContainText("生成失败，可重试");
+ await expect(page.locator(".pending-task")).toHaveCount(0);
+ expect(await page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
+ await page.getByRole("link",{name:"查看任务详情",exact:true}).click();
+ await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
+ page.on("dialog",dialog=>dialog.accept());
+ await page.getByRole("button",{name:"重试",exact:true}).click();
+ await expect.poll(()=>retries).toBe(1);
+ await expect(page.getByRole("region",{name:"任务未完成说明"})).toContainText("项目需求已保留");
+ await expect(page.locator("body")).not.toContainText(/提交未确认|核对任务/);
+ expect(posts).toBe(1);
+});
+
+test("restored pending matching task resolves failed record without another submission",async({page})=>{
+ const writes=await fixture(page),id="00000000-0000-4000-8000-000000000001";
+ await page.addInitScript(({id,stamp})=>sessionStorage.setItem("lingjian:pending-tasks:fixture-user",JSON.stringify([{id,createdAt:stamp}])),{id,stamp});
+ await page.route(`**/agent/tasks/${id}`,route=>route.fulfill({json:{...summary,id,taskStatus:"failed",recommendations:[],demandProfile:null,opportunity:null}}));
+ await page.goto(`/tasks/${id}`);
+ await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ await expect.poll(()=>page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
+ await expect(page.locator("body")).not.toContainText(/提交未确认|核对任务/);
+ expect(writes).toHaveLength(0);
+});
+
+test("accepted development timeout opens the saved failed plan with retry available",async({page})=>{
+ await fixture(page);let posts=0;
+ await page.route("**/partners",route=>route.fulfill({json:[{id:"fixture-partner",name:"合成伙伴"}]}));
+ await page.route("**/enablement/context?**",route=>route.fulfill({json:{partner:null,source_task:null,shared_case:null,evidence:[]}}));
+ await page.route("**/development/plans",route=>{posts++;return route.fulfill({status:202,json:{plan_id:"plan-fixture",run_id:"failed-run",status:"failed"}});});
+ await page.route("**/development/plans/plan-fixture",route=>route.fulfill({json:{...developmentDetail,plan:{...developmentDetail.plan,current_version_id:null},presentation:{...presentation,current_available:false},payload:null,runs:[{...developmentDetail.runs[0],run_type:"generate"}]}}));
+ await page.goto("/?mode=development&partner_id=fixture-partner");
+ await page.getByLabel("发展方向",{exact:true}).fill("合成发展诉求");
+ await page.getByRole("button",{name:"生成能力发展建议",exact:true}).click();
+ await expect(page).toHaveURL(/tasks\/plan-fixture/);
+ await expect(page.getByTestId("advisor-status")).toContainText("生成失败，可重试");
+ await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ expect(await page.evaluate(()=>sessionStorage.getItem("development:pending-create:fixture-user:fixture-partner"))).toBeNull();
+ expect(posts).toBe(1);
+});
+
+test("failed development task clears old pending marker and retries same plan only once",async({page})=>{
+ await fixture(page);
+ const key="development:pending:fixture-user:plan-fixture";
+ await page.addInitScript(key=>sessionStorage.setItem(key,"legacy-unresolved-request"),key);
+ await page.route("**/development/plans/plan-fixture",route=>route.fulfill({json:{...developmentDetail,plan:{...developmentDetail.plan,current_version_id:null},presentation:{...presentation,current_available:false},payload:null,runs:[{...developmentDetail.runs[0],run_type:"generate",submission_id:"original-failed-submission"}]}}));
+ let release:()=>void=()=>{},posts=0;
+ const response=new Promise<void>(resolve=>release=resolve);
+ await page.route("**/development/plans/plan-fixture/retry",async route=>{posts++;expect(route.request().postDataJSON()).toMatchObject({run_id:"failed-run",based_on_version_id:null});await response;await route.fulfill({status:202,json:{plan_id:"plan-fixture",run_id:"retry-run",status:"failed"}});});
+ await page.goto("/tasks/plan-fixture");
+ await expect(page.getByTestId("advisor-status")).toContainText("生成失败，可重试");
+ await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ expect(await page.evaluate(key=>sessionStorage.getItem(key),key)).toBeNull();
+ await page.getByRole("button",{name:"重试",exact:true}).click();
+ await page.waitForResponse(r=>r.url().endsWith("/development/plans/plan-fixture")&&r.request().method()==="GET");
+ // A poll of the old failed Run must not clear the request still in flight.
+ expect(await page.evaluate(key=>sessionStorage.getItem(key),key)).toBeTruthy();
+ await expect(page.getByRole("button",{name:"重试",exact:true})).toBeDisabled();
+ release();
+ await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ await expect(page.locator("body")).not.toContainText(/提交未确认|核对任务/);
+ expect(posts).toBe(1);
 });
 
 test("admin task errors tab expands and copies redacted details",async({page,context})=>{

@@ -70,3 +70,21 @@ def public_failures(stages,stored=None):
   if code not in REASONS:code=next((k for k,(message,_) in LEGACY_REASONS.items() if message==stored),None)
   result.append(failure(stage,code=code))
  return result or [failure('unknown')]
+
+
+def prepare_or_timeout(prepare, *args, **kwargs):
+    """A known model timeout is an execution failure, never an uncertain commit."""
+    try:
+        return prepare(*args, **kwargs), None
+    except Exception as error:
+        if classify(error) == 'timeout':
+            return None, error
+        # This preparation precedes all submission writes. Preserve known errors
+        # without claiming that the database may already have accepted a task.
+        if isinstance(error, HTTPException) and not isinstance(error, PublicTaskError):
+            raise
+        public = error if isinstance(error, PublicTaskError) else PublicTaskError(error)
+        public.submission_accepted = False
+        if public is error:
+            raise
+        raise public from error

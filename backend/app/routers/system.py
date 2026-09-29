@@ -102,8 +102,7 @@ def _inspect_configuration(scene: str):
     try:
         valid_parameters = (math.isfinite(cfg.temperature) and cfg.temperature >= 0
                             and math.isfinite(cfg.top_p) and 0 <= cfg.top_p <= 1
-                            and isinstance(cfg.max_tokens, int) and cfg.max_tokens > 0
-                            and isinstance(cfg.timeout_seconds, int) and cfg.timeout_seconds > 0)
+                            and isinstance(cfg.max_tokens, int) and cfg.max_tokens > 0)
     except (TypeError, ValueError, OverflowError):
         valid_parameters = False
     if not valid_parameters:
