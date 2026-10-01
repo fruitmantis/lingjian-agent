@@ -12,7 +12,7 @@ from backend.app.identity_keys import digest, reveal_identity_key
 from backend.app.routers.local_identity import BROWSER_COOKIE, KEY_LOGIN_MAX_BODY_BYTES
 from .conftest import auth_headers, make_user, make_task
 
-HEADERS = {'Origin': 'http://localhost:3000'}
+HEADERS = {'Origin': 'http://localhost'}
 
 
 def browser(client, cookie=None, create=True):
@@ -423,20 +423,24 @@ def test_explicit_new_identity_replaces_only_current_browser_and_never_reuses_re
     assert client.post('/auth/identity/key/login', headers=HEADERS, json={'key': current_key}).status_code == 200
 
 
-def test_https_reuses_verified_http_cookie_and_keeps_key_owner(client, monkeypatch):
+def test_http_origin_and_cookie_preserve_verified_owner(client, monkeypatch):
     original = browser(client)
     key = key_for(client, original)
     original_id = original.json()['user']['id']
     secret = original.cookies[BROWSER_COOKIE]
     before = counts()
-    monkeypatch.setenv('BANFEI_IDENTITY_ORIGIN', 'https://localhost')
+    monkeypatch.setenv('BANFEI_IDENTITY_ORIGIN', 'http://localhost:80,http://10.0.0.8:80')
+    monkeypatch.setenv('CORS_ORIGINS', 'http://localhost:80,http://10.0.0.8:80')
+    from backend.app.main import get_cors_origins
+    assert get_cors_origins() == ['http://localhost', 'http://10.0.0.8']
     restored = client.post('/auth/identity/session', json={'create': False},
-        headers={'Origin': 'https://localhost', 'Cookie': BROWSER_COOKIE+'='+secret})
+        headers={'Origin': 'http://10.0.0.8', 'Cookie': BROWSER_COOKIE+'='+secret})
     assert restored.status_code == 200
     assert restored.json()['user']['id'] == original_id and not restored.json()['created']
     assert restored.cookies[BROWSER_COOKIE] == secret
-    assert all(flag in restored.headers['set-cookie'] for flag in ('Secure', 'HttpOnly', 'SameSite=strict'))
+    assert all(flag in restored.headers['set-cookie'] for flag in ('HttpOnly', 'SameSite=strict'))
+    assert 'Secure' not in restored.headers['set-cookie']
     assert key_for(client, restored) == key and counts() == before
     denied = client.post('/auth/identity/session', json={'create': True},
-        headers={'Origin': 'http://localhost:3000', 'Cookie': BROWSER_COOKIE+'='+secret})
+        headers={'Origin': 'http://untrusted.invalid', 'Cookie': BROWSER_COOKIE+'='+secret})
     assert denied.status_code == 403 and 'set-cookie' not in denied.headers and counts() == before

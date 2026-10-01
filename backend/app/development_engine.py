@@ -9,7 +9,6 @@ from fastapi import HTTPException
 from . import development_lifecycle as life,development_model as model,enablement as resources
 from .database import get_db
 from .development_types import DirectionAnalysis,AdviceOutput,Understanding,AdvicePatch,DevelopmentRequest
-from .enablement_catalog import POOL
 
 class InvalidOutput(ValueError):pass
 
@@ -147,6 +146,7 @@ def terms(text):
 
 
 def candidates(conn,request,analysis):
+    conn.begin_read()
     if isinstance(analysis,list):
         analysis={'priorities':[{'name':d.get('target_requirement',''),'capability_tag_id':d.get('capability_tag_id'),'search_terms':[]} for d in analysis]}
     focuses=analysis.get('priorities',[])
@@ -156,9 +156,9 @@ def candidates(conn,request,analysis):
     allowed_types=set(analysis.get('resource_types',[]));excluded=set(analysis.get('excluded_levels',[]))
     if 'excluded_levels' not in analysis: excluded={ {'beginner':'basic','intermediate':'advanced'}.get(v,v) for v in analysis.get('excluded_difficulties',[]) }
     found=[];blocked=blocked_fragments(conn)
-    for row in conn.execute(POOL+'SELECT source_type,source_id,source_version FROM visible ORDER BY published_at DESC,source_id'):
+    for data in resources.model_references(conn):
         try:
-            data=resources.resolve_reference(conn,**dict(row),purpose='model');guard(data,blocked)
+            guard(data,blocked)
         except (HTTPException,InvalidOutput):continue
         if allowed_types and data['source_type'] not in allowed_types:continue
         if data.get('level') in excluded:continue
@@ -224,11 +224,17 @@ def prepare(request,user,*,plan_id=None,base=None,instruction='',cached=None):
     bind_context(stage='understanding')
     try:
         result=call(config,'analyze',frame['input'],Understanding,frame['blocked'])
-        if not result['in_scope']:life.fail(422,MESSAGES['partner_development'])
+        if not result['in_scope']:
+            return {'analysis':result,'stamp':frame['stamp'],'model':stamp,'scope_message':MESSAGES['partner_development']}
         validate_analysis(result,request,{t['id'] for t in frame['tags']})
         if not result['effective_direction'].strip():raise InvalidOutput('Effective direction is empty')
         current=frame['input']['current']
         if current:
+            # Reject a contradictory mutation for an explicit discussion-only question.
+            # This is a validation guard, never a synthetic answer or a second model call.
+            discussion=re.search(r'为什么|为何|有什么区别|如何比较|比较.{0,20}(?:实验|课程)|哪个.{0,20}更难|有没有更进阶',instruction)
+            edit=re.search(r'调整|修改|重新规划|重规划|替换|换成|换掉|删除|去掉|不要|添加|增加|减少|改为|改成|展开建议|多给|少给|缩短|优先|放后|先做',instruction)
+            if discussion and not edit and result['action']!='answer':raise InvalidOutput('Discussion cannot modify current advice')
             if result['action']=='generate':raise InvalidOutput('Existing advice requires explicit answer, patch or regenerate')
             available={i['item_id'] for i in current['resources']}
             if not set(result['edit_item_ids'])<=available:raise InvalidOutput('Unknown edit item')
@@ -297,18 +303,26 @@ def _execute_claimed(run_id,run):
         try:life.finish_failure(run_id,run['execution_token'],'run_timeout','interrupted')
         except Exception as error:record_error(error,'persistence')
     watchdog=Timer(run_timeout(),copy_context().run,args=(expire_run,));watchdog.daemon=True;watchdog.start()
-    stage='configuration'
+    stage='understanding'
     try:
         snapshot=json.loads(run['input_snapshot']);request=snapshot['request']
         with get_db() as conn:actor=dict(conn.execute('SELECT id,role FROM users WHERE id=?',(run['owner_user_id'],)).fetchone())
-        understanding=snapshot.get('understanding')
-        if understanding is None:
-            understanding=prepare(request,actor,plan_id=run['plan_id'],base=run['based_on_version_id'],instruction=snapshot['instruction'])
+        life.run_stage(run_id,run['execution_token'],'understanding','running')
+        understanding=prepare(request,actor,plan_id=run['plan_id'],base=run['based_on_version_id'],instruction=snapshot['instruction'],cached=snapshot.get('understanding'))
         frame=context.load(request,actor,plan_id=run['plan_id'],base=run['based_on_version_id'],message=snapshot['instruction'])
         if frame['stamp']!=understanding['stamp']:raise InvalidOutput('Task context or permissions changed; retry required')
+        pinned_configuration(understanding['model'])
+        life.run_stage(run_id,run['execution_token'],'understanding','completed',understanding)
+        if understanding.get('scope_message'):
+            life.complete_scope(run_id,run['execution_token'],understanding['scope_message'])
+            return
+        if understanding['analysis']['action']=='answer' and run['based_on_version_id']:
+            from .development_types import Revise
+            life.save_answer(run['plan_id'],Revise(submission_id=run['submission_id'],based_on_version_id=run['based_on_version_id'],instruction=snapshot['instruction']),actor,request,understanding,run['request_hash'],run=run)
+            return
         analysis=understanding['analysis']
         with get_db() as conn:
-            conn.execute('BEGIN IMMEDIATE')
+            conn.lock_writer()
             if analysis['action']!='answer':
                 config=pinned_configuration(understanding['model'],conn)
                 conn.execute('UPDATE development_runs SET model_config_id=? WHERE id=?',(config['id'],run_id))
@@ -317,11 +331,14 @@ def _execute_claimed(run_id,run):
         request={**frame['request'],'development_direction':analysis['effective_direction'],'development_goal':analysis['effective_direction'],'constraints':analysis['effective_constraints']}
         if snapshot['instruction']:request['partner_goal_allowed']=False
         stage='retrieval';bind_context(stage=stage)
+        life.run_stage(run_id,run['execution_token'],'retrieval','running')
         with get_db() as conn:
-            conn.execute('BEGIN')
+            conn.begin_read()
             pool=[] if analysis['action']=='answer' else candidates(conn,request,analysis)
             deps=dependencies(conn,pool+frame['profile'].get('shared_evidence',[]))
+        life.run_stage(run_id,run['execution_token'],'retrieval','completed')
         stage='generation';bind_context(stage=stage);life.ensure_execution(run_id,run['execution_token'])
+        life.run_stage(run_id,run['execution_token'],'generation','running')
         if analysis['action']=='answer':
             output={'target_partner_id':request['target_partner_id'],'stages':[],'answer':analysis['answer'],'limitations':[],'resource_gaps':[],'next_steps':[]}
             payload=assemble(output,request,analysis,pool,run['owner_user_id'])

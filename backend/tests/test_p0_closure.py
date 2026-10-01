@@ -29,12 +29,13 @@ def test_matching_uses_existing_profile_and_evidence_without_raw_files(client, m
     def fake(messages, **kwargs):
         captured.append(messages)
         assert kwargs['scene'] == 'partner_match'
-        return json.dumps([dict(partnerId='partner-1',partnerName='验证伙伴',matchScore=90,matchedCapabilities='AI',matchedIndustries='金融',matchedRegions='广东',recommendationReason='已有迁移经验',evidenceCases=['case-p0'],evidenceDeliverables=['file-p0'],riskNotes='需项目验证')])
-    monkeypatch.setattr(match, 'chat_completion', fake)
-    result = match._perform_partner_match('数据库迁移')
+        return [dict(partnerId='partner-1',partnerName='验证伙伴',matchScore='90',matchedCapabilities='AI',matchedIndustries='金融',matchedRegions='广东',recommendationReason='已有迁移经验',evidenceCases=['case-p0'],evidenceDeliverables=['file-p0'],riskNotes='需项目验证')]
+    from .support.matching import install,snapshot
+    install(monkeypatch,lambda messages:fake(messages,scene='partner_match'))
+    result=match._perform_partner_match('数据库迁移',snapshot('数据库迁移'))
     assert len(result) == 1
     context = captured[0][-1]['content']
-    for text in ('核心能力：企业数据库迁移与 RAG 数据集成。', '金融', '广东', '数据库项目', '实施数据库迁移。', '迁移交付说明.pdf', '暂无画像，依据现有资料判断'):
+    for text in ('核心能力：企业数据库迁移与 RAG 数据集成。', '金融', '广东', '数据库项目', '实施数据库迁移。', '迁移交付说明.pdf', '资料有限'):
         assert text in context
     for text in ('DISABLED_SECRET', 'NEVER_SEND_RAW_FILE', 'AI画像: 已生成', '行业经验: 银行', '覆盖区域: 深圳'):
         assert text not in context
@@ -82,10 +83,8 @@ def safe_status(client, monkeypatch):
 
 def status_data(client, admin):
     def current_fingerprint():
-        if os.environ['DATABASE_URL'].startswith('postgresql'):
-            from backend.tests.support.database_fingerprint import fingerprint
-            return fingerprint(os.environ['DATABASE_URL'])
-        return hashlib.sha256(database.DATABASE_PATH.read_bytes()).hexdigest()
+        from backend.tests.support.database_fingerprint import fingerprint
+        return fingerprint(os.environ['DATABASE_URL'])
     before = current_fingerprint()
     response = client.get('/admin/system/status', headers=auth_headers(admin))
     assert response.status_code == 200

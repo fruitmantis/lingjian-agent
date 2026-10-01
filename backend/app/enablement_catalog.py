@@ -9,13 +9,13 @@ from .database import get_db
 # Mirror the reference gate when selecting/counting candidates; resolve_reference remains
 # the final projection/authorization gate in the same read transaction.
 POOL = """WITH candidates AS (
- SELECT 'resource' kind,json_extract(v.payload_json,'$.resource_type') source_type,
+ SELECT 'resource' kind,(v.payload_json::jsonb #>> '{resource_type}') source_type,
  r.id source_id,r.published_version source_version,v.payload_json,v.published_at,
- json_extract(v.payload_json,'$.title') title,json_extract(v.payload_json,'$.summary') summary,
+ (v.payload_json::jsonb #>> '{title}') title,(v.payload_json::jsonb #>> '{summary}') summary,
  NULL contributor_id,NULL category_id
  FROM enablement_resources r JOIN enablement_resource_versions v ON v.source_id=r.id AND v.version=r.published_version
  WHERE r.status='published' AND r.system_visible=1 AND r.authorization_epoch=v.authorization_epoch
- AND CAST(json_extract(v.payload_json,'$._permissions.system_visible') AS TEXT) IN ('1','true')
+ AND CAST((v.payload_json::jsonb #>> '{_permissions,system_visible}') AS TEXT) IN ('1','true')
  UNION ALL
  SELECT 'case','case',c.id,1,NULL,c.updated_at,c.title,c.description,c.partner_id,c.category_id
  FROM cases c JOIN partners p ON p.id=c.partner_id WHERE c.visible=1 AND p.status='active'
@@ -44,10 +44,10 @@ def catalog(source_type=None, q=None, capability_tag_id=None, contributor_id=Non
     if source_type: conditions.append('source_type=?');params.append(source_type)
     if q:
         fields=('course_goals','outline','lab_goals','audience')
-        conditions.append("(instr(lower(COALESCE(title,'')),lower(?))>0 OR instr(lower(COALESCE(summary,'')),lower(?))>0 OR "+' OR '.join("instr(lower(COALESCE(json_extract(payload_json,'$."+field+"'),'')),lower(?))>0" for field in fields)+')')
+        conditions.append("(strpos(lower(COALESCE(title,'')),lower(?))>0 OR strpos(lower(COALESCE(summary,'')),lower(?))>0 OR "+' OR '.join("strpos(lower(COALESCE((payload_json::jsonb #>> '{"+field+"}'),'')),lower(?))>0" for field in fields)+')')
         params.extend([q.strip()]*(len(fields)+2))
     if capability_tag_id:
-        conditions.append("EXISTS (SELECT 1 FROM json_each(payload_json,'$.capability_tag_ids') WHERE value=?)");params.append(capability_tag_id)
+        conditions.append("EXISTS (SELECT 1 FROM jsonb_array_elements_text(payload_json::jsonb #> '{capability_tag_ids}') WHERE value=?)");params.append(capability_tag_id)
     if contributor_id: conditions.append("contributor_id=?");params.append(contributor_id)
     if filters.get('category_id'):
         conditions.append('category_id=?');params.append(filters['category_id'])
@@ -60,14 +60,14 @@ def catalog(source_type=None, q=None, capability_tag_id=None, contributor_id=Non
     for field in ('role_ids', 'zone_ids'):
         value = filters.get(field[:-1])
         if value:
-            conditions.append("EXISTS (SELECT 1 FROM json_each(payload_json,'$."+field+"') WHERE value=?)")
+            conditions.append("EXISTS (SELECT 1 FROM jsonb_array_elements_text(payload_json::jsonb #> '{"+field+"}') WHERE value=?)")
             params.append(value)
     if filters.get('level'):
-        conditions.append("COALESCE(json_extract(payload_json,'$.level'), CASE json_extract(payload_json,'$.difficulty') WHEN 'beginner' THEN 'basic' WHEN 'intermediate' THEN 'advanced' WHEN 'advanced' THEN 'advanced' END)=?")
+        conditions.append("COALESCE((payload_json::jsonb #>> '{level}'), CASE (payload_json::jsonb #>> '{difficulty}') WHEN 'beginner' THEN 'basic' WHEN 'intermediate' THEN 'advanced' WHEN 'advanced' THEN 'advanced' END)=?")
         params.append(filters['level'])
     where=' WHERE '+' AND '.join(conditions) if conditions else ''
     with get_db() as conn:
-        conn.execute('BEGIN')
+        conn.begin_read()
         total=conn.execute(POOL+'SELECT count(*) FROM visible'+where,params).fetchone()[0]
         rows=conn.execute(POOL+'SELECT source_type,source_id,source_version FROM visible'+where+
                           ' ORDER BY published_at DESC,source_type,source_id LIMIT ? OFFSET ?',[*params,page_size,(page-1)*page_size]).fetchall()
@@ -85,7 +85,7 @@ def filter_options():
 
 def redirect(source_type,source_id,version,actor):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         resource=public_detail(conn,source_type,source_id,version)
         if source_type=='case': return {'url':f'/resources/case/{source_id}'}
         # Check again under the current URL validator, including legacy published snapshots.
@@ -101,7 +101,7 @@ def redirect(source_type,source_id,version,actor):
 
 def context(user,partner_id=None,task_id=None,case_id=None,case_version=None):
     with get_db() as conn:
-        conn.execute('BEGIN')
+        conn.begin_read()
         result={'partner':None,'evidence':[],'project':None,'shared_case':None}
         if task_id:
             task=conn.execute('SELECT id,owner_user_id,requirement,recommendations_json FROM match_records WHERE id=?',(task_id,)).fetchone()

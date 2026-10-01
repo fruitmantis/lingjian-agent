@@ -50,7 +50,7 @@ async def save(scope, parent_id, partner_id, upload, tasks, *, import_profile=Fa
         await save_upload_limited(upload,path)
         validate_material(path,kind)
         with get_db() as conn:
-            conn.execute('BEGIN IMMEDIATE')
+            conn.lock_writer()
             if scope=='attachment':
                 parent_row=conn.execute('SELECT partner_id FROM cases WHERE id=?',(parent_id,)).fetchone()
                 if not parent_row: raise HTTPException(404,'案例不存在')
@@ -76,7 +76,7 @@ async def replace(scope, parent_id, file_id, upload, tasks):
         await save_upload_limited(upload,path)
         validate_material(path,kind)
         with get_db() as conn:
-            conn.execute('BEGIN IMMEDIATE')
+            conn.lock_writer()
             old=get_file(conn,scope,parent_id,file_id)
             if old.get('doc_category')=='profile_import':
                 raise HTTPException(409,'请在伙伴画像区域重新导入画像')
@@ -149,9 +149,20 @@ def process(scope,file_id,import_profile=False):
                 preview_error=redact(f'{type(exc).__name__}: {exc}')
                 record_error(exc,stage='document_preview',request_id=file_id)
         state='failed' if error else ('ready' if text and text.strip() else 'empty')
+        profile_imported=False
+        report_text=None
+        if import_profile and state=='ready':
+            try:
+                from .profile_report import from_docx
+                report_text=from_docx(row['file_path']).text
+            except Exception as exc:
+                from .error_diagnostics import redact,record_error
+                error=redact(f'{type(exc).__name__}: {exc}')
+                state='failed'
+                record_error(exc,stage='profile_structure',request_id=file_id)
         try:
             with get_db() as conn:
-                conn.execute('BEGIN IMMEDIATE')
+                conn.lock_writer()
                 exists=conn.execute(f'SELECT id FROM {table} WHERE id=?',(file_id,)).fetchone()
                 if not exists:
                     if preview: Path(preview).unlink(missing_ok=True)
@@ -160,17 +171,22 @@ def process(scope,file_id,import_profile=False):
                 if import_profile and state=='ready':
                     current=dict(conn.execute('SELECT materials_revision,profile_updated_at FROM partners WHERE id=?',(partner_id,)).fetchone())
                     if current==baseline:
-                        conn.execute('UPDATE partners SET ai_profile=?,profile_materials_revision=materials_revision,profile_updated_at=?,updated_at=? WHERE id=?',(text,now(),now(),partner_id))
+                        conn.execute('UPDATE partners SET ai_profile=?,profile_materials_revision=materials_revision,profile_updated_at=?,updated_at=? WHERE id=?',(report_text,now(),now(),partner_id))
+                        profile_imported=True
                     else:
                         conn.execute(f'UPDATE {table} SET processing_error=? WHERE id=?',('资料或画像已变化，未覆盖当前画像，请重新导入。',file_id))
         except Exception as exc:
             from .error_diagnostics import record_error
             record_error(exc,stage='document_result_persistence',request_id=file_id)
+            profile_imported=False
+    if profile_imported:
+        from .partner_match_context import generate_summary
+        generate_summary(partner_id)
 
 def retry(scope,parent_id,file_id,tasks):
     table,_=TABLES[scope]
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');row=get_file(conn,scope,parent_id,file_id)
+        conn.lock_writer();row=get_file(conn,scope,parent_id,file_id)
         if row['processing_status']=='processing': raise HTTPException(409,'文件正在处理中')
         partner_id=parent_id if scope=='document' else conn.execute('SELECT partner_id FROM cases WHERE id=?',(parent_id,)).fetchone()[0]
         changed(conn,partner_id)
@@ -209,7 +225,7 @@ def respond(row,preview=False):
 def remove(scope,parent_id,file_id,partner_id):
     table,parent=TABLES[scope]
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');row=get_file(conn,scope,parent_id,file_id)
+        conn.lock_writer();row=get_file(conn,scope,parent_id,file_id)
         if scope=='attachment':
             partner_id=conn.execute('SELECT partner_id FROM cases WHERE id=?',(parent_id,)).fetchone()[0]
             conn.execute('UPDATE cases SET updated_at=? WHERE id=?',(now(),parent_id))

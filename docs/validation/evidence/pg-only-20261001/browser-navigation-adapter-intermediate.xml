@@ -1,0 +1,136 @@
+<testsuites id="" name="" tests="3" failures="3" skipped="0" errors="0" time="50.896034">
+<testsuite name="task-failure.spec.ts" timestamp="2026-10-01T10:58:34.569Z" hostname="" tests="3" failures="3" skipped="0" time="38.693" errors="0">
+<testcase name="accepted matching timeout recovers original task after HTTP 202" classname="task-failure.spec.ts" time="14.642">
+<failure message="task-failure.spec.ts:101:39 accepted matching timeout recovers original task after HTTP 202" type="FAILURE">
+<![CDATA[  task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 202 ────
+
+    Error: Timed out 10000ms waiting for expect(locator).toContainText(expected)
+
+    Locator: locator('.current-task-summary')
+    Expected string: "生成失败，可重试"
+    Received: <element(s) not found>
+    Call log:
+      - expect.toContainText with timeout 10000ms
+      - waiting for locator('.current-task-summary')
+
+
+      110 |  // Recovery now navigates automatically; do not race its transient home-page link.
+      111 |  await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
+    > 112 |  await expect(page.locator(".current-task-summary")).toContainText("生成失败，可重试");
+          |                                                      ^
+      113 |  await expect(page.locator(".pending-task")).toHaveCount(0);
+      114 |  expect(await page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
+      115 |  page.on("dialog",dialog=>dialog.accept());
+        at /home/yuan/project/lingjian-agent-enablement/frontend/e2e/task-failure.spec.ts:112:54
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-2c8d3-riginal-task-after-HTTP-202/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-2c8d3-riginal-task-after-HTTP-202/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/task-failure-accepted-matc-2c8d3-riginal-task-after-HTTP-202/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/task-failure-accepted-matc-2c8d3-riginal-task-after-HTTP-202/test-failed-1.png]]
+
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/task-failure-accepted-matc-2c8d3-riginal-task-after-HTTP-202/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 502" classname="task-failure.spec.ts" time="12.122">
+<failure message="task-failure.spec.ts:101:39 accepted matching timeout recovers original task after HTTP 502" type="FAILURE">
+<![CDATA[  task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 502 ────
+
+    Error: Timed out 10000ms waiting for expect(locator).toContainText(expected)
+
+    Locator: locator('.current-task-summary')
+    Expected string: "生成失败，可重试"
+    Received: <element(s) not found>
+    Call log:
+      - expect.toContainText with timeout 10000ms
+      - waiting for locator('.current-task-summary')
+
+
+      110 |  // Recovery now navigates automatically; do not race its transient home-page link.
+      111 |  await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
+    > 112 |  await expect(page.locator(".current-task-summary")).toContainText("生成失败，可重试");
+          |                                                      ^
+      113 |  await expect(page.locator(".pending-task")).toHaveCount(0);
+      114 |  expect(await page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
+      115 |  page.on("dialog",dialog=>dialog.accept());
+        at /home/yuan/project/lingjian-agent-enablement/frontend/e2e/task-failure.spec.ts:112:54
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/test-failed-1.png]]
+
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 500" classname="task-failure.spec.ts" time="11.929">
+<failure message="task-failure.spec.ts:101:39 accepted matching timeout recovers original task after HTTP 500" type="FAILURE">
+<![CDATA[  task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 500 ────
+
+    Error: Timed out 10000ms waiting for expect(locator).toContainText(expected)
+
+    Locator: locator('.current-task-summary')
+    Expected string: "生成失败，可重试"
+    Received: <element(s) not found>
+    Call log:
+      - expect.toContainText with timeout 10000ms
+      - waiting for locator('.current-task-summary')
+
+
+      110 |  // Recovery now navigates automatically; do not race its transient home-page link.
+      111 |  await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
+    > 112 |  await expect(page.locator(".current-task-summary")).toContainText("生成失败，可重试");
+          |                                                      ^
+      113 |  await expect(page.locator(".pending-task")).toHaveCount(0);
+      114 |  expect(await page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
+      115 |  page.on("dialog",dialog=>dialog.accept());
+        at /home/yuan/project/lingjian-agent-enablement/frontend/e2e/task-failure.spec.ts:112:54
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-00620-riginal-task-after-HTTP-500/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-00620-riginal-task-after-HTTP-500/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/task-failure-accepted-matc-00620-riginal-task-after-HTTP-500/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/task-failure-accepted-matc-00620-riginal-task-after-HTTP-500/test-failed-1.png]]
+
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/task-failure-accepted-matc-00620-riginal-task-after-HTTP-500/trace.zip]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+</testsuites>

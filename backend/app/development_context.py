@@ -40,7 +40,7 @@ def load(request, user, *, plan_id=None, base=None, message='', connection=None)
     from .development_views import protected, version_row, REVOKED
     from .enablement_catalog import context
     with (nullcontext(connection) if connection is not None else get_db()) as conn:
-        if connection is None:conn.execute('BEGIN')
+        if connection is None:conn.begin_read()
         blocked = engine.blocked_fragments(conn)
         profile = engine.profile_context(conn, request)
         tags = [dict(t) for t in conn.execute('SELECT id,name FROM capability_tags WHERE enabled=1 ORDER BY id')]

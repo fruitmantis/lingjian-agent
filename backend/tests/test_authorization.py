@@ -92,7 +92,11 @@ def test_ab_retry_is_isolated(client, identity_set, monkeypatch):
     assert client.post(f"/agent/tasks/{tasks['B-failed']}/retry", headers=a_headers).status_code == 404
 
     rec = match_router.PartnerRecommendation.model_validate(recommendation())
-    monkeypatch.setattr(match_router, "_perform_partner_match", lambda _: [rec])
+    monkeypatch.setattr(match_router.understanding, "prepare", lambda *_: {'understanding':{'in_scope':True,'facts':{},'tag_suggestions':[]}})
+    def synthetic_match(requirement,snapshot):
+        snapshot.update(candidate_stamp=match_router._candidate_stamp(),outcome={'answer':'合成推荐'})
+        return [rec]
+    monkeypatch.setattr(match_router, "_perform_partner_match", synthetic_match)
 
     def finish(record_id, *_args, **_kwargs):
         match_router._set_task_state(record_id, "ready")
@@ -149,7 +153,7 @@ def test_cross_owner_stale_task_request_does_not_write(client, monkeypatch, task
     other = make_user("stale_other")
     task_id = make_task(
         owner, "stale private task", task_status=task_status,
-        updated_at=(datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+        updated_at=(datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
     )
     with get_db() as conn:
         before = dict(conn.execute("SELECT * FROM match_records WHERE id = ?", (task_id,)).fetchone())
@@ -170,7 +174,7 @@ def test_cross_owner_stale_task_request_does_not_write(client, monkeypatch, task
 def test_authorized_detail_recovers_only_requested_task(client, reader_role):
     owner = make_user("recovery_owner")
     reader = owner if reader_role == "owner" else make_user("recovery_admin", role="admin")
-    old = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    old = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
     task_id = make_task(owner, "requested stale task", task_status="matching", updated_at=old)
     untouched_id = make_task(owner, "another stale task", task_status="enriching", updated_at=old)
     response = client.get(f"/agent/tasks/{task_id}", headers=auth_headers(reader))
@@ -186,9 +190,17 @@ def test_owner_can_retry_stale_task(client, monkeypatch):
     owner = make_user("stale_retry_owner")
     task_id = make_task(
         owner, "retry stale task", task_status="matching", recommendations=[],
-        updated_at=(datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(),
+        updated_at=(datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
     )
-    monkeypatch.setattr(match_router, "_perform_partner_match", lambda _: [])
+    monkeypatch.setattr(match_router.understanding, "prepare", lambda *_: {
+        'stamp': 'synthetic', 'model': {}, 'understanding': {'in_scope': True, 'facts': {}, 'tag_suggestions': []},
+    })
+    def finish_match(_requirement, snapshot):
+        snapshot['candidate_stamp'] = match_router._candidate_stamp()
+        snapshot['outcome'] = {'answer': '现有资料不足。', 'recommendations': [],
+                               'supplyStatus': 'unknown', 'gapAnalysis': '待核实'}
+        return []
+    monkeypatch.setattr(match_router, "_perform_partner_match", finish_match)
 
     def finish(record_id, *_args, **_kwargs):
         match_router._set_task_state(record_id, "ready")

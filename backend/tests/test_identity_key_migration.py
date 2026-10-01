@@ -6,7 +6,6 @@ from scripts.migrate_identity_keys import migrate
 from .conftest import make_user
 
 
-@pytest.mark.skipif(not os.getenv('BANFEI_TEST_DATABASE_URL'), reason='PostgreSQL migration')
 def test_key_migration_atomic_idempotent_preserves_existing_users(client):
     make_user('legacy_key_migration_user')
     engine=engine_for(os.environ['DATABASE_URL'])

@@ -1,7 +1,8 @@
 import copy
 import itertools
 import json
-import sqlite3
+from sqlalchemy.exc import DBAPIError
+from .postgres_support import install_failure
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
@@ -164,12 +165,12 @@ def test_concurrent_publish_only_one_version(admin,metadata):
 def test_publication_fault_rolls_back_version_and_pointer(admin,metadata):
     row=published(create(admin,metadata),admin); reviewed(row,admin)
     with get_db() as conn:
-        conn.execute("CREATE TRIGGER fail_publish BEFORE UPDATE OF published_version ON enablement_resources BEGIN SELECT RAISE(ABORT,'synthetic failure'); END")
-    with pytest.raises(sqlite3.DatabaseError):
+        install_failure(conn,'enablement_resources','UPDATE OF published_version',name='fail_publish')
+    with pytest.raises(DBAPIError):
         service.publish('resource',row['source_id'],service.Revision(base_revision=row['revision']),admin['id'])
     after=service.detail('resource',row['source_id'])
     assert after['published_version']==1 and len(after['versions'])==1 and after['revision']==row['revision']
-    with get_db() as conn: conn.execute('DROP TRIGGER fail_publish')
+    with get_db() as conn: conn.execute('DROP TRIGGER fail_publish ON enablement_resources')
     assert service.publish('resource',row['source_id'],service.Revision(base_revision=row['revision']),admin['id'])['published_version']==2
 
 
@@ -178,13 +179,23 @@ def test_all_new_api_operations_require_admin(client,metadata,role):
     from backend.app.main import app
     user=make_user('ordinary')
     headers=auth_headers(user) if role=='user' else {}
-    operations=0
+    expected={
+        ('get','/admin/enablement/resource-categories'),('post','/admin/enablement/resource-categories'),
+        ('patch','/admin/enablement/resource-categories/{category_id}'),
+        ('get','/admin/enablement/resources'),('post','/admin/enablement/resources'),
+        ('get','/admin/enablement/resources/export'),('get','/admin/enablement/resources/template'),
+        ('post','/admin/enablement/resources/import'),('post','/admin/enablement/resources/batch'),
+        ('get','/admin/enablement/resources/{source_id}'),('put','/admin/enablement/resources/{source_id}'),
+        ('patch','/admin/enablement/resources/{source_id}/permissions'),
+        ('post','/admin/enablement/resources/{source_id}/publish'),('post','/admin/enablement/resources/{source_id}/unpublish'),
+    }
+    operations=set()
     for path,item in app.openapi()['paths'].items():
         if not (path.startswith('/admin/enablement') or path.startswith('/admin/cases/')): continue
         for method in item:
-            if method not in ('get','post','put','patch'):continue
-            path=path.replace('{source_id}','unknown')
-            response=client.request(method,path,headers=headers,json={})
+            if method not in ('get','post','put','patch','delete'):continue
+            operations.add((method,path))
+            target=path.replace('{source_id}','unknown').replace('{category_id}','unknown')
+            response=client.request(method,target,headers=headers,json={})
             assert response.status_code==(403 if role=='user' else 401),(method,path,response.text)
-            operations+=1
-    assert operations==10
+    assert operations==expected

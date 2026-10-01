@@ -139,7 +139,7 @@ def create_config(payload: ModelConfigCreate) -> ModelConfigOut:
 def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.lock_writer()
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
@@ -174,7 +174,7 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
 @router.delete("/{mc_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_config(mc_id: str, admin: dict = Depends(require_admin)) -> None:
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.lock_writer()
         row = conn.execute("SELECT name, provider, model_name, is_default FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
@@ -198,7 +198,7 @@ def delete_config(mc_id: str, admin: dict = Depends(require_admin)) -> None:
 def toggle_enable(mc_id: str, enabled: bool = True) -> ModelConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.lock_writer()
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
@@ -211,7 +211,7 @@ def toggle_enable(mc_id: str, enabled: bool = True) -> ModelConfigOut:
 def set_default(mc_id: str) -> ModelConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.lock_writer()
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ? AND enabled = 1", (mc_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="配置不存在或已停用，无法设为默认")
@@ -270,7 +270,7 @@ def list_usage_configs():
 def update_usage_config(scene_key: str, payload: UsageConfigUpdate) -> UsageConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.lock_writer()
         row = conn.execute("SELECT * FROM model_usage_configs WHERE scene_key = ?", (scene_key,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="场景不存在")

@@ -55,11 +55,14 @@ def test_understanding_shared_and_patch_preserves_other_content(unified):
     assert len(unified[1])==2
     old=detail['payload'];base=detail['plan']['current_version_id']
     result=views.converse(pid,Conversation(submission_id='explain-second',based_on_version_id=base,message='按上一条第二点继续解释'),user)
-    assert result['kind']=='explain' and len(unified[1])==3 and plan(pid)['current_version_id']==base
+    engine.execute(result['run_id'])
+    result=views.detail(pid,user)['conversation'][-1]
+    assert len(unified[1])==3 and plan(pid)['current_version_id']==base
     seen=unified[1][-1]['data'];assert seen['current']['answer']==old['answer']
     assert [x['position'] for x in seen['current']['resources']]==[1,2]
     repeated=views.converse(pid,Conversation(submission_id='repeat-requirement',based_on_version_id=base,message='我还是希望做数据库迁移与回退验证'),user)
-    assert repeated['kind']=='explain' and plan(pid)['current_version_id']==base
+    engine.execute(repeated['run_id'])
+    assert plan(pid)['current_version_id']==base
     assert unified[1][-1]['data']['recent_exchanges'][-1]['answer']==result['answer']
     modified=views.converse(pid,Conversation(submission_id='patch-only-second',based_on_version_id=base,message='只换第二个实验'),user)
     engine.execute(modified['run_id'])
@@ -75,10 +78,13 @@ def test_understanding_shared_and_patch_preserves_other_content(unified):
 
 def test_failure_retry_reuses_understanding_and_preserves_current(unified,monkeypatch):
     accepted,detail=generated(unified);user=unified[0][0];pid=accepted['plan_id'];base=detail['plan']['current_version_id']
+    from backend.tests.support.legacy_development import legacy_confirmed
+    legacy_confirmed(pid,base,user)
+    old_payload=copy.deepcopy(detail['payload'])
     result=views.converse(pid,Conversation(submission_id='patch-failure-second',based_on_version_id=base,message='只换第二个实验'),user)
     original=unified[2]
     def fail(config,messages,schema):
-        if 'patch' in messages[0]['content']:raise TimeoutError('synthetic failure')
+        if messages[0]['content'].startswith('partner_development:patch'):raise TimeoutError('synthetic failure')
         return original(config,messages,schema)
     monkeypatch.setattr(model,'completion',fail);engine.execute(result['run_id'])
     assert plan(pid)['current_version_id']==base
@@ -87,6 +93,16 @@ def test_failure_retry_reuses_understanding_and_preserves_current(unified,monkey
     retry=life.retry(pid,development.RetryRun(submission_id='retry-local-edit',run_id=result['run_id'],based_on_version_id=base),user)
     engine.execute(retry['run_id'])
     assert len(unified[1])==before+1 and plan(pid)['current_version_id']!=base
+    after=views.detail(pid,user)
+    assert plan(pid)['confirmed_version_id']==base
+    assert after['payload']['stages'][0]['items'][1]['source_id']=='unified-lab-3'
+    assert after['payload']['stages'][0]['items'][0]==old_payload['stages'][0]['items'][0]
+    assert len(after['versions'])==2
+    repeated=life.retry(pid,development.RetryRun(submission_id='retry-local-edit',run_id=result['run_id'],based_on_version_id=base),user)
+    assert repeated['replayed'] and repeated['run_id']==retry['run_id']
+    engine.execute(repeated['run_id'])
+    assert len(views.detail(pid,user)['versions'])==2 and len(unified[1])==before+1
+
     with pytest.raises(HTTPException) as stale:
         life.retry(pid,development.RetryRun(submission_id='retry-completed-run',run_id=retry['run_id'],based_on_version_id=plan(pid)['current_version_id']),user)
     assert stale.value.status_code==409 and len(unified[1])==before+1
@@ -96,28 +112,39 @@ def test_failure_retry_reuses_understanding_and_preserves_current(unified,monkey
 def test_changes_invalidate_successful_understanding(unified,monkeypatch,change):
     user=unified[0][0]
     accepted=life.create(Submit(submission_id='changed-generate',request=unified[0][3]),user)
-    if change=='permission':
-        with get_db() as conn:conn.execute("UPDATE enablement_resources SET model_allowed=0,authorization_epoch=authorization_epoch+1 WHERE id='unified-lab-1'")
-    elif change=='profile':
-        with get_db() as conn:conn.execute("UPDATE partners SET intro='新资料' WHERE id='partner-1'")
-    else:
-        with get_db() as conn:conn.execute("UPDATE model_configs SET temperature=0.6")
+    original=unified[2]
+    def changed(config,messages,schema):
+        result=original(config,messages,schema)
+        if change=='permission':
+            with get_db() as conn:conn.execute("UPDATE enablement_resources SET model_allowed=0,authorization_epoch=authorization_epoch+1 WHERE id='unified-lab-1'")
+        elif change=='profile':
+            with get_db() as conn:conn.execute("UPDATE partners SET intro='新资料' WHERE id='partner-1'")
+        else:
+            with get_db() as conn:conn.execute("UPDATE model_configs SET temperature=0.6")
+        return result
+    monkeypatch.setattr(model,'completion',changed)
     engine.execute(accepted['run_id']);assert plan(accepted['plan_id'])['current_version_id'] is None
+    monkeypatch.setattr(model,'completion',original)
     before=len(unified[1]);retry=life.retry(accepted['plan_id'],development.RetryRun(submission_id='changed-retry',run_id=accepted['run_id']),user)
     engine.execute(retry['run_id'])
     assert len(unified[1])==before+2
     assert plan(accepted['plan_id'])['current_version_id']
 
 
-def test_model_disabled_between_calls_stops_run(unified):
+def test_model_disabled_between_calls_stops_run(unified,monkeypatch):
     accepted=life.create(Submit(submission_id='disable-between-stages',request=unified[0][3]),unified[0][0])
-    with get_db() as conn:conn.execute('UPDATE model_configs SET enabled=0')
+    original=unified[2]
+    def disable(config,messages,schema):
+        result=original(config,messages,schema)
+        with get_db() as conn:conn.execute('UPDATE model_configs SET enabled=0')
+        return result
+    monkeypatch.setattr(model,'completion',disable)
     engine.execute(accepted['run_id'])
     assert len(unified[1])==1
     assert plan(accepted['plan_id'])['current_version_id'] is None
 
 
-def test_outside_scope_no_task_and_owner_isolation(unified,monkeypatch):
+def test_outside_scope_retains_task_and_owner_isolation(unified,monkeypatch):
     accepted,detail=generated(unified);base=detail['plan']['current_version_id'];pid=accepted['plan_id']
     with pytest.raises(HTTPException) as denied:
         views.converse(pid,Conversation(submission_id='outside-owner',based_on_version_id=base,message='解释一下'),unified[0][1])
@@ -126,21 +153,26 @@ def test_outside_scope_no_task_and_owner_isolation(unified,monkeypatch):
     def outside(c,m,s):
         result=json.loads(original(c,m,s));result['in_scope']=False;return json.dumps(result)
     monkeypatch.setattr(model,'completion',outside)
-    with pytest.raises(HTTPException) as blocked:life.create(Submit(submission_id='outside-scope-test',request=unified[0][3]),unified[0][0])
-    assert blocked.value.status_code==422
-    with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_plans').fetchone()[0]==1
+    outside=life.create(Submit(submission_id='outside-scope-test',request=unified[0][3]),unified[0][0])
+    engine.execute(outside['run_id'])
+    result=views.detail(outside['plan_id'],unified[0][0])
+    assert result['runs'][0]['status']=='ready' and result['scopeMessage']
+    assert result['payload'] is None and not result['failureDetails']
+    with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_plans').fetchone()[0]==2
 
 
-def test_match_two_calls_shared_facts_and_no_rule_fallback(unified,monkeypatch):
+def test_match_three_calls_shared_facts_and_no_rule_fallback(unified,monkeypatch):
     calls=[]
     def complete(config,messages,schema):
         calls.append(schema['title'])
         if schema['title']=='MatchUnderstanding':
             return json.dumps({'in_scope':True,'facts':{'customerName':'合成客户','industry':'金融','region':'北京市','technicalNeeds':'数据库迁移'},'tag_suggestions':[]})
+        if schema['title']=='InitialSelection':
+            return json.dumps({'candidates':[{'partnerId':'partner-1','verificationFocus':'数据库迁移经验'}]})
         return json.dumps({'answer':'当前资料不足以确认完整交付覆盖。','recommendations':[],'supplyStatus':'unknown','gapAnalysis':'资料不足，需要补充交付证据。'})
     monkeypatch.setattr(model,'completion',complete)
     result=match.match_partners(match.MatchRequest(requirement='合成客户需要数据库迁移伙伴'),unified[0][0])
-    assert calls==['MatchUnderstanding','MatchAnswer']
+    assert calls==['MatchUnderstanding','InitialSelection','MatchAnswer']
     detail=match.get_match_record(result.recordId,unified[0][0])
     assert result.taskStatus=='ready' and detail.opportunity['customerName']=='合成客户'
     assert detail.demandProfile['supplyStatus']=='unknown'
@@ -162,6 +194,7 @@ def test_match_retry_reuses_successful_facts_after_generation_failure(unified,mo
     def complete(config,messages,schema):
         calls.append(schema['title'])
         if schema['title']=='MatchUnderstanding':return '{"in_scope":true,"facts":{"technicalNeeds":"数据库迁移"}}'
+        if schema['title']=='InitialSelection':return '{"candidates":[{"partnerId":"partner-1","verificationFocus":"数据库迁移经验"}]}'
         if calls.count('MatchAnswer')==1:raise TimeoutError('synthetic second-stage failure')
         return '{"answer":"资料不足，暂无法推荐。","recommendations":[],"supplyStatus":"unknown","gapAnalysis":"待补充交付证据"}'
     monkeypatch.setattr(model,'completion',complete)
@@ -170,4 +203,4 @@ def test_match_retry_reuses_successful_facts_after_generation_failure(unified,mo
     assert match.get_match_record(task,unified[0][0]).answer==''
     result=match.retry_match_record(task,unified[0][0])
     assert result.taskStatus=='ready'
-    assert calls==['MatchUnderstanding','MatchAnswer','MatchAnswer']
+    assert calls==['MatchUnderstanding','InitialSelection','MatchAnswer','MatchAnswer']

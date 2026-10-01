@@ -1,6 +1,6 @@
 """Real diagnostic content, secrecy, persistence and admin authorization; no live models."""
 import json
-import sqlite3
+from sqlalchemy.exc import OperationalError
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -15,12 +15,23 @@ from .conftest import auth_headers, make_user, make_partner, recommendation
 
 
 def model_reply(monkeypatch, content, status=200):
-    config = ResolvedModelConfig('opaque-provider-credential', 'https://model.invalid/v1', 'test-model', .2, 1, 1000, 'db')
-    monkeypatch.setattr(ai_client, 'resolve_model_config', lambda scene: config)
-    def post(client, url, **kwargs):
-        body = {'choices': [{'finish_reason': 'stop', 'message': {'content': content}}]} if status == 200 else {'error': {'message': content}}
-        return httpx.Response(status, request=httpx.Request('POST', url), json=body)
-    monkeypatch.setattr(httpx.Client, 'post', post)
+    with get_db() as conn:
+        conn.execute("UPDATE model_configs SET api_key='opaque-provider-credential',api_key_source='db',base_url='https://model.invalid/v1',model_name='test-model'")
+    async def post(client, url, **kwargs):
+        messages=kwargs['json']['messages'];system=messages[0]['content']
+        reply=content
+        if status==200:
+            if '一次理解项目找伙伴' in system:reply='{"in_scope":true,"facts":{}}'
+            elif 'AI 初选' in system:reply='{"candidates":[{"partnerId":"partner-1","verificationFocus":"合成能力核实"}]}'
+            else:
+                try:
+                    values=json.loads(content)
+                    values=[{**item,'evidenceCases':[],'evidenceDeliverables':[]} for item in values]
+                    reply=json.dumps({'answer':'合成推荐结果。','recommendations':values,'supplyStatus':'unknown','gapAnalysis':'待核实'})
+                except ValueError:pass
+        body={'choices':[{'finish_reason':'stop','message':{'content':reply}}]} if status==200 else {'error':{'message':content}}
+        return httpx.Response(status,request=httpx.Request('POST',url),json=body)
+    monkeypatch.setattr(httpx.AsyncClient,'post',post)
 
 
 def saved_errors():
@@ -86,7 +97,7 @@ def test_malformed_response_keeps_actual_parse_failure(client, monkeypatch):
     model_reply(monkeypatch,'{not valid json')
     result=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'格式验证'})
     assert result.status_code==502
-    assert 'Expecting property name' in saved_errors()[0]['message']
+    assert saved_errors()[0]['exception_type']=='ValidationError'
     assert '{not valid json' in saved_errors()[0]['response_excerpt']
 
 
@@ -94,7 +105,7 @@ def test_database_failure_still_records_task_and_stack(client, monkeypatch, capl
     user=make_user('db-owner')
     @contextmanager
     def broken():
-        raise sqlite3.OperationalError('synthetic database unavailable')
+        raise OperationalError(None,None,Exception('synthetic database unavailable'))
         yield
     monkeypatch.setattr(match,'get_db',broken)
     request_id='c6338961-9625-43c0-a7f4-a424924fe8af'
@@ -182,7 +193,8 @@ def test_failed_status_write_retains_both_original_and_database_error(client, mo
     from backend.app.task_failures import PublicTaskError
     user=make_user('double-failure')
     def invalid(*args):raise PublicTaskError(ValueError('synthetic invalid recommendation field'))
-    def unavailable(*args, **kwargs):raise sqlite3.OperationalError('synthetic status write unavailable')
+    def unavailable(*args, **kwargs):raise OperationalError(None,None,Exception('synthetic status write unavailable'))
+    monkeypatch.setattr(match.understanding,'prepare',lambda *_:{'understanding':{'in_scope':True,'facts':{},'tag_suggestions':[]}})
     monkeypatch.setattr(match,'_perform_partner_match',invalid)
     monkeypatch.setattr(match,'_set_task_state',unavailable)
     response=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'隔离双重故障'})

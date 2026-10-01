@@ -28,7 +28,7 @@ type DemandResponse = {
   regionDistribution: Record<string, number>; deliveryTypeDistribution: Record<string, number>;
 };
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 
 function fetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const path = String(input).slice(apiBaseUrl.length);

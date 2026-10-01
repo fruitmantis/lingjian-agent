@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { copyText } from "../../../lib/copy-text";
 import { Pagination } from "@/components/pagination";
 import { UserDeleteButton } from "../../../components/user-delete-button";
 import { UiIcon } from "../../../components/ui-icons";
@@ -167,7 +168,7 @@ export default function AdminUsersPage() {
         <button className={tab === "audit" ? "active" : ""} onClick={() => setTab("audit")}>操作日志</button>
       </div>
 
-      {temporaryPassword && <div className="temporary-password-card"><div><strong>一次性临时密码</strong><p>请立即复制并通过公司内部安全渠道交付。关闭后不再显示。</p></div><code>{temporaryPassword}</code><button className="secondary-btn" onClick={() => navigator.clipboard.writeText(temporaryPassword)}>复制</button><button className="secondary-btn" onClick={() => setTemporaryPassword(null)}>关闭</button></div>}
+      {temporaryPassword && <div className="temporary-password-card"><div><strong>一次性临时密码</strong><p>请立即复制并通过公司内部安全渠道交付。关闭后不再显示。</p></div><code>{temporaryPassword}</code><button className="secondary-btn" onClick={(event) => void copyText(temporaryPassword, event.currentTarget.parentElement?.querySelector("code")).then(ok => setMessage(ok ? "已复制临时密码" : "复制失败，临时密码已选中，请按 Ctrl+C 手动复制"))}>复制</button><button className="secondary-btn" onClick={() => setTemporaryPassword(null)}>关闭</button></div>}
       {message && <div className="notice-neutral">{message}</div>}
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void (loadUsers(page))}>重试</button></div>}
 

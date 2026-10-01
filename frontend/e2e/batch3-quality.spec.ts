@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { mkdir, readFile } from "node:fs/promises";
 
-const API = "http://localhost:8000";
+const API = "http://localhost/api";
 const screenshotRoot = "/tmp/lingjian-enablement-batch3/screenshots";
 
 async function login(page: Page, request: APIRequestContext, username = "admin1") {
@@ -19,10 +19,7 @@ async function login(page: Page, request: APIRequestContext, username = "admin1"
 }
 
 async function databaseHash() {
-  if (process.env.PLAYWRIGHT_DATABASE_URL?.startsWith("postgresql")) {
-    return execFileSync(path.resolve("../.venv/bin/python"), ["-m", "backend.tests.support.database_fingerprint"], {cwd:path.resolve(".."), encoding:"utf8", env:{...process.env, DATABASE_URL:process.env.PLAYWRIGHT_DATABASE_URL}}).trim();
-  }
-  return createHash("sha256").update(await readFile("/tmp/lingjian-enablement-e2e/app.db")).digest("hex");
+  return execFileSync(path.resolve("../.venv/bin/python"), ["-m", "backend.tests.support.database_fingerprint"], {cwd:path.resolve(".."), encoding:"utf8", env:{...process.env, DATABASE_URL:process.env.PLAYWRIGHT_DATABASE_URL}}).trim();
 }
 
 test("system refresh preserves the database and explains unverified model status", async ({ page, request }) => {

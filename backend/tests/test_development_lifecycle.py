@@ -1,6 +1,7 @@
 from backend.tests.support.legacy_development import legacy_confirmed
 import json
-import sqlite3
+from sqlalchemy.exc import IntegrityError
+from .postgres_support import install_failure
 from concurrent.futures import ThreadPoolExecutor
 import pytest
 from fastapi import HTTPException
@@ -83,16 +84,16 @@ def test_pointer_lifecycle_conflicts_owner_archive_and_failure(prepared):
     life.archive(pid,user,restore=True)
     assert plan(pid)['status']=='active' and plan(pid)['current_version_id']==v2
     with get_db() as conn:
-        with pytest.raises(sqlite3.IntegrityError):conn.execute('UPDATE development_versions SET payload_json=? WHERE id=?',('{}',v1))
+        with pytest.raises(IntegrityError):conn.execute('UPDATE development_versions SET payload_json=? WHERE id=?',('{}',v1))
 
 
 @pytest.mark.parametrize('fault',['version','item','diagnosis','pointer'])
 def test_atomic_save_faults_do_not_leave_half_versions(prepared,fault):
     accepted,run=start(prepared);data=result(prepared)
     data['stages'][0]['items']=[{'synthetic':'item'}]
-    target={'version':('INSERT','development_versions',''),'item':('INSERT','development_version_items',''),'diagnosis':('INSERT','development_diagnoses',''),'pointer':('UPDATE','development_plans','WHEN NEW.current_version_id IS NOT OLD.current_version_id')}[fault]
-    with get_db() as conn:conn.execute(f"CREATE TRIGGER synthetic_failure BEFORE {target[0]} ON {target[1]} {target[2]} BEGIN SELECT RAISE(ABORT,'synthetic fault'); END")
-    with pytest.raises(sqlite3.IntegrityError):life.complete(accepted['run_id'],run['execution_token'],data,[],lambda *_:None)
+    target={'version':('INSERT','development_versions',''),'item':('INSERT','development_version_items',''),'diagnosis':('INSERT','development_diagnoses',''),'pointer':('UPDATE','development_plans','WHEN (NEW.current_version_id IS DISTINCT FROM OLD.current_version_id)')}[fault]
+    with get_db() as conn:install_failure(conn,target[1],target[0],when=target[2])
+    with pytest.raises(IntegrityError):life.complete(accepted['run_id'],run['execution_token'],data,[],lambda *_:None)
     with get_db() as conn:
         for table in ['development_versions','development_version_items','development_diagnoses']:assert conn.execute(f'SELECT count(*) FROM {table}').fetchone()[0]==0
     assert plan(accepted['plan_id'])['current_version_id'] is None

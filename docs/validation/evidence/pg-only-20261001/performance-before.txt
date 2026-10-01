@@ -1,0 +1,67 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_______________ test_catalog_3000_published_resources_search_p95 _______________
+
+client = <backend.tests.conftest.SyncASGIClient object at 0x7fc57df5ed20>
+admin = {'id': 'e7709016-eaed-4101-b86a-2733c36fabeb', 'username': 'resource-admin', 'role': 'admin', 'password': 'ValidationPass123'}
+metadata = {'resource_type': 'course', 'title': '合成课程', 'summary': '仅测试资源', 'level': 'basic', ...}
+record_property = <function record_property.<locals>.append_property at 0x7fc57df944a0>
+
+    def test_catalog_3000_published_resources_search_p95(client,admin,metadata,record_property):
+        from backend.app.enablement_catalog import catalog
+        resource=published(grant(create(admin,metadata),admin),admin)
+        case=published(grant(create(admin,metadata,'case'),admin,'case'),admin,'case')
+        with get_db() as conn:
+            for index in range(999):
+                conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at,category_id,visible,updated_at) VALUES (?,'partner-1',?,'案例正文','2026','technical-1',1,'2026')",(f'case-{index}',f'迁移案例 {index}'))
+            for kind,row,count in [('resource',resource,1999)]:
+                table,versions,key=service.TABLES[kind]
+                head=dict(conn.execute(f'SELECT * FROM {table} WHERE {key}=?',(row['source_id'],)).fetchone())
+                version=dict(conn.execute(f'SELECT * FROM {versions} WHERE source_id=?',(row['source_id'],)).fetchone())
+                for index in range(count):
+                    source_id=f'performance-{kind}-{index}'
+                    payload=json.loads(version['payload_json']);payload['title']=f'迁移资源 {index}'
+                    if kind=='resource': payload['resource_type']='course' if index%2 else 'lab'
+                    else: conn.execute('INSERT INTO cases (id,partner_id,title,description,created_at) VALUES (?,?,?,?,?)',(source_id,'partner-1','内部标题','不可共享正文','2026'))
+                    cloned={**head,key:source_id};snapshot={**version,'source_id':source_id,'payload_json':json.dumps(payload,ensure_ascii=False)}
+                    for target,values in [(table,cloned),(versions,snapshot)]:
+                        conn.execute(f"INSERT INTO {target} ({','.join(values)}) VALUES ({','.join('?' for _ in values)})",list(values.values()))
+        assert catalog()['total']==3000
+        elapsed=[]
+        for index in range(60):
+            started=time.perf_counter()
+            result=catalog(q='迁移',page=index%3+1)
+            elapsed.append(time.perf_counter()-started)
+            # Only the generated clone titles contain the search term.
+            assert result['total']==2998 and len(result['items'])==12
+        ordered=sorted(elapsed);p95=ordered[56]
+        record_property('catalog_performance',json.dumps({'course_lab_count':2000,'case_count':1000,'samples':60,
+            'p50_seconds':ordered[29],'p95_seconds':p95,'max_seconds':max(elapsed),
+            'scope':'catalog Python service: SQL search/count + permission projection + 12 details; no HTTP/browser/external source time'}))
+        assert p95<2
+        from backend.app import development_engine as engine
+        request={'constraints':dict.fromkeys(['language','site','account','network','environment','cost','budget'],'无要求'),'trainee_role':'工程师'}
+        diagnosis=[{'problem_type':'trainable_gap','capability_tag_id':case['metadata']['capability_tag_ids'][0], 'target_requirement':'迁移'}]
+        timings=[]
+        for _ in range(30):
+            started=time.perf_counter()
+            with get_db() as conn:pool=engine.candidates(conn,request,diagnosis)
+            timings.append(time.perf_counter()-started)
+            assert len(pool)==100
+        ordered=sorted(timings)
+        record_property('candidate_performance',json.dumps({'course_lab_count':2000,'case_count':1000,'samples':30,
+            'p50_seconds':ordered[14],'p95_seconds':ordered[28],'max_seconds':max(timings),
+            'scope':'model-safe candidate SQL, permission and constraints filtering; 100 candidate cap; no model/network/browser'}))
+>       assert ordered[28]<2
+E       assert 2.150833830004558 < 2
+
+backend/tests/test_enablement_workspace.py:161: AssertionError
+=============================== warnings summary ===============================
+backend/tests/test_enablement_workspace.py::test_catalog_3000_published_resources_search_p95
+  backend/tests/test_enablement_workspace.py:116: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_catalog_3000_published_resources_search_p95(client,admin,metadata,record_property):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_enablement_workspace.py::test_catalog_3000_published_resources_search_p95
+1 failed, 1 warning in 64.49s (0:01:04)

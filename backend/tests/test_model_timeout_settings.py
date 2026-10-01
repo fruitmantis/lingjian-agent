@@ -88,7 +88,7 @@ def test_cleanup_migration_is_transactional_and_preserves_models(rollback):
     def fault(): raise RuntimeError('Synthetic migration failure')
     try:
         with get_db() as conn:
-            conn.execute('BEGIN IMMEDIATE')
+            conn.lock_writer()
             migrate(conn, fault if rollback else None)
     except RuntimeError:
         if not rollback: raise

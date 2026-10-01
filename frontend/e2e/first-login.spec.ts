@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-const API='http://localhost:8000';
+const API='http://localhost/api';
 for(const width of [1366,1920])test(`administrator temporary password remains isolated ${width}`,async({page,request})=>{
  const admin=await(await request.post(API+'/auth/admin/login',{data:{username:'admin1',password:'ValidationPass123'}})).json();
  const created=await(await request.post(API+'/admin/users',{headers:{Authorization:`Bearer ${admin.access_token}`},data:{username:`temp_${width}_${Date.now()}`,display_name:'临时管理员',role:'admin'}})).json();

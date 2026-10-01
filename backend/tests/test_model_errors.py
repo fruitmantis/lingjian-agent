@@ -62,6 +62,7 @@ def test_profile_failure_preserves_data_without_exposing_exception(client, monke
     def fail(*_args, **_kwargs):
         raise RuntimeError("synthetic-secret raw-model-JSON internal-prompt")
     monkeypatch.setattr(profile, "chat_completion", fail)
+    monkeypatch.setattr(profile.development_model, "completion", fail)
     response = client.post("/partners/partner-1/profile", headers=auth_headers(admin))
     assert response.status_code == 502
     assert response.json()["detail"] == "服务异常，请联系管理员。"
@@ -100,8 +101,8 @@ def test_inline_reasoning_tags_are_rejected():
 def test_profile_does_not_persist_raw_structured_output(client, monkeypatch, narrative):
     make_partner()
     admin = make_user("profile_format_admin", role="admin")
-    responses = iter(['{}', narrative])
-    monkeypatch.setattr(profile, "chat_completion", lambda *_a, **_k: next(responses))
+    monkeypatch.setattr(profile, "chat_completion", lambda *_a, **_k: '{}')
+    monkeypatch.setattr(profile.development_model, "completion", lambda *_a, **_k: narrative)
     response = client.post("/partners/partner-1/profile", headers=auth_headers(admin))
     assert response.status_code == 502
     assert "synthetic-secret" not in response.text

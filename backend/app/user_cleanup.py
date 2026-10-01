@@ -51,7 +51,7 @@ def inspect_cleanup(conn, user_id, admin_id):
 def preview(user_id: str, response: Response, admin: dict = Depends(require_admin)):
     response.headers['Cache-Control'] = 'no-store'
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         user, result = inspect_cleanup(conn, user_id, admin['id'])
     result['confirmationToken'] = jwt.encode({
         'purpose': 'account_soft_delete', 'target': user_id, 'admin': admin['id'],
@@ -73,7 +73,7 @@ def delete_user(user_id: str, payload: DeleteUser, request: Request, admin: dict
     except (jwt.PyJWTError, ValueError):
         raise HTTPException(409, '删除确认已失效，请重新确认。') from None
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         # Recheck the operator under the same writer lock as the target. Concurrent
         # deletes must not let an already-deleted administrator continue operating.
         operator = conn.execute("SELECT status,role,token_version FROM users WHERE id=?", (admin['id'],)).fetchone()

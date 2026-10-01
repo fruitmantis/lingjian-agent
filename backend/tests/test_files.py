@@ -120,17 +120,8 @@ def test_file_005_database_delete_failure_keeps_disk_file(client_no_raise):
                VALUES (?, ?, 'must-remain.docx', ?, 'docx', ?)""",
             (document_id, partner["id"], str(file_path), now),
         )
-        if os.environ['DATABASE_URL'].startswith('postgresql'):
-            conn.execute("""CREATE FUNCTION validation_document_delete_failure() RETURNS trigger
-                LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected delete failure'; END $$""")
-            conn.execute("""CREATE TRIGGER prevent_validation_document_delete BEFORE DELETE ON partner_documents
-                FOR EACH ROW EXECUTE FUNCTION validation_document_delete_failure()""")
-        else:
-            conn.execute(
-                """CREATE TRIGGER prevent_validation_document_delete
-                   BEFORE DELETE ON partner_documents
-                   BEGIN SELECT RAISE(ABORT, 'injected delete failure'); END"""
-            )
+        from .postgres_support import install_failure
+        install_failure(conn, 'partner_documents', 'DELETE', name='validation_document_delete_failure')
     response = client_no_raise.delete(
         f"/partners/{partner['id']}/documents/{document_id}", headers=auth_headers(admin),
     )

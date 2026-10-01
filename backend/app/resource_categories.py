@@ -45,7 +45,7 @@ class CategoryEdit(StrictModel):
 
 def save(payload, category_id=None):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         rows = read(conn)
         current = next((r for r in rows if r['id'] == category_id), None)
         if category_id and not current:

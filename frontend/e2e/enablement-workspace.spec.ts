@@ -4,7 +4,7 @@ import {evidenceRoot} from "./evidence-path";
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
-const API='http://localhost:8000';
+const API='http://localhost/api';
 test.describe.configure({mode:'serial'});
 let adminHeaders:Record<string,string>;let course:string;let lab:string;let sharedCase:string;
 async function login(request:APIRequestContext,username='user_a',page?:Page){

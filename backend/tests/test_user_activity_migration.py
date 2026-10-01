@@ -6,7 +6,6 @@ from scripts.migrate_user_activity import migrate
 from .conftest import make_user
 
 
-@pytest.mark.skipif(not os.getenv('BANFEI_TEST_DATABASE_URL'), reason='PostgreSQL migration')
 def test_activity_migration_atomic_and_idempotent(client):
     user = make_user('activity_legacy_user')
     engine = engine_for(os.environ['DATABASE_URL'])

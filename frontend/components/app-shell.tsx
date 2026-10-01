@@ -58,7 +58,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isStandalone) return;
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
     fetch(`${base}/health`).then(r => r.ok).then(setHealth).catch(() => setHealth(false));
   }, [isStandalone]);
 

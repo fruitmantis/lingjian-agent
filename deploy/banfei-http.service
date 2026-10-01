@@ -1,0 +1,18 @@
+[Unit]
+Description=Banfei HTTP port-80 entrypoint
+After=network-online.target banfei-frontend.service
+Requires=banfei-frontend.service
+
+[Service]
+Type=simple
+User=banfei
+Group=banfei
+WorkingDirectory=/opt/banfei/app
+ExecStart=/opt/banfei/tools/caddy run --config /opt/banfei/app/deploy/Caddyfile --adapter caddyfile
+Restart=on-failure
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

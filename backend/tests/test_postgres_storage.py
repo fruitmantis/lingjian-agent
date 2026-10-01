@@ -10,16 +10,16 @@ import pytest
 from sqlalchemy import text,inspect
 from sqlalchemy.exc import IntegrityError,DBAPIError
 from fastapi import HTTPException
-from backend.app.database import get_db,get_readonly_db,initialize_storage,DATABASE_PATH
-from backend.app.postgres_storage import engine_for,postgres_sql,bind_parameters
+from backend.app.database import get_db,get_readonly_db,initialize_storage
+from backend.app.postgres_storage import engine_for,bind_parameters
 from backend.app import development_lifecycle as life
 from backend.app.routers import partners
 from .conftest import make_user,make_partner,auth_headers,make_task
 from .test_development_lifecycle import prepared,start,complete,plan,result
 from .postgres_support import empty_postgres_schema
-from scripts.migrate_sqlite_to_postgres import import_snapshot,source_inventory,reconcile,sha
+from .postgres_support import snapshot
+from .test_enablement_migration import assert_initialization_rollback_and_retry
 
-pytestmark=pytest.mark.skipif(not os.environ.get('BANFEI_TEST_DATABASE_URL'),reason='Dedicated PostgreSQL test database required')
 
 
 def test_postgres_runtime_never_opens_sqlite(client,monkeypatch):
@@ -106,30 +106,23 @@ def test_postgres_fault_rolls_back_entire_version(prepared,table,event):
     assert plan(accepted['plan_id'])['current_version_id'] is None
 
 
-def test_migration_success_and_immutable_source():
-    before=sha(DATABASE_PATH)
-    with empty_postgres_schema() as target:
-        result=import_snapshot(DATABASE_PATH,target)
-        assert result['table_count']==35 and result['row_value_reconciliation']=='PASS'
-        with engine_for(target).connect() as conn:assert inspect(conn).get_foreign_keys('cases')
-        with pytest.raises(RuntimeError,match='empty'):import_snapshot(DATABASE_PATH,target)
-    assert sha(DATABASE_PATH)==before
+def test_direct_initialization_has_foreign_keys_and_immutable_existing_data(client):
+    with get_db() as conn: before=snapshot(conn)
+    initialize_storage()
+    with engine_for(os.environ['DATABASE_URL']).connect() as conn:
+        assert inspect(conn).get_foreign_keys('cases')
+        assert snapshot(conn)==before
+
+@pytest.mark.parametrize('fail_after', [1, 7, 15, 30])
+def test_initialization_failure_rolls_back_schema_and_rows(fail_after):
+    assert_initialization_rollback_and_retry(fail_after)
 
 
-@pytest.mark.parametrize('fail_after',['partners','enablement_resource_versions','development_runs','users'])
-def test_migration_failure_rolls_back_schema_and_rows(fail_after):
-    def fault(name):
-        if name==fail_after:raise RuntimeError('synthetic migration failure')
-    with empty_postgres_schema() as target:
-        with pytest.raises(RuntimeError,match='synthetic'):import_snapshot(DATABASE_PATH,target,fault=fault)
-        with engine_for(target).connect() as conn:assert inspect(conn).get_table_names()==[]
-
-
-def test_bad_foreign_key_source_is_rejected(tmp_path):
-    bad=tmp_path/'orphan.db'
-    with sqlite3.connect(DATABASE_PATH) as src,sqlite3.connect(bad) as dst:src.backup(dst)
-    with sqlite3.connect(bad) as conn:conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('bad','missing','Synthetic',NULL,'now')")
-    with pytest.raises(RuntimeError,match='foreign-key'):source_inventory(bad)
+def test_bad_foreign_key_is_rejected_in_pg(client):
+    with pytest.raises(IntegrityError):
+        with get_db() as conn:
+            conn.execute("INSERT INTO cases (id,partner_id,title,created_at) VALUES ('bad','missing','synthetic','now')")
+    with get_db() as conn: assert conn.execute("SELECT 1 FROM cases WHERE id='bad'").fetchone() is None
 
 
 def test_native_postgres_identity_in_disposable_transaction():
@@ -145,7 +138,7 @@ def test_native_postgres_identity_in_disposable_transaction():
 def test_explicit_read_transaction_keeps_consistent_snapshot(client):
     partner = make_partner()
     with get_db() as reader:
-        reader.execute('BEGIN')
+        reader.begin_read()
         before = reader.execute('SELECT intro FROM partners WHERE id=?', (partner['id'],)).fetchone()[0]
         with get_db() as writer:
             writer.execute('UPDATE partners SET intro=? WHERE id=?', ('synthetic concurrent change', partner['id']))
@@ -154,18 +147,61 @@ def test_explicit_read_transaction_keeps_consistent_snapshot(client):
         assert fresh.execute('SELECT intro FROM partners WHERE id=?', (partner['id'],)).fetchone()[0] == 'synthetic concurrent change'
 
 
-@pytest.mark.parametrize('without_feedback', [False, True])
-def test_pre_diagnostics_v12_snapshot_remains_importable(tmp_path, without_feedback):
-    source=tmp_path/'legacy-v12.db'
-    with sqlite3.connect(DATABASE_PATH) as src,sqlite3.connect(source) as dst:src.backup(dst)
-    with sqlite3.connect(source) as conn:conn.execute('ALTER TABLE match_records DROP COLUMN last_error_details')
-    if without_feedback:
-        with sqlite3.connect(source) as conn:
-            conn.execute('DROP TABLE feedback_attachment')
-            conn.execute('DROP TABLE feedback_issue')
-    before=sha(source)
-    with empty_postgres_schema() as target:
-        assert import_snapshot(source,target)['row_value_reconciliation']=='PASS'
-        with engine_for(target).connect() as conn:
-            assert 'last_error_details' in {c['name'] for c in inspect(conn).get_columns('match_records')}
-    assert sha(source)==before
+@pytest.mark.parametrize('missing_table', ['feedback_attachment', 'feedback_issue'])
+def test_incomplete_schema_refuses_automatic_changes(client, missing_table):
+    with get_db() as conn:
+        if missing_table=='feedback_issue':conn.execute('DROP TABLE feedback_attachment')
+        conn.execute('DROP TABLE '+missing_table)
+        before=snapshot(conn)
+    with pytest.raises(RuntimeError, match='incomplete'): initialize_storage()
+    with get_db() as conn: assert snapshot(conn)==before
+
+
+@pytest.mark.parametrize('value', ['', 'sqlite://', 'sqlite:////tmp/forbidden.db', 'mysql://user:secret@localhost/db', 'postgresql+asyncpg://localhost/db'])
+def test_invalid_database_config_creates_no_file_or_sqlite_connection(monkeypatch,tmp_path,value):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('DATABASE_URL',value)
+    monkeypatch.setattr(sqlite3,'connect',lambda *_a,**_k:pytest.fail('SQLite must never be called'))
+    with pytest.raises((RuntimeError,ValueError)):
+        with get_db():pass
+    with pytest.raises((RuntimeError,ValueError)):initialize_storage()
+    assert list(tmp_path.iterdir())==[]
+
+
+def test_schema_cleanup_leaves_other_invocation_untouched():
+    with empty_postgres_schema() as other:
+        other_engine = engine_for(other)
+        with other_engine.begin() as conn:
+            conn.execute(text('CREATE TABLE ownership_probe (id integer PRIMARY KEY)'))
+            conn.execute(text('INSERT INTO ownership_probe VALUES (7)'))
+            other_name = conn.execute(text('SELECT current_schema()')).scalar()
+        with empty_postgres_schema() as owned:
+            with engine_for(owned).connect() as conn:
+                owned_name = conn.execute(text('SELECT current_schema()')).scalar()
+            assert owned_name != other_name and owned_name != 'public'
+        with other_engine.connect() as conn:
+            assert conn.execute(text('SELECT id FROM ownership_probe')).scalar() == 7
+            assert conn.execute(text('SELECT 1 FROM pg_namespace WHERE nspname=:name'), {'name': owned_name}).scalar() is None
+
+
+def test_connection_failure_does_not_fall_back(monkeypatch,tmp_path):
+    import socket
+    # Keep a local port bound without listening, so it cannot be another database.
+    with socket.socket() as unavailable:
+        unavailable.bind(('127.0.0.1',0))
+        monkeypatch.setenv('DATABASE_URL',f'postgresql+psycopg://synthetic:synthetic@127.0.0.1:{unavailable.getsockname()[1]}/banfei_agent_test')
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(sqlite3,'connect',lambda *_a,**_k:pytest.fail('SQLite must never be called'))
+        with pytest.raises(DBAPIError):initialize_storage()
+        assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize('value', ['', 'sqlite://'])
+def test_initializer_cli_refuses_invalid_configuration_without_creating_files(tmp_path,value):
+    import subprocess, sys
+    root=Path(__file__).resolve().parents[2]
+    result=subprocess.run([sys.executable,str(root/'scripts/initialize_postgres.py')],
+        cwd=tmp_path,env=dict(os.environ,DATABASE_URL=value),capture_output=True,text=True)
+    assert result.returncode == 1
+    assert ('DATABASE_URL' if not value else 'PostgreSQL') in result.stderr
+    assert list(tmp_path.iterdir()) == []

@@ -137,7 +137,7 @@ def login(req: LoginRequest, request: Request) -> TokenResponse:
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         row = conn.execute(
             f"SELECT {_USER_COLS}, hashed_password, token_version, failed_login_count FROM users WHERE lower(username) = ?",
             (username,),
@@ -238,7 +238,7 @@ def list_users(
     conditions: list[str] = ["users.status <> 'deleted'"]
     params: list[object] = []
     if keyword:
-        conditions.append("(username LIKE ? OR display_name LIKE ?)")
+        conditions.append("(username ILIKE ? OR display_name ILIKE ?)")
         params.extend([f"%{keyword}%", f"%{keyword}%"])
     if role:
         conditions.append("role = ?"); params.append(role)
@@ -290,7 +290,7 @@ def get_user(user_id: str, response: Response, _: dict = Depends(require_admin))
 def update_user(user_id: str, payload: UserUpdate, request: Request, admin: dict = Depends(require_admin)) -> UserOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         row = conn.execute("SELECT id, role, status FROM users WHERE id = ? AND status <> 'deleted'", (user_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
@@ -322,7 +322,7 @@ def update_user_status(user_id: str, payload: UserStatusUpdate, request: Request
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="不能停用自己的账号")
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         row = conn.execute("SELECT id, role, status FROM users WHERE id = ? AND status <> 'deleted'", (user_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
@@ -342,7 +342,7 @@ def reset_password(user_id: str, request: Request, admin: dict = Depends(require
     temporary_password = _temporary_password()
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         if conn.execute("SELECT id FROM users WHERE id = ? AND role = 'admin' AND status <> 'deleted'", (user_id,)).fetchone() is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
         conn.execute(
@@ -357,7 +357,7 @@ def reset_password(user_id: str, request: Request, admin: dict = Depends(require
 def unlock_user(user_id: str, request: Request, admin: dict = Depends(require_admin)) -> UserOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         if conn.execute("SELECT id FROM users WHERE id = ? AND role = 'admin' AND status <> 'deleted'", (user_id,)).fetchone() is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="用户不存在")
         conn.execute("UPDATE users SET failed_login_count = 0, locked_until = NULL, updated_at = ? WHERE id = ?", (now, user_id))

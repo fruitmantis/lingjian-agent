@@ -1,11 +1,10 @@
 import json
-import sqlite3
 import time
 from pathlib import Path
 import pytest
 from backend.app import enablement as service
 from backend.app.database import get_db
-from backend.app.enablement_schema import migrate_to_v11
+from .test_enablement_migration import assert_initialization_rollback_and_retry
 from backend.tests.conftest import make_user, make_partner, make_task, auth_headers
 from backend.tests.test_enablement import admin, metadata, create, grant, published
 
@@ -111,31 +110,10 @@ def test_task_type_retains_owner_and_admin_semantics(client,admin):
 
 @pytest.mark.parametrize('fail_at',[1,2,3,None])
 def test_v11_transaction_failure_recovery_and_idempotence(tmp_path,fail_at):
-    class Failing(sqlite3.Connection):
-        count=0
-        def execute(self,sql,*args,**kwargs):
-            if sql.startswith('CREATE ') or sql.startswith("UPDATE app_metadata SET value='11'"):
-                self.count+=1
-                if fail_at==self.count: raise sqlite3.OperationalError('synthetic migration failure')
-            return super().execute(sql,*args,**kwargs)
-    path=tmp_path/'migration.db'
-    with sqlite3.connect(path) as conn:
-        conn.executescript("CREATE TABLE app_metadata(key TEXT PRIMARY KEY,value TEXT); INSERT INTO app_metadata VALUES('schema_version','10'); CREATE TABLE users(id TEXT PRIMARY KEY); INSERT INTO users VALUES ('retained');")
-    conn=sqlite3.connect(path,factory=Failing)
-    if fail_at:
-        with pytest.raises(sqlite3.OperationalError): migrate_to_v11(conn)
-        assert conn.execute("SELECT value FROM app_metadata").fetchone()[0]=='10'
-        assert conn.execute("SELECT count(*) FROM sqlite_master WHERE name='resource_redirect_events'").fetchone()[0]==0
-    conn.close()
-    with sqlite3.connect(path) as conn:
-        migrate_to_v11(conn);migrate_to_v11(conn)
-        assert conn.execute('SELECT * FROM users').fetchall()==[('retained',)]
-        assert conn.execute('SELECT value FROM app_metadata').fetchone()[0]=='11'
-        assert conn.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
-        assert conn.execute('PRAGMA foreign_key_check').fetchall()==[]
+    assert_initialization_rollback_and_retry(fail_at)
 
 
-def test_catalog_3000_published_resources_search_p95(client,admin,metadata,record_property):
+def test_catalog_3000_published_resources_search_p95(client,admin,metadata,record_property,monkeypatch):
     from backend.app.enablement_catalog import catalog
     resource=published(grant(create(admin,metadata),admin),admin)
     case=published(grant(create(admin,metadata,'case'),admin,'case'),admin,'case')
@@ -170,31 +148,36 @@ def test_catalog_3000_published_resources_search_p95(client,admin,metadata,recor
     from backend.app import development_engine as engine
     request={'constraints':dict.fromkeys(['language','site','account','network','environment','cost','budget'],'无要求'),'trainee_role':'工程师'}
     diagnosis=[{'problem_type':'trainable_gap','capability_tag_id':case['metadata']['capability_tag_ids'][0], 'target_requirement':'迁移'}]
+    from backend.app.postgres_storage import Connection
+    original_execute=Connection.execute
+    sql_times=[];sql_count=[];query_time=0;query_count=0
+    def measured(conn,*args,**kwargs):
+        nonlocal query_time,query_count
+        started=time.perf_counter()
+        try:return original_execute(conn,*args,**kwargs)
+        finally:query_time+=time.perf_counter()-started;query_count+=1
+    monkeypatch.setattr(Connection,'execute',measured)
     timings=[]
     for _ in range(30):
+        query_time=0;query_count=0
         started=time.perf_counter()
         with get_db() as conn:pool=engine.candidates(conn,request,diagnosis)
         timings.append(time.perf_counter()-started)
+        sql_times.append(query_time);sql_count.append(query_count)
         assert len(pool)==100
     ordered=sorted(timings)
     record_property('candidate_performance',json.dumps({'course_lab_count':2000,'case_count':1000,'samples':30,
         'p50_seconds':ordered[14],'p95_seconds':ordered[28],'max_seconds':max(timings),
+        'sql_query_count':sql_count,'sql_seconds':sql_times,'processing_seconds':[t-q for t,q in zip(timings,sql_times)],
         'scope':'model-safe candidate SQL, permission and constraints filtering; 100 candidate cap; no model/network/browser'}))
     assert ordered[28]<2
 
 
-def test_real_v10_snapshot_v11_replay_preserves_all_existing_rows(tmp_path):
-    from backend.tests.test_enablement_migration import state
-    source=Path(__file__).resolve().parents[2]/'.isolation/snapshots/phase-b-pre-v11.db'
-    if not source.exists(): pytest.skip('Private v10 runtime snapshot not available in this checkout')
-    target=tmp_path/'v11-replay.db'
-    with sqlite3.connect(source.as_uri()+'?mode=ro',uri=True) as src,sqlite3.connect(target) as dst:src.backup(dst)
-    with sqlite3.connect(target) as conn:
-        before=state(conn);fk=conn.execute('PRAGMA foreign_key_check').fetchall()
-        migrate_to_v11(conn);migrate_to_v11(conn)
-        after=state(conn)
-        assert all(after[table]==digest for table,digest in before.items())
-        assert conn.execute('PRAGMA foreign_key_check').fetchall()==fk
-        assert conn.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
+def test_pg_catalog_initialization_preserves_existing_rows(client):
+    from .postgres_support import snapshot
+    from backend.app.database import initialize_storage
+    with get_db() as conn: before=snapshot(conn)
+    initialize_storage();initialize_storage()
+    with get_db() as conn:
+        assert snapshot(conn)==before
         assert conn.execute('SELECT count(*) FROM resource_redirect_events').fetchone()[0]==0
-        print(f'\nV10->V11 replay: {len(before)} original tables retained, existing FK anomalies={len(fk)}, new=0')

@@ -1,4 +1,4 @@
-"""Seed the database selected by LINGJIAN_DATABASE_PATH with synthetic identities."""
+"""Seed the scoped PostgreSQL database selected by DATABASE_URL with synthetic identities."""
 
 import json
 from datetime import datetime, timezone

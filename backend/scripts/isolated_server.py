@@ -8,7 +8,7 @@ sys.path.insert(0, str(ROOT / 'backend'))
 from dotenv import load_dotenv
 load_dotenv(ROOT / '.env', override=False)
 private = ROOT / '.isolation/runtime'
-for key in ('LINGJIAN_DATABASE_PATH', 'LINGJIAN_UPLOADS_DIR', 'LINGJIAN_CHROMA_DIR'):
+for key in ('LINGJIAN_UPLOADS_DIR', 'LINGJIAN_CHROMA_DIR'):
     value = Path(os.environ[key])
     if not value.resolve().is_relative_to(private) or value.is_symlink():
         raise RuntimeError('Isolated runtime paths must remain inside this worktree')

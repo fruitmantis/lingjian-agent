@@ -5,7 +5,7 @@ import {fixtureLogin} from './identity-fixture';
 
 // HTTP/DB/UI integration uses the explicitly enabled replay server. Classification
 // stability against the live configured model is checked separately by the bounded smoke.
-const API='http://localhost:8000';
+const API='http://localhost/api';
 const offTopic=['明天天气怎么样？','帮我安排三天旅游行程','写一个 Python 快速排序函数','写一首关于月亮的诗'];
 const messages={match:'这里仅支持伙伴选择与推荐，请描述项目需求或询问相关推荐结果。',development:'这里仅支持伙伴能力发展建议，请描述发展方向或询问相关方案。'};
 async function setup(page:Page,request:APIRequestContext){

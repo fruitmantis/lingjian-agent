@@ -1,0 +1,171 @@
+{
+  "kind": "bounded-real-provider-synthetic-PG",
+  "max_http_requests": 12,
+  "planned_http_requests": 8,
+  "calls": [
+    {
+      "stage": "partner-match",
+      "provider": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "status": "received",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 1476,
+        "completion_tokens": 328,
+        "total_tokens": 1804,
+        "prompt_tokens_details": {
+          "cached_tokens": 1152
+        },
+        "prompt_cache_hit_tokens": 1152,
+        "prompt_cache_miss_tokens": 324
+      },
+      "seconds": 1.956
+    },
+    {
+      "stage": "partner-match",
+      "provider": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "status": "received",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 569,
+        "completion_tokens": 39,
+        "total_tokens": 608,
+        "prompt_tokens_details": {
+          "cached_tokens": 128
+        },
+        "prompt_cache_hit_tokens": 128,
+        "prompt_cache_miss_tokens": 441
+      },
+      "seconds": 0.827
+    },
+    {
+      "stage": "partner-match",
+      "provider": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "status": "received",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 1042,
+        "completion_tokens": 401,
+        "total_tokens": 1443,
+        "prompt_tokens_details": {
+          "cached_tokens": 512
+        },
+        "prompt_cache_hit_tokens": 512,
+        "prompt_cache_miss_tokens": 530
+      },
+      "seconds": 2.32
+    },
+    {
+      "stage": "development-first",
+      "provider": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "status": "received",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 2603,
+        "completion_tokens": 600,
+        "total_tokens": 3203,
+        "prompt_tokens_details": {
+          "cached_tokens": 1408
+        },
+        "prompt_cache_hit_tokens": 1408,
+        "prompt_cache_miss_tokens": 1195
+      },
+      "seconds": 2.612
+    },
+    {
+      "stage": "development-first",
+      "provider": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "status": "received",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 3683,
+        "completion_tokens": 480,
+        "total_tokens": 4163,
+        "prompt_tokens_details": {
+          "cached_tokens": 768
+        },
+        "prompt_cache_hit_tokens": 768,
+        "prompt_cache_miss_tokens": 2915
+      },
+      "seconds": 1.99
+    },
+    {
+      "stage": "explanation",
+      "provider": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "status": "received",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 3185,
+        "completion_tokens": 318,
+        "total_tokens": 3503,
+        "prompt_tokens_details": {
+          "cached_tokens": 1408
+        },
+        "prompt_cache_hit_tokens": 1408,
+        "prompt_cache_miss_tokens": 1777
+      },
+      "seconds": 1.692
+    },
+    {
+      "stage": "modification-understanding",
+      "provider": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "status": "received",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 3274,
+        "completion_tokens": 690,
+        "total_tokens": 3964,
+        "prompt_tokens_details": {
+          "cached_tokens": 3072
+        },
+        "prompt_cache_hit_tokens": 3072,
+        "prompt_cache_miss_tokens": 202
+      },
+      "seconds": 2.752
+    },
+    {
+      "stage": "modification-retry",
+      "provider": "api.deepseek.com",
+      "model": "deepseek-v4-flash",
+      "status": "received",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 4508,
+        "completion_tokens": 411,
+        "total_tokens": 4919,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 4508
+      },
+      "seconds": 1.876
+    }
+  ],
+  "checks": {
+    "match_committed_before_model": true,
+    "match_recommendation_saved": true,
+    "development_committed_before_model": true,
+    "initial_version_and_two_labs_saved": true,
+    "explanation_answer_without_new_version": true,
+    "injected_patch_failure_kept_old_version": true,
+    "real_retry_saved_modified_version_current_and_confirmed_correct": true,
+    "successful_retry_replay_no_new_version_or_model_call": true
+  },
+  "input_sha256": "c5e404f8b974bdddeaae4b8d5d59c05e74dc2fd1a58839faf344a91a5a75050b",
+  "stage": "modification-retry",
+  "result": "PASS",
+  "owned_schema_removed": true,
+  "verification_script_sha256": "6eafe85acf2c68e503107b749596d146857e77102746fb9bdc2a1f8d385021eb",
+  "usage_total": {
+    "prompt_tokens": 20340,
+    "completion_tokens": 3267,
+    "total_tokens": 23607
+  }
+}

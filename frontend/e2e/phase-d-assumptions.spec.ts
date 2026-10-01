@@ -1,6 +1,6 @@
 import {fixtureLogin} from "./identity-fixture";
 import {test,expect} from '@playwright/test';
-const API='http://localhost:8000';
+const API='http://localhost/api';
 for(const width of [1366,1920])test(`V1.2 no legacy assumption gate ${width}`,async({page,request})=>{
  const s=await (await fixtureLogin(request, 'user_a', 'ValidationPass123')).json();
  await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`, s.access_token); localStorage.setItem(`banfei:${s.user.role}:user`, JSON.stringify(s.user));},s);

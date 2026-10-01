@@ -9,6 +9,15 @@ def visible_case(conn,case_id,admin=False):
 
 def projection(conn,case_id,purpose='system'):
     c=visible_case(conn,case_id)
+    result=case_projection(c,purpose)
+    if purpose!='model':
+        from .material_files import public_file
+        result['files']=[public_file(r,False) for r in conn.execute('SELECT * FROM deliverables WHERE case_id=? ORDER BY created_at,id',(case_id,))]
+    return result
+
+def case_projection(c,purpose='model'):
+    if not c['visible'] or c['partner_status']!='active':raise HTTPException(404,'案例不存在或未展示')
+    case_id=c['id']
     names=category_names(c['category_id'])
     result={'source_type':'case','source_id':case_id,'source_version':1,
             'title':c['title'],'summary':c['description'] or '',
@@ -17,7 +26,4 @@ def projection(conn,case_id,purpose='system'):
             'capability_tag_ids':[]}
     # source_version=1 is only a compatibility sentinel for stored Plan item contracts.
     # No case snapshot or version is created, selected or authorized through this number.
-    if purpose!='model':
-        from .material_files import public_file
-        result['files']=[public_file(r,False) for r in conn.execute('SELECT * FROM deliverables WHERE case_id=? ORDER BY created_at,id',(case_id,))]
     return result

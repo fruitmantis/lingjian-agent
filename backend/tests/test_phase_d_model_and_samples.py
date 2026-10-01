@@ -58,7 +58,9 @@ def supplier(scenario,monkeypatch):
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler);server.daemon_threads=True
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
     with get_db() as conn:config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
-    config.update(base_url=f'http://127.0.0.1:{server.server_port}/v1',api_key='synthetic-only',api_key_source='db')
+    with get_db() as conn:
+        conn.execute('UPDATE model_configs SET base_url=?,api_key=? WHERE id=?',(f'http://127.0.0.1:{server.server_port}/v1','synthetic-only',config['id']))
+    config=__import__('backend.app.model_resolver',fromlist=['resolve_model_record']).resolve_model_record('partner_development')
     monkeypatch.setattr(model,'configuration',lambda **kwargs:config)
     monkeypatch.setattr(model,'completion',REAL_COMPLETION)
     yield state
@@ -84,7 +86,7 @@ def test_loopback_supplier_schema_error_timeout_and_retry(scenario,supplier,monk
         assert status=='failed' and plan(pid)['current_version_id']==v1
         assert plan(pid)['confirmed_version_id']==v1 and views.transferable(pid,user)['text']
         supplier['mode']='normal';save(TimeoutSettings())
-        retry=life.revise(pid,Revise(submission_id='supplier-retry-'+mode,based_on_version_id=v1,instruction='重试',request=request),user)
+        retry=life.revise(pid,Revise(submission_id='supplier-retry-'+mode,based_on_version_id=v1,instruction='缩短周期',request=request),user)
         engine.execute(retry['run_id']);assert plan(pid)['current_version_id']!=v1
     if mode=='slow':assert elapsed<2
     if mode=='dribble':assert elapsed<.38

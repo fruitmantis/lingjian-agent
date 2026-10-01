@@ -1,0 +1,24 @@
+{
+  "runtime_database": "banfei_agent",
+  "snapshot_mode": "REPEATABLE READ READ ONLY",
+  "tables": 35,
+  "rows": 2314,
+  "all_row_hashes_equal": true,
+  "row_snapshot_sha256": "521de2538795b76f47d4b97a6b63507bde5065a7294f7eb5eba8ad5acd60dcec",
+  "protected_files": 169,
+  "retained_backups": 13,
+  "all_file_hashes_equal": true,
+  "protected_snapshot_sha256": "c2fcc9126b00138c49c1538b1205be67339590c51652be06ebf5ecc598856eae",
+  "http_origin": "http://172.21.208.223",
+  "http_checks": {
+    "/api/health": 200,
+    "/login": 200,
+    "/icon.svg": 200
+  },
+  "listeners": [
+    "LISTEN 0      2048        127.0.0.1:8000      0.0.0.0:*    users:((\"python\",pid=137192,fd=15))         ",
+    "LISTEN 0      511         127.0.0.1:3000      0.0.0.0:*    users:((\"next-server (v1\",pid=137224,fd=25))",
+    "LISTEN 0      4096                *:80              *:*                                                "
+  ],
+  "service_restored": true
+}

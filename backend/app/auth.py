@@ -76,7 +76,7 @@ def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(secu
     from .database import get_db
     with get_db() as conn:
         # Serialize activity with cleanup and credential writes across processes.
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         row = conn.execute(
             "SELECT id, username, display_name, department, role, status, must_change_password, token_version, created_at, updated_at, last_login_at, locked_until FROM users WHERE id = ?",
             (payload.get("sub"),),

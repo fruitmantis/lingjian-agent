@@ -3,16 +3,13 @@ import hashlib
 import json
 import os
 from sqlalchemy import select
-from sqlalchemy.engine import make_url
 from backend.app.postgres_storage import engine_for
 from backend.app.storage_models import metadata
-from backend.tests.support.model_test_boundary import POSTGRES_TEST_DATABASES
 
 
 def fingerprint(url):
-    parsed = make_url(url)
-    if parsed.database not in POSTGRES_TEST_DATABASES or parsed.host not in ('127.0.0.1', 'localhost'):
-        raise RuntimeError('Only the dedicated local test database may be fingerprinted')
+    from backend.tests.support.model_test_boundary import validation_url
+    validation_url(url, scoped=True)
     with engine_for(url).connect() as conn:
         conn.exec_driver_sql('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY')
         rows = {name: sorted(json.dumps(list(row), ensure_ascii=False) for row in conn.execute(select(table)))

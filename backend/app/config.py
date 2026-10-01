@@ -28,11 +28,6 @@ def get_jwt_secret_key() -> str:
     return secret
 
 
-def database_path() -> Path:
-    configured = os.getenv("LINGJIAN_DATABASE_PATH", "").strip()
-    return Path(configured).expanduser().resolve() if configured else PROJECT_ROOT / "data" / "app.db"
-
-
 def uploads_path() -> Path:
     configured = os.getenv("LINGJIAN_UPLOADS_DIR", "").strip()
     return Path(configured).expanduser().resolve() if configured else PROJECT_ROOT / "data" / "uploads"
@@ -44,10 +39,10 @@ def chroma_path() -> Path:
 
 
 def database_url() -> str:
-    """Explicit backend selection; never silently fall back from PostgreSQL to SQLite."""
+    """Require the supported PostgreSQL driver; never choose another database."""
     value = os.getenv("DATABASE_URL", "").strip()
     if not value:
-        raise RuntimeError("DATABASE_URL is required; no automatic SQLite fallback")
-    if not value.startswith(("postgresql://", "postgresql+psycopg://", "sqlite://")):
-        raise RuntimeError("Unsupported DATABASE_URL database type")
+        raise RuntimeError("DATABASE_URL is required")
+    from .postgres_storage import validated_url
+    validated_url(value)
     return value

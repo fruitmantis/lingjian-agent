@@ -2,7 +2,7 @@ import {fixtureLogin} from "./identity-fixture";
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-const API='http://localhost:8000';
+const API='http://localhost/api';
 
 async function login(page:Page,request:APIRequestContext,username='admin1'){
   const response=await fixtureLogin(request, username, 'ValidationPass123');

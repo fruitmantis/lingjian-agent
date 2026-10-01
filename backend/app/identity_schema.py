@@ -18,15 +18,3 @@ KEY_SQL = """CREATE TABLE IF NOT EXISTS user_identity_keys (
 
 REVOKED_KEY_SQL = """CREATE TABLE IF NOT EXISTS revoked_identity_keys (
  key_hash TEXT PRIMARY KEY, revoked_at TEXT NOT NULL)"""
-
-
-def initialize_identity_schema(conn):
-    conn.execute(CREDENTIAL_SQL)
-    conn.execute(CHALLENGE_SQL)
-    conn.execute(KEY_SQL)
-    conn.execute(REVOKED_KEY_SQL)
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_identity_user ON identity_credentials(user_id)')
-    conn.execute('CREATE INDEX IF NOT EXISTS idx_identity_expiry ON identity_challenges(expires_at)')
-    if 'last_active_at' not in {row[1] for row in conn.execute('PRAGMA table_info(users)')}:
-        conn.execute('ALTER TABLE users ADD COLUMN last_active_at TEXT')
-    conn.execute("UPDATE app_metadata SET value='16' WHERE key='schema_version' AND CAST(value AS INTEGER)<16")

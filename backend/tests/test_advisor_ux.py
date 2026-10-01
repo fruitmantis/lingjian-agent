@@ -5,6 +5,7 @@ import pytest
 from fastapi import HTTPException
 from backend.app import development_engine as engine,development_views as views,development_model as model
 from backend.app.development_types import Conversation
+from backend.tests.support.development_execution import finish,answer as completed_answer
 from backend.tests.test_development_engine import scenario
 from backend.tests.test_development_lifecycle import prepared,plan
 from backend.tests.test_v12_agent import run,items,add
@@ -13,16 +14,16 @@ from backend.tests.test_v12_agent import run,items,add
 def test_discussion_keeps_current_advice_without_confirmation(scenario,message):
     detail=run(scenario,'Agent 应用交付');pid=detail['plan']['id'];version=detail['plan']['current_version_id']
     result=views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=version,message=message),scenario[0][0])
-    assert result['kind']=='explain' and result['answer'].startswith('### 结论\n\n')
-    assert 1 <= len(re.findall(r'^#### .+$',result['answer'],re.M)) <= 3
+    answer=completed_answer(result,scenario[0][0])
+    assert answer.startswith('### 结论\n\n')
+    assert 1 <= len(re.findall(r'^#### .+$',answer,re.M)) <= 3
     system=scenario[1][-1][0]['content']
-    for requirement in ('### 结论','1～3 个主题','主题名称由你根据问题生成','不超过 120 字','不重复大段伙伴画像原文'):
+    for requirement in ('解释、比较', 'action=answer', '不创建版本'):
         assert requirement in system
-    assert '### 结论' not in scenario[1][0][0]['content']  # Only follow-up replies use this format.
 
     after=views.detail(pid,scenario[0][0])
     assert after['plan']['current_version_id']==version and plan(pid)['confirmed_version_id'] is None
-    assert len(after['runs'])==len(after['versions'])==1
+    assert len(after['runs'])==2 and len(after['versions'])==1
 
 
 def test_explore_is_small_direction_response_not_resource_package(scenario):
@@ -59,10 +60,16 @@ def test_readonly_resource_duration_is_metadata_not_generated_estimate(scenario)
 
 def test_difficulty_discussion_cannot_be_misclassified_as_revision(scenario,monkeypatch):
     d=run(scenario,'Agent 应用交付');v=d['plan']['current_version_id']
-    monkeypatch.setattr(model,'completion',lambda *args:json.dumps({'target_partner_id':'partner-1','kind':'revise','answer':'','references':[]}))
-    with pytest.raises(HTTPException) as exc:views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v,message='哪个实验更难？'),scenario[0][0])
-    assert exc.value.status_code==422
-    after=views.detail(d['plan']['id'],scenario[0][0]);assert len(after['versions'])==len(after['runs'])==1
+    calls=[];original=scenario[2]
+    def invalid(c,m,s):
+        calls.append(s['title']);output=json.loads(original(c,m,s));output['action']='regenerate'
+        return json.dumps(output)
+    monkeypatch.setattr(model,'completion',invalid)
+    accepted=views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v,message='哪个实验更难？'),scenario[0][0])
+    after,failed=finish(accepted,scenario[0][0])
+    assert calls==['Understanding'] and failed['status']=='failed'
+    assert after['plan']['current_version_id']==v and len(after['versions'])==1
+
 
 
 @pytest.mark.parametrize('answer', [
@@ -71,16 +78,20 @@ def test_difficulty_discussion_cannot_be_misclassified_as_revision(scenario,monk
 ])
 def test_formatted_discussion_persists_and_replays_without_versions(scenario,monkeypatch,answer):
     detail=run(scenario,'Agent 应用交付');user=scenario[0][0];pid=detail['plan']['id'];version=detail['plan']['current_version_id']
-    def complete(*args):
-        return json.dumps({'target_partner_id':'partner-1','kind':'explain','answer':answer,'references':[]})
+    def complete(c,m,s):
+        output=json.loads(scenario[2](c,m,s));output.update(action='answer',answer=answer,references=[])
+        return json.dumps(output)
     monkeypatch.setattr(model,'completion',complete)
     body=Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=version,message='请解释当前建议')
-    assert views.converse(pid,body,user)=={'kind':'explain','answer':answer}
+    accepted=views.converse(pid,body,user)
+    assert completed_answer(accepted,user)==answer
     monkeypatch.setattr(model,'completion',lambda *args:pytest.fail('Replayed explanation must not call the model'))
-    assert views.converse(pid,body,user)=={'kind':'explain','answer':answer}
+    replay=views.converse(pid,body,user)
+    assert replay['replayed'] and replay['run_id']==accepted['run_id']
+    assert completed_answer(replay,user)==answer
     after=views.detail(pid,user)
     assert after['conversation'][0]['answer']==answer and len(after['conversation'])==1
-    assert after['plan']['current_version_id']==version and len(after['versions'])==len(after['runs'])==1
+    assert after['plan']['current_version_id']==version and len(after['versions'])==1 and len(after['runs'])==2
 
 
 def test_empty_answer_records_actual_reason_and_preserves_advice(scenario,monkeypatch,client):
@@ -88,13 +99,33 @@ def test_empty_answer_records_actual_reason_and_preserves_advice(scenario,monkey
     from backend.tests.conftest import auth_headers
     detail=run(scenario,'Agent 应用交付');pid=detail['plan']['id'];version=detail['plan']['current_version_id']
     user=scenario[0][0]
-    monkeypatch.setattr(model,'completion',lambda *args:json.dumps({'target_partner_id':'partner-1','kind':'explain','answer':'  ','references':[]}))
+    calls=[]
+    def empty(c,m,s):
+        calls.append(s['title']);output=json.loads(scenario[2](c,m,s));output.update(action='answer',answer='  ')
+        return json.dumps(output)
+    monkeypatch.setattr(model,'completion',empty)
     body={'submission_id':'empty-answer-request','based_on_version_id':version,'message':'请解释当前建议'}
     response=client.post(f'/development/plans/{pid}/conversation',headers=auth_headers(user),json=body)
-    assert response.status_code==422 and response.json()['detail']=='本次处理失败，请重试。'
-    error=recent_errors()[0]
-    assert error['task_id']==pid and error['request_id']==body['submission_id'] and error['stage']=='conversation'
-    assert error['message']=='Explanation answer is empty' and 'converse' in error['traceback']
+    assert response.status_code==200
+    after,failed=finish(response.json(),user,execute=False)
+    assert failed['status']=='failed' and calls==['Understanding']
+    error=next(e for e in recent_errors() if e['message']=='Answer is empty')
+    assert error['task_id']==pid and error['request_id']==body['submission_id']
+    assert 'prepare' in error['traceback']
     after=views.detail(pid,user)
     assert after['plan']['current_version_id']==version and not after['conversation']
-    assert len(after['versions'])==len(after['runs'])==1
+    assert len(after['versions'])==1 and len(after['runs'])==2
+
+
+def test_question_with_explicit_modification_can_still_create_version(scenario,monkeypatch):
+    detail=run(scenario,'数据库迁移');user=scenario[0][0];pid=detail['plan']['id'];base=detail['plan']['current_version_id']
+    original=scenario[2]
+    def modify(c,m,s):
+        output=json.loads(original(c,m,s))
+        if s['title']=='Understanding':output['action']='regenerate'
+        return json.dumps(output)
+    monkeypatch.setattr(model,'completion',modify)
+    accepted=views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=base,message='为什么推荐课程？请修改建议，优先选择实验'),user)
+    after,finished=finish(accepted,user)
+    assert finished['status']=='ready' and len(after['versions'])==2
+    assert after['plan']['current_version_id']!=base

@@ -1,0 +1,559 @@
+...........FFFFF.F.FFFF................................................. [  7%]
+........................................................................ [ 15%]
+.......................................................FF............... [ 23%]
+.....F.................................................................. [ 31%]
+........................................................................ [ 38%]
+...............................F........................................ [ 46%]
+...........F............................................................ [ 54%]
+..........................................F...F......................... [ 62%]
+...........FF........................................................... [ 69%]
+FFFFFFFFF..FFFFF........................................................ [ 77%]
+........................FFFFFFFFFFFFFFFFFFFFFFFFFF...................... [ 85%]
+.......................................................FF..F............ [ 93%]
+..............................................FFFF.....FFF..FFF          [100%]
+=================================== FAILURES ===================================
+_ test_discussion_keeps_current_advice_without_confirmation[\u4e3a\u4ec0\u4e48\u63a8\u8350 RAG\uff1f] _
+backend/tests/test_advisor_ux.py:16: in test_discussion_keeps_current_advice_without_confirmation
+    assert result['kind']=='explain' and result['answer'].startswith('### 结论\n\n')
+E   AssertionError: assert ('revise' == 'explain'
+E     
+E     - explain
+E     + revise)
+_ test_discussion_keeps_current_advice_without_confirmation[\u8fd9\u4e2a\u8bfe\u7a0b\u4e3a\u4ec0\u4e48\u9002\u5408\uff1f] _
+backend/tests/test_advisor_ux.py:16: in test_discussion_keeps_current_advice_without_confirmation
+    assert result['kind']=='explain' and result['answer'].startswith('### 结论\n\n')
+E   AssertionError: assert ('revise' == 'explain'
+E     
+E     - explain
+E     + revise)
+_ test_discussion_keeps_current_advice_without_confirmation[\u8fd9\u4e24\u4e2a\u5b9e\u9a8c\u6709\u4ec0\u4e48\u533a\u522b\uff1f] _
+backend/tests/test_advisor_ux.py:16: in test_discussion_keeps_current_advice_without_confirmation
+    assert result['kind']=='explain' and result['answer'].startswith('### 结论\n\n')
+E   AssertionError: assert ('revise' == 'explain'
+E     
+E     - explain
+E     + revise)
+_ test_discussion_keeps_current_advice_without_confirmation[\u54ea\u4e2a\u5b9e\u9a8c\u66f4\u96be\uff1f] _
+backend/tests/test_advisor_ux.py:16: in test_discussion_keeps_current_advice_without_confirmation
+    assert result['kind']=='explain' and result['answer'].startswith('### 结论\n\n')
+E   AssertionError: assert ('revise' == 'explain'
+E     
+E     - explain
+E     + revise)
+_ test_discussion_keeps_current_advice_without_confirmation[\u6709\u6ca1\u6709\u66f4\u8fdb\u9636\u4e00\u70b9\u7684\u5b9e\u9a8c\uff1f] _
+backend/tests/test_advisor_ux.py:16: in test_discussion_keeps_current_advice_without_confirmation
+    assert result['kind']=='explain' and result['answer'].startswith('### 结论\n\n')
+E   AssertionError: assert ('revise' == 'explain'
+E     
+E     - explain
+E     + revise)
+____ test_natural_adjustment_reorders_focus_and_failed_retry_keeps_current _____
+backend/tests/test_advisor_ux.py:42: in test_natural_adjustment_reorders_focus_and_failed_retry_keeps_current
+    assert updated['payload']['analysis']['priorities'][0]['name']=='Agent 系统集成与 POC 调优'
+E   AssertionError: assert '应用集成与云服务基础' == 'Agent 系统集成与 POC 调优'
+E     
+E     - Agent 系统集成与 POC 调优
+E     + 应用集成与云服务基础
+________ test_difficulty_discussion_cannot_be_misclassified_as_revision ________
+backend/tests/test_advisor_ux.py:63: in test_difficulty_discussion_cannot_be_misclassified_as_revision
+    with pytest.raises(HTTPException) as exc:views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v,message='哪个实验更难？'),scenario[0][0])
+E   Failed: DID NOT RAISE HTTPException
+_ test_formatted_discussion_persists_and_replays_without_versions[### \u7ed3\u8bba\n\n\u4f18\u5148\u9a8c\u8bc1\u7cfb\u7edf\u96c6\u6210\u3002\n\n#### \u63a5\u53e3\u7ea6\u675f\n\n- \u6838\u5b9e\u8f93\u5165\u8f93\u51fa\u3002\n- \u51c6\u5907\u5f02\u5e38\u5904\u7406\u3002] _
+backend/tests/test_advisor_ux.py:78: in test_formatted_discussion_persists_and_replays_without_versions
+    assert views.converse(pid,body,user)=={'kind':'explain','answer':answer}
+E   AssertionError: assert {'kind': 'rev...nt_plan', ...} == {'kind': 'exp...。\n- 准备异常处理。'}
+E     
+E     Differing items:
+E     {'kind': 'revise'} != {'kind': 'explain'}
+E     Left contains 4 more items:
+E     {'plan_id': 'c629e615-f70a-4df5-b707-39f673f77375',
+E      'replayed': False,
+E      'run_id': 'afc19d3f-6623-429a-ac54-2d0d224e531d',...
+E     
+E     ...Full output truncated (4 lines hidden), use '-vv' to show
+_ test_formatted_discussion_persists_and_replays_without_versions[### \u7ed3\u8bba\n\n\u4e24\u7c7b\u5b9e\u9a8c\u5404\u6709\u4fa7\u91cd\u3002\n\n#### \u6570\u636e\u63a5\u5165\n\n\u5148\u68c0\u67e5\u6570\u636e\u6761\u4ef6\u3002\n\n#### \u8bc4\u4f30\u65b9\u5f0f\n\n1. \u660e\u786e\u8bc4\u4f30\u6837\u672c\u3002\n2. \u9a8c\u8bc1\u5b9e\u9645\u6548\u679c\u3002\n\n#### \u9009\u62e9\u6761\u4ef6\n\n\u6309\u76ee\u6807\u9009\u62e9\u3002] _
+backend/tests/test_advisor_ux.py:78: in test_formatted_discussion_persists_and_replays_without_versions
+    assert views.converse(pid,body,user)=={'kind':'explain','answer':answer}
+E   AssertionError: assert {'kind': 'rev...nt_plan', ...} == {'kind': 'exp...条件\n\n按目标选择。'}
+E     
+E     Differing items:
+E     {'kind': 'revise'} != {'kind': 'explain'}
+E     Left contains 4 more items:
+E     {'plan_id': '910eab09-36dd-4b28-b4d4-c3ab82632960',
+E      'replayed': False,
+E      'run_id': '7108cb54-5753-4b71-a2ae-5d360cf9404d',...
+E     
+E     ...Full output truncated (19 lines hidden), use '-vv' to show
+_________ test_empty_answer_records_actual_reason_and_preserves_advice _________
+backend/tests/test_advisor_ux.py:94: in test_empty_answer_records_actual_reason_and_preserves_advice
+    assert response.status_code==422 and response.json()['detail']=='本次处理失败，请重试。'
+E   assert (200 == 422)
+E    +  where 200 = <Response [200 OK]>.status_code
+---------------------------- Captured log teardown -----------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "5a5058ae-dcc1-4ff0-a5c4-7bce0414f382", "time": "2026-10-01T08:33:15.447250+00:00", "request_id": "empty-answer-request", "task_id": "ff004e0e-11bd-4f8c-ac2f-990c68d262e7", "run_id": "ac2cb2c1-c94c-46f8-83e0-83de6cd1ab18", "stage": "understanding", "exception_type": "InvalidOutput", "message": "[{\"type\": \"extra_forbidden\", \"loc\": [\"kind\"], \"msg\": \"Extra inputs are not permitted\"}, {\"type\": \"missing\", \"loc\": [\"intent\"], \"msg\": \"Field required\"}, {\"type\": \"missing\", \"loc\": [\"interpretation\"], \"msg\": \"Field required\"}, {\"type\": \"missing\", \"loc\": [\"in_scope\"], \"msg\": \"Field required\"}, {\"type\": \"missing\", \"loc\": [\"action\"], \"msg\": \"Field required\"}, {\"type\": \"missing\", \"loc\": [\"effective_direction\"], \"msg\": \"Field required\"}]", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 226, in prepare\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 95, in call\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 64, in parse\nInvalidOutput: [{\"type\": \"extra_forbidden\", \"loc\": [\"kind\"], \"msg\": \"Extra inputs are not permitted\"}, {\"type\": \"missing\", \"loc\": [\"intent\"], \"msg\": \"Field required\"}, {\"type\": \"missing\", \"loc\": [\"interpretation\"], \"msg\": \"Field required\"}, {\"type\": \"missing\", \"loc\": [\"in_scope\"], \"msg\": \"Field required\"}, {\"type\": \"missing\", \"loc\": [\"action\"], \"msg\": \"Field required\"}, {\"type\": \"missing\", \"loc\": [\"effective_direction\"], \"msg\": \"Field required\"}]"}
+_____________ test_all_new_api_operations_require_admin[anonymous] _____________
+backend/tests/test_enablement.py:191: in test_all_new_api_operations_require_admin
+    assert operations==10
+E   assert 14 == 10
+_______________ test_all_new_api_operations_require_admin[user] ________________
+backend/tests/test_enablement.py:191: in test_all_new_api_operations_require_admin
+    assert operations==10
+E   assert 14 == 10
+_______________ test_catalog_3000_published_resources_search_p95 _______________
+backend/tests/test_enablement_workspace.py:161: in test_catalog_3000_published_resources_search_p95
+    assert ordered[28]<2
+E   assert 2.36954711600265 < 2
+_ test_no_enabled_model_returns_actionable_error_without_calling_model[partner_match-/agent/match] _
+backend/tests/test_model_config.py:295: in test_no_enabled_model_returns_actionable_error_without_calling_model
+    assert response.status_code == 503
+E   assert 502 == 503
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "d2728e23-6cfa-48c7-b0d3-e60f1a7117a4", "time": "2026-10-01T08:39:51.889697+00:00", "request_id": "46bf8b4d-290c-429f-92bb-b60e0308701d", "task_id": "46bf8b4d-290c-429f-92bb-b60e0308701d", "run_id": "22298662-70f4-4cdc-bbe0-a11bee560045", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "没有启用的模型配置，请管理员新增或启用模型", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/routers/match.py\", line 826, in _execute_match_inner\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/match_understanding.py\", line 97, in prepare\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 42, in resolve_model_record\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 47, in resolve_model_record\nModelConfigurationError: 没有启用的模型配置，请管理员新增或启用模型"}
+__________ test_deepseek_json_mode_keeps_schema_and_strict_validation __________
+backend/tests/test_model_test_boundary.py:52: in test_deepseek_json_mode_keeps_schema_and_strict_validation
+    assert 'additionalProperties' in requests[0]["messages"][-1]["content"]
+E   AssertionError: assert 'additionalProperties' in 'Synthetic explanation'
+_______ test_retry_saves_grouped_regions_and_preserves_existing_results ________
+backend/tests/test_opportunity_extraction.py:77: in test_retry_saves_grouped_regions_and_preserves_existing_results
+    assert response.status_code == 200 and response.json()["taskStatus"] == "ready"
+E   assert (502 == 200)
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "6f1edf92-a1be-4353-8862-6c5c624beb6a", "time": "2026-10-01T08:41:00.574039+00:00", "request_id": "6c2c0cd9-2042-48f5-8221-7f2fc73714b9", "task_id": "6c2c0cd9-2042-48f5-8221-7f2fc73714b9", "run_id": "2d1c086b-31d2-4c79-85a3-1ba07272160c", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "Model API key is not configured", "model": "gpt-4o", "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_model.py\", line 41, in completion\nModelConfigurationError: Model API key is not configured"}
+______ test_matching_uses_existing_profile_and_evidence_without_raw_files ______
+backend/tests/test_p0_closure.py:34: in test_matching_uses_existing_profile_and_evidence_without_raw_files
+    result = match._perform_partner_match('数据库迁移')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+_________ test_late_match_after_deletion_is_retryable_not_stuck[False] _________
+backend/tests/test_partner_delete.py:198: in test_late_match_after_deletion_is_retryable_not_stuck
+    assert caught.value.status_code == 409
+E   AssertionError: assert 502 == 409
+E    +  where 502 = PublicTaskError(status_code=502, detail='服务异常，请联系管理员。').status_code
+E    +    where PublicTaskError(status_code=502, detail='服务异常，请联系管理员。') = <ExceptionInfo PublicTaskError(status_code=502, detail='服务异常，请联系管理员。') tblen=4>.value
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "4c22f0d8-847d-4137-a1b1-ec300d7ecad1", "time": "2026-10-01T08:41:49.470995+00:00", "request_id": "5b805943-bf5b-46be-9f45-23bcf01936a8", "task_id": "5b805943-bf5b-46be-9f45-23bcf01936a8", "run_id": null, "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "Model API key is not configured", "model": "gpt-4o", "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_model.py\", line 41, in completion\nModelConfigurationError: Model API key is not configured"}
+_________ test_late_match_after_deletion_is_retryable_not_stuck[True] __________
+backend/tests/test_partner_delete.py:195: in test_late_match_after_deletion_is_retryable_not_stuck
+    assert response.status_code == 409
+E   assert 502 == 409
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "522757cc-e6dc-42b9-9fd0-cd861e0b7710", "time": "2026-10-01T08:41:50.806380+00:00", "request_id": "354e37aa-5e02-40d9-8c50-153174819499", "task_id": "354e37aa-5e02-40d9-8c50-153174819499", "run_id": "3ce11d36-0296-4d45-9338-7f98bdfe8d36", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "Model API key is not configured", "model": "gpt-4o", "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_model.py\", line 41, in completion\nModelConfigurationError: Model API key is not configured"}
+________ test_loopback_supplier_schema_error_timeout_and_retry[normal] _________
+backend/tests/test_phase_d_model_and_samples.py:74: in test_loopback_supplier_schema_error_timeout_and_retry
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
+                                       ^^^^^^^^^
+E   assert None
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "711ccf68-c267-4125-9d47-1f25fb9de4ac", "time": "2026-10-01T08:43:06.440817+00:00", "request_id": "engine-submission", "task_id": "03076907-b610-45ac-87bb-c28fcaacf8d9", "run_id": "5d3e9a0e-28ab-4d32-80fb-98a5fc44dde3", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "本次运行的模型参数已变化，请重试以使用当前配置", "model": "gpt-4o", "http_status": 200, "response_excerpt": "{\"finish_reason\": null, \"content\": {\"partner_assessment\": \"当前可复用的基础包括AI,数据治理，行业经验涉及制造与工业。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展数据库迁移与回退验证。\", \"target_partner_id\": \"partner-1\", \"intent\": \"development\", \"interpretation\": \"数据库迁移与回退验证\", \"reusable_basis\": [\"已有可复用能力：AI,数据治理\", \"已有行业经验：制造与工业\"], \"priorities\": [{\"name\": \"数据库迁移与回退验证\", \"reason\": \"围绕数据交付经验深化迁移校验和回退实践。\", \"reusable_basis\": [\"AI,数据治理\"], \"capability_tag_id\": \"20c82b32-88dd-4afc-8dde-f965b44ac95f\", \"search_terms\": [\"数据库\", \"迁移\", \"回退\"]}], \"basis_limitations\": [\"当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。\"], \"resource_types\": [], \"excluded_levels\": [], \"in_scope\": true, \"action\": \"generate\", \"effective_direction\": \"数据库迁移\", \"effective_constraints\": {}, \"answer\": \"\", \"references\": [], \"edit_item_ids\": [], \"edit_answer_spans\": []}}", "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 309, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 74, in pinned_configuration\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 80, in pinned_configuration\nModelConfigurationError: 本次运行的模型参数已变化，请重试以使用当前配置"}
+_______ test_loopback_supplier_schema_error_timeout_and_retry[markdown] ________
+backend/tests/test_phase_d_model_and_samples.py:74: in test_loopback_supplier_schema_error_timeout_and_retry
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
+                                       ^^^^^^^^^
+E   assert None
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "e3ccc278-3730-4b44-964c-77680d16848a", "time": "2026-10-01T08:43:08.201546+00:00", "request_id": "engine-submission", "task_id": "af54b134-daf5-4b00-b0fb-b4636b583678", "run_id": "074af1fc-9e7b-4dfe-a9b7-180efce30872", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "本次运行的模型参数已变化，请重试以使用当前配置", "model": "gpt-4o", "http_status": 200, "response_excerpt": "{\"finish_reason\": null, \"content\": {\"partner_assessment\": \"当前可复用的基础包括AI,数据治理，行业经验涉及制造与工业。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展数据库迁移与回退验证。\", \"target_partner_id\": \"partner-1\", \"intent\": \"development\", \"interpretation\": \"数据库迁移与回退验证\", \"reusable_basis\": [\"已有可复用能力：AI,数据治理\", \"已有行业经验：制造与工业\"], \"priorities\": [{\"name\": \"数据库迁移与回退验证\", \"reason\": \"围绕数据交付经验深化迁移校验和回退实践。\", \"reusable_basis\": [\"AI,数据治理\"], \"capability_tag_id\": \"7d966f11-b6d3-43c3-8055-2f124013fcc9\", \"search_terms\": [\"数据库\", \"迁移\", \"回退\"]}], \"basis_limitations\": [\"当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。\"], \"resource_types\": [], \"excluded_levels\": [], \"in_scope\": true, \"action\": \"generate\", \"effective_direction\": \"数据库迁移\", \"effective_constraints\": {}, \"answer\": \"\", \"references\": [], \"edit_item_ids\": [], \"edit_answer_spans\": []}}", "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 309, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 74, in pinned_configuration\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 80, in pinned_configuration\nModelConfigurationError: 本次运行的模型参数已变化，请重试以使用当前配置"}
+_________ test_loopback_supplier_schema_error_timeout_and_retry[empty] _________
+backend/tests/test_phase_d_model_and_samples.py:74: in test_loopback_supplier_schema_error_timeout_and_retry
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
+                                       ^^^^^^^^^
+E   assert None
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "5f0a0a39-3705-43f1-8a08-f4a246bb5d9d", "time": "2026-10-01T08:43:09.939933+00:00", "request_id": "engine-submission", "task_id": "0743211d-ad11-4061-9af6-59d5b1d7445f", "run_id": "d5fd6d38-3b7a-4409-b57d-077ab7805baa", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "本次运行的模型参数已变化，请重试以使用当前配置", "model": "gpt-4o", "http_status": 200, "response_excerpt": "{\"finish_reason\": null, \"content\": {\"partner_assessment\": \"当前可复用的基础包括AI,数据治理，行业经验涉及制造与工业。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展数据库迁移与回退验证。\", \"target_partner_id\": \"partner-1\", \"intent\": \"development\", \"interpretation\": \"数据库迁移与回退验证\", \"reusable_basis\": [\"已有可复用能力：AI,数据治理\", \"已有行业经验：制造与工业\"], \"priorities\": [{\"name\": \"数据库迁移与回退验证\", \"reason\": \"围绕数据交付经验深化迁移校验和回退实践。\", \"reusable_basis\": [\"AI,数据治理\"], \"capability_tag_id\": \"f28b331e-6ada-4a5e-bcdc-c25b7356028a\", \"search_terms\": [\"数据库\", \"迁移\", \"回退\"]}], \"basis_limitations\": [\"当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。\"], \"resource_types\": [], \"excluded_levels\": [], \"in_scope\": true, \"action\": \"generate\", \"effective_direction\": \"数据库迁移\", \"effective_constraints\": {}, \"answer\": \"\", \"references\": [], \"edit_item_ids\": [], \"edit_answer_spans\": []}}", "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 309, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 74, in pinned_configuration\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 80, in pinned_configuration\nModelConfigurationError: 本次运行的模型参数已变化，请重试以使用当前配置"}
+________ test_loopback_supplier_schema_error_timeout_and_retry[invalid] ________
+backend/tests/test_phase_d_model_and_samples.py:74: in test_loopback_supplier_schema_error_timeout_and_retry
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
+                                       ^^^^^^^^^
+E   assert None
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "068e3579-ff5d-4691-bb7e-e772c0de0eda", "time": "2026-10-01T08:43:11.670956+00:00", "request_id": "engine-submission", "task_id": "e2d55b44-add8-4eeb-ae32-767e61536c93", "run_id": "86fbd567-2e74-4ec9-8678-bedfa562855e", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "本次运行的模型参数已变化，请重试以使用当前配置", "model": "gpt-4o", "http_status": 200, "response_excerpt": "{\"finish_reason\": null, \"content\": {\"partner_assessment\": \"当前可复用的基础包括AI,数据治理，行业经验涉及制造与工业。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展数据库迁移与回退验证。\", \"target_partner_id\": \"partner-1\", \"intent\": \"development\", \"interpretation\": \"数据库迁移与回退验证\", \"reusable_basis\": [\"已有可复用能力：AI,数据治理\", \"已有行业经验：制造与工业\"], \"priorities\": [{\"name\": \"数据库迁移与回退验证\", \"reason\": \"围绕数据交付经验深化迁移校验和回退实践。\", \"reusable_basis\": [\"AI,数据治理\"], \"capability_tag_id\": \"1a954fb0-4ef1-48fc-9821-0770cbd01e76\", \"search_terms\": [\"数据库\", \"迁移\", \"回退\"]}], \"basis_limitations\": [\"当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。\"], \"resource_types\": [], \"excluded_levels\": [], \"in_scope\": true, \"action\": \"generate\", \"effective_direction\": \"数据库迁移\", \"effective_constraints\": {}, \"answer\": \"\", \"references\": [], \"edit_item_ids\": [], \"edit_answer_spans\": []}}", "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 309, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 74, in pinned_configuration\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 80, in pinned_configuration\nModelConfigurationError: 本次运行的模型参数已变化，请重试以使用当前配置"}
+_________ test_loopback_supplier_schema_error_timeout_and_retry[enum] __________
+backend/tests/test_phase_d_model_and_samples.py:74: in test_loopback_supplier_schema_error_timeout_and_retry
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
+                                       ^^^^^^^^^
+E   assert None
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "aaaa69b3-6b7e-4025-8693-7f0c741996b7", "time": "2026-10-01T08:43:13.379507+00:00", "request_id": "engine-submission", "task_id": "88fbc374-a040-4fe4-8b86-da818f49b54c", "run_id": "2622bc82-1d25-4c7a-87c3-e20c0f58465d", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "本次运行的模型参数已变化，请重试以使用当前配置", "model": "gpt-4o", "http_status": 200, "response_excerpt": "{\"finish_reason\": null, \"content\": {\"partner_assessment\": \"当前可复用的基础包括AI,数据治理，行业经验涉及制造与工业。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展数据库迁移与回退验证。\", \"target_partner_id\": \"partner-1\", \"intent\": \"development\", \"interpretation\": \"数据库迁移与回退验证\", \"reusable_basis\": [\"已有可复用能力：AI,数据治理\", \"已有行业经验：制造与工业\"], \"priorities\": [{\"name\": \"数据库迁移与回退验证\", \"reason\": \"围绕数据交付经验深化迁移校验和回退实践。\", \"reusable_basis\": [\"AI,数据治理\"], \"capability_tag_id\": \"e3273620-012a-468b-8bc4-dea7c966e4df\", \"search_terms\": [\"数据库\", \"迁移\", \"回退\"]}], \"basis_limitations\": [\"当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。\"], \"resource_types\": [], \"excluded_levels\": [], \"in_scope\": true, \"action\": \"generate\", \"effective_direction\": \"数据库迁移\", \"effective_constraints\": {}, \"answer\": \"\", \"references\": [], \"edit_item_ids\": [], \"edit_answer_spans\": []}}", "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 309, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 74, in pinned_configuration\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 80, in pinned_configuration\nModelConfigurationError: 本次运行的模型参数已变化，请重试以使用当前配置"}
+______ test_loopback_supplier_schema_error_timeout_and_retry[http_error] _______
+backend/tests/test_phase_d_model_and_samples.py:74: in test_loopback_supplier_schema_error_timeout_and_retry
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
+                                       ^^^^^^^^^
+E   assert None
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "8320591e-06d4-469c-8d0c-5b4b03221849", "time": "2026-10-01T08:43:15.129867+00:00", "request_id": "engine-submission", "task_id": "ff7af44c-0476-495d-bbcf-2fbcad293139", "run_id": "93a6de30-0c54-4f51-9648-2666cdc47a31", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "本次运行的模型参数已变化，请重试以使用当前配置", "model": "gpt-4o", "http_status": 200, "response_excerpt": "{\"finish_reason\": null, \"content\": {\"partner_assessment\": \"当前可复用的基础包括AI,数据治理，行业经验涉及制造与工业。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展数据库迁移与回退验证。\", \"target_partner_id\": \"partner-1\", \"intent\": \"development\", \"interpretation\": \"数据库迁移与回退验证\", \"reusable_basis\": [\"已有可复用能力：AI,数据治理\", \"已有行业经验：制造与工业\"], \"priorities\": [{\"name\": \"数据库迁移与回退验证\", \"reason\": \"围绕数据交付经验深化迁移校验和回退实践。\", \"reusable_basis\": [\"AI,数据治理\"], \"capability_tag_id\": \"433ad676-d5e3-4c7a-b549-fb0a727386f8\", \"search_terms\": [\"数据库\", \"迁移\", \"回退\"]}], \"basis_limitations\": [\"当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。\"], \"resource_types\": [], \"excluded_levels\": [], \"in_scope\": true, \"action\": \"generate\", \"effective_direction\": \"数据库迁移\", \"effective_constraints\": {}, \"answer\": \"\", \"references\": [], \"edit_item_ids\": [], \"edit_answer_spans\": []}}", "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 309, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 74, in pinned_configuration\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 80, in pinned_configuration\nModelConfigurationError: 本次运行的模型参数已变化，请重试以使用当前配置"}
+_________ test_loopback_supplier_schema_error_timeout_and_retry[slow] __________
+backend/tests/test_phase_d_model_and_samples.py:74: in test_loopback_supplier_schema_error_timeout_and_retry
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
+                                       ^^^^^^^^^
+E   assert None
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "7d3b2463-d1d4-4dff-9a34-3c9a8a17df7a", "time": "2026-10-01T08:43:17.030953+00:00", "request_id": "engine-submission", "task_id": "97b6db4d-d593-4c0a-8566-1ed1b4c53251", "run_id": "abaecab3-b153-4f89-b46e-25d06f116c14", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "本次运行的模型参数已变化，请重试以使用当前配置", "model": "gpt-4o", "http_status": 200, "response_excerpt": "{\"finish_reason\": null, \"content\": {\"partner_assessment\": \"当前可复用的基础包括AI,数据治理，行业经验涉及制造与工业。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展数据库迁移与回退验证。\", \"target_partner_id\": \"partner-1\", \"intent\": \"development\", \"interpretation\": \"数据库迁移与回退验证\", \"reusable_basis\": [\"已有可复用能力：AI,数据治理\", \"已有行业经验：制造与工业\"], \"priorities\": [{\"name\": \"数据库迁移与回退验证\", \"reason\": \"围绕数据交付经验深化迁移校验和回退实践。\", \"reusable_basis\": [\"AI,数据治理\"], \"capability_tag_id\": \"999a49a4-0077-411a-961a-c232dbe38966\", \"search_terms\": [\"数据库\", \"迁移\", \"回退\"]}], \"basis_limitations\": [\"当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。\"], \"resource_types\": [], \"excluded_levels\": [], \"in_scope\": true, \"action\": \"generate\", \"effective_direction\": \"数据库迁移\", \"effective_constraints\": {}, \"answer\": \"\", \"references\": [], \"edit_item_ids\": [], \"edit_answer_spans\": []}}", "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 309, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 74, in pinned_configuration\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 80, in pinned_configuration\nModelConfigurationError: 本次运行的模型参数已变化，请重试以使用当前配置"}
+________ test_loopback_supplier_schema_error_timeout_and_retry[dribble] ________
+backend/tests/test_phase_d_model_and_samples.py:74: in test_loopback_supplier_schema_error_timeout_and_retry
+    v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
+                                       ^^^^^^^^^
+E   assert None
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "92c24aca-bc13-4ebd-83e5-1b0cbb292732", "time": "2026-10-01T08:43:18.936627+00:00", "request_id": "engine-submission", "task_id": "0c14662d-e2fa-4ffd-a4eb-9ddfb97fd419", "run_id": "a9a9c7e2-2a88-4537-8544-ff3824c9e248", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "本次运行的模型参数已变化，请重试以使用当前配置", "model": "gpt-4o", "http_status": 200, "response_excerpt": "{\"finish_reason\": null, \"content\": {\"partner_assessment\": \"当前可复用的基础包括AI,数据治理，行业经验涉及制造与工业。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展数据库迁移与回退验证。\", \"target_partner_id\": \"partner-1\", \"intent\": \"development\", \"interpretation\": \"数据库迁移与回退验证\", \"reusable_basis\": [\"已有可复用能力：AI,数据治理\", \"已有行业经验：制造与工业\"], \"priorities\": [{\"name\": \"数据库迁移与回退验证\", \"reason\": \"围绕数据交付经验深化迁移校验和回退实践。\", \"reusable_basis\": [\"AI,数据治理\"], \"capability_tag_id\": \"5ca5f7a1-ed87-4435-990d-9253bb239ec0\", \"search_terms\": [\"数据库\", \"迁移\", \"回退\"]}], \"basis_limitations\": [\"当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。\"], \"resource_types\": [], \"excluded_levels\": [], \"in_scope\": true, \"action\": \"generate\", \"effective_direction\": \"数据库迁移\", \"effective_constraints\": {}, \"answer\": \"\", \"references\": [], \"edit_item_ids\": [], \"edit_answer_spans\": []}}", "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 309, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 74, in pinned_configuration\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 80, in pinned_configuration\nModelConfigurationError: 本次运行的模型参数已变化，请重试以使用当前配置"}
+____________ test_development_kill_restart_retry_and_http_creation _____________
+backend/tests/test_phase_d_process.py:67: in test_development_kill_restart_retry_and_http_creation
+    assert current!=v1 and confirmed is None
+E   AssertionError: assert ('07003b85-88ee-4a59-86a0-eed90414f833' != '07003b85-88ee-4a59-86a0-eed90414f833')
+______ test_run_watchdog_without_polling_preserves_confirmed_and_retries _______
+backend/tests/test_phase_d_reliability.py:76: in test_run_watchdog_without_polling_preserves_confirmed_and_retries
+    assert plan(pid)['current_version_id'] != v1 and plan(pid)['confirmed_version_id'] == v1
+E   AssertionError: assert ('03cb0359-1700-41d1-80b0-ca1d0c8204c5' != '03cb0359-1700-41d1-80b0-ca1d0c8204c5')
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "f77598fa-841d-452d-a8b2-cebe4d0039a8", "time": "2026-10-01T08:43:26.896930+00:00", "request_id": "watchdog-revise", "task_id": "64f6b8b3-a78f-477e-8c30-9c549672b132", "run_id": "25db1549-8b71-4895-9c57-753a1ef6476f", "stage": "run_timeout", "exception_type": "RuntimeError", "message": "Execution exceeded the configured run deadline", "model": null, "http_status": null, "response_excerpt": null, "traceback": "RuntimeError: Execution exceeded the configured run deadline"}
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "05d11a8a-d05e-4c5d-9a9b-f7c05cb8b904", "time": "2026-10-01T08:43:27.226173+00:00", "request_id": "watchdog-revise", "task_id": "64f6b8b3-a78f-477e-8c30-9c549672b132", "run_id": "25db1549-8b71-4895-9c57-753a1ef6476f", "stage": "understanding", "exception_type": "HTTPException", "message": "409: 运行已失效或超时", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 310, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 166, in run_stage\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 19, in fail\nHTTPException: 409: 运行已失效或超时"}
+___ test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[version] ____
+backend/tests/test_phase_d_reliability.py:110: in test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows
+    with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?',(pid,)).fetchone()[0]==3
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 2 == 3
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "fcc0a245-b10f-4393-b4d9-3c9e71244780", "time": "2026-10-01T08:43:28.818198+00:00", "request_id": "fault-v3-attempt", "task_id": "9695421f-c7a5-485c-8605-8449abb8f6cb", "run_id": "bb7f65ef-7f13-4370-adf2-fd91f53c4591", "stage": "persistence", "exception_type": "IntegrityError", "message": "synthetic failure\nCONTEXT:  PL/pgSQL function d_failure() line 1 at RAISE", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 358, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 256, in complete\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 234, in save_version\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/postgres_storage.py\", line 80, in execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1421, in execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py\", line 526, in _execute_on_connection\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1643, in _execute_clauseelement\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1848, in _execute_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1988, in _exec_single_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 2365, in _handle_dbapi_exception\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1969, in _exec_single_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/psycopg/cursor.py\", line 117, in execute\nIntegrityError: synthetic failure\nCONTEXT:  PL/pgSQL function d_failure() line 1 at RAISE"}
+_____ test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[item] _____
+backend/tests/test_phase_d_reliability.py:110: in test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows
+    with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?',(pid,)).fetchone()[0]==3
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 2 == 3
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "7e79ba67-4284-4136-89f0-f5b8c7f4342a", "time": "2026-10-01T08:43:30.545764+00:00", "request_id": "fault-v3-attempt", "task_id": "6302bd22-064d-43ba-bd29-e24ee717d7e3", "run_id": "1a99c7cf-5e8b-41a5-b4f7-3757bffa6598", "stage": "persistence", "exception_type": "IntegrityError", "message": "synthetic failure\nCONTEXT:  PL/pgSQL function d_failure() line 1 at RAISE", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 358, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 256, in complete\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 238, in save_version\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/postgres_storage.py\", line 80, in execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1421, in execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py\", line 526, in _execute_on_connection\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1643, in _execute_clauseelement\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1848, in _execute_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1988, in _exec_single_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 2365, in _handle_dbapi_exception\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1969, in _exec_single_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/psycopg/cursor.py\", line 117, in execute\nIntegrityError: synthetic failure\nCONTEXT:  PL/pgSQL function d_failure() line 1 at RAISE"}
+__ test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[diagnosis] ___
+backend/tests/test_phase_d_reliability.py:110: in test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows
+    with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?',(pid,)).fetchone()[0]==3
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 2 == 3
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "a963ea3f-bb58-4f73-966f-7bf9be22cdde", "time": "2026-10-01T08:43:32.296633+00:00", "request_id": "fault-v3-attempt", "task_id": "e9a94661-721b-4316-a108-e9038d512130", "run_id": "33f00992-1466-4b3d-adff-705185ad3029", "stage": "persistence", "exception_type": "IntegrityError", "message": "synthetic failure\nCONTEXT:  PL/pgSQL function d_failure() line 1 at RAISE", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 358, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 256, in complete\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 241, in save_version\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/postgres_storage.py\", line 80, in execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1421, in execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py\", line 526, in _execute_on_connection\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1643, in _execute_clauseelement\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1848, in _execute_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1988, in _exec_single_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 2365, in _handle_dbapi_exception\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1969, in _exec_single_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/psycopg/cursor.py\", line 117, in execute\nIntegrityError: synthetic failure\nCONTEXT:  PL/pgSQL function d_failure() line 1 at RAISE"}
+___ test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[pointer] ____
+backend/tests/test_phase_d_reliability.py:110: in test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows
+    with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?',(pid,)).fetchone()[0]==3
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 2 == 3
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "f9667f72-921b-4338-a59d-bba9dee06aec", "time": "2026-10-01T08:43:34.128034+00:00", "request_id": "fault-v3-attempt", "task_id": "9aa8abd7-9f2a-4963-8177-206c1241d6be", "run_id": "05639a04-4f20-4fab-8eb8-064c4b1eb564", "stage": "persistence", "exception_type": "IntegrityError", "message": "synthetic failure\nCONTEXT:  PL/pgSQL function d_failure() line 1 at RAISE", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 358, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 256, in complete\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 242, in save_version\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/postgres_storage.py\", line 80, in execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1421, in execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/sql/elements.py\", line 526, in _execute_on_connection\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1643, in _execute_clauseelement\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1848, in _execute_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1988, in _exec_single_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 2365, in _handle_dbapi_exception\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/base.py\", line 1969, in _exec_single_context\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/sqlalchemy/engine/default.py\", line 952, in do_execute\n  File \"/home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/psycopg/cursor.py\", line 117, in execute\nIntegrityError: synthetic failure\nCONTEXT:  PL/pgSQL function d_failure() line 1 at RAISE"}
+__________ test_scores_sorted_unique_limited_and_best_duplicate_kept ___________
+backend/tests/test_recommendations.py:38: in test_scores_sorted_unique_limited_and_best_duplicate_kept
+    recs = match._perform_partner_match("测试需求")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+______________ test_invalid_score_cannot_be_a_recommendation[NaN] ______________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+___________ test_invalid_score_cannot_be_a_recommendation[Infinity] ____________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+___________ test_invalid_score_cannot_be_a_recommendation[-Infinity] ___________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+_______________ test_invalid_score_cannot_be_a_recommendation[] ________________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+___________ test_invalid_score_cannot_be_a_recommendation[92\u5206] ____________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+______________ test_invalid_score_cannot_be_a_recommendation[-1] _______________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+______________ test_invalid_score_cannot_be_a_recommendation[101] ______________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+_____________ test_invalid_score_cannot_be_a_recommendation[True] ______________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+_____________ test_invalid_score_cannot_be_a_recommendation[None] ______________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+____________ test_invalid_score_cannot_be_a_recommendation[score9] _____________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+____________ test_invalid_score_cannot_be_a_recommendation[score10] ____________
+backend/tests/test_recommendations.py:49: in test_invalid_score_cannot_be_a_recommendation
+    match._perform_partner_match("测试需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+______________ test_boundary_and_decimal_scores_remain_valid[0-0] ______________
+backend/tests/test_recommendations.py:58: in test_boundary_and_decimal_scores_remain_valid
+    assert match._perform_partner_match("需求")[0].matchScore == expected
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+____________ test_boundary_and_decimal_scores_remain_valid[100-100] ____________
+backend/tests/test_recommendations.py:58: in test_boundary_and_decimal_scores_remain_valid
+    assert match._perform_partner_match("需求")[0].matchScore == expected
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+__________ test_boundary_and_decimal_scores_remain_valid[ 83.5 -83.5] __________
+backend/tests/test_recommendations.py:58: in test_boundary_and_decimal_scores_remain_valid
+    assert match._perform_partner_match("需求")[0].matchScore == expected
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+_____ test_active_identity_is_required_and_ambiguous_names_cannot_fallback _____
+backend/tests/test_recommendations.py:76: in test_active_identity_is_required_and_ambiguous_names_cannot_fallback
+    recs = match._perform_partner_match("需求")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+_________ test_only_owned_references_are_displayed_as_canonical_labels _________
+backend/tests/test_recommendations.py:89: in test_only_owned_references_are_displayed_as_canonical_labels
+    rec = match._perform_partner_match("需求")[0]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+________ test_exact_legacy_names_work_but_fabricated_narratives_do_not _________
+backend/tests/test_recommendations.py:103: in test_exact_legacy_names_work_but_fabricated_narratives_do_not
+    rec = match._perform_partner_match("需求")[0]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+____________________ test_ambiguous_evidence_names_need_ids ____________________
+backend/tests/test_recommendations.py:119: in test_ambiguous_evidence_names_need_ids
+    rec = match._perform_partner_match("需求")[0]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+________ test_unsupported_match_attributes_and_empty_risks_are_replaced ________
+backend/tests/test_recommendations.py:128: in test_unsupported_match_attributes_and_empty_risks_are_replaced
+    rec = match._perform_partner_match("需求")[0]
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+______________ test_missing_or_nontext_reasons_are_rejected[None] ______________
+backend/tests/test_recommendations.py:140: in test_missing_or_nontext_reasons_are_rejected
+    match._perform_partner_match("需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+_______________ test_missing_or_nontext_reasons_are_rejected[ ] ________________
+backend/tests/test_recommendations.py:140: in test_missing_or_nontext_reasons_are_rejected
+    match._perform_partner_match("需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+____________ test_missing_or_nontext_reasons_are_rejected[reason2] _____________
+backend/tests/test_recommendations.py:140: in test_missing_or_nontext_reasons_are_rejected
+    match._perform_partner_match("需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+____________ test_missing_or_nontext_reasons_are_rejected[reason3] _____________
+backend/tests/test_recommendations.py:140: in test_missing_or_nontext_reasons_are_rejected
+    match._perform_partner_match("需求")
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+____________ test_snake_case_and_wrapped_legacy_results_still_work _____________
+backend/tests/test_recommendations.py:148: in test_snake_case_and_wrapped_legacy_results_still_work
+    assert match._perform_partner_match("需求")[0].partnerId == "partner-1"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+___ test_new_task_persists_only_validated_results_without_rewriting_history ____
+backend/tests/test_recommendations.py:163: in test_new_task_persists_only_validated_results_without_rewriting_history
+    assert response.status_code == 200
+E   assert 502 == 200
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "8faffcdf-77f5-4428-8ab3-35e0ea0f4b52", "time": "2026-10-01T08:45:46.968096+00:00", "request_id": "e9e849fa-1607-49de-9673-d847ec314495", "task_id": "e9e849fa-1607-49de-9673-d847ec314495", "run_id": "900f7a2d-1ae6-42e8-b216-7949c1e81f35", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "Model API key is not configured", "model": "gpt-4o", "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_model.py\", line 41, in completion\nModelConfigurationError: Model API key is not configured"}
+________ test_actual_model_failure_list_detail_owner_and_success_clear _________
+backend/tests/test_task_failures.py:41: in test_actual_model_failure_list_detail_owner_and_success_clear
+    assert detail.json()['failureDetails'][0]['code']=='timeout' and SECRET not in detail.text
+E   AssertionError: assert ('configuration' == 'timeout'
+E     
+E     - timeout
+E     + configuration)
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "3f470e2a-fbc7-4f09-95bd-b3ef8e096247", "time": "2026-10-01T08:47:32.326194+00:00", "request_id": "17cf0a07-144b-4a62-8b4c-594de890bba3", "task_id": "17cf0a07-144b-4a62-8b4c-594de890bba3", "run_id": "e2124897-dd93-46eb-bac8-158270a933a8", "stage": "understanding", "exception_type": "ModelConfigurationError", "message": "Model API key is not configured", "model": "gpt-4o", "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_model.py\", line 41, in completion\nModelConfigurationError: Model API key is not configured"}
+____________ test_multiple_partial_reasons_preserve_recommendations ____________
+backend/tests/test_task_failures.py:55: in test_multiple_partial_reasons_preserve_recommendations
+    assert match._run_task_enrichment(task,'synthetic',recs,'2026',include_tag_suggestions=False)=='partial'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _run_task_enrichment() missing 1 required keyword-only argument: 'snapshot'
+_______ test_successful_real_matching_path_still_returns_recommendations _______
+backend/tests/test_task_failures.py:98: in test_successful_real_matching_path_still_returns_recommendations
+    result=match._perform_partner_match('synthetic success')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'
+_________ test_deletion_during_understanding_cannot_start_a_task[task] _________
+backend/tests/test_user_cleanup.py:267: in test_deletion_during_understanding_cannot_start_a_task
+    assert response.status_code == 401, response.text
+E   AssertionError: {"runId":"51f78f17-9797-45b3-9433-4a3e1f43eebd","recordId":"8ab5d60b-1463-43ab-8ebd-219b6bff3e02","taskStatus":"matching"}
+E   assert 202 == 401
+E    +  where 202 = <Response [202 Accepted]>.status_code
+--------------------------- Captured stdout teardown ---------------------------
+[WARN] background processing failed for task 8ab5d60b-1463-43ab-8ebd-219b6bff3e02
+---------------------------- Captured log teardown -----------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "aca28e1c-eee3-4a30-91c6-ab3725f31141", "time": "2026-10-01T08:49:09.532366+00:00", "request_id": "8ab5d60b-1463-43ab-8ebd-219b6bff3e02", "task_id": "8ab5d60b-1463-43ab-8ebd-219b6bff3e02", "run_id": "51f78f17-9797-45b3-9433-4a3e1f43eebd", "stage": "understanding", "exception_type": "AssertionError", "message": "assert 409 == 204\n +  where 409 = <Response [409 Conflict]>.status_code\n +    where <Response [409 Conflict]> = remove(<backend.tests.conftest.SyncASGIClient object at 0x7d18c36579b0>, {'id': 'ce9a88ed-c0b6-425f-96bd-8eec1bb1009d', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': 'ccd95fd3-59ac-43d4-8ea8-9e0656f62e36', 'username': 'local_ccd95fd359ac43d48ea89e0656f62e36', 'display_name': '伴飞用户', 'department': None, ...}, {'userId': 'ccd95fd3-59ac-43d4-8ea8-9e0656f62e36', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None})\n +      where {'userId': 'ccd95fd3-59ac-43d4-8ea8-9e0656f62e36', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None} = preview(<backend.tests.conftest.SyncASGIClient object at 0x7d18c36579b0>, {'id': 'ce9a88ed-c0b6-425f-96bd-8eec1bb1009d', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': 'ccd95fd3-59ac-43d4-8ea8-9e0656f62e36', 'username': 'local_ccd95fd359ac43d48ea89e0656f62e36', 'display_name': '伴飞用户', 'department': None, ...})", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/routers/match.py\", line 826, in _execute_match_inner\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/tests/test_user_cleanup.py\", line 256, in delete_in_gate\nAssertionError: assert 409 == 204\n +  where 409 = <Response [409 Conflict]>.status_code\n +    where <Response [409 Conflict]> = remove(<backend.tests.conftest.SyncASGIClient object at 0x7d18c36579b0>, {'id': 'ce9a88ed-c0b6-425f-96bd-8eec1bb1009d', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': 'ccd95fd3-59ac-43d4-8ea8-9e0656f62e36', 'username': 'local_ccd95fd359ac43d48ea89e0656f62e36', 'display_name': '伴飞用户', 'department': None, ...}, {'userId': 'ccd95fd3-59ac-43d4-8ea8-9e0656f62e36', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None})\n +      where {'userId': 'ccd95fd3-59ac-43d4-8ea8-9e0656f62e36', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None} = preview(<backend.tests.conftest.SyncASGIClient object at 0x7d18c36579b0>, {'id': 'ce9a88ed-c0b6-425f-96bd-8eec1bb1009d', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': 'ccd95fd3-59ac-43d4-8ea8-9e0656f62e36', 'username': 'local_ccd95fd359ac43d48ea89e0656f62e36', 'display_name': '伴飞用户', 'department': None, ...})"}
+________ test_deletion_during_understanding_cannot_start_a_task[match] _________
+backend/tests/test_user_cleanup.py:267: in test_deletion_during_understanding_cannot_start_a_task
+    assert response.status_code == 401, response.text
+E   AssertionError: {"detail":"本次处理失败，请重试。","failureCode":"unknown"}
+E   assert 502 == 401
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "5de5fb0b-41ea-47cc-9ec7-c3bf4d592bf8", "time": "2026-10-01T08:49:10.454967+00:00", "request_id": "660cc026-3db9-4473-8ef7-b564090755d0", "task_id": "660cc026-3db9-4473-8ef7-b564090755d0", "run_id": "aea021cd-b868-43ab-96c4-d8ed57966569", "stage": "understanding", "exception_type": "AssertionError", "message": "assert 409 == 204\n +  where 409 = <Response [409 Conflict]>.status_code\n +    where <Response [409 Conflict]> = remove(<backend.tests.conftest.SyncASGIClient object at 0x7d18adcc5f10>, {'id': '08e0810d-237b-46e1-b3c2-fa0ab43765be', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '0b97211c-4067-4bcc-bc1f-ef8f521b1bd5', 'username': 'local_0b97211c40674bccbc1fef8f521b1bd5', 'display_name': '伴飞用户', 'department': None, ...}, {'userId': '0b97211c-4067-4bcc-bc1f-ef8f521b1bd5', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None})\n +      where {'userId': '0b97211c-4067-4bcc-bc1f-ef8f521b1bd5', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None} = preview(<backend.tests.conftest.SyncASGIClient object at 0x7d18adcc5f10>, {'id': '08e0810d-237b-46e1-b3c2-fa0ab43765be', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '0b97211c-4067-4bcc-bc1f-ef8f521b1bd5', 'username': 'local_0b97211c40674bccbc1fef8f521b1bd5', 'display_name': '伴飞用户', 'department': None, ...})", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/routers/match.py\", line 826, in _execute_match_inner\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/tests/test_user_cleanup.py\", line 256, in delete_in_gate\nAssertionError: assert 409 == 204\n +  where 409 = <Response [409 Conflict]>.status_code\n +    where <Response [409 Conflict]> = remove(<backend.tests.conftest.SyncASGIClient object at 0x7d18adcc5f10>, {'id': '08e0810d-237b-46e1-b3c2-fa0ab43765be', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '0b97211c-4067-4bcc-bc1f-ef8f521b1bd5', 'username': 'local_0b97211c40674bccbc1fef8f521b1bd5', 'display_name': '伴飞用户', 'department': None, ...}, {'userId': '0b97211c-4067-4bcc-bc1f-ef8f521b1bd5', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None})\n +      where {'userId': '0b97211c-4067-4bcc-bc1f-ef8f521b1bd5', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None} = preview(<backend.tests.conftest.SyncASGIClient object at 0x7d18adcc5f10>, {'id': '08e0810d-237b-46e1-b3c2-fa0ab43765be', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '0b97211c-4067-4bcc-bc1f-ef8f521b1bd5', 'username': 'local_0b97211c40674bccbc1fef8f521b1bd5', 'display_name': '伴飞用户', 'department': None, ...})"}
+________ test_deletion_during_understanding_cannot_start_a_task[retry] _________
+backend/tests/test_user_cleanup.py:267: in test_deletion_during_understanding_cannot_start_a_task
+    assert response.status_code == 401, response.text
+E   AssertionError: {"detail":"本次处理失败，请重试。","failureCode":"unknown"}
+E   assert 502 == 401
+E    +  where 502 = <Response [502 Bad Gateway]>.status_code
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "f3dcda9f-bab4-4058-999a-b12419a74e1c", "time": "2026-10-01T08:49:11.312972+00:00", "request_id": "0871043c-2b59-47fa-a193-5aa1395f0750", "task_id": "0871043c-2b59-47fa-a193-5aa1395f0750", "run_id": "4beb724e-1046-44be-96ff-f6d7b089c16e", "stage": "understanding", "exception_type": "AssertionError", "message": "assert 409 == 204\n +  where 409 = <Response [409 Conflict]>.status_code\n +    where <Response [409 Conflict]> = remove(<backend.tests.conftest.SyncASGIClient object at 0x7d18c903c770>, {'id': '095c6d13-a697-4533-bd97-c8cfe3898929', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '75c48746-9222-469a-a8ca-75d175fcd911', 'username': 'local_75c487469222469aa8ca75d175fcd911', 'display_name': '伴飞用户', 'department': None, ...}, {'userId': '75c48746-9222-469a-a8ca-75d175fcd911', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None})\n +      where {'userId': '75c48746-9222-469a-a8ca-75d175fcd911', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None} = preview(<backend.tests.conftest.SyncASGIClient object at 0x7d18c903c770>, {'id': '095c6d13-a697-4533-bd97-c8cfe3898929', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '75c48746-9222-469a-a8ca-75d175fcd911', 'username': 'local_75c487469222469aa8ca75d175fcd911', 'display_name': '伴飞用户', 'department': None, ...})", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/routers/match.py\", line 826, in _execute_match_inner\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/tests/test_user_cleanup.py\", line 256, in delete_in_gate\nAssertionError: assert 409 == 204\n +  where 409 = <Response [409 Conflict]>.status_code\n +    where <Response [409 Conflict]> = remove(<backend.tests.conftest.SyncASGIClient object at 0x7d18c903c770>, {'id': '095c6d13-a697-4533-bd97-c8cfe3898929', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '75c48746-9222-469a-a8ca-75d175fcd911', 'username': 'local_75c487469222469aa8ca75d175fcd911', 'display_name': '伴飞用户', 'department': None, ...}, {'userId': '75c48746-9222-469a-a8ca-75d175fcd911', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None})\n +      where {'userId': '75c48746-9222-469a-a8ca-75d175fcd911', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None} = preview(<backend.tests.conftest.SyncASGIClient object at 0x7d18c903c770>, {'id': '095c6d13-a697-4533-bd97-c8cfe3898929', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '75c48746-9222-469a-a8ca-75d175fcd911', 'username': 'local_75c487469222469aa8ca75d175fcd911', 'display_name': '伴飞用户', 'department': None, ...})"}
+_________ test_deletion_during_understanding_cannot_start_a_task[plan] _________
+backend/tests/test_user_cleanup.py:267: in test_deletion_during_understanding_cannot_start_a_task
+    assert response.status_code == 401, response.text
+E   AssertionError: {"plan_id":"90578edc-2ee4-4b11-bab0-2f49248842b7","run_id":"1b135eca-0c20-4115-bf96-cfc4607d2183","task_type":"development_plan","replayed":false}
+E   assert 202 == 401
+E    +  where 202 = <Response [202 Accepted]>.status_code
+---------------------------- Captured log teardown -----------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "989e5336-edf8-4b3b-8188-5da98b3cf69f", "time": "2026-10-01T08:49:12.149695+00:00", "request_id": "delete-in-scope", "task_id": "90578edc-2ee4-4b11-bab0-2f49248842b7", "run_id": "1b135eca-0c20-4115-bf96-cfc4607d2183", "stage": "understanding", "exception_type": "AssertionError", "message": "assert 409 == 204\n +  where 409 = <Response [409 Conflict]>.status_code\n +    where <Response [409 Conflict]> = remove(<backend.tests.conftest.SyncASGIClient object at 0x7d18afec3650>, {'id': 'a700cc24-1a20-4a15-a96c-c46c146e60e1', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '366a47e6-cf8c-4c5b-aa45-e6495b0b5d2d', 'username': 'local_366a47e6cf8c4c5baa45e6495b0b5d2d', 'display_name': '伴飞用户', 'department': None, ...}, {'userId': '366a47e6-cf8c-4c5b-aa45-e6495b0b5d2d', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None})\n +      where {'userId': '366a47e6-cf8c-4c5b-aa45-e6495b0b5d2d', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None} = preview(<backend.tests.conftest.SyncASGIClient object at 0x7d18afec3650>, {'id': 'a700cc24-1a20-4a15-a96c-c46c146e60e1', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '366a47e6-cf8c-4c5b-aa45-e6495b0b5d2d', 'username': 'local_366a47e6cf8c4c5baa45e6495b0b5d2d', 'display_name': '伴飞用户', 'department': None, ...})", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 306, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/tests/test_user_cleanup.py\", line 256, in delete_in_gate\nAssertionError: assert 409 == 204\n +  where 409 = <Response [409 Conflict]>.status_code\n +    where <Response [409 Conflict]> = remove(<backend.tests.conftest.SyncASGIClient object at 0x7d18afec3650>, {'id': 'a700cc24-1a20-4a15-a96c-c46c146e60e1', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '366a47e6-cf8c-4c5b-aa45-e6495b0b5d2d', 'username': 'local_366a47e6cf8c4c5baa45e6495b0b5d2d', 'display_name': '伴飞用户', 'department': None, ...}, {'userId': '366a47e6-cf8c-4c5b-aa45-e6495b0b5d2d', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None})\n +      where {'userId': '366a47e6-cf8c-4c5b-aa45-e6495b0b5d2d', 'allowed': False, 'reason': '该账号仍有任务运行中，请等任务结束后再删除。', 'confirmationToken': None} = preview(<backend.tests.conftest.SyncASGIClient object at 0x7d18afec3650>, {'id': 'a700cc24-1a20-4a15-a96c-c46c146e60e1', 'username': 'cleanup_admin', 'role': 'admin', 'password': \"[REDACTED]\"}, {'id': '366a47e6-cf8c-4c5b-aa45-e6495b0b5d2d', 'username': 'local_366a47e6cf8c4c5baa45e6495b0b5d2d', 'display_name': '伴飞用户', 'department': None, ...})"}
+_ test_current_explanations_do_not_create_run_or_version_and_are_durable[\u4e3a\u4ec0\u4e48\u63a8\u8350\u8fd9\u4e2a\u65b9\u5411\uff1f] _
+backend/tests/test_v12_agent.py:92: in test_current_explanations_do_not_create_run_or_version_and_are_durable
+    a=views.converse(pid,body,user);assert a['kind']=='explain' and a['answer']
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert ('revise' == 'explain'
+E     
+E     - explain
+E     + revise)
+_ test_current_explanations_do_not_create_run_or_version_and_are_durable[\u8fd9\u4e24\u4e2a\u5b9e\u9a8c\u6709\u4ec0\u4e48\u533a\u522b\uff1f] _
+backend/tests/test_v12_agent.py:92: in test_current_explanations_do_not_create_run_or_version_and_are_durable
+    a=views.converse(pid,body,user);assert a['kind']=='explain' and a['answer']
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: assert ('revise' == 'explain'
+E     
+E     - explain
+E     + revise)
+_ test_conversation_modify_advances_current_and_leaves_legacy_pointer_untouched _
+backend/tests/test_v12_agent.py:111: in test_conversation_modify_advances_current_and_leaves_legacy_pointer_untouched
+    assert {i['source_type'] for i in items(d)}=={'lab'}
+E   AssertionError: assert {'course', 'lab'} == {'lab'}
+E     
+E     Extra items in the left set:
+E     'course'
+E     Use -v to get more diff
+________ test_conversation_output_rejected_for_fake_reference_or_secret ________
+backend/tests/test_v12_agent.py:143: in test_conversation_output_rejected_for_fake_reference_or_secret
+    with pytest.raises(HTTPException):views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=d['plan']['current_version_id'],message='为什么'),user)
+E   Failed: DID NOT RAISE HTTPException
+_______________ test_simple_resource_search_does_not_call_model ________________
+backend/tests/test_v12_agent.py:151: in test_simple_resource_search_does_not_call_model
+    d=run(scenario,'只给几个数据库进阶实验，不要基础课')
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_v12_agent.py:20: in run
+    assert detail['runs'][0]['status']=='ready'
+E   AssertionError: assert 'failed' == 'ready'
+E     
+E     - ready
+E     + failed
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "b83e33c4-a6ec-441b-9a11-1d4c5baa439e", "time": "2026-10-01T08:49:29.654639+00:00", "request_id": "62394d56-5120-4b04-92a0-c36d363ff764", "task_id": "5f58c3ad-cc38-4f6e-a2ac-a7e40d597c9b", "run_id": "c078a792-cc50-4a75-be2a-70cc96fee4ea", "stage": "understanding", "exception_type": "AssertionError", "message": "Simple search must not invoke a model", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 306, in _execute_claimed\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 220, in prepare\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/tests/test_v12_agent.py\", line 149, in forbidden\nAssertionError: Simple search must not invoke a model"}
+_______________ test_explanation_cannot_be_misrouted_to_revision _______________
+backend/tests/test_v12_agent.py:158: in test_explanation_cannot_be_misrouted_to_revision
+    with pytest.raises(HTTPException):views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=d['plan']['current_version_id'],message='为什么推荐这个方向？'),user)
+E   Failed: DID NOT RAISE HTTPException
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/PyPDF2/__init__.py:21
+  /home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/PyPDF2/__init__.py:21: DeprecationWarning: PyPDF2 is deprecated. Please move to the pypdf library instead.
+    warnings.warn(
+
+backend/tests/test_development_api.py::test_task_creation_p95_under_one_second_without_waiting_model
+  backend/tests/test_development_api.py:135: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_task_creation_p95_under_one_second_without_waiting_model(scenario,client,monkeypatch,record_property):
+
+backend/tests/test_enablement_workspace.py::test_catalog_3000_published_resources_search_p95
+  backend/tests/test_enablement_workspace.py:116: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_catalog_3000_published_resources_search_p95(client,admin,metadata,record_property):
+
+backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[normal]
+backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[markdown]
+backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[empty]
+backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[invalid]
+backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[enum]
+backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[http_error]
+backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[slow]
+backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[dribble]
+  backend/tests/test_phase_d_model_and_samples.py:71: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    @pytest.mark.parametrize('mode',['normal','markdown','empty','invalid','enum','http_error','slow','dribble'])
+
+backend/tests/test_phase_d_process.py::test_development_kill_restart_retry_and_http_creation
+  backend/tests/test_phase_d_process.py:15: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_development_kill_restart_retry_and_http_creation(tmp_path,record_property):
+
+backend/tests/test_task_creation.py::test_cursor_breaks_same_timestamp_ties_and_ids_are_owner_scoped
+  /home/yuan/project/lingjian-agent-enablement/.venv/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1100: StarletteDeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    result = context.run(func, *args)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED backend/tests/test_advisor_ux.py::test_discussion_keeps_current_advice_without_confirmation[\u4e3a\u4ec0\u4e48\u63a8\u8350 RAG\uff1f]
+FAILED backend/tests/test_advisor_ux.py::test_discussion_keeps_current_advice_without_confirmation[\u8fd9\u4e2a\u8bfe\u7a0b\u4e3a\u4ec0\u4e48\u9002\u5408\uff1f]
+FAILED backend/tests/test_advisor_ux.py::test_discussion_keeps_current_advice_without_confirmation[\u8fd9\u4e24\u4e2a\u5b9e\u9a8c\u6709\u4ec0\u4e48\u533a\u522b\uff1f]
+FAILED backend/tests/test_advisor_ux.py::test_discussion_keeps_current_advice_without_confirmation[\u54ea\u4e2a\u5b9e\u9a8c\u66f4\u96be\uff1f]
+FAILED backend/tests/test_advisor_ux.py::test_discussion_keeps_current_advice_without_confirmation[\u6709\u6ca1\u6709\u66f4\u8fdb\u9636\u4e00\u70b9\u7684\u5b9e\u9a8c\uff1f]
+FAILED backend/tests/test_advisor_ux.py::test_natural_adjustment_reorders_focus_and_failed_retry_keeps_current
+FAILED backend/tests/test_advisor_ux.py::test_difficulty_discussion_cannot_be_misclassified_as_revision
+FAILED backend/tests/test_advisor_ux.py::test_formatted_discussion_persists_and_replays_without_versions[### \u7ed3\u8bba\n\n\u4f18\u5148\u9a8c\u8bc1\u7cfb\u7edf\u96c6\u6210\u3002\n\n#### \u63a5\u53e3\u7ea6\u675f\n\n- \u6838\u5b9e\u8f93\u5165\u8f93\u51fa\u3002\n- \u51c6\u5907\u5f02\u5e38\u5904\u7406\u3002]
+FAILED backend/tests/test_advisor_ux.py::test_formatted_discussion_persists_and_replays_without_versions[### \u7ed3\u8bba\n\n\u4e24\u7c7b\u5b9e\u9a8c\u5404\u6709\u4fa7\u91cd\u3002\n\n#### \u6570\u636e\u63a5\u5165\n\n\u5148\u68c0\u67e5\u6570\u636e\u6761\u4ef6\u3002\n\n#### \u8bc4\u4f30\u65b9\u5f0f\n\n1. \u660e\u786e\u8bc4\u4f30\u6837\u672c\u3002\n2. \u9a8c\u8bc1\u5b9e\u9645\u6548\u679c\u3002\n\n#### \u9009\u62e9\u6761\u4ef6\n\n\u6309\u76ee\u6807\u9009\u62e9\u3002]
+FAILED backend/tests/test_advisor_ux.py::test_empty_answer_records_actual_reason_and_preserves_advice
+FAILED backend/tests/test_enablement.py::test_all_new_api_operations_require_admin[anonymous]
+FAILED backend/tests/test_enablement.py::test_all_new_api_operations_require_admin[user]
+FAILED backend/tests/test_enablement_workspace.py::test_catalog_3000_published_resources_search_p95
+FAILED backend/tests/test_model_config.py::test_no_enabled_model_returns_actionable_error_without_calling_model[partner_match-/agent/match]
+FAILED backend/tests/test_model_test_boundary.py::test_deepseek_json_mode_keeps_schema_and_strict_validation
+FAILED backend/tests/test_opportunity_extraction.py::test_retry_saves_grouped_regions_and_preserves_existing_results
+FAILED backend/tests/test_p0_closure.py::test_matching_uses_existing_profile_and_evidence_without_raw_files
+FAILED backend/tests/test_partner_delete.py::test_late_match_after_deletion_is_retryable_not_stuck[False]
+FAILED backend/tests/test_partner_delete.py::test_late_match_after_deletion_is_retryable_not_stuck[True]
+FAILED backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[normal]
+FAILED backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[markdown]
+FAILED backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[empty]
+FAILED backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[invalid]
+FAILED backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[enum]
+FAILED backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[http_error]
+FAILED backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[slow]
+FAILED backend/tests/test_phase_d_model_and_samples.py::test_loopback_supplier_schema_error_timeout_and_retry[dribble]
+FAILED backend/tests/test_phase_d_process.py::test_development_kill_restart_retry_and_http_creation
+FAILED backend/tests/test_phase_d_reliability.py::test_run_watchdog_without_polling_preserves_confirmed_and_retries
+FAILED backend/tests/test_phase_d_reliability.py::test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[version]
+FAILED backend/tests/test_phase_d_reliability.py::test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[item]
+FAILED backend/tests/test_phase_d_reliability.py::test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[diagnosis]
+FAILED backend/tests/test_phase_d_reliability.py::test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[pointer]
+FAILED backend/tests/test_recommendations.py::test_scores_sorted_unique_limited_and_best_duplicate_kept
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[NaN]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[Infinity]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[-Infinity]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[92\u5206]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[-1]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[101]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[True]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[None]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[score9]
+FAILED backend/tests/test_recommendations.py::test_invalid_score_cannot_be_a_recommendation[score10]
+FAILED backend/tests/test_recommendations.py::test_boundary_and_decimal_scores_remain_valid[0-0]
+FAILED backend/tests/test_recommendations.py::test_boundary_and_decimal_scores_remain_valid[100-100]
+FAILED backend/tests/test_recommendations.py::test_boundary_and_decimal_scores_remain_valid[ 83.5 -83.5]
+FAILED backend/tests/test_recommendations.py::test_active_identity_is_required_and_ambiguous_names_cannot_fallback
+FAILED backend/tests/test_recommendations.py::test_only_owned_references_are_displayed_as_canonical_labels
+FAILED backend/tests/test_recommendations.py::test_exact_legacy_names_work_but_fabricated_narratives_do_not
+FAILED backend/tests/test_recommendations.py::test_ambiguous_evidence_names_need_ids
+FAILED backend/tests/test_recommendations.py::test_unsupported_match_attributes_and_empty_risks_are_replaced
+FAILED backend/tests/test_recommendations.py::test_missing_or_nontext_reasons_are_rejected[None]
+FAILED backend/tests/test_recommendations.py::test_missing_or_nontext_reasons_are_rejected[ ]
+FAILED backend/tests/test_recommendations.py::test_missing_or_nontext_reasons_are_rejected[reason2]
+FAILED backend/tests/test_recommendations.py::test_missing_or_nontext_reasons_are_rejected[reason3]
+FAILED backend/tests/test_recommendations.py::test_snake_case_and_wrapped_legacy_results_still_work
+FAILED backend/tests/test_recommendations.py::test_new_task_persists_only_validated_results_without_rewriting_history
+FAILED backend/tests/test_task_failures.py::test_actual_model_failure_list_detail_owner_and_success_clear
+FAILED backend/tests/test_task_failures.py::test_multiple_partial_reasons_preserve_recommendations
+FAILED backend/tests/test_task_failures.py::test_successful_real_matching_path_still_returns_recommendations
+FAILED backend/tests/test_user_cleanup.py::test_deletion_during_understanding_cannot_start_a_task[task]
+FAILED backend/tests/test_user_cleanup.py::test_deletion_during_understanding_cannot_start_a_task[match]
+FAILED backend/tests/test_user_cleanup.py::test_deletion_during_understanding_cannot_start_a_task[retry]
+FAILED backend/tests/test_user_cleanup.py::test_deletion_during_understanding_cannot_start_a_task[plan]
+FAILED backend/tests/test_v12_agent.py::test_current_explanations_do_not_create_run_or_version_and_are_durable[\u4e3a\u4ec0\u4e48\u63a8\u8350\u8fd9\u4e2a\u65b9\u5411\uff1f]
+FAILED backend/tests/test_v12_agent.py::test_current_explanations_do_not_create_run_or_version_and_are_durable[\u8fd9\u4e24\u4e2a\u5b9e\u9a8c\u6709\u4ec0\u4e48\u533a\u522b\uff1f]
+FAILED backend/tests/test_v12_agent.py::test_conversation_modify_advances_current_and_leaves_legacy_pointer_untouched
+FAILED backend/tests/test_v12_agent.py::test_conversation_output_rejected_for_fake_reference_or_secret
+FAILED backend/tests/test_v12_agent.py::test_simple_resource_search_does_not_call_model
+FAILED backend/tests/test_v12_agent.py::test_explanation_cannot_be_misrouted_to_revision
+72 failed, 855 passed, 13 warnings in 1001.85s (0:16:41)

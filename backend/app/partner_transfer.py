@@ -124,7 +124,7 @@ def import_workbook(content, actor):
     result = {'created': 0, 'updated': 0, 'unchanged': 0}
     seen = set()
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         for line, data in rows:
             try:
                 source_id, name = text(data['id']), text(data['name'])

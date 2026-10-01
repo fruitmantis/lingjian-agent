@@ -246,29 +246,44 @@ def test_concurrent_admin_deletes_leave_a_valid_admin(client):
 
 
 @pytest.mark.parametrize('entry', ['task', 'match', 'retry', 'plan'])
-def test_deletion_during_understanding_cannot_start_a_task(client, identities, monkeypatch, entry):
+def test_deletion_during_understanding_preserves_committed_task_and_protects_running_owner(client, identities, monkeypatch, entry):
     from backend.app.routers import match as matching
-    import uuid
-    admin, session = identities; user = session.json()['user']
-    if entry == 'plan': make_partner()
-    task_id = make_task(user, 'retry after scope', task_status='failed') if entry == 'retry' else None
-    def delete_in_gate(*args, **kwargs):
-        assert remove(client, admin, user, preview(client, admin, user)).status_code == 204
-        return {}
     from backend.app import development_engine
-    monkeypatch.setattr(matching.understanding if entry != 'plan' else development_engine, 'prepare', delete_in_gate)
-    path, payload = {
-        'task': ('/agent/tasks', {'requestId':str(uuid.uuid4()), 'requirement':'伙伴推荐'}),
-        'match': ('/agent/match', {'requirement':'伙伴推荐'}),
-        'retry': ('/agent/tasks/'+str(task_id)+'/retry', {}),
-        'plan': ('/development/plans', {'submission_id':'delete-in-scope','request':{'target_partner_id':'partner-1','development_direction':'发展方向'}}),
+    import uuid,threading,time
+    admin,session=identities;user=session.json()['user'];make_partner()
+    task_id=make_task(user,'retry after scope',task_status='failed',recommendations=[]) if entry=='retry' else None
+    reached=threading.Event();deletions=[]
+    def delete_in_gate(*args,**kwargs):
+        # The task already exists. Existing running-task protection must reject deletion.
+        deletions.append(remove(client,admin,user,preview(client,admin,user)).status_code)
+        reached.set()
+        raise TimeoutError('synthetic understanding timeout after deletion check')
+    monkeypatch.setattr(matching.understanding if entry!='plan' else development_engine,'prepare',delete_in_gate)
+    path,payload={
+        'task':('/agent/tasks',{'requestId':str(uuid.uuid4()),'requirement':'伙伴推荐'}),
+        'match':('/agent/match',{'requirement':'伙伴推荐'}),
+        'retry':('/agent/tasks/'+str(task_id)+'/retry',{}),
+        'plan':('/development/plans',{'submission_id':'delete-in-scope','request':{'target_partner_id':'partner-1','development_direction':'发展方向'}}),
     }[entry]
-    response = client.post(path, headers=bearer(session), json=payload)
-    assert response.status_code == 401, response.text
+    response=client.post(path,headers=bearer(session),json=payload)
+    assert response.status_code==(202 if entry in ('task','plan') else 502),response.text
+    assert reached.wait(3) and deletions==[409]
+    deadline=time.monotonic()+5
+    while True:
+        with get_db() as conn:
+            running=conn.execute("SELECT count(*) FROM match_records WHERE task_status IN ('matching','enriching')").fetchone()[0]+conn.execute("SELECT count(*) FROM development_runs WHERE status IN ('pending','running')").fetchone()[0]
+        if not running:break
+        assert time.monotonic()<deadline
+        time.sleep(.01)
     with get_db() as conn:
-        assert conn.execute("SELECT count(*) FROM match_records WHERE task_status IN ('matching','enriching')").fetchone()[0] == 0
-        assert conn.execute('SELECT count(*) FROM development_plans').fetchone()[0] == 0
-        assert conn.execute('SELECT count(*) FROM development_runs').fetchone()[0] == 0
+        assert conn.execute('SELECT status FROM users WHERE id=?',(user['id'],)).fetchone()[0]=='active'
+        if entry=='plan':
+            assert conn.execute('SELECT count(*) FROM development_plans').fetchone()[0]==1
+            assert conn.execute('SELECT status FROM development_runs').fetchone()[0]=='failed'
+        else:
+            rows=conn.execute('SELECT task_status,last_error_details FROM match_records').fetchall()
+            assert len(rows)==1 and rows[0]['task_status']=='failed'
+            assert json.loads(rows[0]['last_error_details'])[0]['code']=='timeout'
 
 
 @pytest.mark.parametrize('kind', ['resource', 'case'])

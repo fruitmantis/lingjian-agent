@@ -18,8 +18,8 @@ from ..identity_keys import create_identity_key, reveal_identity_key, digest
 from ..models import TokenResponse, UserOut
 
 router = APIRouter(prefix='/auth/identity', tags=['local-identity'])
-# A new cookie deliberately does not adopt old browser/Passkey identities.
-BROWSER_COOKIE = 'banfei_identity_session'
+# A distinct HTTP cookie avoids an old Secure cookie blocking the new value.
+BROWSER_COOKIE = 'banfei_http_identity_session'
 COOKIE_PATH = '/'
 KEY_LOGIN_MAX_BODY_BYTES = 4 * 1024
 _ATTEMPTS = defaultdict(deque)
@@ -31,18 +31,24 @@ def now():
 
 
 def settings():
-    origin = os.getenv('BANFEI_IDENTITY_ORIGIN', 'http://localhost:3000').rstrip('/')
-    parsed = urlsplit(origin)
-    if parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment or not parsed.hostname:
-        raise RuntimeError('Invalid identity origin')
-    if parsed.scheme != 'https' and not (parsed.scheme == 'http' and parsed.hostname == 'localhost'):
-        raise RuntimeError('Identity requires HTTPS or localhost')
-    return origin, parsed.hostname, parsed.scheme == 'https'
+    configured = os.getenv('BANFEI_IDENTITY_ORIGIN', '')
+    origins = []
+    for value in configured.split(','):
+        value = value.strip()
+        parsed = urlsplit(value)
+        if (parsed.scheme != 'http' or not parsed.hostname or parsed.port not in (None, 80)
+                or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment):
+            raise RuntimeError('BANFEI_IDENTITY_ORIGIN must list HTTP origins on port 80')
+        origin = 'http://' + parsed.netloc.lower().removesuffix(':80')
+        if origin not in origins:
+            origins.append(origin)
+    if not origins:
+        raise RuntimeError('BANFEI_IDENTITY_ORIGIN is required')
+    return origins
 
 
 def incoming(request, response):
-    origin, rp, secure = settings()
-    if request.headers.get('origin') != origin:
+    if request.headers.get('origin') not in settings():
         raise HTTPException(403, '请求来源无效，请从伴飞页面重新进入')
     response.headers['Cache-Control'] = 'no-store'
     key = request.client.host if request.client else 'unknown'
@@ -60,11 +66,8 @@ def incoming(request, response):
         if len(attempts) >= 60:
             raise HTTPException(429, '操作频繁，请稍后重试')
         attempts.append(stamp)
-    return origin, rp, secure
-
-
-def cookie(response, name, value, secure, age):
-    response.set_cookie(name, value, max_age=age, httponly=True, secure=secure,
+def cookie(response, name, value, age):
+    response.set_cookie(name, value, max_age=age, httponly=True, secure=False,
                         samesite='strict', path=COOKIE_PATH)
 
 
@@ -132,18 +135,16 @@ class IdentitySession(TokenResponse):
 
 @router.post('/session', response_model=IdentitySession)
 def browser_session(payload: BrowserSession, request: Request, response: Response):
-    _, _, secure = incoming(request, response)
+    incoming(request, response)
     if payload.replace and not payload.create:
         raise HTTPException(400, '新身份必须由用户明确创建')
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         row = current_browser(conn, request)
         if row and not payload.replace:
             result = IdentitySession(**session(conn, row['user_id'], row['id']).model_dump())
-            # Reuse a verified HTTP-era browser credential on the same host,
-            # upgrading its transport flags without replacing its identity/session.
-            if secure:
-                cookie(response, BROWSER_COOKIE, request.cookies[BROWSER_COOKIE], True, 365 * 24 * 3600)
+            # Refresh only this HTTP cookie without replacing the verified identity.
+            cookie(response, BROWSER_COOKIE, request.cookies[BROWSER_COOKIE], 365 * 24 * 3600)
             return result
         if not payload.create:
             raise HTTPException(404, '当前浏览器尚未登录，请输入身份 Key 或开始使用')
@@ -153,13 +154,13 @@ def browser_session(payload: BrowserSession, request: Request, response: Respons
         result = IdentitySession(**session(conn, user_id, session_id).model_dump(), created=True)
         if row:
             conn.execute('DELETE FROM identity_credentials WHERE id=?', (row['id'],))
-    cookie(response, BROWSER_COOKIE, secret, secure, 365 * 24 * 3600)
+    cookie(response, BROWSER_COOKIE, secret, 365 * 24 * 3600)
     return result
 
 
 @router.post('/key/login', response_model=IdentitySession)
 async def key_login(request: Request, response: Response):
-    _, _, secure = incoming(request, response)
+    incoming(request, response)
     # Bound actual bytes before JSON parsing, including chunked/misdeclared bodies.
     # Never echo the submitted credential in an error response.
     too_large = HTTPException(413,
@@ -184,7 +185,7 @@ async def key_login(request: Request, response: Response):
     except (ValueError, TypeError, RecursionError):
         raise identity_error('invalid_key', '身份 Key 格式不正确，请检查后重试。') from None
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         key_hash = digest(key)
         if conn.execute('SELECT 1 FROM revoked_identity_keys WHERE key_hash=?', (key_hash,)).fetchone():
             raise identity_error('identity_deleted', '该身份已被管理员删除，原凭据已失效。请重新建立身份。',
@@ -200,7 +201,7 @@ async def key_login(request: Request, response: Response):
             conn.execute('DELETE FROM identity_credentials WHERE id=?', (previous['id'],))
         session_id, secret = add_browser_session(conn, row['user_id'])
         result = IdentitySession(**session(conn, row['user_id'], session_id).model_dump())
-    cookie(response, BROWSER_COOKIE, secret, secure, 365 * 24 * 3600)
+    cookie(response, BROWSER_COOKIE, secret, 365 * 24 * 3600)
     return result
 
 
@@ -222,11 +223,11 @@ def own_key(response: Response, user: dict = Depends(require_user)):
 
 @router.post('/logout')
 def logout(request: Request, response: Response):
-    _, _, secure = incoming(request, response)
+    incoming(request, response)
     token = decode_token(request.headers.get('authorization', '').removeprefix('Bearer '))
     remembered_secret = None
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         row = current_browser(conn, request)
         owner_id = row['user_id'] if row else None
         # A still-valid bearer can prove the identity even if its Cookie was
@@ -249,5 +250,5 @@ def logout(request: Request, response: Response):
             # Replace the current binding, invalidating its JWT and old Cookie.
             # Return no login token: the logged-out browser must explicitly continue.
             _, remembered_secret = add_browser_session(conn, owner_id)
-    cookie(response, BROWSER_COOKIE, remembered_secret or '', secure, 365 * 24 * 3600 if remembered_secret else 0)
+    cookie(response, BROWSER_COOKIE, remembered_secret or '', 365 * 24 * 3600 if remembered_secret else 0)
     return {'remembered': bool(remembered_secret)}

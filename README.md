@@ -6,7 +6,7 @@
 
 当前本地正式库已为 **schema 18**；六类文档与统一伙伴资料管理已实施，2026-09-26 用户指定的 **178 家伙伴名单**整理已完成。不要重复执行迁移、名单脚本或初始化数据。当前业务规则以本文件和 [AGENTS.md](AGENTS.md) 为准；新对话再读 [项目交接](docs/handoff/CURRENT_HANDOFF_20260926.md) 和 [验证文档索引](docs/validation/README.md)。[09-26 收口记录](docs/validation/GIT_CLOSEOUT_20260926.md) 保留当时的验证与提交范围。
 
-**2026-09-28 更新：** 两类任务已统一为“理解 → 按需检索 → 顾问答复”；范围判断合并到理解，追问继承当前结果，局部修改只改涉及内容，一次运行固定模型配置。模型配置支持删除并保留任务历史，结构化输出统一使用现有配置参数和 `json_object`。已完成限定范围的 PostgreSQL 回归、浏览器展示检查及 11 次真实模型调用；GLM 检索问题修正后补测通过。本地 3000/8000 和 HTTPS 入口运行正常；本次改动尚未部署或验证 ARM，详见 [最新流程验证记录](docs/validation/UNIFIED_TASK_FLOW_20260928.md)。
+**2026-09-28 更新：** 两类任务已统一为“理解 → 按需检索 → 顾问答复”；范围判断合并到理解，追问继承当前结果，局部修改只改涉及内容，一次运行固定模型配置。模型配置支持删除并保留任务历史，结构化输出统一使用现有配置参数和 `json_object`。已完成限定范围的 PostgreSQL 回归、浏览器展示检查及 11 次真实模型调用；GLM 检索问题修正后补测通过。当时的 HTTPS 入口为历史状态；本次流程改动尚未部署或验证 ARM，详见 [最新流程验证记录](docs/validation/UNIFIED_TASK_FLOW_20260928.md)。
 
 ## 主要功能与入口
 
@@ -25,6 +25,8 @@
 | `/admin/login`、`/admin/change-password`、`/admin/account` | 独立管理员密码登录、改密与个人中心 |
 | `/admin/tasks/{id}` | 使用管理员会话查看任务，复用原详情组件 |
 | `/admin/*` | 任务、伙伴/资料/案例展示、资源发布、需求画像、项目机会、运营报表、标签、用户、模型、系统状态 |
+
+两类任务先独立提交任务/Run 和原始输入，再异步执行需求理解、范围判断和后续处理；创建接口不等待模型。创建成功即打开并选中任务详情，复用轮询恢复真实阶段、耗时和已保存结果。范围外请求保留正常结束的任务；首轮失败保留原任务重试，重启回收中断执行，后续失败不覆盖已有推荐或当前 Version。
 
 伙伴详情、匹配结果和当前展示案例中的发展入口都汇入统一新任务页，并带入允许的来源上下文。`/enablement` 仅保留兼容跳转，不提供另一套用户工作台。
 
@@ -64,11 +66,12 @@ AI 按名称、简介、分类、层级、课程目标/大纲、实验目标检�
 管理员通过 **后台 → 伙伴资料** 统一管理案例与资料；伙伴详情的“管理资料”打开同一个 `/admin/partner-materials` 页面并带入伙伴筛选，新增自动填写该伙伴。页面按一级分类横线分组、每行 3 张卡片，支持伙伴/两级分类/名称筛选与分页跳转；一个案例的多份附件仍只有一张卡片。所有文件必须归属伙伴。只接收 **PDF、TXT、Markdown、DOCX、PPTX、HTML**（md/markdown、html/htm 为别名）；同一份 [格式与分类清单](shared/partner-materials.json) 供前后端使用。仅提取原生文字和普通表格，不安装 OCR、不识别图片、不支持旧版 Office。原件完整保存在私有上传目录，全文缓存保存到 PostgreSQL。
 
 - 在线查看：PDF 直接预览，TXT 保留换行，Markdown/HTML 安全静态渲染，禁用脚本、外部图片和外链抓取。DOCX/PPTX 用本机 LibreOffice 转 PDF 并缓存；图片仍可自然显示在原件/预览中，但不进入模型输入。
-- 文件状态：处理中、已处理、无可提取文字、处理失败。失败保留原件并可重试；预览失败不抹掉已提取文字。打开页面和更新画像只复用缓存，不重新解析文件。
+- 文件状态：处理中、已处理、无可提取文字、处理失败。失败保留原件并可重试；预览失败不抹掉已提取文字。打开页面和更新画像复用缓存；仅手动恢复已变成摘要的旧画像时，从保留的原 Word 重建底稿。
 - 案例表单：关联伙伴、标题、两级分类、多份文件、可选简介。使用已确认的 3 大类 / 18 个二级分类。**只有“展示”开关**：打开后普通用户可查看案例和全部当前附件，修改即时生效；关闭后目录、详情及旧文件链接均不可访问。没有共享版本、案例发布、核验、绑定或独立用途授权流程。旧共享入口跳至该伙伴的统一资料页面。
-- 伙伴详情只保留基本信息、资料快捷入口和画像区域。DOCX 导入画像完整提取后直接采用，不经 AI 重写；失败保留旧画像。画像原件仅在画像区域查看/下载，不混入分类目录。完整画像及未展示资料仅管理员可见。
+- 伙伴详情只保留基本信息、资料快捷入口和画像区域。DOCX 导入画像不经 AI 重写，程序仅统一十章标题、排除目录并保留表格，原件与完整提取文本不变；无法可靠识别章节时明确失败，保留旧画像。画像区域安全展示标题、段落和表格，并兼容旧纯文本。画像原件仅在画像区域查看/下载，不混入分类目录。完整画像及未展示资料仅管理员可见。
+- 十章依次为：公司概况；公司规模与收入情况；与头部科技企业（华为/阿里/字节）合作情况；华为认证与资质情况；AI技术能力与解决方案；重点行业案例；负向事件与合规风险排查；适合开展合作的领域建议；合作注意事项；数据来源与免责声明。公司概况、认证资质、行业案例保留表格；缺信息写“现有资料未提供”，冲突不能判定写“待核实”，保留日期、集团/本公司及企业自述限定，不宣称重新联网查询。
 - 旧独立资料显示为待分类；管理员编辑归类时，在同一事务中复用原文件 ID、路径及缓存，转入现有案例/附件记录，不复制原件、不重新解析。现有案例 ID 不变。新增/编辑仍复用案例接口，只有目录查询和旧资料归类增加管理入口，不改 schema。文件替换先校验再生效，保留文件 ID；失败校验不覆盖旧文件。
-- 手动更新：资料保存后可选择现在更新/暂不更新；新增、替换、删除资料使画像待更新，均不自动生成。使用完整缓存输入；默认上限 `BANFEI_PROFILE_INPUT_MAX_CHARS=100000` 字（合并后的伙伴名称、案例和文档正文），可通过该环境配置调整，超限明确提示并保留旧画像。更新失败、处理未结束、并发材料/画像变化均不覆盖当前画像。
+- 手动更新：资料保存后可选择现在更新/暂不更新；新增、替换、删除资料使画像待更新，均不自动生成。以当前完整报告为底稿，结合完整缓存资料，只替换模型返回的修改章节，无关章节原文保留。无画像按十章生成；旧摘要有原 Word 时仅在本次手动更新恢复底稿，不批量改写。默认上限 `BANFEI_PROFILE_INPUT_MAX_CHARS=100000` 字（当前报告、伙伴名称、案例、文档及输入封装），可通过该环境配置调整，超限明确提示并保留旧画像。非法返回、更新失败、处理未结束、并发材料/画像变化均不覆盖当前画像；保存成功后复用独立的匹配摘要更新。
 - 既有任务结果仍保留，案例链接按当前展示状态读取；课程/实验及 Plan/Run/Version/current 可靠性机制保持不变。
 
 运行依赖：Python 使用 `backend/requirements.txt`；系统预装 `libreoffice-writer libreoffice-impress fonts-noto-cjk`。转换只在本地执行，可用私有 `LIBREOFFICE_BIN` 指定已有可执行文件，不会运行时安装软件或下载模型。
@@ -77,7 +80,7 @@ AI 按名称、简介、分类、层级、课程目标/大纲、实验目标检�
 
 ## 技术与安全边界
 
-Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 17**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
+Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 18**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
 
 保留 `user/admin`、后端管理权限和任务 owner 隔离。普通用户首次访问自动建立身份，浏览器记住会话；长期身份 Key 可在其他浏览器恢复同一用户，不再注册、审批、使用密码或 Passkey。管理员通过独立入口保留密码登录和首次改密；没有固定默认凭据。课程/实验的系统可见、模型可发送、伙伴可外发分别校验；伙伴案例只检查当前展示开关与伙伴启用状态。伙伴可传递视图只取 current 版本并实时重检权限，复制时校验预览版本仍为 current，不输出内部诊断或备注。
 
@@ -89,39 +92,20 @@ Plan / Run / Version、current、幂等、版本冲突、事务、超时、中�
 
 ## 当前本地运行
 
-| 项目 | 当前配置 |
-|---|---|
-| 系统 / 工作区 / 分支 | WSL Ubuntu 24.04 / `/home/yuan/project/lingjian-agent-enablement` / `main` |
-| 浏览器入口 | `https://<WSL实际IP>`，以私有 `BANFEI_HTTPS_ORIGIN` 为准（Caddy 内部 CA；客户端需导入根证书） |
-| 内部前端 / 后端 | http://127.0.0.1:3000 / http://127.0.0.1:8000 |
-| 同源 API / 健康检查 | `/api` / `GET /api/health` |
-| PostgreSQL 库 / 用户 | `banfei_agent` / `banfei_app`（PostgreSQL 16） |
-| 私有配置 | `.isolation/runtime/dev/environment.json`，包含 `DATABASE_URL` |
-| 上传 / 日志 | `.isolation/runtime/dev/uploads` / `.isolation/logs/` |
-| HTTPS 根证书 / 持久 CA 数据 | `.isolation/runtime/caddy/root.crt` / `.isolation/runtime/caddy/data`（CA 数据含私钥，保留且不提交） |
-| 原 SQLite 与备份 | `.isolation/runtime/dev/app.db`、`.isolation/postgres-migration/`，保留、不参与正常运行 |
-
-在项目根目录按需执行：
+伴飞自有页面和接口唯一入口是 `http://实际服务器IP`（80 端口）。本机也可用 `http://localhost`；验收使用实际 IP。Caddy 80 → 前端 127.0.0.1:3000 → 同源 `/api` → 后端 127.0.0.1:8000。浏览器不直接访问 3000/8000。具体地址以私有配置 `BANFEI_IDENTITY_ORIGIN` 的第一个 HTTP 地址为准，本机配置可同时列出 `http://localhost`，CORS 与之相同。
 
 | 操作 | 命令 |
 |---|---|
-| 查看三项服务归属与状态 | `bash enablement-dev.sh status` |
-| 首次或地址变更后初始化 HTTPS | `bash enablement-dev.sh init-https` |
-| 启动前后端和已配置的 Caddy | `bash enablement-dev.sh start` |
-| 停止本项目三项服务 | `bash enablement-dev.sh stop` |
-| 只启停 Caddy | `bash enablement-dev.sh https-start` / `bash enablement-dev.sh https-stop` |
+| 核对三项服务归属与状态 | `bash enablement-dev.sh status` |
+| 初始化或更换实际 IP 后更新配置 | `bash enablement-dev.sh init` |
+| 启动入口、前端和后端 | `bash enablement-dev.sh start` |
+| 停止这三项伴飞服务 | `bash enablement-dev.sh stop` |
 
-首次切换先保存原 Key，再设置现有私有配置。地址变更时先核对并停止本项目服务，修改 `BANFEI_HTTPS_ORIGIN`，依次执行 `init-https`、`start`、`status`。WSL IP 变化也使用此流程；保留原 CA 目录、应用密钥和数据，不重新初始化账号。
+正式工作区为 `/home/yuan/project/lingjian-agent-enablement` 的 `main`；本机正式库为 PostgreSQL 16 `banfei_agent`，私有配置在 `.isolation/runtime/dev/environment.json`，上传在 `.isolation/runtime/dev/uploads`，日志在 `.isolation/logs/`。复用已有环境，不重建数据库、账号或应用密钥。地址变更先保存原身份 Key，再停服、仅更新私有 `BANFEI_IDENTITY_ORIGIN` 的实际 HTTP IP、执行 `init` 与 `start`。`NEXT_PUBLIC_API_BASE_URL=/api`、`BANFEI_API_PROXY_TARGET=http://127.0.0.1:8000` 保持同源；不启用证书、协议跳转或额外入口。
 
-复用已有 `.venv`、`frontend/node_modules`、配置和运行数据，不重新初始化。legacy 目录、旧 feature 分支及历史 worktree 不得作为正式开发环境，legacy 服务保持停止。
+WSL 与 ARM 的配置及启停步骤见 [HTTP 运行说明](docs/HTTP_SETUP.md)。公网 ARM 此前的部署报告记录的是历史版本；本轮未远程更新，不能将本机 HTTP 验证视为 ARM 已通过。字体文件部署时须保留 `frontend/public/fonts/` 的完整目录层级。Git push 不自动更新 ARM，部署仍需明确授权。
 
-WSL、公网 ARM、内网 ARM 共用 `init-https` 和 `deploy/Caddyfile`，分别配置 `https://实际WSL_IP`、`https://实际公网IP`、`https://实际内网IP`。浏览器统一走 443 和同源 `/api`，80 跳转默认关闭。`https-start` / `https-stop` 仅控制本项目 Caddy；`start` / `stop` 管理本地前后端与 Caddy。安装、重复初始化、证书信任及 ARM 既有服务接入方法见 [HTTPS 运行说明](docs/HTTPS_SETUP.md)。WSL 与公网 ARM 已实际运行 HTTPS；内网 ARM 尚未部署验证。
-
-同一代码已做 ARM64 兼容；`BANFEI_BUILD_CPUS=1` 可限制小机器构建并发。09-27 已按授权部署公网 ARM，完成 150 项后端、4 项 HTTPS 配置、30 项前端定向检查及生产只读核验，详见 [ARM HTTPS 验证](docs/validation/ARM_HTTPS_VALIDATION_20260927.md)。原账号、Key、历史、上传和应用密钥全部保留，没有重跑 schema 17 或伙伴整理，没有调用真实模型。Git push 不自动更新 ARM 服务；每次部署仍需明确授权。
-
-当前 HTTPS 验证边界：WSL 可信证书浏览器验证已通过；WSL Chromium 访问 ARM 隔离服务的身份流程和真实公网登录页也已通过，未忽略证书错误。Windows curl 此前使用 WSL 根证书报“证书吊销状态未知”；Windows 浏览器信任、安全上下文、复制和 Web Locks 尚未实测。根证书导入方法见 [Windows 信任说明](docs/HTTPS_SETUP.md#ca-持久化与-windows-信任)，ARM 根证书与 WSL 不同，需要分别信任。ARM 保留原 systemd 前后端；Caddy 由既有脚本控制，主机重启后须手动执行 `https-start`，命令见运行说明。
-
-普通用户的失败提示与管理员诊断分离。后台 **全量任务 → 任务报错** 与“进行中 / 已归档”并列，按时间倒序展示最近 50 条脱敏记录，可展开、复制详情及刷新；系统状态不再展示该面板。继续复用管理员接口 `GET /admin/system/errors` 和 `.isolation/logs/`：`errors.jsonl` 追加保存，已有后端日志同时记录；重试成功不删除历史。无需数据库 schema 变更，数据库故障也能记录。每条包含时间、任务或请求标识、失败环节、实际异常和堆栈；模型错误含可取得的模型名称、HTTP 状态码与必要返回片段。返回片段和超长字段有长度上限并标记截取，不采集请求正文或 Prompt；密钥、Token、身份 Key 和 Cookie 脱敏。完整诊断仅管理员接口可读，不进入普通任务响应。
+普通用户的失败提示与管理员诊断分离。后台 **全量任务 → 任务报错** 与“进行中 / 已归档”并列，按时间倒序展示最近 50 条脱敏记录，可展开、复制详情及刷新；系统状态的“最近错误”复用同一面板与同一日志来源。继续复用管理员接口 `GET /admin/system/errors` 和 `.isolation/logs/`：`errors.jsonl` 追加保存，已有后端日志同时记录；重试成功不删除历史。无需数据库 schema 变更，数据库故障也能记录。每条包含时间、任务或请求标识、失败环节、实际异常和堆栈；模型错误含可取得的模型名称、HTTP 状态码与必要返回片段。返回片段和超长字段有长度上限并标记截取，不采集请求正文或 Prompt；密钥、Token、身份 Key 和 Cookie 脱敏。完整诊断仅管理员接口可读，不进入普通任务响应。
 
 记录从本次功能启用后开始；此前未保存的真实异常不能补录。私有日志应与现有服务器日志一并保管；本版无自动清理、告警或错误分析服务。验证环境用 `BANFEI_ERROR_LOG_PATH` 指向 `/tmp`，不会把合成错误写入运行日志。
 
@@ -133,11 +117,11 @@ WSL、公网 ARM、内网 ARM 共用 `init-https` 和 `deploy/Caddyfile`，分�
 
 每个普通用户只有一个由 32 字节随机数生成的 Key，数据库保存 SHA-256 查找摘要和经过 Fernet 认证加密的密文。`BANFEI_IDENTITY_ENCRYPTION_KEY` 与 JWT 签名密钥分开，只放 Git 忽略的私有运行配置。必须随数据库备份妥善保存此配置，否则不能重新展示已有 Key；程序不会自动生成替代密钥或轮换用户 Key。明文只由已认证的本人端点返回，响应禁止缓存，不进入普通用户资料、管理员列表、认证审计或模型上下文。
 
-浏览器仅保存独立的随机会话 Cookie（HttpOnly/SameSite=Strict，HTTPS 下 Secure，最长 365 天）及当前普通 Token，不把长期 Key 写入浏览器存储。普通“退出”撤销旧 Token 和旧 Cookie 的绑定，保留一份新的浏览器凭据，不发放登录 Token，回到身份入口。刷新、重开浏览器仍停留退出页，点击“继续使用当前身份”即可恢复原用户和历史，不需输入 Key，也不创建用户。需要切换身份时可选择“使用其他 Key 登录”。站点凭据已清除或失效时才需要 Key；不能凭设备信息猜测用户。不同浏览器的会话及管理员会话不受影响。
+浏览器仅保存独立的随机会话 Cookie（HttpOnly/SameSite=Strict、非 Secure，最长 365 天）及当前普通 Token，不把长期 Key 写入浏览器存储。普通“退出”撤销旧 Token 和旧 Cookie 的绑定，保留一份新的浏览器凭据，不发放登录 Token，回到身份入口。刷新、重开浏览器仍停留退出页，点击“继续使用当前身份”即可恢复原用户和历史，不需输入 Key，也不创建用户。需要切换身份时可选择“使用其他 Key 登录”。站点凭据已清除或失效时才需要 Key；不能凭设备信息猜测用户。不同浏览器的会话及管理员会话不受影响。
 
 管理员 `/admin/login`、改密、锁定、重置、停用和任务查看保持原实现；普通和管理请求分别使用对应身份，退出互不覆盖，不能相互转换角色。用户管理列表/详情显示鉴权方式及只读“Key 标识”：普通长期 Key 由后端校验现有凭据归属后返回 `bf_` + 随机部分前 2 位 + `…` + 末 5 位，详情同时显示用户 ID，便于辅助核对。管理员或无长期 Key 的旧身份显示“—”，无法校验或解密的凭据显示“暂不可用”。管理员接口不返回完整 Key、密文或摘要；旧凭据记录按原实际类型显示，仅用于历史数据查看。普通注册、审批、密码登录、首次改密和 Passkey 接口均关闭。
 
-本地浏览器统一使用私有配置中的 **WSL 实际 IP HTTPS 地址**，前后端 3000/8000 为内部 HTTP 服务。`init-https` 将 `BANFEI_IDENTITY_ORIGIN` 和 CORS 设置为精确的 HTTPS 入口；不放宽来源校验。切换前保存原 Key；localhost 的 Cookie 和 Token 不会自动转给 IP，首次切换请在新地址 `/login?method=key` 使用已有 Key 恢复原 `users.id` 和历史。同主机下经验证的原浏览器 Cookie 仍可复用。部署须用户显式授权，不改现有模型配置，也不将网络可访问身份解释为员工实名。
+浏览器统一使用实际 IP 的 HTTP 80 入口；本机还可使用 `http://localhost`。`BANFEI_IDENTITY_ORIGIN` 和 CORS 仅允许明确列出的 HTTP 地址。原 HTTPS Cookie/Token 不会自动迁到 HTTP，首次切换请在新地址 `/login?method=key` 使用原 Key 恢复同一 `users.id` 与历史；独立的新 HTTP Cookie 避免旧 Secure Cookie 阻止登录。部署须用户显式授权，不改模型配置，也不将网络可访问身份解释为员工实名。
 
 不迁移、合并或删除旧普通用户和历史；旧 Passkey/浏览器凭据不能用于新认证，也不会自动获配 Key。无 Key 找回、MFA、自动轮换或设备管理。
 
@@ -157,10 +141,10 @@ Key 文件格式错误在浏览器内提示；Key 格式错误、未知/旧版�
 - v15 升级到 v16 使用 `scripts/migrate_revoked_identity_keys.py --backup-dir <新的私有备份目录>`，先 pg_dump，再事务新增 `revoked_identity_keys(key_hash PRIMARY KEY, revoked_at)`，不改既有用户/Key/业务行，不回填历史删除。本机 v16 迁移已完成，现已升至 v18，不重复执行；其他旧环境须显式升级，失败回滚，重复执行保留已有失效记录。回退须停服并协调代码/schema，保留新增失效记录；不能恢复旧库覆盖后续数据，也不能用旧代码执行会漏记失效摘要的删除。
 - 35 张表（包括保留的旧身份表及新增 Key 映射）的映射位于 [storage_models.py](backend/app/storage_models.py)。保留现有 UUID、外键、JSON 文本、时间和标志字段；当前 schema version 为 18。
 - `match_records.last_error_details` 是 v12 内已落地的可空增量列；当前环境已完成迁移，不因阅读文档再次执行。
-- [SQLite → PostgreSQL 工具](scripts/migrate_sqlite_to_postgres.py) 只用于经授权的一次性迁移：SQLite backup API、原库只读、空目标库、事务导入和逐表对账。
+- 空 PostgreSQL schema 使用 `.venv/bin/python scripts/initialize_postgres.py` 显式初始化到 schema 18；任意已有表或视图均拒绝初始化，不重建、不重置或重新 seed。运行启动只校验当前 schema，既有升级脚本继续先备份再事务执行。
 - [任务错误详情迁移工具](scripts/migrate_task_failure_details.py) 先 `pg_dump`，再事务加列和校验；不能替代业务数据备份策略。
 - 禁止删除、清空、重建、重新 seed、随意替换任何现有数据库、上传目录或私有备份。必要变更须先核验实际目标，提供备份、事务与回退方案。
-- 历史 SQLite schema 12 Pilot 文件工具已明确标为 **archived**；归档工具不属于当前支持范围，不用于当前 PostgreSQL 运行库；见 [归档说明](pilot-data/README.md)。
+- 已移除旧文件数据库、迁移中转及 Pilot 工具，不保留兼容开关；历史实现从 Git 追溯。
 
 ## 问题反馈
 
@@ -176,7 +160,7 @@ PostgreSQL 保存 `feedback_issue`、`feedback_attachment`，图片位于现有�
 .venv/bin/python scripts/migrate_feedback.py --backup-dir <新的私有备份目录>
 ```
 
-工具默认仅允许本机 `banfei_agent`（其他既有库须显式传匹配的 `--database-name`）：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和当时的 schema version 12；本机身份迁移再将版本升至 13。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。旧 SQLite 快照需先在私有副本上升级到当前 schema，才可使用当前映射导入空验证目标；不修改原快照。日常运行继续使用 PostgreSQL。
+工具默认仅允许本机 `banfei_agent`（其他既有库须显式传匹配的 `--database-name`）：先 `pg_dump`，再事务新增两张表和索引，不改既有业务表和当时的 schema version 12；本机身份迁移再将版本升至 13。失败时 DDL 自动回滚；代码回退可保留新增表及截图，不自动删除反馈数据。初始化、升级与验证均直接使用 PostgreSQL，不使用文件数据库中转。
 
 相关验证：`run_postgres_validation.py backend -q -k feedback`；`run_postgres_validation.py browser feedback.spec.ts`。均须使用专用验证库及 `/tmp` 上传目录，不能对业务库执行测试。验证范围与结果见 [反馈验证记录](docs/validation/FEEDBACK_VALIDATION.md)。
 
@@ -214,7 +198,7 @@ PostgreSQL 保存 `feedback_issue`、`feedback_attachment`，图片位于现有�
 
 ## 测试
 
-私有 `BANFEI_TEST_DATABASE_URL` 必须指向本机专用 `banfei_agent_test` 或兼容的 `banfei_validation`，不能使用运行库连接串。当前本机验证配置保存于 Git 忽略的 `.isolation/runtime/dev/validation-environment.json`，运行前将其中的变量加载到当前测试进程，不输出连接串。PostgreSQL 用临时 schema；SQLite 兼容/迁移测试和上传夹具仅在 `/tmp`。全量或进程恢复/E2E 测试会占服务端口，先核对并停止当前服务，结束后只恢复 main，不启动 legacy 或遗留模型夹具。
+私有 `BANFEI_TEST_DATABASE_URL` 必须指向本机专用 `banfei_agent_test` 或兼容的 `banfei_validation`，不能使用运行库连接串。当前本机验证配置保存于 Git 忽略的 `.isolation/runtime/dev/validation-environment.json`，运行前将其中的变量加载到当前测试进程，不输出连接串。pytest 每项测试、每轮 Playwright 使用独立随机临时 schema，直接建表并准备合成数据；缺少配置或指向不支持的数据库直接失败。清理只删除本轮创建的 schema，不能删除 public 或其他进程的 schema。上传和凭据夹具位于本轮独立 `/tmp` 目录。全量或进程恢复/E2E 测试会占服务端口，先核对并停止当前服务，结束后只恢复 main，不启动 legacy 或遗留模型夹具。
 
 ```bash
 # 私有 BANFEI_TEST_DATABASE_URL 已由环境提供后，在仓库根目录：
@@ -231,12 +215,12 @@ PLAYWRIGHT_MODEL_MODE=replay .venv/bin/python scripts/run_postgres_validation.py
 
 - 开发、build、Playwright 不得同时写同一 `.next`；可在独立构建目录验证。
 - 默认 UI 子集以 [Playwright 配置](frontend/playwright.config.ts) 的 `testMatch` 为准，不在文档写固定数量。`opportunity-ui.spec.ts` 已单独验证，尚不在默认子集中；完整 replay 会包含它。
-- 默认后端口径由 `pytest.ini` 排除 `archived` 标记；`test_pilot_import.py` / `test_pilot_intake.py` 仅作历史保留，不计入当前正式测试或通过数。历史清单和当前收集边界见 [Pilot 归档说明](pilot-data/README.md)。
-- 未配置 PostgreSQL 验证库的普通 pytest 可能仅验证 SQLite 兼容路径，不能据此宣布 PostgreSQL 全量通过。
+- `pytest.ini` 不再排除 archived 或数据库类型；保留的后端测试全部直接使用 PG。旧工具删除时，经用户确认同步删除其专用 Pilot 与历史修复测试，这些用例不计为迁移通过。
+- 普通 pytest 同样要求 `BANFEI_TEST_DATABASE_URL`，未配置立即报错；直接运行 Playwright 时也必须经上述入口分配本轮临时 schema，不允许复用运行服务。
 - 真实接口 smoke 使用现有 `scripts/verify_real_model.py`，最多两次合成请求；不读伙伴附件，不建业务任务。故障回放与真实供应商测试分别记录。
 - 版本化测试记录仅证明对应提交/范围；工程、真实模型兼容、真实资源与业务验收分别判断，不相互替代。业务样例填写 [现行业务验收模板](docs/validation/REAL_BUSINESS_ACCEPTANCE_TEMPLATE.md)，不由工具代填结论。
 
-此前分组提交与三项历史 Pilot 失败保留在 [2026-09-25 Git 收口记录](docs/validation/GIT_CLOSEOUT_20260925.md)。后续已核实旧工具没有现行调用，将整套 Pilot 测试归档；归档边界见 [Pilot 归档核验](docs/validation/PILOT_ARCHIVE_20260925.md)；其中 788 项是归档当时的通过数，最新回归结果见 [2026-09-26 收口记录](docs/validation/GIT_CLOSEOUT_20260926.md)。归档工具不属于当前支持范围，历史失败没有被改写为通过。
+历史混合数据库测试数字只属于当时，不改称 PG 通过；本轮测试与清理清单见 [PostgreSQL-only 验证记录](docs/validation/POSTGRES_ONLY_20261001.md)。
 
 ## 文档边界
 

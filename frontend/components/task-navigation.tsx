@@ -89,7 +89,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
   async function submit(requirement: string) {
     if (!key || !alive.current) throw new Error("请先登录。");
     const id = newTaskId();
-    const task: PendingTask = { id, requirement: requirement.trim(), createdAt: new Date().toISOString(), taskStatus: "submitting" };
+    const task: PendingTask = { id, requirement, createdAt: new Date().toISOString(), taskStatus: "submitting" };
     update([task, ...pendingRef.current]);
     let rejected = false;
     try {
@@ -265,7 +265,7 @@ function UserTaskSidebar({ pathname, selectedId }: { pathname: string; selectedI
     </Link>;
   }
   return <div className="sidebar-task-section">
-    <Link href="/tasks" className={`sidebar-all-tasks ${pathname === "/tasks" ? "active" : ""}`} aria-current={pathname === "/tasks" ? "page" : undefined}>全部任务<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></Link>
+    <Link href="/tasks" className={`sidebar-all-tasks ${pathname.startsWith("/tasks") ? "active" : ""}`} aria-current={pathname.startsWith("/tasks") ? "page" : undefined}>全部任务<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></Link>
     <div className="sidebar-task-list" ref={scroll} aria-label="最近任务">
       {pending.filter(task => !items.some(item => item.id === task.id)).map(task => <div key={task.id} className="sidebar-task-item pending-task" data-task-id={task.id}>
         <strong title={task.requirement}>{task.requirement}</strong><span><em>{taskLabels[task.taskStatus]}</em>{task.taskStatus === "unconfirmed" && <button type="button" className="sidebar-check-task" disabled={checking === task.id} onClick={async () => { setChecking(task.id); await confirm(task.id); setChecking(null); }}>{checking === task.id ? "正在刷新" : "刷新查看"}</button>}</span>

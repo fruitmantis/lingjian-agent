@@ -64,20 +64,25 @@ def response(messages):
  elif any('RAG' in f['name'] for f in analysis['priorities']) and not any(r['source_type']=='lab' and 'rag' in json.dumps(r,ensure_ascii=False).lower() for r in data['candidates']):gaps.append('当前资源库未找到 RAG 知识库工程匹配实验，可先使用课程和现有集成实践。')
  return {'target_partner_id':partner,'stages':[{'title':'进阶实验' if analysis['intent']=='resources' else '围绕发展重点选择资源','items':items}] if items else [],'answer':'结合现有基础，建议围绕以下重点开展实践：\n\n'+'\n\n'.join(f"{i+1}. {f['name']}：{f['reason']}" for i,f in enumerate(analysis['priorities'])), 'limitations':[], 'resource_gaps':gaps,'next_steps':[] if analysis['intent']=='resources' else ['由伙伴自主判断准备程度，结合真实项目试跑；新的案例与交付件经既有机制进入画像后，再调整发展建议。']}
 
-# Explicit replay-only adaptation for the unified understanding contract.
+# Deterministic responses to the current unified understanding contract.
 _legacy_response = response
 
 def response(messages):
  data=json.loads(messages[-1]['content']);system=messages[0]['content']
  if 'analyze' not in system:return _legacy_response(messages)
- result=_legacy_response(messages)
+ current=data.get('current');message=data.get('message','')
+ # The current protocol sends follow-up instructions separately from the request.
+ adapted=json.loads(json.dumps(data));adapted['request']['adjustment']=message
+ adapted_messages=[dict(messages[0]),{'role':'user','content':json.dumps(adapted)}]
+ result=_legacy_response(adapted_messages)
  if 'target_partner_id' not in result:return result
- current=data.get('current');message=data.get('message','');direction=data['request']['development_direction']
- action='generate';answer=''
+ direction=data['request']['development_direction'];action='generate';answer='';refs=[]
  if result['intent']=='explore':
   action='answer';answer='可以考虑以下方向：\n\n'+'\n\n'.join(f"{i+1}. {f['name']}：{f['reason']}" for i,f in enumerate(result['priorities']))
  if current:
-  if any(word in message for word in ('调整','修改','重新规划','不要','优先','放后面','展开建议')):action='regenerate'
-  else:action='answer';answer='结合当前建议继续说明：\n\n'+current['answer']
- result.update(in_scope=True,action=action,effective_direction=direction,effective_constraints=data.get('constraints',{}),answer=answer,references=[],edit_item_ids=[],edit_answer_spans=[])
+  conversation=_legacy_response([{'role':'system','content':'partner_development:converse'},messages[-1]])
+  if conversation['kind']=='revise' or any(word in message for word in ('调整','修改','重新规划')):
+   action='regenerate';direction += '；' + message
+  else:action='answer';answer=conversation['answer'];refs=conversation['references']
+ result.update(in_scope=True,action=action,effective_direction=direction,effective_constraints=data.get('constraints',{}),answer=answer,references=refs,edit_item_ids=[],edit_answer_spans=[])
  return result

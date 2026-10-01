@@ -3,8 +3,8 @@ import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {expect,test,type Page} from '@playwright/test';
 import {fixtureLogin} from './identity-fixture';
-const API='http://localhost:8000';
-function adminSession(){return JSON.parse(readFileSync('/tmp/lingjian-enablement-e2e/visual-session.json','utf8'));}
+const API='http://localhost/api';
+function adminSession(){return JSON.parse(readFileSync(`${process.env.BANFEI_TEST_ROOT}/visual-session.json`,'utf8'));}
 async function setSession(page:Page,session:ReturnType<typeof adminSession>){await page.addInitScript(s=>{localStorage.setItem(`banfei:${s.user.role}:token`,s.access_token);localStorage.setItem(`banfei:${s.user.role}:user`,JSON.stringify(s.user));},session);}
 
 test('one materials page: partner shortcut, private profile originals and legacy file classification',async({page,request})=>{
@@ -14,9 +14,10 @@ test('one materials page: partner shortcut, private profile originals and legacy
   await page.goto('/admin/partners/'+partner.id);
   await expect(page.getByRole('heading',{name:'伙伴案例',exact:true})).toHaveCount(0);
   await expect(page.getByRole('heading',{name:'伙伴资料',exact:true})).toHaveCount(0);
-  const pdfSource=execFileSync('../.venv/bin/python',['-c','import io,sys;from docx import Document;d=Document();d.add_paragraph("导入画像直接采用，不调用模型。");b=io.BytesIO();d.save(b);sys.stdout.buffer.write(b.getvalue())']);
+  const pdfSource=execFileSync('../.venv/bin/python',['-c','import sys;sys.path.insert(0,"..");from backend.tests.support.profile_report_fixture import document;sys.stdout.buffer.write(document())']);
   await page.getByText('导入 DOCX 画像',{exact:true}).locator('input').setInputFiles({name:'初始化画像.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer:pdfSource});
-  await expect(page.locator('.ai-profile-text')).toHaveText('导入画像直接采用，不调用模型。',{timeout:30000});
+  await expect(page.getByTestId('partner-profile-report').getByRole('heading',{level:3})).toHaveCount(10,{timeout:30000});
+  await expect(page.getByTestId('partner-profile-report').getByRole('table')).toHaveCount(3);
   await page.getByText('画像原件',{exact:true}).click();
   const office=page.locator('article').filter({hasText:'初始化画像.docx'});await expect(office).toContainText('已处理');
   await expect(page.locator('article').filter({hasText:'旧资料.txt'})).toHaveCount(0);
@@ -36,7 +37,7 @@ test('one materials page: partner shortcut, private profile originals and legacy
   await expect(page.locator(`[data-material-id="${legacy.id}"]`)).toContainText('已归类资料');
   expect((await request.get(`${API}/cases/${legacy.id}/deliverables`,{headers})).ok()).toBeTruthy();
   const after=await (await request.get(`${API}/cases/${legacy.id}/deliverables`,{headers})).json();expect(after[0].id).toBe(legacy.id);
-  await page.getByRole('button',{name:'查看全部伙伴资料'}).click();await expect(page.getByLabel('筛选伙伴')).toHaveAttribute('data-partner-id','');
+  await page.getByRole('button',{name:'查看全部伙伴资料'}).click();await expect(page.getByLabel('筛选伙伴',{exact:true})).toHaveAttribute('data-partner-id','');
   await page.getByRole('navigation',{name:'后台导航'}).getByRole('link',{name:'伙伴资料',exact:true}).click();await expect(page.getByRole('heading',{name:'伙伴资料',exact:true})).toBeVisible();
 });
 
@@ -44,7 +45,7 @@ test('multiple files in one card, safe preview, same-ID replacement and live dis
   const session=adminSession(),headers={Authorization:`Bearer ${session.access_token}`};await setSession(page,session);
   const p=await (await request.post(API+'/partners',{headers,data:{name:'案例验证 '+randomUUID()}})).json();
   await page.goto('/admin/partner-materials?partner_id='+p.id);await page.getByRole('button',{name:'新增资料',exact:true}).click();
-  const form=page.getByRole('dialog',{name:'新增资料'});await expect(form.getByLabel('关联伙伴')).toHaveAttribute('data-partner-id',p.id);
+  const form=page.getByRole('dialog',{name:'新增资料'});await expect(form.getByLabel('关联伙伴',{exact:true})).toHaveAttribute('data-partner-id',p.id);
   await form.getByLabel('标题',{exact:true}).fill('数据库原生文档案例');await form.getByLabel('一级分类',{exact:true}).selectOption('technical');await form.getByLabel('二级分类',{exact:true}).selectOption('technical-3');await form.getByLabel('简介（选填）').fill('案例简介');
   await form.locator('input[type=file]').setInputFiles({name:'image.png',mimeType:'image/png',buffer:Buffer.from('not allowed')});await expect(form.getByRole('alert')).toContainText('不支持此格式');
   await form.locator('input[type=file]').setInputFiles([{name:'案例材料.md',mimeType:'text/markdown',buffer:Buffer.from('# 案例文档\n\n正文内容')},{name:'静态.html',mimeType:'text/html',buffer:Buffer.from('<h1>安全正文</h1><script>window.injected=1</script><img src="https://example.invalid/leak">')}]);
@@ -74,6 +75,6 @@ test('global partner/category search, three-column groups and total-page jump',a
   await expect(page.getByRole('navigation',{name:'伙伴资料分页'})).toContainText('共 2 页');await page.getByLabel('跳转页码').fill('2');await page.getByRole('button',{name:'跳转',exact:true}).click();await expect(cards).toHaveCount(2);
   await page.getByLabel('筛选一级分类').selectOption('technical');await page.getByLabel('筛选二级分类').selectOption('technical-3');await expect(cards).toHaveCount(7);
   await page.getByLabel('资料名称').fill('目录验证 13');await page.getByRole('button',{name:'搜索',exact:true}).click();await expect(cards).toHaveCount(1);await expect(cards).toContainText('目录验证 13');
-  await page.getByRole('button',{name:'查看全部伙伴资料'}).click();await expect(page.getByLabel('筛选伙伴')).toHaveAttribute('data-partner-id','');await expect(cards).toHaveCount(1);
+  await page.getByRole('button',{name:'查看全部伙伴资料'}).click();await expect(page.getByLabel('筛选伙伴',{exact:true})).toHaveAttribute('data-partner-id','');await expect(cards).toHaveCount(1);
   await page.goto('/admin/partner-materials?partner_id='+p.id);await expect(cards).toHaveCount(12);await page.screenshot({path:'/tmp/banfei-material-manager.png',fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
 });

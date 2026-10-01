@@ -8,8 +8,7 @@ def migrate(conn, fault=None):
         return {'schema_version': 18, 'already_current': True}
     if version != '17':
         raise RuntimeError('Expected schema 17; no automatic historical migration')
-    columns = ({row[0] for row in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='model_configs'")}
-               if hasattr(conn, 'connection') else {row[1] for row in conn.execute('PRAGMA table_info(model_configs)')})
+    columns = {row[0] for row in conn.execute("SELECT column_name FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='model_configs'")}
     if 'timeout_seconds' in columns:
         conn.execute('ALTER TABLE model_configs DROP COLUMN timeout_seconds')
     conn.execute('INSERT INTO app_metadata (key,value) VALUES (?,?) ON CONFLICT(key) DO NOTHING',

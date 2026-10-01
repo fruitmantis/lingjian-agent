@@ -51,7 +51,7 @@ def presentation(conn,plan):
     latest=conn.execute('SELECT status,run_type FROM development_runs WHERE plan_id=? ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,created_at DESC,id DESC LIMIT 1',(plan['id'],plan['active_run_id'])).fetchone()
     if plan['status']=='archived':state='archived'
     elif latest and latest['status'] in ('pending','running'):state='generating'
-    elif current:state='available'
+    elif current or (latest and latest['status']=='ready'):state='available'
     else:state='generation_failed'
     # Generated status describes existence, not permission to read revoked content.
     return {'state':state,'current_version':current['version_no'] if current else None,
@@ -63,7 +63,7 @@ def detail(plan_id,user,version_id=None):
     with get_db() as conn:life.authorize(conn,plan_id,user)
     life.recover(plan_id=plan_id)
     with get_db() as conn:
-        conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user)
+        conn.begin_read();plan=life.authorize(conn,plan_id,user)
         request=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
         versions=[dict(r) for r in conn.execute('SELECT id,version_no,based_on_version_id,created_by,created_at FROM development_versions WHERE plan_id=? ORDER BY version_no DESC',(plan_id,))]
         runs=[dict(r) for r in conn.execute('SELECT id,submission_id,run_type,based_on_version_id,status,model_config_id,created_at,started_at,ended_at,error_stage,safe_error_message FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC',(plan_id,))]
@@ -74,6 +74,7 @@ def detail(plan_id,user,version_id=None):
                 safe=public_failures(run['error_stage'],run['safe_error_message'])[0]
                 run['error_stage']=safe['stage']
                 run['safe_error_message']=safe['message']
+        latest_snapshot=json.loads(conn.execute('SELECT input_snapshot FROM development_runs WHERE id=?',(runs[0]['id'],)).fetchone()[0]) if runs else {}
         payload=None;hidden=False
         if version_id or plan['current_version_id']:
             row=version_row(conn,plan,version_id);payload=readable_payload(conn,row);hidden=payload is None
@@ -96,12 +97,24 @@ def detail(plan_id,user,version_id=None):
         request.pop('_effective_request',None);request.pop('_effective_version_id',None)
         # Source-sensitive user text is also withheld after revocation, including original demand.
         if hidden:request={k:v for k,v in request.items() if k in ('target_partner_id','request_source','targets')};request['targets']=[]
-        return {'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
+        interim=None
+        understood=latest_snapshot.get('understanding')
+        if understood and not hidden and not understood.get('scope_message'):
+            try:
+                from .development_context import load
+                frame=load(latest_snapshot['request'],user,plan_id=plan_id,base=runs[0]['based_on_version_id'],message=latest_snapshot.get('instruction',''),connection=conn)
+                if frame['stamp']==understood['stamp']:
+                    interim={key:understood['analysis'].get(key) for key in ('interpretation','partner_assessment','priorities','basis_limitations')}
+            except HTTPException:
+                pass
+        return {'progress':latest_snapshot.get('progress'),'analysis':interim,'scopeMessage':latest_snapshot.get('scope_message'),
+                'executionInput':None if hidden else latest_snapshot.get('instruction') or request.get('raw_demand') or request.get('development_direction'),
+                'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
 
 def edit(plan_id,body,user):
     bind_context(task_id=plan_id, stage='validation')
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');plan=life.authorize(conn,plan_id,user);life.writable(plan,body.based_on_version_id)
+        conn.lock_writer();plan=life.authorize(conn,plan_id,user);life.writable(plan,body.based_on_version_id)
         row=version_row(conn,plan);payload=readable_payload(conn,row)
         if payload is None:life.fail(409,REVOKED)
         request=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0]);request.update(payload.get('effective_request',{}))
@@ -122,7 +135,7 @@ def edit(plan_id,body,user):
 
 def options(plan_id,user):
     with get_db() as conn:
-        conn.execute('BEGIN');plan=life.authorize(conn,plan_id,user);row=version_row(conn,plan);payload=readable_payload(conn,row)
+        conn.begin_read();plan=life.authorize(conn,plan_id,user);row=version_row(conn,plan);payload=readable_payload(conn,row)
         if payload is None:life.fail(409,REVOKED)
         request=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0]);request.update(payload.get('effective_request',{}))
         return engine.candidates(conn,request,payload.get('analysis',{'priorities':[]}))
@@ -130,7 +143,7 @@ def options(plan_id,user):
 def transferable(plan_id,user,expected=None,copy_event=False):
     bind_context(task_id=plan_id, stage='transfer_validation')
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE' if copy_event else 'BEGIN');plan=life.authorize(conn,plan_id,user)
+        conn.lock_writer() if copy_event else conn.begin_read();plan=life.authorize(conn,plan_id,user)
         if plan['status']!='active' or not plan['current_version_id']:life.fail(409,'仅可预览和复制有效方案的当前版本')
         if expected is not None and expected!=plan['current_version_id']:life.fail(409,'当前版本发生变化，请重新预览')
         row=version_row(conn,plan,plan['current_version_id'])

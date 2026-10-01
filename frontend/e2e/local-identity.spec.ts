@@ -2,8 +2,8 @@ import { test, expect, chromium, type Page, type APIRequestContext } from '@play
 import { resolve } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-const API = process.env.PLAYWRIGHT_HTTPS_ORIGIN ? process.env.PLAYWRIGHT_HTTPS_ORIGIN + '/api' : 'http://localhost:8000';
-const origin = { Origin: process.env.PLAYWRIGHT_HTTPS_ORIGIN || 'http://localhost:3000' };
+const API = (process.env.PLAYWRIGHT_HTTP_ORIGIN || 'http://localhost') + '/api';
+const origin = { Origin: process.env.PLAYWRIGHT_HTTP_ORIGIN || 'http://localhost' };
 async function localUser(page: Page) { return page.evaluate(() => JSON.parse(localStorage.getItem('banfei:user:user') || 'null')); }
 async function createIdentity(page: Page) {
   await page.goto('/');
@@ -97,10 +97,10 @@ test('popup existing-Key action switches identity without another user or merge'
 test('logout retains browser identity, explicitly continues without Key after restart', async ({ page, context, browser, request }) => {
   const original = await createIdentity(page); const oldToken = await page.evaluate(() => localStorage.getItem('banfei:user:token'));
   const admin = await adminSession(request); const before = await userCount(request, admin.access_token);
-  const oldCookie = (await context.cookies()).find(c => c.name === 'banfei_identity_session')!.value;
+  const oldCookie = (await context.cookies()).find(c => c.name === 'banfei_http_identity_session')!.value;
   await page.getByRole('button', { name: '退出', exact: true }).click();
   await expect(page).toHaveURL(/\/login$/); await expect(page.getByRole('heading', { name: '已退出伴飞' })).toBeVisible();
-  expect(await localUser(page)).toBeNull(); expect((await context.cookies()).find(c => c.name === 'banfei_identity_session')!.value).not.toBe(oldCookie);
+  expect(await localUser(page)).toBeNull(); expect((await context.cookies()).find(c => c.name === 'banfei_http_identity_session')!.value).not.toBe(oldCookie);
   await expect(page.getByRole('button', { name: '继续使用当前身份' })).toBeVisible();
   await expect(page.getByLabel('身份 Key', { exact: true })).toHaveCount(0);
   await page.screenshot({path:test.info().outputPath('remembered-identity-continue.png')});
@@ -187,8 +187,8 @@ test('Chrome Key logs into the same identity in Edge without platform verificati
   test.skip(!existsSync(chromePath) || !existsSync(edgePath), 'Official browsers not installed');
   const chrome = await chromium.launch({ executablePath: chromePath }); const edge = await chromium.launch({ executablePath: edgePath });
   try {
-    const a = await chrome.newPage({ baseURL: 'http://localhost:3000' }); const original = await createIdentity(a);
-    const b = await edge.newPage({ baseURL: 'http://localhost:3000' }); await keyLogin(b, original.key);
+    const a = await chrome.newPage({ baseURL: 'http://localhost' }); const original = await createIdentity(a);
+    const b = await edge.newPage({ baseURL: 'http://localhost' }); await keyLogin(b, original.key);
     expect((await localUser(b)).id).toBe(original.user.id);
     await b.goto('/account'); await expect(b.getByTestId('identity-key')).toHaveText(original.key);
   } finally { await chrome.close(); await edge.close(); }
@@ -226,7 +226,7 @@ test('business 401 restores same browser identity without Key or a new user', as
     return route.fulfill({status:401,json:{detail:'expired test token'}});
   });
   await page.goto('/tasks');
-  await expect(page).toHaveURL('http://localhost:3000/');
+  await expect(page).toHaveURL('http://localhost/');
   await expect(page.locator('.sidebar')).toBeVisible();
   expect(rejected).toBe(true);expect((await localUser(page)).id).toBe(original.user.id);
   expect(await userCount(request,admin.access_token)).toBe(before);
@@ -283,7 +283,7 @@ test('credential file import rejects invalid files locally and cancellation pres
   const admin = await adminSession(request); const before = await userCount(request, admin.access_token);
   await page.getByRole('button', { name: '退出', exact: true }).click();
   await page.getByRole('button', { name: '使用其他 Key 登录' }).click();
-  const cookie = (await context.cookies()).find(c => c.name === 'banfei_identity_session')!.value;
+  const cookie = (await context.cookies()).find(c => c.name === 'banfei_http_identity_session')!.value;
   let authRequests = 0, businessRequests = 0;
   page.on('request', r => { if (r.url().includes('/auth/identity/')) authRequests++; if (r.url().includes('/agent/tasks')) businessRequests++; });
   const chooserEvent = page.waitForEvent('filechooser');
@@ -313,7 +313,7 @@ test('credential file import rejects invalid files locally and cancellation pres
   }
   expect(authRequests).toBe(0); expect(businessRequests).toBe(0);
   expect(await userCount(request, admin.access_token)).toBe(before);
-  expect((await context.cookies()).find(c => c.name === 'banfei_identity_session')!.value).toBe(cookie);
+  expect((await context.cookies()).find(c => c.name === 'banfei_http_identity_session')!.value).toBe(cookie);
   await page.getByRole('button', { name: '返回当前浏览器身份' }).click();
   await page.getByRole('button', { name: '继续使用当前身份' }).click();
   await expect(page.locator('.sidebar')).toBeVisible(); expect((await localUser(page)).id).toBe(original.user.id);
@@ -324,12 +324,12 @@ test('credential file import with an unknown Key creates no user and can retry t
   const admin = await adminSession(request); const before = await userCount(request, admin.access_token);
   await page.getByRole('button', { name: '退出', exact: true }).click();
   await page.getByRole('button', { name: '使用其他 Key 登录' }).click();
-  const cookie = (await context.cookies()).find(c => c.name === 'banfei_identity_session')!.value;
+  const cookie = (await context.cookies()).find(c => c.name === 'banfei_http_identity_session')!.value;
   const fileInput = page.getByLabel('选择身份凭据文件');
   await fileInput.setInputFiles({ name: 'identity.txt', mimeType: 'text/plain', buffer: Buffer.from('bf_'+'x'.repeat(43)) });
   await expect(page.locator('form [role=alert]')).toHaveText('凭据无效或已失效，请确认 Key 或凭据文件。');
   expect(await localUser(page)).toBeNull(); expect(await userCount(request, admin.access_token)).toBe(before);
-  expect((await context.cookies()).find(c => c.name === 'banfei_identity_session')!.value).toBe(cookie);
+  expect((await context.cookies()).find(c => c.name === 'banfei_http_identity_session')!.value).toBe(cookie);
   await fileInput.setInputFiles({ name: 'identity.txt', mimeType: 'text/plain', buffer: Buffer.from(original.key) });
   await expect(page.locator('.sidebar')).toBeVisible(); expect((await localUser(page)).id).toBe(original.user.id);
   expect(await userCount(request, admin.access_token)).toBe(before);

@@ -2,13 +2,13 @@ import {fixtureLogin} from "./identity-fixture";
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-const API = 'http://localhost:8000';
+const API = 'http://localhost/api';
 // Synthetic 8x8 PNG. No business images or runtime credentials.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFUlEQVR4nGP8//8/AzbAhFV00EoAAFbUAw037MyjAAAAAElFTkSuQmCC', 'base64');
 
 for (const width of [1366, 1920]) test(`feedback paste upload review and status ${width}`, async ({ page, request }) => {
   expect(process.env.PLAYWRIGHT_REUSE_SERVER).not.toBe('1');
-  const admin = JSON.parse(readFileSync('/tmp/lingjian-enablement-e2e/visual-session.json', 'utf8'));
+  const admin = JSON.parse(readFileSync(`${process.env.BANFEI_TEST_ROOT}/visual-session.json`, 'utf8'));
   expect(['postgresql:banfei_validation','postgresql:banfei_agent_test']).toContain(admin.database);
   const login = await fixtureLogin(request, 'user_a', 'ValidationPass123');
   expect(login.ok()).toBeTruthy();

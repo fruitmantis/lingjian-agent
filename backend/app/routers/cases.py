@@ -26,7 +26,7 @@ def create_case(payload: CaseCreate,actor=Depends(require_admin)):
     check_category(payload.category_id)
     cid=str(uuid.uuid4());stamp=files.now()
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         if not conn.execute('SELECT id FROM partners WHERE id=?',(payload.partner_id,)).fetchone(): raise HTTPException(404,'伙伴不存在')
         conn.execute('INSERT INTO cases (id,partner_id,title,description,category_id,visible,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)',(cid,payload.partner_id,payload.title,payload.description,payload.category_id,int(payload.visible),stamp,stamp))
         files.changed(conn,payload.partner_id)
@@ -41,7 +41,7 @@ def get_case(case_id: str,user=Depends(require_active_user)):
 def edit_case(case_id: str,payload: CaseCreate,actor=Depends(require_admin)):
     check_category(payload.category_id)
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');old=visible_case(conn,case_id,True)
+        conn.lock_writer();old=visible_case(conn,case_id,True)
         if not conn.execute('SELECT id FROM partners WHERE id=?',(payload.partner_id,)).fetchone(): raise HTTPException(404,'伙伴不存在')
         conn.execute('UPDATE cases SET partner_id=?,title=?,description=?,category_id=?,visible=?,updated_at=? WHERE id=?',(payload.partner_id,payload.title,payload.description,payload.category_id,int(payload.visible),files.now(),case_id))
         for pid in {old['partner_id'],payload.partner_id}: files.changed(conn,pid)
@@ -53,7 +53,7 @@ class Visibility(BaseModel): visible: bool
 @router.patch('/{case_id}/visibility',response_model=CaseOut)
 def visibility(case_id: str,payload: Visibility,actor=Depends(require_admin)):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');visible_case(conn,case_id,True)
+        conn.lock_writer();visible_case(conn,case_id,True)
         conn.execute('UPDATE cases SET visible=?,updated_at=? WHERE id=?',(int(payload.visible),files.now(),case_id))
         record_audit(conn,'case_visibility_changed',actor_user_id=actor['id'],summary={'case_id':case_id,'visible':payload.visible})
         return visible_case(conn,case_id,True)
@@ -93,7 +93,7 @@ def delete_deliverable(case_id: str,file_id: str):
 def delete_case(case_id: str,actor=Depends(require_admin)):
     from pathlib import Path
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');case=visible_case(conn,case_id,True)
+        conn.lock_writer();case=visible_case(conn,case_id,True)
         paths=[dict(r) for r in conn.execute('SELECT file_path,preview_path FROM deliverables WHERE case_id=?',(case_id,))]
         conn.execute('DELETE FROM deliverables WHERE case_id=?',(case_id,));conn.execute('DELETE FROM cases WHERE id=?',(case_id,))
         files.changed(conn,case['partner_id'])

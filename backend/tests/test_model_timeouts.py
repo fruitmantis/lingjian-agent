@@ -142,7 +142,10 @@ def test_retries_do_not_create_runs_versions_or_overwrite_current(unified, monke
                                      instruction='重新规划数据库迁移建议', request=request), user)
     calls = []
     def handle(req):
-        payload = json.loads(req.content); calls.append(payload)
+        payload = json.loads(req.content)
+        if payload['messages'][0]['content'].startswith('partner_development:analyze'):
+            return reply(req, unified[2](resolve_model_record(), payload['messages'], {}))
+        calls.append(payload)
         with get_db() as conn:
             assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?', (pid,)).fetchone()[0] == 1
             assert conn.execute('SELECT count(*) FROM development_runs WHERE plan_id=?', (pid,)).fetchone()[0] == 2

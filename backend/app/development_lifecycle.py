@@ -10,7 +10,7 @@ from . import enablement_catalog
 from .development_deadlines import run_timeout
 from .development_types import DevelopmentRequest,Revise
 from .error_diagnostics import record_error, bind_context
-from .task_failures import prepare_or_timeout
+from . import task_progress
 
 
 def now():return datetime.now(timezone.utc).isoformat()
@@ -64,22 +64,13 @@ def duplicate(conn,user,submission_id,request_hash):
 def insert_run(conn,plan_id,user,submission_id,base,payload,run_type,request_hash):
     ensure_account_active(conn,user['id'])
     run_id=uid();stamp=now()
+    payload={**payload,'progress':task_progress.new('development_plan',run_id,stamp)}
     bind_context(task_id=plan_id, run_id=run_id, request_id=submission_id, stage='submission')
     conn.execute('''INSERT INTO development_runs(id,plan_id,owner_user_id,run_type,submission_id,request_hash,based_on_version_id,status,input_snapshot,created_at)
                     VALUES (?,?,?,?,?,?,?,'pending',?,?)''',(run_id,plan_id,user['id'],run_type,submission_id,request_hash,base,dump(payload),stamp))
     conn.execute('UPDATE development_plans SET active_run_id=?,updated_at=? WHERE id=?',(run_id,stamp,plan_id))
     audit(conn,plan_id,user['id'],run_type)
     return {'plan_id':plan_id,'run_id':run_id,'task_type':'development_plan','replayed':False}
-
-
-def preparation_failed(conn, result, error):
-    from .task_failures import failure
-    stamp = now()
-    conn.execute("UPDATE development_runs SET status='failed',ended_at=?,error_stage='understanding',safe_error_message=? WHERE id=?",
-                 (stamp, dump([failure('understanding', error)]), result['run_id']))
-    conn.execute('UPDATE development_plans SET active_run_id=NULL,updated_at=? WHERE id=? AND active_run_id=?',
-                 (stamp, result['plan_id'], result['run_id']))
-    return {**result, 'status':'failed'}
 
 
 def create(payload,user):
@@ -89,17 +80,17 @@ def create(payload,user):
         replay=duplicate(conn,user,payload.submission_id,digest)
         if replay:return replay
     data=checked_request(payload.request,user)
-    from .development_engine import prepare
-    understanding, timeout_error=prepare_or_timeout(prepare,data,user)
+    data['raw_demand']=payload.request.raw_demand or payload.request.development_direction or payload.request.development_goal
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         replay=duplicate(conn,user,payload.submission_id,digest)
         if replay:return replay
         request_id=uid();plan_id=uid();stamp=now()
         conn.execute('INSERT INTO development_requests VALUES (?,?,?,?,?,?)',(request_id,user['id'],data['target_partner_id'],dump(data),stamp,user['id']))
         conn.execute('''INSERT INTO development_plans(id,owner_user_id,request_id,target_partner_id,status,created_at,updated_at) VALUES (?,?,?,?,'active',?,?)''',(plan_id,user['id'],request_id,data['target_partner_id'],stamp,stamp))
-        result=insert_run(conn,plan_id,user,payload.submission_id,None,{'request':data,'instruction':'','understanding':understanding},'generate',digest)
-        return preparation_failed(conn,result,timeout_error) if timeout_error else result
+        result=insert_run(conn,plan_id,user,payload.submission_id,None,{'request':data,'instruction':'','understanding':None},'generate',digest)
+    # Leaving get_db commits before the router submits background execution.
+    return result
 
 
 def writable(plan,base):
@@ -109,7 +100,7 @@ def writable(plan,base):
 
 
 def revise(plan_id,payload,user):
-    from . import development_engine as engine
+    if not payload.instruction.strip():fail(422,'请输入本次要求')
     bind_context(task_id=plan_id,request_id=payload.submission_id,stage='submission')
     digest=fingerprint({'plan_id':plan_id,**payload.model_dump()})
     with get_db() as conn:
@@ -129,25 +120,27 @@ def revise(plan_id,payload,user):
         if data['target_partner_id']!=plan['target_partner_id']:fail(409,'同一方案不能更换目标伙伴')
     data=checked_request(DevelopmentRequest.model_validate(data),user)
     if payload.request is not None:data['_explicit_request']=True
-    understanding, timeout_error=prepare_or_timeout(engine.prepare,data,user,plan_id=plan_id,base=payload.based_on_version_id,instruction=payload.instruction)
-    if understanding and understanding['analysis']['action']=='answer' and payload.based_on_version_id:
-        return save_answer(plan_id,payload,user,data,understanding,digest)
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
+        conn.lock_writer();plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)
         if replay:return {'kind':'revise',**replay}
         writable(plan,payload.based_on_version_id)
-        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':payload.instruction,'understanding':understanding},'revise',digest)
-        return {'kind':'revise',**(preparation_failed(conn,result,timeout_error) if timeout_error else result)}
+        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':payload.instruction,'understanding':None},'revise',digest)
+    return {'kind':'revise',**result}
 
 
-def save_answer(plan_id,payload,user,data,understanding,digest):
+def save_answer(plan_id,payload,user,data,understanding,digest,run=None):
     from .development_context import load
     fresh=load(data,user,plan_id=plan_id,base=payload.based_on_version_id,message=payload.instruction)
     if fresh['stamp']!=understanding['stamp']:fail(409,'资料或当前要求已变化，请刷新后重试')
     result=understanding['analysis']
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user);writable(plan,payload.based_on_version_id)
+        conn.lock_writer();plan=authorize(conn,plan_id,user)
+        if run:
+            current_run=conn.execute('SELECT * FROM development_runs WHERE id=?',(run['id'],)).fetchone()
+            if not current_run or current_run['status']!='running' or current_run['execution_token']!=run['execution_token'] or plan['active_run_id']!=run['id'] or plan['current_version_id']!=payload.based_on_version_id or expired(current_run):
+                fail(409,'运行不再拥有保存权限')
+        else:writable(plan,payload.based_on_version_id)
         current=load(data,user,plan_id=plan_id,base=payload.based_on_version_id,message=payload.instruction,connection=conn)
         if current['stamp']!=understanding['stamp']:fail(409,'资料或当前要求已变化，请刷新后重试')
         stored=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
@@ -161,12 +154,46 @@ def save_answer(plan_id,payload,user,data,understanding,digest):
             **fresh['request'],'development_direction':result['effective_direction'],'development_goal':result['effective_direction'],'constraints':result['effective_constraints']})
         conn.execute('UPDATE development_requests SET payload_json=? WHERE id=?',(dump(stored),plan['request_id']))
         audit(conn,plan_id,user['id'],'conversation_explained',payload.based_on_version_id)
+        if run: finish_without_version(conn,current_run)
         return {'kind':'explain','answer':result['answer']}
+
+
+def run_stage(run_id, token, key, state, understanding=None):
+    with get_db() as conn:
+        conn.lock_writer()
+        run=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
+        if not run or run['status']!='running' or run['execution_token']!=token or expired(run):
+            fail(409,'运行已失效或超时')
+        snapshot=json.loads(run['input_snapshot'])
+        if understanding is not None:snapshot['understanding']=understanding
+        task_progress.stage(snapshot.get('progress'),key,state)
+        conn.execute('UPDATE development_runs SET input_snapshot=? WHERE id=?',(dump(snapshot),run_id))
+
+
+def finish_progress(conn, run, failed=False, scope_message=None):
+    snapshot=json.loads(run['input_snapshot'])
+    task_progress.finish(snapshot.get('progress'),failed=failed)
+    if scope_message:snapshot['scope_message']=scope_message
+    conn.execute('UPDATE development_runs SET input_snapshot=? WHERE id=?',(dump(snapshot),run['id']))
+
+
+def finish_without_version(conn, run, scope_message=None):
+    finish_progress(conn,run,scope_message=scope_message)
+    conn.execute("UPDATE development_runs SET status='ready',ended_at=? WHERE id=?",(now(),run['id']))
+    conn.execute('UPDATE development_plans SET active_run_id=NULL,updated_at=? WHERE id=? AND active_run_id=?',(now(),run['plan_id'],run['id']))
+
+
+def complete_scope(run_id, token, message):
+    with get_db() as conn:
+        conn.lock_writer()
+        run=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
+        if not run or run['status']!='running' or run['execution_token']!=token or expired(run):fail(409,'运行已失效或超时')
+        finish_without_version(conn,run,message)
 
 
 def claim(run_id):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         row=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
         if not row or row['status']!='pending':return None
         token=uid();stamp=now();conn.execute("UPDATE development_runs SET status='running',execution_token=?,started_at=? WHERE id=?",(token,stamp,run_id))
@@ -189,11 +216,12 @@ def finish_failure(run_id,token,stage,status='failed',error=None):
     from .task_failures import failure
     if error is not None:record_error(error,stage,run_id=run_id)
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         row=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
         if not row or row['execution_token']!=token or row['status']!='running':return
         bind_context(task_id=row['plan_id'], run_id=run_id)
         record_error(error or RuntimeError('Execution exceeded the configured run deadline' if stage=='run_timeout' else 'Execution interrupted'), stage, task_id=row['plan_id'], run_id=run_id, request_id=row['submission_id'])
+        finish_progress(conn,row,failed=True)
         message=dump([failure(stage,error)])
         conn.execute('UPDATE development_runs SET status=?,ended_at=?,error_stage=?,safe_error_message=? WHERE id=?',(status,now(),stage,message,run_id))
         conn.execute('UPDATE development_plans SET active_run_id=NULL,updated_at=? WHERE id=? AND active_run_id=?',(now(),row['plan_id'],run_id))
@@ -218,7 +246,7 @@ def save_version(conn,plan,base,payload,dependencies,actor,run_id=None):
 
 def complete(run_id,token,payload,dependencies,validate):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         run=conn.execute('SELECT * FROM development_runs WHERE id=?',(run_id,)).fetchone()
         if not run or run['status']!='running' or run['execution_token']!=token or expired(run):fail(409,'运行已失效或超时')
         plan=dict(conn.execute(f'SELECT {PLAN_COLUMNS} FROM development_plans WHERE id=?',(run['plan_id'],)).fetchone())
@@ -227,6 +255,7 @@ def complete(run_id,token,payload,dependencies,validate):
         if expired(run):fail(409,'运行已超时')
         version_id=save_version(conn,plan,run['based_on_version_id'],payload,dependencies,run['owner_user_id'],run_id)
         if expired(run):fail(409,'运行已超时')
+        finish_progress(conn,run)
         conn.execute("UPDATE development_runs SET status='ready',ended_at=? WHERE id=?",(now(),run_id))
         conn.execute('UPDATE development_plans SET active_run_id=NULL WHERE id=?',(plan['id'],))
         return version_id
@@ -234,7 +263,7 @@ def complete(run_id,token,payload,dependencies,validate):
 
 def archive(plan_id,user,restore=False):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
+        conn.lock_writer();plan=authorize(conn,plan_id,user)
         if plan['active_run_id']:fail(409,'运行中不能归档或恢复，请等待执行结束')
         conn.execute('UPDATE development_plans SET status=?,archived_at=?,updated_at=? WHERE id=?',('active' if restore else 'archived',None if restore else now(),now(),plan_id))
         audit(conn,plan_id,user['id'],'restored' if restore else 'archived')
@@ -242,7 +271,7 @@ def archive(plan_id,user,restore=False):
 
 def recover(startup=False,owner_user_id=None,plan_id=None):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         # A terminal Run cannot own the execution lock. Repair old interrupted
         # finalization without changing the current result or creating a task.
         conn.execute("""UPDATE development_plans SET active_run_id=NULL
@@ -252,8 +281,9 @@ def recover(startup=False,owner_user_id=None,plan_id=None):
                     AND r.status IN ('failed','partial','interrupted','ready'))""",
                      (owner_user_id,owner_user_id,plan_id,plan_id))
         threshold=(datetime.now(timezone.utc)-timedelta(seconds=run_timeout())).isoformat()
-        rows=conn.execute("SELECT id,plan_id FROM development_runs WHERE status IN ('pending','running') AND (?=1 OR COALESCE(started_at,created_at)<?) AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(int(startup),threshold,owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
+        rows=conn.execute("SELECT * FROM development_runs WHERE status IN ('pending','running') AND (?=1 OR COALESCE(started_at,created_at)<?) AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(int(startup),threshold,owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
         for row in rows:
+            finish_progress(conn,row,failed=True)
             record_error(RuntimeError('Service restart interrupted unfinished execution' if startup else 'Stale execution exceeded the recovery deadline'), 'interrupted', task_id=row['plan_id'], run_id=row['id'])
             conn.execute("UPDATE development_runs SET status='interrupted',ended_at=?,safe_error_message='执行已中断，旧版本保持不变',error_stage='interrupted' WHERE id=?",(now(),row['id']))
             conn.execute('UPDATE development_plans SET active_run_id=NULL WHERE id=? AND active_run_id=?',(row['plan_id'],row['id']))
@@ -284,17 +314,13 @@ def retry(plan_id,payload,user):
         snapshot=json.loads(original['input_snapshot'])
     data=checked_request(DevelopmentRequest.model_validate({k:v for k,v in snapshot['request'].items() if k in DevelopmentRequest.model_fields}),user)
     if snapshot['request'].get('_explicit_request'):data['_explicit_request']=True
-    from .development_engine import prepare
-    understanding, timeout_error=prepare_or_timeout(prepare,data,user,plan_id=plan_id,base=payload.based_on_version_id,instruction=snapshot['instruction'],cached=snapshot.get('understanding'))
-    if understanding and understanding['analysis']['action']=='answer' and payload.based_on_version_id:
-        return save_answer(plan_id,Revise(submission_id=payload.submission_id,based_on_version_id=payload.based_on_version_id,instruction=snapshot['instruction']),user,data,understanding,digest)
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE');plan=authorize(conn,plan_id,user)
+        conn.lock_writer();plan=authorize(conn,plan_id,user)
         replay=duplicate(conn,user,payload.submission_id,digest)
         if replay:return replay
         writable(plan,payload.based_on_version_id)
         latest=conn.execute('SELECT * FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(plan_id,)).fetchone()
         if latest['id']!=payload.run_id or latest['status'] not in ('failed','partial','interrupted'):fail(409,'运行状态已变化，请重新载入')
         if latest['based_on_version_id']!=payload.based_on_version_id:fail(409,'版本冲突：请基于当前建议重新提出调整')
-        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction'],'understanding':understanding},latest['run_type'],digest)
-        return preparation_failed(conn,result,timeout_error) if timeout_error else result
+        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction'],'understanding':snapshot.get('understanding')},latest['run_type'],digest)
+    return result

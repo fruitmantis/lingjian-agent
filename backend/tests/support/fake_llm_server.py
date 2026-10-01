@@ -17,6 +17,12 @@ _delayed_stages: set[str] = set()
 
 def _stage(messages: list[dict]) -> str:
     system = "\n".join(str(item.get("content", "")) for item in messages if item.get("role") == "system")
+    if "一次理解项目找伙伴" in system:
+        return "understanding"
+    if "项目伙伴 AI 初选" in system:
+        return "initial_selection"
+    if "交付伙伴匹配顾问" in system:
+        return "detailed_review"
     if "交付伙伴匹配专家" in system:
         return "match"
     if "项目需求分析专家" in system:
@@ -78,6 +84,19 @@ async def completions(payload: dict):
         content=json.dumps(response(messages),ensure_ascii=False)
         return {'choices':[{'message':{'content':content},'finish_reason':'stop'}],'usage':{'completion_tokens':20}}
     stage = _stage(messages)
+    if stage in {'understanding','initial_selection','detailed_review'}:
+        data=json.loads(messages[-1]['content'])
+        if stage=='understanding':
+            content=json.dumps({'in_scope':True,'facts':json.loads(_content('opportunity')),'tag_suggestions':[]},ensure_ascii=False)
+        elif stage=='initial_selection':
+            content=json.dumps({'candidates':[{'partnerId':p['partnerId'],'verificationFocus':'核实数据库及知识库交付经验'} for p in data['partners'][:2]]},ensure_ascii=False)
+        else:
+            items=[]
+            for p in data['candidates'][:1]:
+                items.append({**json.loads(_content('match'))[0],'partnerId':p['partnerId'],'partnerName':p['name'],'evidenceCases':[],'evidenceDeliverables':[]})
+            content=json.dumps({'answer':'根据现有合成资料，建议优先核实以下伙伴。','recommendations':items,'supplyStatus':'partial' if items else 'unknown','gapAnalysis':'交付排期与承接边界待核实'},ensure_ascii=False)
+        if 'SIDEBAR_SLOW' in json.dumps(messages,ensure_ascii=False) and stage=='understanding':await asyncio.sleep(5)
+        return {'choices':[{'message':{'content':content},'finish_reason':'stop'}],'usage':{'completion_tokens':20}}
     if "SIDEBAR_SLOW" in json.dumps(payload.get("messages"), ensure_ascii=False) and stage in {"match", "demand"}:
         await asyncio.sleep(5)
     delay_name = "FAKE_LLM_MATCH_DELAY_SECONDS" if stage == "match" else "FAKE_LLM_ENRICH_DELAY_SECONDS"

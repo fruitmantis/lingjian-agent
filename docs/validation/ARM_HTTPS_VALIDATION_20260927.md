@@ -40,7 +40,7 @@
 
 ## 使用与未测边界
 
-- 访问私有配置中记录的公网 IP HTTPS 入口。客户端必须信任 ARM 自己的根 CA；未信任时仍会告警。证书导出位置、Windows 导入与启停命令见 [HTTPS 运行说明](../HTTPS_SETUP.md)。切换前保存原 Key；需要恢复旧身份时在 `/login?method=key` 登录，不要求跨协议无感迁移 Token。
+- 访问私有配置中记录的公网 IP HTTPS 入口。客户端必须信任 ARM 自己的根 CA；未信任时仍会告警。证书导出位置、Windows 导入与启停命令见 [HTTPS 运行说明](../HTTP_SETUP.md)。切换前保存原 Key；需要恢复旧身份时在 `/login?method=key` 登录，不要求跨协议无感迁移 Token。
 - **Windows 浏览器未实测；内网 ARM 未连接或部署。** 普通身份完整流程使用 ARM 隔离数据完成，真实公网生产入口仅做只读检查；未对真实用户执行登录/退出等写操作，也未评估真实模型业务生成效果。
 - ARM 保留原 systemd 前后端，Caddy 暂由原脚本独立控制；**主机重启后需在前后端就绪时手动执行 `https-start`**，未新增开机自启服务。
 - 本地 WSL 443/3000/8000 保持运行。部署备份及脱敏结果在 ARM `/root/banfei-arm-evidence/20260927/`；本地操作证据在忽略目录 `.isolation/arm-deploy/20260927/`，不提交密钥、配置、数据库、原件或日志。

@@ -1,6 +1,6 @@
 """SQLAlchemy-backed PostgreSQL connections for the existing small SQL repository API.
 
-Only parameters/dialect syntax are adapted. Transactions, constraints and permissions
+Only positional parameters are bound; statements use native PostgreSQL syntax. Transactions, constraints and permissions
 remain enforced by PostgreSQL and the existing service layer.
 """
 from contextlib import contextmanager
@@ -10,14 +10,18 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 
-@lru_cache(maxsize=8)
+def validated_url(url):
+    try:
+        parsed = make_url(url)
+    except Exception:
+        raise ValueError('DATABASE_URL must be a PostgreSQL URL') from None
+    if parsed.drivername not in ('postgresql', 'postgresql+psycopg') or not parsed.database:
+        raise ValueError('DATABASE_URL requires PostgreSQL with psycopg and a database name')
+    return parsed.set(drivername='postgresql+psycopg')
+
+@lru_cache(maxsize=32)
 def engine_for(url):
-    parsed = make_url(url)
-    if parsed.drivername == 'postgresql':
-        parsed = parsed.set(drivername='postgresql+psycopg')
-    if parsed.drivername != 'postgresql+psycopg':
-        raise ValueError('Only PostgreSQL with psycopg is supported')
-    return create_engine(parsed, pool_pre_ping=True, hide_parameters=True,
+    return create_engine(validated_url(url), pool_pre_ping=True, hide_parameters=True,
                          connect_args={'connect_timeout':5}, pool_size=5, max_overflow=10)
 
 
@@ -39,18 +43,6 @@ class Result:
     def __iter__(self): return (Row(row) for row in self.result)
 
 
-def postgres_sql(sql):
-    # These are the complete JSON functions used by the current catalog/task queries.
-    sql=sql.replace("json_array(json_object('partnerName',t.name))", "CAST(jsonb_build_array(jsonb_build_object('partnerName',t.name)) AS TEXT)")
-    scalar=r"json_extract\((\w+(?:\.\w+)?),'\$\.([\w.]+)'\)"
-    sql=re.sub(scalar,lambda m:"("+m[1]+"::jsonb #>> '{"+m[2].replace('.',',')+"}')",sql)
-    array=r"json_array_length\((\w+(?:\.\w+)?),'\$\.([\w.]+)'\)"
-    sql=re.sub(array,lambda m:"jsonb_array_length("+m[1]+"::jsonb #> '{"+m[2].replace('.',',')+"}')",sql)
-    each=r"json_each\((\w+(?:\.\w+)?),'\$\.([\w.]+)'\)"
-    sql=re.sub(each,lambda m:"jsonb_array_elements_text("+m[1]+"::jsonb #> '{"+m[2].replace('.',',')+"}')",sql)
-    return re.sub(r'\binstr\(', 'strpos(', sql, flags=re.I)
-
-
 def bind_parameters(sql, parameters):
     # Do not treat question marks inside SQL strings/quoted identifiers as parameters.
     chunks=re.split(r"('(?:''|[^'])*'|\"(?:\"\"|[^\"])*\")",sql)
@@ -59,7 +51,6 @@ def bind_parameters(sql, parameters):
         name='p'+str(len(names));names.append(name);return ':'+name
     for i in range(0,len(chunks),2):
         chunks[i]=re.sub(r'\?',bind,chunks[i])
-        chunks[i]=re.sub(r'\bLIKE\b','ILIKE',chunks[i],flags=re.I)
     values=list(parameters or ())
     if len(names)!=len(values):raise ValueError('SQL parameter count mismatch')
     compiled=''.join(chunks)
@@ -73,27 +64,23 @@ class Connection:
         if readonly:connection.exec_driver_sql('SET TRANSACTION READ ONLY')
     def lock_writer(self):
         if not self.locked:
-            # Preserve the existing SQLite single-writer critical sections. Model work
-            # stays outside these short transactions; no process-local lock is used.
-            self.connection.exec_driver_sql('SELECT pg_advisory_xact_lock(179183912)')
+            # Keep short writer critical sections serialized inside this schema.
+            # Different validation schemas do not block each other.
+            self.connection.exec_driver_sql("SELECT pg_advisory_xact_lock(hashtextextended(current_database() || '.' || current_schema(), 179183912))")
             self.locked=True
+    def begin_read(self):
+        if not self.connection.in_transaction():
+            self.connection.begin()
+            self.connection.exec_driver_sql('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
     def execute(self,sql,parameters=()):
         normalized=sql.strip().rstrip(';').upper()
-        if normalized=='BEGIN IMMEDIATE':
-            self.lock_writer();return None
-        if normalized=='BEGIN':
-            if not self.connection.in_transaction():
-                self.connection.begin()
-                # Existing explicit read transactions expect one consistent snapshot.
-                self.connection.exec_driver_sql('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
-            return None
         if normalized.startswith(('INSERT ','UPDATE ','DELETE ','CREATE ','ALTER ','DROP ')):
             self.lock_writer()
-        sql,values=bind_parameters(postgres_sql(sql),parameters)
+        sql,values=bind_parameters(sql,parameters)
         return Result(self.connection.execute(text(sql),values))
     def executemany(self,sql,parameters):
         self.lock_writer()
-        compiled=[bind_parameters(postgres_sql(sql),p) for p in parameters]
+        compiled=[bind_parameters(sql,p) for p in parameters]
         if not compiled:return None
         return Result(self.connection.execute(text(compiled[0][0]),[p for _,p in compiled]))
     def commit(self): self.connection.commit();self.locked=False
@@ -128,3 +115,18 @@ def verify_schema(url):
 
         if 'last_active_at' not in {c['name'] for c in inspect(conn).get_columns('users')}:
             raise RuntimeError('User activity column missing; explicit migration required')
+
+
+def initialize_empty_schema(url):
+    """Explicit, atomic initialization; refuse every nonempty schema."""
+    from sqlalchemy import inspect
+    from .storage_models import create_postgres_schema
+    from .storage_defaults import seed_defaults
+    with engine_for(url).begin() as raw:
+        connection = Connection(raw)
+        connection.lock_writer()
+        if inspect(raw).get_table_names() or inspect(raw).get_view_names():
+            raise RuntimeError('PostgreSQL initialization requires an empty schema')
+        create_postgres_schema(raw)
+        seed_defaults(connection)
+    verify_schema(url)

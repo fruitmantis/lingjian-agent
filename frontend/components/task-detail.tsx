@@ -1,4 +1,5 @@
 "use client";
+import {TaskProgress,type TaskProgressData} from "./task-progress";
 import {AdvisorAnswer} from "./advisor-answer";
 import {ClassificationFields, ClassificationNotice} from "@/components/business-taxonomy";
 
@@ -28,6 +29,7 @@ type Opportunity = { classification_pending?:Record<string,string[]>;
   completenessScore: number; missingFields: string; followUpQuestions: string; updatedAt: string;
 };
 type TaskDetail = {
+  progress?:TaskProgressData|null; understanding?:Record<string,unknown>|null; scopeMessage?:string|null;
   answer?: string;
   task_type: string;
   id: string; requirement: string; recommendations: Recommendation[]; createdAt: string;
@@ -164,16 +166,19 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重新加载</button></div>}
       {(task.task_type || "partner_match") === "partner_match" ? <>
       {(task.taskStatus === "partial" || task.taskStatus === "failed") ? <FailureNotice details={task.failureDetails} stages={task.lastErrorStage} partial={task.recommendations.length>0} title={task.recommendations.length>0?"部分完成 · 伙伴推荐可用":"本次匹配未完成"} impact={task.recommendations.length>0?"已保存的伙伴推荐可继续查看。重试将补充未完成的步骤。":"项目需求已保留，可重新执行。"}><button onClick={()=>void retryTask()} disabled={retrying||!!task.archivedAt}>{retrying?"重试中…":"重试"}</button></FailureNotice> : task.taskStatus!=="ready" && <div className="notice-warning task-status-notice"><strong>{taskStatusText[task.taskStatus]}</strong></div>}
-      <section className="card task-request"><h2>项目需求</h2><p className="requirement-block">{task.requirement}</p></section>
+      <section className="card task-request task-request-compact"><h2>本次需求</h2><p className="requirement-block">{task.requirement}</p></section>
+      <TaskProgress value={task.progress}/>
+      {task.scopeMessage&&<section className="card task-answer" data-testid="scope-result"><p>{task.scopeMessage}</p></section>}
+      {task.understanding&&<section className="card" data-testid="task-understanding"><h2>需求理解</h2><div className="detail-grid">{Object.entries({"业务需求":task.understanding.businessNeeds,"技术需求":task.understanding.technicalNeeds,"交付要求":task.understanding.deliveryNeeds,"行业":task.understanding.industry,"区域":task.understanding.region,"时间要求":task.understanding.timelineRequirement}).filter(([,value])=>value&&value!=="未知").map(([label,value])=><div key={label as string}><span>{label as string}</span><strong>{String(value)}</strong></div>)}</div><p className="muted">仅根据本次需求确认；未提供的信息保留待核实。</p></section>}
       {task.answer&&<section className="card task-answer"><AdvisorAnswer text={task.answer}/></section>}
-      <section className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">{task.taskStatus==="ready"||task.taskStatus==="partial"?"没有匹配项，可调整需求后重新匹配。":"暂未生成推荐结果。"}</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
+      {!task.scopeMessage&&<section className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">{task.taskStatus==="ready"||task.taskStatus==="partial"?"没有匹配项，可调整需求后重新匹配。":"暂未生成推荐结果。"}</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
         <article className="recommendation-item" key={item.partnerId}>
           <div className="recommendation-title"><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><CardEntry href={`/partners/${item.partnerId}`}>查看伙伴</CardEntry></div>
           <div className="evidence-grid"><div><strong>匹配能力</strong><p>{text(item.matchedCapabilities)}</p></div><div><strong>行业经验</strong><p>{text(item.matchedIndustries)}</p></div><div><strong>覆盖区域</strong><p>{text(item.matchedRegions)}</p></div><div><strong>推荐理由</strong><p>{text(item.recommendationReason)}</p></div><div><strong>支撑案例</strong><p>{text(item.evidenceCases)}</p></div><div><strong>支撑交付物</strong><p>{text(item.evidenceDeliverables)}</p></div></div>
           <div className="risk-note"><strong>风险或缺口</strong><p>{text(item.riskNotes)}</p></div>
           <div className="enablement-actions"><Link className="secondary-btn" href={`/?mode=development&partner_id=${encodeURIComponent(item.partnerId)}&task_id=${encodeURIComponent(task.id)}`}>针对该伙伴制定发展建议</Link></div>
         </article>
-      ))}</div>}</section>
+      ))}</div>}</section>}
       {task.demandProfile && <section className="card"><h2>需求画像</h2><div className="detail-grid">{Object.entries({
         "行业标签": task.demandProfile.industryTags, "能力标签": task.demandProfile.capabilityTags,
         "交付类型": task.demandProfile.deliveryTypeTags, "项目区域": task.demandProfile.regionTags,

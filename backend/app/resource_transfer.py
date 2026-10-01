@@ -47,7 +47,7 @@ def export_workbook(*, template=False):
     sheet.title = '课程与实验'
     append_text(sheet, list(COLUMNS.values()))
     with get_db() as conn:
-        conn.execute('BEGIN')
+        conn.begin_read()
         taxonomy = categories.read(conn)
         names = {r['id']: r['name'] for r in taxonomy}
         for row in (() if template else conn.execute('SELECT * FROM enablement_resources ORDER BY created_at,id')):

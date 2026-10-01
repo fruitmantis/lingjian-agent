@@ -1,6 +1,7 @@
 """Read-only status checks report evidence and never probe external models."""
 import hashlib
-import sqlite3
+from sqlalchemy.exc import DBAPIError
+from .postgres_support import snapshot
 from contextlib import contextmanager
 
 import httpx
@@ -27,7 +28,8 @@ def synthetic_configuration(client, monkeypatch):
 def test_repeated_status_does_not_write_database_or_call_model(client):
     admin = make_user("status_admin", role="admin")
     headers = auth_headers(admin)
-    before = hashlib.sha256(database.DATABASE_PATH.read_bytes()).hexdigest()
+    with get_db() as conn:conn.execute("DROP TABLE _health_check")
+    before = db_snapshot()
     for _ in range(3):
         response = client.get("/admin/system/status", headers=headers)
         assert response.status_code == 200
@@ -40,20 +42,20 @@ def test_repeated_status_does_not_write_database_or_call_model(client):
         for value in ("normal", "warning", "error", "unknown"):
             assert data["summary"][f"{value}Count"] == sum(i["status"] == value for i in items)
         assert "synthetic-db-key" not in response.text
-    assert hashlib.sha256(database.DATABASE_PATH.read_bytes()).hexdigest() == before
+    assert db_snapshot() == before
     with get_readonly_db() as conn:
-        assert conn.execute("SELECT name FROM sqlite_master WHERE name = '_health_check'").fetchone() is None
+        assert conn.execute("SELECT tablename FROM pg_tables WHERE schemaname=current_schema() AND tablename='_health_check'").fetchone() is None
 
 
 def test_readonly_connection_refuses_writes():
     with get_readonly_db() as conn:
-        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+        with pytest.raises(DBAPIError, match="read-only"):
             conn.execute("CREATE TABLE forbidden_write (id INTEGER)")
 
 
 def test_missing_database_is_not_created(monkeypatch, tmp_path):
     target = tmp_path / "missing.db"
-    monkeypatch.setattr(database, "DATABASE_PATH", target)
+    monkeypatch.delenv("DATABASE_URL")
     items, has_error = system._check_database()
     assert has_error and items[0].status == "error"
     assert not target.exists()
@@ -63,11 +65,10 @@ def test_missing_database_is_not_created(monkeypatch, tmp_path):
 def test_status_does_not_change_existing_health_table(client):
     admin = make_user("legacy_status_admin", role="admin")
     with get_db() as conn:
-        conn.execute("CREATE TABLE _health_check (id INTEGER)")
         conn.execute("INSERT INTO _health_check VALUES (42)")
-    before = database.DATABASE_PATH.read_bytes()
+    before = db_snapshot()
     assert client.get("/admin/system/status", headers=auth_headers(admin)).status_code == 200
-    assert database.DATABASE_PATH.read_bytes() == before
+    assert db_snapshot() == before
 
 
 def test_business_status_uses_fallback_when_scene_preference_is_missing(client):
@@ -121,7 +122,7 @@ def test_status_remains_admin_only(client):
     assert client.get("/admin/system/status", headers=auth_headers(user)).status_code == 403
 
 
-@pytest.mark.parametrize("field,value", [("temperature", "bad-value"), ("top_p", 2), ("max_tokens", 1.5)])
+@pytest.mark.parametrize("field,value", [("temperature", -1), ("top_p", 2), ("max_tokens", -1)])
 def test_legacy_invalid_numeric_configuration_does_not_break_status(client, field, value):
     admin = make_user("numeric_status_admin", role="admin")
     with get_db() as conn:
@@ -131,3 +132,7 @@ def test_legacy_invalid_numeric_configuration_does_not_break_status(client, fiel
     assert response.json()["overallStatus"] == "partial"
     assert "模型参数无效" in response.text
     assert "bad-value" not in response.text
+
+
+def db_snapshot():
+    with get_readonly_db() as conn: return snapshot(conn)

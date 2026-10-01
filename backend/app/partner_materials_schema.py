@@ -1,7 +1,6 @@
 """Schema 17: native document processing and simple case visibility.
 
-The explicit runtime command takes a complete backup first. The same migration is
-used by disposable SQLite fixtures. Existing partner/case/file IDs are preserved.
+The explicit runtime command takes a complete backup first. Tests use disposable PostgreSQL schemas. Existing partner/case/file IDs are preserved.
 """
 import json
 from pathlib import Path
@@ -16,7 +15,7 @@ def migrate(conn, fault=None):
     version = conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0]
     if int(version) >= 17: return {'schema_version': int(version), 'already_current': True}
     if str(version) != '16': raise RuntimeError('Partner materials migration requires schema 16')
-    conn.execute('BEGIN IMMEDIATE')
+    conn.lock_writer()
     for name, kind in {'category_id':'TEXT', 'visible':'INTEGER NOT NULL DEFAULT 0', 'updated_at':'TEXT'}.items():
         conn.execute(f'ALTER TABLE cases ADD COLUMN {name} {kind}')
     for name,kind in {'materials_revision':'INTEGER NOT NULL DEFAULT 0','profile_materials_revision':'INTEGER NOT NULL DEFAULT 0','profile_updated_at':'TEXT'}.items():

@@ -4,7 +4,7 @@ import { once } from 'node:events';
 import { GET, POST } from '../app/api/[...path]/route';
 import { fetchWithTimeout, responseError, submissionIsUncertain } from '../lib/api-request';
 
-test('known model timeouts and unsent preflight failures are not uncertain commits', async () => {
+test('asynchronous task creation sends directly and only lost acknowledgement is uncertain', async () => {
   expect(submissionIsUncertain(await responseError(Response.json({detail:'本次处理失败，请重试。',failureCode:'timeout'},{status:502})))).toBe(false);
   expect(submissionIsUncertain(await responseError(Response.json({detail:'failed'},{status:500})))).toBe(true);
   expect(submissionIsUncertain(await responseError(Response.json({detail:'failed',submissionAccepted:false},{status:503})))).toBe(false);
@@ -15,13 +15,13 @@ test('known model timeouts and unsent preflight failures are not uncertain commi
     let failure: unknown;
     try { await fetchWithTimeout('http://app.test/api/agent/tasks',{method:'POST',body:'{}'}); } catch(error) { failure=error; }
     expect(failure).toBeTruthy();
-    expect(submissionIsUncertain(failure)).toBe(false);
-    expect(calls).toEqual(['http://app.test/api/model-timeout-settings']);
+    expect(submissionIsUncertain(failure)).toBe(true);
+    expect(calls).toEqual(['http://app.test/api/agent/tasks']);
     calls.length=0;
     globalThis.fetch = async input => {const url=String(input);calls.push(url);if(url.endsWith('/model-timeout-settings'))return Response.json({timeoutSeconds:300,timeoutRetries:3});throw new TypeError('synthetic lost response');};
     try { await fetchWithTimeout('http://app.test/api/agent/tasks',{method:'POST',body:'{}'}); } catch(error) { failure=error; }
     expect(submissionIsUncertain(failure)).toBe(true);
-    expect(calls).toEqual(['http://app.test/api/model-timeout-settings','http://app.test/api/agent/tasks']);
+    expect(calls).toEqual(['http://app.test/api/agent/tasks']);
   } finally { globalThis.fetch = original; }
 });
 
@@ -62,18 +62,46 @@ test('proxy preserves request data, Origin, authorization, multiple cookies and 
   process.env.BANFEI_API_PROXY_TARGET = `http://127.0.0.1:${(server.address() as any).port}`;
   try {
     const body = Buffer.from([0,1,2,253,254,255]);
-    const response = await POST(new Request('https://app.test/api/documents?value=a%2Bb', {
-      method:'POST',headers:{Origin:'https://app.test',Authorization:'Bearer synthetic',Cookie:'session=synthetic','Content-Type':'application/octet-stream'},body}));
+    const response = await POST(new Request('http://app.test/api/documents?value=a%2Bb', {
+      method:'POST',headers:{Origin:'http://app.test',Authorization:'Bearer synthetic',Cookie:'session=synthetic','Content-Type':'application/octet-stream'},body}));
     expect(received.url).toBe('/documents?value=a%2Bb');
-    expect(received.headers.origin).toBe('https://app.test');
+    expect(received.headers.origin).toBe('http://app.test');
     expect(received.headers.authorization).toBe('Bearer synthetic');
     expect(received.headers.cookie).toBe('session=synthetic');
+    expect(received.headers['x-forwarded-proto']).toBe('http');
     expect(received.body.equals(body)).toBeTruthy();
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('/login');
     expect(response.headers.getSetCookie()).toHaveLength(2);
     expect(await response.text()).toBe('redirect body');
   } finally {
+    if (previous === undefined) delete process.env.BANFEI_API_PROXY_TARGET; else process.env.BANFEI_API_PROXY_TARGET = previous;
+    server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve()));
+  }
+});
+
+test('proxy delivers streaming chunks before the upstream response finishes', async () => {
+  let finish = () => {};
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200, {'Content-Type':'text/plain'});
+    res.write('first');
+    finish = () => res.end('second');
+  });
+  server.listen(0,'127.0.0.1'); await once(server,'listening');
+  const previous = process.env.BANFEI_API_PROXY_TARGET;
+  process.env.BANFEI_API_PROXY_TARGET = `http://127.0.0.1:${(server.address() as any).port}`;
+  try {
+    const response = await GET(new Request('http://app.test/api/stream'));
+    expect(response.status).toBe(200);
+    const reader = response.body!.getReader();
+    const first = await reader.read();
+    expect(new TextDecoder().decode(first.value)).toBe('first');
+    finish();
+    const second = await reader.read();
+    expect(new TextDecoder().decode(second.value)).toBe('second');
+    expect((await reader.read()).done).toBe(true);
+  } finally {
+    finish();
     if (previous === undefined) delete process.env.BANFEI_API_PROXY_TARGET; else process.env.BANFEI_API_PROXY_TARGET = previous;
     server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve()));
   }
@@ -90,9 +118,9 @@ test('proxy waits past old 30 second idle cap and cancels upstream on client abo
   const previous = process.env.BANFEI_API_PROXY_TARGET;
   process.env.BANFEI_API_PROXY_TARGET = `http://127.0.0.1:${(server.address() as any).port}`;
   try {
-    expect(await (await GET(new Request('https://app.test/api/slow'))).text()).toBe('complete');
+    expect(await (await GET(new Request('http://app.test/api/slow'))).text()).toBe('complete');
     const controller = new AbortController();
-    const result = GET(new Request('https://app.test/api/cancel', {signal:controller.signal}));
+    const result = GET(new Request('http://app.test/api/cancel', {signal:controller.signal}));
     await once(server,'request'); controller.abort();
     await result;
     await expect.poll(() => cancelled).toBeTruthy();

@@ -2,7 +2,7 @@ import {fixtureLogin} from "./identity-fixture";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 
-const API = "http://localhost:8000";
+const API = "http://localhost/api";
 type Task = { id: string; requirement: string; createdAt: string; taskStatus: string; recommendations: unknown[]; archivedAt: null; opportunity: null };
 async function login(page: Page, request: APIRequestContext) {
   const response = await fixtureLogin(request, "user_a", "ValidationPass123");
@@ -56,7 +56,8 @@ test("submission appears before acknowledgement and survives navigation and relo
   const link = page.locator(`.sidebar-task-list a[href="/tasks/${recordId}"]`);
   await expect(link).toContainText("匹配中");
   await expect(page.locator(".pending-task")).toHaveCount(0);
-  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/tasks/${recordId}$`));
+  await expect(link).toHaveAttribute("aria-current","page");
   await expect(page.getByRole("heading", { name: "任务详情", exact: true })).toBeVisible();
   await page.reload();
   await expect(page.locator(`a[aria-current="page"][href="/tasks/${recordId}"]`)).toBeVisible();
@@ -121,7 +122,7 @@ test("load-more failure retains existing rows and retry appends the next ten", a
   await page.goto("/");
   await expect(rows(page)).toHaveCount(10);
   await page.getByRole("button", { name: "加载更多" }).click();
-  await expect(page.locator(".sidebar-task-list")).toContainText("已保留上次状态");
+  await expect(page.locator(".sidebar-task-list")).toContainText("暂未确认结果，请刷新查看。");
   await expect(rows(page)).toHaveCount(10);
   fail = false;
   await page.getByRole("button", { name: "加载更多" }).click();
@@ -180,6 +181,7 @@ for (const width of [1024, 768]) {
     let creates = 0;
     page.on("request", request => { if (request.url() === `${API}/agent/tasks` && request.method() === "POST") creates += 1; });
     await page.goto("/");
+    if (width <= 768) await page.getByRole("button", { name: "展开导航", exact: true }).click();
     await page.getByRole("link", { name: "开启新任务", exact: true }).click();
     await expect(page.getByRole("link", { name: "全部任务", exact: false }).first()).toBeVisible();
     await expect(page.locator("#requirement")).toHaveValue("");

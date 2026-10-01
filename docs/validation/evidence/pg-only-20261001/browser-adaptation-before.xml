@@ -1,0 +1,104 @@
+<testsuites id="" name="" tests="26" failures="1" skipped="0" errors="0" time="106.29880899999999">
+<testsuite name="arm-runtime.spec.ts" timestamp="2026-10-01T10:15:52.792Z" hostname="" tests="4" failures="0" skipped="0" time="0.255" errors="0">
+<testcase name="HTTP origins without randomUUID keep safe unique submission IDs" classname="arm-runtime.spec.ts" time="0.098">
+</testcase>
+<testcase name="same-origin proxy preserves direct API model request budgets" classname="arm-runtime.spec.ts" time="0.053">
+</testcase>
+<testcase name="proxy configuration has no build-time model timeout setting" classname="arm-runtime.spec.ts" time="0.099">
+<system-err>
+<![CDATA[(node:107739) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+]]>
+</system-err>
+</testcase>
+<testcase name="current policy determines timeout and retry budget without a rebuild" classname="arm-runtime.spec.ts" time="0.005">
+</testcase>
+</testsuite>
+<testsuite name="model-boundary.spec.ts" timestamp="2026-10-01T10:15:52.792Z" hostname="" tests="2" failures="1" skipped="0" time="47.643" errors="0">
+<testcase name="model deletion supports cancel, success and server errors" classname="model-boundary.spec.ts" time="2.425">
+</testcase>
+<testcase name="UI tests do not require a model: login, navigation and resource browsing" classname="model-boundary.spec.ts" time="45.218">
+<failure message="model-boundary.spec.ts:50:5 UI tests do not require a model: login, navigation and resource browsing" type="FAILURE">
+<![CDATA[  model-boundary.spec.ts:50:5 › UI tests do not require a model: login, navigation and resource browsing 
+
+    Test timeout of 45000ms exceeded.
+
+    Error: locator.click: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByRole('dialog', { name: '保存你的身份 Key' }).getByRole('button', { name: '稍后保存', exact: true })
+
+
+      55 |   await expect(page).toHaveURL(/\/admin$/);
+      56 |   await page.getByRole('link', {name:'返回伴飞 Agent', exact:true}).click();
+    > 57 |   await page.getByRole('dialog', {name:'保存你的身份 Key'}).getByRole('button', {name:'稍后保存',exact:true}).click();
+         |                                                                                                     ^
+      58 |   const identity=await page.evaluate(()=>JSON.parse(localStorage.getItem('banfei:user:user')||'null'));
+      59 |   expect(identity?.role).toBe('user');
+      60 |   await expect(page.getByRole('link', {name:'资源中心', exact:true})).toBeVisible();
+        at /home/yuan/project/lingjian-agent-enablement/frontend/e2e/model-boundary.spec.ts:57:101
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/model-boundary-UI-tests-do-b0f62-ation-and-resource-browsing/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/model-boundary-UI-tests-do-b0f62-ation-and-resource-browsing/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/model-boundary-UI-tests-do-b0f62-ation-and-resource-browsing/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/model-boundary-UI-tests-do-b0f62-ation-and-resource-browsing/test-failed-1.png]]
+
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/model-boundary-UI-tests-do-b0f62-ation-and-resource-browsing/trace.zip]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+<testsuite name="task-failure.spec.ts" timestamp="2026-10-01T10:15:52.792Z" hostname="" tests="20" failures="0" skipped="0" time="45.727" errors="0">
+<testcase name="ordinary list shows simple messages including legacy failures" classname="task-failure.spec.ts" time="2.286">
+</testcase>
+<testcase name="partial and failed revise preserve useful results at 1366" classname="task-failure.spec.ts" time="3.381">
+</testcase>
+<testcase name="partial and failed revise preserve useful results at 1920" classname="task-failure.spec.ts" time="2.409">
+</testcase>
+<testcase name="configuration failure asks for admin without technical detail" classname="task-failure.spec.ts" time="1.173">
+</testcase>
+<testcase name="failed refresh preserves existing development advice" classname="task-failure.spec.ts" time="4.01">
+</testcase>
+<testcase name="empty match is a normal outcome" classname="task-failure.spec.ts" time="1.087">
+</testcase>
+<testcase name="uncertain disconnect uses simple wording and keeps original pending task" classname="task-failure.spec.ts" time="1.558">
+</testcase>
+<testcase name="uncertain commit-error uses simple wording and keeps original pending task" classname="task-failure.spec.ts" time="1.509">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 202" classname="task-failure.spec.ts" time="2.03">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 502" classname="task-failure.spec.ts" time="2.326">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 500" classname="task-failure.spec.ts" time="2.042">
+</testcase>
+<testcase name="restored pending matching task resolves failed record without another submission" classname="task-failure.spec.ts" time="1.132">
+</testcase>
+<testcase name="accepted development timeout opens the saved failed plan with retry available" classname="task-failure.spec.ts" time="1.887">
+</testcase>
+<testcase name="failed development task clears old pending marker and retries same plan only once" classname="task-failure.spec.ts" time="3.229">
+</testcase>
+<testcase name="admin task errors tab expands and copies redacted details" classname="task-failure.spec.ts" time="4.239">
+</testcase>
+<testcase name="development service failure has no retry and no false usable advice claim" classname="task-failure.spec.ts" time="1.243">
+</testcase>
+<testcase name="initial generation failure preserves request without claiming old advice" classname="task-failure.spec.ts" time="1.243">
+</testcase>
+<testcase name="answer failure survives polling and can retry only after response ends" classname="task-failure.spec.ts" time="3.169">
+</testcase>
+<testcase name="lost development retry response only queries original run even after reload" classname="task-failure.spec.ts" time="2.552">
+</testcase>
+<testcase name="lost create response queries submission and never claims the demand was saved" classname="task-failure.spec.ts" time="3.222">
+</testcase>
+</testsuite>
+</testsuites>

@@ -3,7 +3,7 @@ import { expect, test, type APIRequestContext, type Browser, type Page } from "@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://localhost/api";
 const DEFAULT_PASSWORD = "ValidationPass123";
 
 type LoginResult = { access_token: string; user: Record<string, unknown> };
@@ -72,7 +72,7 @@ test("E2E-004 admin task detail stays in admin scope", async ({ page }) => {
 
 test("E2E-005 disabled local identity and changed admin password invalidate tokens", async ({ request }) => {
   const admin=await apiLogin(request,"admin1");
-  const ordinary=await (await request.post(API_BASE+"/auth/identity/session",{headers:{Origin:"http://localhost:3000"},data:{create:true}})).json();
+  const ordinary=await (await request.post(API_BASE+"/auth/identity/session",{headers:{Origin:"http://localhost"},data:{create:true}})).json();
   expect((await request.patch(API_BASE+`/admin/users/${ordinary.user.id}/status`,{headers:{Authorization:`Bearer ${admin.access_token}`},data:{status:"disabled"}})).ok()).toBeTruthy();
   expect((await request.get(API_BASE+"/auth/me",{headers:{Authorization:`Bearer ${ordinary.access_token}`}})).status()).toBe(401);
   await request.patch(API_BASE+`/admin/users/${ordinary.user.id}/status`,{headers:{Authorization:`Bearer ${admin.access_token}`},data:{status:"active"}});

@@ -11,26 +11,22 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from sqlalchemy.engine import make_url
 from backend.tests.postgres_support import empty_postgres_schema
-from backend.tests.support.model_test_boundary import POSTGRES_TEST_DATABASES
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('suite', choices=['backend', 'browser'])
     args, forwarded = parser.parse_known_args()
-    value = os.getenv('BANFEI_TEST_DATABASE_URL', '')
-    if not value:
-        raise SystemExit('Private BANFEI_TEST_DATABASE_URL is required')
-    parsed = make_url(value)
-    if parsed.database not in POSTGRES_TEST_DATABASES or parsed.host not in ('127.0.0.1', 'localhost'):
-        raise SystemExit('Only the dedicated local PostgreSQL validation database is allowed')
+    from backend.tests.support.model_test_boundary import validation_url
+    validation_url(os.getenv('BANFEI_TEST_DATABASE_URL', ''))
     environment = dict(os.environ)
     if args.suite == 'backend':
         return subprocess.call([sys.executable, '-m', 'pytest', 'backend/tests', *forwarded], cwd=ROOT, env=environment)
     with empty_postgres_schema() as url:
-        environment.update(DATABASE_URL=url, PLAYWRIGHT_DATABASE_URL=url, PLAYWRIGHT_REUSE_SERVER='0')
+        import tempfile
+        root = tempfile.mkdtemp(prefix='banfei-e2e-')
+        environment.update(DATABASE_URL=url, PLAYWRIGHT_DATABASE_URL=url, PLAYWRIGHT_REUSE_SERVER='0', BANFEI_TEST_ROOT=root)
         environment.setdefault('ENABLEMENT_EVIDENCE_DIR', '/tmp/banfei-postgres-evidence/enablement')
         environment.setdefault('HUAWEI_VISUAL_EVIDENCE_DIR', '/tmp/banfei-postgres-evidence/huawei')
         return subprocess.call(['npm', 'run', 'test:e2e', '--', *forwarded], cwd=ROOT/'frontend', env=environment)

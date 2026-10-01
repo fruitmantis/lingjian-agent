@@ -23,12 +23,13 @@ def test_expired_run_cannot_save_without_a_read_or_restart(prepared):
         assert conn.execute('SELECT count(*) FROM development_versions').fetchone()[0] == 0
 
 import copy
-import sqlite3
+from .postgres_support import foreign_key_violations, install_failure
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from backend.app import development_engine as engine, development_model as model, development_views as views
 from backend.app.development_types import Submit, Revise
+from backend.app.routers.development import RetryRun
 from backend.tests.test_development_engine import scenario, execute, CANARY
 from backend.tests.test_development_api import stages
 from backend.tests.conftest import auth_headers
@@ -71,7 +72,7 @@ def test_run_watchdog_without_polling_preserves_confirmed_and_retries(scenario, 
     monkeypatch.setattr(engine, 'run_timeout', run_timeout)
     monkeypatch.setattr(life, 'run_timeout', run_timeout)
     monkeypatch.setattr(model, 'completion', original)
-    retry = life.revise(pid, Revise(submission_id='watchdog-retry', based_on_version_id=v1, instruction='重试', request=request), user)
+    retry = life.retry(pid, RetryRun(submission_id='watchdog-retry', based_on_version_id=v1, run_id=second['run_id']), user)
     engine.execute(retry['run_id'])
     assert plan(pid)['current_version_id'] != v1 and plan(pid)['confirmed_version_id'] == v1
     with get_db() as conn:
@@ -88,23 +89,24 @@ def test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows(scenario, fau
     third=life.revise(pid,Revise(submission_id='fault-v3-attempt',based_on_version_id=v2,instruction='再次调整',request=request),user)
     tables=['development_versions','development_version_items','development_diagnoses']
     with get_db() as conn:
-        before={t:[tuple(r) for r in conn.execute(f'SELECT * FROM {t} ORDER BY rowid')] for t in tables}
+        before={t:[tuple(r) for r in conn.execute(f'SELECT * FROM {t} ORDER BY 1')] for t in tables}
         action,table,when={
             'version':('INSERT','development_versions',''),
             'item':('INSERT','development_version_items',''),
             'diagnosis':('INSERT','development_diagnoses',''),
-            'pointer':('UPDATE','development_plans','WHEN NEW.current_version_id IS NOT OLD.current_version_id'),
+            'pointer':('UPDATE','development_plans','WHEN (NEW.current_version_id IS DISTINCT FROM OLD.current_version_id)'),
         }[fault]
-        conn.execute(f"CREATE TRIGGER d_failure BEFORE {action} ON {table} {when} BEGIN SELECT RAISE(ABORT,'synthetic fault'); END")
+        install_failure(conn, table, action, name='d_failure', when=when)
     engine.execute(third['run_id'])
     assert (plan(pid)['current_version_id'],plan(pid)['confirmed_version_id'])==(v2,v1)
     assert views.detail(pid,user)['payload'] and views.transferable(pid,user)['text']
     with get_db() as conn:
         assert conn.execute('SELECT status FROM development_runs WHERE id=?',(third['run_id'],)).fetchone()[0]=='failed'
-        assert {t:[tuple(r) for r in conn.execute(f'SELECT * FROM {t} ORDER BY rowid')] for t in tables}==before
-        assert not conn.execute('PRAGMA foreign_key_check').fetchall()
-        conn.execute('DROP TRIGGER d_failure')
-    retry=life.revise(pid,Revise(submission_id='fault-retry-run',based_on_version_id=v2,instruction='重试',request=request),user)
+        assert {t:[tuple(r) for r in conn.execute(f'SELECT * FROM {t} ORDER BY 1')] for t in tables}==before
+        assert not foreign_key_violations(conn)
+        conn.execute(f'DROP TRIGGER d_failure ON {table}')
+        conn.execute('DROP FUNCTION d_failure()')
+    retry=life.retry(pid,RetryRun(submission_id='fault-retry-run',based_on_version_id=v2,run_id=third['run_id']),user)
     engine.execute(retry['run_id']);assert plan(pid)['confirmed_version_id']==v1
     with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?',(pid,)).fetchone()[0]==3
 

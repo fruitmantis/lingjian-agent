@@ -1,3 +1,4 @@
+from .postgres_support import foreign_key_violations
 """Partner deletion tests use only conftest's disposable /tmp database."""
 from backend.tests.support.legacy_development import legacy_confirmed
 import json
@@ -20,12 +21,9 @@ def admin(client):
 
 
 def snapshot(ignore_user_activity=False):
+    from .postgres_support import snapshot as pg_snapshot
     with get_db() as conn:
-        if ignore_user_activity:
-            tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")]
-            return {table: [{key: row[key] for key in row.keys() if table != 'users' or key != 'last_active_at'}
-                            for row in conn.execute(f'SELECT * FROM "{table}"')] for table in tables}
-        return '\n'.join(conn.iterdump())
+        return pg_snapshot(conn, {'users': ['last_active_at']} if ignore_user_activity else None)
 
 
 def add_case():
@@ -39,14 +37,13 @@ def test_unused_partner_and_derived_profile_deleted_but_global_tags_preserved(cl
     with get_db() as conn:
         conn.execute("UPDATE partners SET ai_profile='Synthetic profile',status=? WHERE id='partner-1'", (state,))
         tags = [tuple(row) for row in conn.execute('SELECT * FROM capability_tags')]
-        fks = [tuple(row) for row in conn.execute('PRAGMA foreign_key_check')]
+        fks = foreign_key_violations(conn)
     response = client.delete('/partners/partner-1', headers=auth_headers(admin))
     assert response.status_code == 204 and response.content == b''
     with get_db() as conn:
         assert conn.execute("SELECT * FROM partners WHERE id='partner-1'").fetchone() is None
         assert [tuple(row) for row in conn.execute('SELECT * FROM capability_tags')] == tags
-        assert [tuple(row) for row in conn.execute('PRAGMA foreign_key_check')] == fks
-        assert conn.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
+        assert foreign_key_violations(conn) == fks
         audit = conn.execute("SELECT * FROM user_audit_logs WHERE action='partner_deleted'").fetchone()
         assert audit['actor_user_id'] == admin['id']
         assert json.loads(audit['summary']) == {'partner_id': 'partner-1'}
@@ -159,9 +156,10 @@ def test_multiple_categories_return_all_counts(client, admin):
 def test_audit_failure_rolls_back_deletion(admin):
     make_partner()
     with get_db() as conn:
-        conn.execute("CREATE TRIGGER fail_delete_audit BEFORE INSERT ON user_audit_logs WHEN NEW.action='partner_deleted' BEGIN SELECT RAISE(ABORT,'Synthetic audit failure'); END")
+        from .postgres_support import install_failure
+        install_failure(conn,'user_audit_logs','INSERT',when="WHEN (NEW.action='partner_deleted')")
     before = snapshot()
-    with pytest.raises(Exception, match='Synthetic audit failure'):
+    with pytest.raises(Exception, match='synthetic failure'):
         partners.delete_partner('partner-1', admin)
     assert snapshot() == before
 
@@ -184,14 +182,20 @@ def test_concurrent_matching_save_and_delete_never_leave_dangling_reference(admi
     with get_db() as conn:
         refs = json.loads(conn.execute('SELECT recommendations_json FROM match_records WHERE id=?',(task,)).fetchone()[0])
         if refs: assert conn.execute("SELECT 1 FROM partners WHERE id='partner-1'").fetchone()
-        assert conn.execute('PRAGMA foreign_key_check').fetchall() == []
+        assert foreign_key_violations(conn) == []
 
 
 @pytest.mark.parametrize('retry', [False,True])
 def test_late_match_after_deletion_is_retryable_not_stuck(client, admin, monkeypatch, retry):
     make_partner(); task = make_task(admin, 'Synthetic delayed match', recommendations=[],task_status='failed' if retry else 'matching')
     partners.delete_partner('partner-1',admin)
-    monkeypatch.setattr(match,'_perform_partner_match',lambda _: [match.PartnerRecommendation(**recommendation())])
+    from .support.matching import install
+    install(monkeypatch)
+    reached=[]
+    def late(requirement,snapshot):
+        snapshot['candidate_stamp']=match._candidate_stamp()
+        reached.append(True);return [match.PartnerRecommendation(**recommendation())]
+    monkeypatch.setattr(match,'_perform_partner_match',late)
     if retry:
         response = client.post(f'/agent/tasks/{task}/retry',headers=auth_headers(admin))
         assert response.status_code == 409
@@ -201,3 +205,4 @@ def test_late_match_after_deletion_is_retryable_not_stuck(client, admin, monkeyp
     with get_db() as conn:
         row = conn.execute('SELECT task_status,recommendations_json FROM match_records WHERE id=?',(task,)).fetchone()
         assert tuple(row) == ('failed','[]')
+    assert reached==[True]

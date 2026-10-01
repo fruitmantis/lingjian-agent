@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import HTTPException
 
 from backend.app.database import get_db
 from backend.app.routers import match as match_router
@@ -15,8 +15,21 @@ from .test_tasks import finish_enrichment, recommendation_model
 @pytest.fixture
 def queued(monkeypatch):
     jobs = []
-    monkeypatch.setattr(BackgroundTasks, "add_task", lambda self, func, *args, **kwargs: jobs.append((func, args, kwargs)))
+    monkeypatch.setattr(match_router.executor, "submit", lambda func, *args, **kwargs: jobs.append((func, args, kwargs)))
     return jobs
+
+
+@pytest.fixture(autouse=True)
+def synthetic_understanding(monkeypatch):
+    monkeypatch.setattr(match_router.understanding, "prepare", lambda *args: {
+        'understanding': {'in_scope': True, 'facts': {}, 'tag_suggestions': []},
+    })
+
+
+def successful_match(requirement, snapshot):
+    snapshot['candidate_stamp'] = match_router._candidate_stamp()
+    snapshot['outcome'] = {'answer': '合成推荐已完成'}
+    return [recommendation_model()]
 
 
 def payload(requirement="即时任务验证"):
@@ -30,13 +43,14 @@ def test_acceptance_persists_before_model_and_duplicate_schedules_once(client, q
     headers = auth_headers(user)
     response = client.post("/agent/tasks", headers=headers, json=body)
     assert response.status_code == 202
-    assert response.json() == {"recordId": body["requestId"], "taskStatus": "matching"}
+    assert response.json()["recordId"] == body["requestId"]
+    assert response.json()["taskStatus"] == "matching" and response.json()["runId"]
     detail = client.get(f'/agent/tasks/{body["requestId"]}', headers=headers).json()
     assert detail["taskStatus"] == "matching"
     assert detail["recommendations"] == []
     assert client.post("/agent/tasks", headers=headers, json=body).status_code == 202
     assert len(queued) == 1
-    monkeypatch.setattr(match_router, "_perform_partner_match", lambda _: [recommendation_model()])
+    monkeypatch.setattr(match_router, "_perform_partner_match", successful_match)
     monkeypatch.setattr(match_router, "_run_task_enrichment", finish_enrichment)
     func, args, kwargs = queued[0]
     func(*args, **kwargs)
@@ -82,15 +96,17 @@ def test_creation_requires_authentication(client, queued):
 
 
 @pytest.mark.parametrize("stage,expected", [("match", "failed"), ("enrich", "partial")])
-def test_background_failure_has_real_persisted_status(client, monkeypatch, stage, expected):
+def test_background_failure_has_real_persisted_status(client, queued, monkeypatch, stage, expected):
     make_partner()
     def fail(*args, **kwargs):
         raise HTTPException(502, "synthetic failure")
-    monkeypatch.setattr(match_router, "_perform_partner_match", fail if stage == "match" else lambda _: [recommendation_model()])
+    monkeypatch.setattr(match_router, "_perform_partner_match", fail if stage == "match" else successful_match)
     monkeypatch.setattr(match_router, "_run_task_enrichment", fail)
     headers = auth_headers(make_user("background-failure"))
     body = payload()
     assert client.post("/agent/tasks", headers=headers, json=body).status_code == 202
+    func, args, kwargs = queued[0]
+    func(*args, **kwargs)
     detail = client.get(f'/agent/tasks/{body["requestId"]}', headers=headers).json()
     assert detail["taskStatus"] == expected
     assert "synthetic failure" not in str(detail)

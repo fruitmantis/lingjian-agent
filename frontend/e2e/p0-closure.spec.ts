@@ -1,7 +1,7 @@
 import {fixtureLogin} from "./identity-fixture";
 import {randomUUID} from 'node:crypto';
 import {test,expect} from '@playwright/test';
-const API='http://localhost:8000';
+const API='http://localhost/api';
 
 for (const width of [1366,1920]) test(`P0 scene shortcuts, combined counts and development status ${width}`,async({page,request})=>{
   test.setTimeout(90000);

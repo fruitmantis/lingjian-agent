@@ -34,7 +34,7 @@ def filters():
 @router.get('/resources/{source_type}/{source_id}')
 def detail(source_type: SourceType,source_id: str,source_version: int | None=Query(None,ge=1)):
     with get_db() as conn:
-        conn.execute('BEGIN')
+        conn.begin_read()
         return catalog.public_detail(conn,source_type,source_id,source_version)
 
 

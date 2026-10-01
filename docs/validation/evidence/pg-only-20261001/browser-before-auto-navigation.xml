@@ -1,0 +1,278 @@
+<testsuites id="" name="" tests="95" failures="1" skipped="1" errors="0" time="476.257567">
+<testsuite name="arm-runtime.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="4" failures="0" skipped="0" time="0.34" errors="0">
+<testcase name="HTTP origins without randomUUID keep safe unique submission IDs" classname="arm-runtime.spec.ts" time="0.137">
+</testcase>
+<testcase name="same-origin proxy preserves direct API model request budgets" classname="arm-runtime.spec.ts" time="0.049">
+</testcase>
+<testcase name="proxy configuration has no build-time model timeout setting" classname="arm-runtime.spec.ts" time="0.146">
+<system-err>
+<![CDATA[(node:119089) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+]]>
+</system-err>
+</testcase>
+<testcase name="current policy determines timeout and retry budget without a rebuild" classname="arm-runtime.spec.ts" time="0.008">
+</testcase>
+</testsuite>
+<testsuite name="business-taxonomy.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="2" failures="0" skipped="0" time="19.95" errors="0">
+<testcase name="standard industry and grouped regions 1366" classname="business-taxonomy.spec.ts" time="12.305">
+</testcase>
+<testcase name="standard industry and grouped regions 1920" classname="business-taxonomy.spec.ts" time="7.645">
+</testcase>
+</testsuite>
+<testsuite name="feedback.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="3" failures="0" skipped="0" time="22.569" errors="0">
+<testcase name="feedback paste upload review and status 1366" classname="feedback.spec.ts" time="14.746">
+</testcase>
+<testcase name="feedback paste upload review and status 1920" classname="feedback.spec.ts" time="5.237">
+</testcase>
+<testcase name="feedback validates images and preserves draft after submission failure" classname="feedback.spec.ts" time="2.586">
+</testcase>
+</testsuite>
+<testsuite name="first-login.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="2" failures="0" skipped="0" time="10.244" errors="0">
+<testcase name="administrator temporary password remains isolated 1366" classname="first-login.spec.ts" time="5.591">
+</testcase>
+<testcase name="administrator temporary password remains isolated 1920" classname="first-login.spec.ts" time="4.653">
+</testcase>
+</testsuite>
+<testsuite name="http-identity.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="1" failures="0" skipped="1" time="0.016" errors="0">
+<testcase name="actual-IP HTTP entry keeps identity, copy fallback and tabs consistent" classname="http-identity.spec.ts" time="0.016">
+<properties>
+<property name="skip" value="Explicit actual-IP HTTP origin required">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="local-identity.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="24" failures="0" skipped="0" time="159.971" errors="0">
+<testcase name="first visit enters automatically, same Key in popup/account, copy download and reload" classname="local-identity.spec.ts" time="6.431">
+</testcase>
+<testcase name="saved Key restores same user and history after site data loss without creating users" classname="local-identity.spec.ts" time="9.938">
+</testcase>
+<testcase name="explicit Key entry and invalid input never create users or request business history" classname="local-identity.spec.ts" time="1.783">
+</testcase>
+<testcase name="popup existing-Key action switches identity without another user or merge" classname="local-identity.spec.ts" time="6.296">
+</testcase>
+<testcase name="logout retains browser identity, explicitly continues without Key after restart" classname="local-identity.spec.ts" time="9.515">
+</testcase>
+<testcase name="administrator sees masked Key matched to user ID and ordinary logout remains independent" classname="local-identity.spec.ts" time="12.218">
+</testcase>
+<testcase name="ordinary identities cannot read each other tasks, and expired token restores browser session" classname="local-identity.spec.ts" time="6.067">
+</testcase>
+<testcase name="two first-open tabs create one identity; logout updates the other tab" classname="local-identity.spec.ts" time="4.593">
+</testcase>
+<testcase name="Chrome Key logs into the same identity in Edge without platform verification" classname="local-identity.spec.ts" time="8.968">
+</testcase>
+<testcase name="same browser auto-enters normal login route with either token or remembered Cookie" classname="local-identity.spec.ts" time="5.556">
+</testcase>
+<testcase name="lost remembered Cookie after logout offers Key without creating a replacement" classname="local-identity.spec.ts" time="5.764">
+</testcase>
+<testcase name="business 401 restores same browser identity without Key or a new user" classname="local-identity.spec.ts" time="5.428">
+</testcase>
+<testcase name="credential file import restores downloaded identity and history without uploading the file" classname="local-identity.spec.ts" time="10.751">
+</testcase>
+<testcase name="credential file import accepts plain Key with BOM and Windows line endings after logout" classname="local-identity.spec.ts" time="4.968">
+</testcase>
+<testcase name="credential file import rejects invalid files locally and cancellation preserves the remembered identity" classname="local-identity.spec.ts" time="6.952">
+</testcase>
+<testcase name="credential file import with an unknown Key creates no user and can retry the same filename" classname="local-identity.spec.ts" time="4.265">
+</testcase>
+<testcase name="deleted Key paste shows explicit new identity action without automatic creation" classname="local-identity.spec.ts" time="4.612">
+</testcase>
+<testcase name="deleted Key file shows explicit new identity action without automatic creation" classname="local-identity.spec.ts" time="4.969">
+</testcase>
+<testcase name="deleted Key cannot clear a different remembered identity; explicit creation produces a new user" classname="local-identity.spec.ts" time="10.165">
+</testcase>
+<testcase name="disabled Key is distinguished from deletion and provides no new identity shortcut" classname="local-identity.spec.ts" time="4.352">
+</testcase>
+<testcase name="unknown Key with a stale remembered marker offers explicit creation without claiming deletion" classname="local-identity.spec.ts" time="2.938">
+</testcase>
+<testcase name="account soft deletion from list keeps history and uses one-sentence confirmation" classname="local-identity.spec.ts" time="9.562">
+</testcase>
+<testcase name="account soft deletion from detail keeps history and uses one-sentence confirmation" classname="local-identity.spec.ts" time="8.077">
+</testcase>
+<testcase name="account soft deletion is available for admins and protects the current operator" classname="local-identity.spec.ts" time="5.803">
+</testcase>
+</testsuite>
+<testsuite name="model-boundary.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="2" failures="0" skipped="0" time="9.347" errors="0">
+<testcase name="model deletion supports cancel, success and server errors" classname="model-boundary.spec.ts" time="2.898">
+</testcase>
+<testcase name="UI tests do not require a model: login, navigation and resource browsing" classname="model-boundary.spec.ts" time="6.449">
+</testcase>
+</testsuite>
+<testsuite name="model-timeout-settings.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="3" failures="0" skipped="0" time="5.57" errors="0">
+<testcase name="timeout form saves, reloads and takes effect immediately" classname="model-timeout-settings.spec.ts" time="3.013">
+</testcase>
+<testcase name="timeout save failure preserves input and releases the save button" classname="model-timeout-settings.spec.ts" time="1.302">
+</testcase>
+<testcase name="timeout form rejects zero seconds and fractional retries without saving" classname="model-timeout-settings.spec.ts" time="1.255">
+</testcase>
+</testsuite>
+<testsuite name="model-timeout-transport.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="5" failures="0" skipped="0" time="31.18" errors="0">
+<testcase name="asynchronous task creation sends directly and only lost acknowledgement is uncertain" classname="model-timeout-transport.spec.ts" time="0.014">
+</testcase>
+<testcase name="model request reads current saved policy every time and never retries business POST" classname="model-timeout-transport.spec.ts" time="0.011">
+</testcase>
+<testcase name="proxy preserves request data, Origin, authorization, multiple cookies and redirects" classname="model-timeout-transport.spec.ts" time="0.026">
+</testcase>
+<testcase name="proxy delivers streaming chunks before the upstream response finishes" classname="model-timeout-transport.spec.ts" time="0.009">
+</testcase>
+<testcase name="proxy waits past old 30 second idle cap and cancels upstream on client abort" classname="model-timeout-transport.spec.ts" time="31.12">
+</testcase>
+</testsuite>
+<testsuite name="pagination.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="11" failures="0" skipped="0" time="25.523" errors="0">
+<testcase name="PAG resource course totals, jump and boundaries" classname="pagination.spec.ts" time="2.432">
+</testcase>
+<testcase name="PAG resource lab totals, jump and boundaries" classname="pagination.spec.ts" time="2.384">
+</testcase>
+<testcase name="PAG resource case totals, jump and boundaries" classname="pagination.spec.ts" time="2.127">
+</testcase>
+<testcase name="PAG resource refresh clamps a vanished last page and fits a narrow screen" classname="pagination.spec.ts" time="2.142">
+</testcase>
+<testcase name="PAG /tasks keeps archived and search filters when jumping" classname="pagination.spec.ts" time="2.898">
+</testcase>
+<testcase name="PAG /admin/tasks keeps archived and search filters when jumping" classname="pagination.spec.ts" time="2.661">
+</testcase>
+<testcase name="PAG users and audit logs keep separate pages" classname="pagination.spec.ts" time="1.641">
+</testcase>
+<testcase name="PAG feedback translates page number to offset" classname="pagination.spec.ts" time="1.13">
+</testcase>
+<testcase name="PAG demand and supply gap lists jump independently and retain size controls" classname="pagination.spec.ts" time="3.651">
+</testcase>
+<testcase name="PAG opportunities jump and reset on filtering" classname="pagination.spec.ts" time="2.496">
+</testcase>
+<testcase name="PAG scenes show totals, jump and recalculate when changing page size" classname="pagination.spec.ts" time="1.961">
+</testcase>
+</testsuite>
+<testsuite name="partner-delete.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="2" failures="0" skipped="0" time="7.229" errors="0">
+<testcase name="admin partner deletion preserves business history 1366" classname="partner-delete.spec.ts" time="3.885">
+</testcase>
+<testcase name="admin partner deletion preserves business history 1920" classname="partner-delete.spec.ts" time="3.344">
+</testcase>
+</testsuite>
+<testsuite name="partner-materials.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="3" failures="0" skipped="0" time="26.283" errors="0">
+<testcase name="one materials page: partner shortcut, private profile originals and legacy file classification" classname="partner-materials.spec.ts" time="9.15">
+<system-err>
+</system-err>
+</testcase>
+<testcase name="multiple files in one card, safe preview, same-ID replacement and live display permission" classname="partner-materials.spec.ts" time="10.186">
+</testcase>
+<testcase name="global partner/category search, three-column groups and total-page jump" classname="partner-materials.spec.ts" time="6.947">
+</testcase>
+</testsuite>
+<testsuite name="partner-profile-report.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="2" failures="0" skipped="0" time="4.12" errors="0">
+<testcase name="admin profile renders ten chapters and tables safely" classname="partner-profile-report.spec.ts" time="1.995">
+</testcase>
+<testcase name="admin profile renders legacy text safely" classname="partner-profile-report.spec.ts" time="2.125">
+</testcase>
+</testsuite>
+<testsuite name="partner-select.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="5" failures="0" skipped="0" time="10.38" errors="0">
+<testcase name="new task searches 500 partners by partial Chinese or case-insensitive English name" classname="partner-select.spec.ts" time="2.123">
+</testcase>
+<testcase name="keyboard selection, IME, Escape and outside clicks preserve intentional selection" classname="partner-select.spec.ts" time="2.182">
+</testcase>
+<testcase name="source task keeps the original partner locked" classname="partner-select.spec.ts" time="1.359">
+</testcase>
+<testcase name="materials partner filter searches locally and can return to all partners" classname="partner-select.spec.ts" time="2.415">
+</testcase>
+<testcase name="material create and edit submit selected ID, never typed search text" classname="partner-select.spec.ts" time="2.301">
+</testcase>
+</testsuite>
+<testsuite name="resource-transfer.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="4" failures="0" skipped="0" time="9.919" errors="0">
+<testcase name="resource filters, cancel, batch publication and removal pass selected revisions" classname="resource-transfer.spec.ts" time="3.797">
+</testcase>
+<testcase name="Excel download, import success and actionable row error" classname="resource-transfer.spec.ts" time="2.203">
+</testcase>
+<testcase name="resource maintenance toolbar fits mobile and supports keyboard selection" classname="resource-transfer.spec.ts" time="1.424">
+</testcase>
+<testcase name="partner Excel and resource template download entries" classname="resource-transfer.spec.ts" time="2.495">
+</testcase>
+</testsuite>
+<testsuite name="task-failure.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="20" failures="1" skipped="0" time="90.975" errors="0">
+<testcase name="ordinary list shows simple messages including legacy failures" classname="task-failure.spec.ts" time="2.039">
+</testcase>
+<testcase name="partial and failed revise preserve useful results at 1366" classname="task-failure.spec.ts" time="4.431">
+</testcase>
+<testcase name="partial and failed revise preserve useful results at 1920" classname="task-failure.spec.ts" time="2.557">
+</testcase>
+<testcase name="configuration failure asks for admin without technical detail" classname="task-failure.spec.ts" time="1.347">
+</testcase>
+<testcase name="failed refresh preserves existing development advice" classname="task-failure.spec.ts" time="4.144">
+</testcase>
+<testcase name="empty match is a normal outcome" classname="task-failure.spec.ts" time="1.12">
+</testcase>
+<testcase name="uncertain disconnect uses simple wording and keeps original pending task" classname="task-failure.spec.ts" time="1.678">
+</testcase>
+<testcase name="uncertain commit-error uses simple wording and keeps original pending task" classname="task-failure.spec.ts" time="1.649">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 202" classname="task-failure.spec.ts" time="2.556">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 502" classname="task-failure.spec.ts" time="45.151">
+<failure message="task-failure.spec.ts:101:39 accepted matching timeout recovers original task after HTTP 502" type="FAILURE">
+<![CDATA[  task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 502 ────
+
+    Test timeout of 45000ms exceeded.
+
+    Error: locator.click: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByRole('link', { name: '查看任务详情', exact: true })
+
+
+      111 |  await expect(page.locator(".pending-task")).toHaveCount(0);
+      112 |  expect(await page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
+    > 113 |  await page.getByRole("link",{name:"查看任务详情",exact:true}).click();
+          |                                                          ^
+      114 |  await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
+      115 |  page.on("dialog",dialog=>dialog.accept());
+      116 |  await page.getByRole("button",{name:"重试",exact:true}).click();
+        at /home/yuan/project/lingjian-agent-enablement/frontend/e2e/task-failure.spec.ts:113:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+]]>
+</failure>
+<system-out>
+<![CDATA[
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/test-failed-1.png]]
+
+[[ATTACHMENT|../home/yuan/project/lingjian-agent-enablement/frontend/test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 500" classname="task-failure.spec.ts" time="2.184">
+</testcase>
+<testcase name="restored pending matching task resolves failed record without another submission" classname="task-failure.spec.ts" time="1.184">
+</testcase>
+<testcase name="accepted development timeout opens the saved failed plan with retry available" classname="task-failure.spec.ts" time="1.789">
+</testcase>
+<testcase name="failed development task clears old pending marker and retries same plan only once" classname="task-failure.spec.ts" time="3.088">
+</testcase>
+<testcase name="admin task errors tab expands and copies redacted details" classname="task-failure.spec.ts" time="4.957">
+</testcase>
+<testcase name="development service failure has no retry and no false usable advice claim" classname="task-failure.spec.ts" time="1.199">
+</testcase>
+<testcase name="initial generation failure preserves request without claiming old advice" classname="task-failure.spec.ts" time="1.214">
+</testcase>
+<testcase name="answer failure survives polling and can retry only after response ends" classname="task-failure.spec.ts" time="3.089">
+</testcase>
+<testcase name="lost development retry response only queries original run even after reload" classname="task-failure.spec.ts" time="2.413">
+</testcase>
+<testcase name="lost create response queries submission and never claims the demand was saved" classname="task-failure.spec.ts" time="3.186">
+</testcase>
+</testsuite>
+<testsuite name="task-progress.spec.ts" timestamp="2026-10-01T10:49:19.527Z" hostname="" tests="2" failures="0" skipped="0" time="27.187" errors="0">
+<testcase name="match: accepted task selects itself and restores input, stages, results and elapsed time" classname="task-progress.spec.ts" time="14.361">
+</testcase>
+<testcase name="development: accepted task selects itself and restores input, stages, results and elapsed time" classname="task-progress.spec.ts" time="12.826">
+</testcase>
+</testsuite>
+</testsuites>

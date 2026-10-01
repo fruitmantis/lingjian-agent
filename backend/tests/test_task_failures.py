@@ -32,9 +32,16 @@ def test_legacy_and_unrecognized_fields_are_not_guessed():
 
 def test_actual_model_failure_list_detail_owner_and_success_clear(client,monkeypatch):
  a=make_user('errors-a');b=make_user('errors-b');admin=make_user('errors-admin',role='admin');make_partner()
- monkeypatch.setattr(match,'chat_completion',lambda *a,**k:(_ for _ in ()).throw(httpx.ReadTimeout(SECRET)))
+ from .support.matching import install
+ from backend.app import development_model
+ install(monkeypatch)
+ calls=[]
+ def timeout(*args):
+  calls.append(True);raise httpx.ReadTimeout(SECRET)
+ monkeypatch.setattr(development_model,'completion',timeout)
  response=client.post('/agent/match',headers=auth_headers(a),json={'requirement':'合成故障场景'})
  assert response.status_code==502 and SECRET not in response.text
+ assert calls==[True]
  with get_db() as conn:task=conn.execute('SELECT id,last_error_details FROM match_records').fetchone();assert SECRET not in task['last_error_details']
  for actor in (a,admin):
   detail=client.get('/agent/tasks/'+task['id'],headers=auth_headers(actor));assert detail.status_code==200
@@ -50,9 +57,13 @@ def test_multiple_partial_reasons_preserve_recommendations(client,monkeypatch):
  from backend.app import ai_client
  a=make_user('partial-reasons');make_partner();task=make_task(a,'synthetic partial')
  monkeypatch.setattr(match,'_generate_demand_profile',lambda *a,**k:(_ for _ in ()).throw(httpx.ReadTimeout(SECRET)))
- monkeypatch.setattr(ai_client,'chat_completion',lambda *a,**k:(_ for _ in ()).throw(http_error(429)))
+ reached=[]
+ def opportunity(*args,**kwargs):
+  reached.append(True);kwargs['failures'].append(failure('project_opportunity',http_error(429)));return False
+ monkeypatch.setattr(match,'_extract_project_opportunity',opportunity)
  recs=[match.PartnerRecommendation.model_validate(recommendation())]
- assert match._run_task_enrichment(task,'synthetic',recs,'2026',include_tag_suggestions=False)=='partial'
+ assert match._run_task_enrichment(task,'synthetic',recs,'2026',include_tag_suggestions=False,snapshot={'understanding':{'facts':{},'tag_suggestions':[]},'outcome':{'supplyStatus':'partial','gapAnalysis':'需核实'}})=='partial'
+ assert reached==[True]
  details=client.get('/agent/tasks/'+task,headers=auth_headers(a)).json()
  assert {x['code'] for x in details['failureDetails']}=={'timeout','rate_limit'}
  assert len(details['recommendations'])==1 and SECRET not in json.dumps(details)
@@ -76,7 +87,6 @@ def test_failed_revise_retry_preserves_input_and_confirmed_version(prepared):
  assert plan(pid)['confirmed_version_id']==v1==plan(pid)['current_version_id']
  assert SECRET not in json.dumps(views.detail(pid,user))
 
-@pytest.mark.skipif(not os.environ.get('BANFEI_TEST_DATABASE_URL'),reason='Dedicated PostgreSQL required')
 def test_additive_migration_idempotence_and_rollback(client):
  from scripts.migrate_task_failure_details import migrate
  from backend.app.postgres_storage import engine_for
@@ -95,8 +105,10 @@ def test_additive_migration_idempotence_and_rollback(client):
 
 def test_successful_real_matching_path_still_returns_recommendations(client,monkeypatch):
  make_partner()
- monkeypatch.setattr(match,'chat_completion',lambda *a,**k:json.dumps([recommendation()]))
- result=match._perform_partner_match('synthetic success')
+ from .support.matching import install,snapshot
+ calls=install(monkeypatch,[{**recommendation(),'evidenceCases':[],'evidenceDeliverables':[]}])
+ result=match._perform_partner_match('synthetic success',snapshot('synthetic success'))
+ assert calls==['MatchUnderstanding','InitialSelection','MatchAnswer']
  assert len(result)==1 and result[0].partnerId=='partner-1'
 
 

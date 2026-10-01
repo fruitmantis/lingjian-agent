@@ -1,5 +1,5 @@
 """Public task reasons; private diagnostic history lives in the server error log."""
-import json,sqlite3
+import json
 import httpx
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -19,6 +19,7 @@ LEGACY_REASONS={
  'persistence':('处理结果未能成功保存','稍后重试；持续失败请联系管理员'),
  'interrupted':('本次处理已中断','重试'),
  'run_timeout':('本次处理超过执行时限，已中断','重试'),
+ 'input_budget':('匹配资料超出模型输入预算，任务已保留；请联系管理员核查资料后重试','联系管理员'),
  'unknown':('具体原因未记录','重试或联系管理员'),
 }
 GENERAL_FAILURE='本次处理失败，请重试。'
@@ -26,6 +27,10 @@ SERVICE_FAILURE='服务异常，请联系管理员。'
 UNCERTAIN_RESULT='暂未确认结果，请刷新查看。'
 SERVICE_CODES={'configuration','authentication','connection','provider','persistence'}
 REASONS={code:(SERVICE_FAILURE if code in SERVICE_CODES else GENERAL_FAILURE, '') for code in LEGACY_REASONS}
+REASONS['input_budget']=(LEGACY_REASONS['input_budget'][0],LEGACY_REASONS['input_budget'][1])
+
+class MatchInputBudgetError(ValueError):
+ """The complete staged model input cannot fit the configured safety budget."""
 
 def user_message(error):
  return REASONS[classify(error)][0]
@@ -40,6 +45,7 @@ class PublicTaskError(HTTPException):
 
 def classify(error=None,stage=None):
  if isinstance(error,PublicTaskError):return error.failure_code
+ if isinstance(error,MatchInputBudgetError):return 'input_budget'
  if stage=='run_timeout':return 'run_timeout'
  if stage=='interrupted':return 'interrupted'
  if isinstance(error,ModelConfigurationError):return 'configuration'
@@ -47,7 +53,7 @@ def classify(error=None,stage=None):
  if isinstance(error,httpx.HTTPStatusError):
   return {401:'authentication',403:'authentication',429:'rate_limit'}.get(error.response.status_code,'provider')
  if isinstance(error,httpx.RequestError):return 'connection'
- if isinstance(error,(SQLAlchemyError,sqlite3.DatabaseError)):return 'persistence'
+ if isinstance(error,SQLAlchemyError):return 'persistence'
  if isinstance(error,(ModelResponseError,ValueError,ValidationError)):return 'invalid_result'
  return 'unknown'
 
@@ -70,21 +76,3 @@ def public_failures(stages,stored=None):
   if code not in REASONS:code=next((k for k,(message,_) in LEGACY_REASONS.items() if message==stored),None)
   result.append(failure(stage,code=code))
  return result or [failure('unknown')]
-
-
-def prepare_or_timeout(prepare, *args, **kwargs):
-    """A known model timeout is an execution failure, never an uncertain commit."""
-    try:
-        return prepare(*args, **kwargs), None
-    except Exception as error:
-        if classify(error) == 'timeout':
-            return None, error
-        # This preparation precedes all submission writes. Preserve known errors
-        # without claiming that the database may already have accepted a task.
-        if isinstance(error, HTTPException) and not isinstance(error, PublicTaskError):
-            raise
-        public = error if isinstance(error, PublicTaskError) else PublicTaskError(error)
-        public.submission_accepted = False
-        if public is error:
-            raise
-        raise public from error

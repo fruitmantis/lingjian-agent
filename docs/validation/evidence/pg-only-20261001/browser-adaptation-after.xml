@@ -1,0 +1,8 @@
+<testsuites id="" name="" tests="2" failures="0" skipped="0" errors="0" time="18.920805">
+<testsuite name="model-boundary.spec.ts" timestamp="2026-10-01T10:19:07.293Z" hostname="" tests="2" failures="0" skipped="0" time="9.149" errors="0">
+<testcase name="model deletion supports cancel, success and server errors" classname="model-boundary.spec.ts" time="2.796">
+</testcase>
+<testcase name="UI tests do not require a model: login, navigation and resource browsing" classname="model-boundary.spec.ts" time="6.353">
+</testcase>
+</testsuite>
+</testsuites>

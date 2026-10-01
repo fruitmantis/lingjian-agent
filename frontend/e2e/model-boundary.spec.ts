@@ -48,10 +48,15 @@ test('model deletion supports cancel, success and server errors', async ({page})
 });
 
 test('UI tests do not require a model: login, navigation and resource browsing', async ({page}) => {
-  await page.goto('/login');
+  await page.goto('/admin/login');
   await page.getByLabel('用户名', {exact:true}).fill('admin1');
   await page.getByLabel('密码', {exact:true}).fill('ValidationPass123');
   await page.getByRole('button', {name:'登录', exact:true}).click();
+  await expect(page).toHaveURL(/\/admin$/);
+  await page.getByRole('link', {name:'返回伴飞 Agent', exact:true}).click();
+  await page.getByRole('dialog', {name:'保存你的身份 Key'}).getByRole('button', {name:'稍后保存',exact:true}).click();
+  const identity=await page.evaluate(()=>JSON.parse(localStorage.getItem('banfei:user:user')||'null'));
+  expect(identity?.role).toBe('user');
   await expect(page.getByRole('link', {name:'资源中心', exact:true})).toBeVisible();
   await page.getByRole('link', {name:'资源中心', exact:true}).click();
   await expect(page.getByRole('heading', {name:'资源中心', exact:true})).toBeVisible();

@@ -107,11 +107,13 @@ for(const status of [202,502,500])test(`accepted matching timeout recovers origi
  await page.goto("/");
  await page.getByPlaceholder(/例如：寻找/).fill("合成超时恢复需求");
  await page.getByRole("button",{name:/开始匹配|匹配伙伴|开始分析/}).click();
- await expect(page.locator(".current-task-summary")).toContainText("生成失败，可重试");
+ // Recovery now navigates automatically; do not race its transient home-page link.
+ await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
+ const selected=page.locator(`.sidebar-task-item[data-task-id="${identifier}"]`);
+ await expect(selected).toHaveAttribute("aria-current","page");
+ await expect(selected).toContainText("生成失败，可重试");
  await expect(page.locator(".pending-task")).toHaveCount(0);
  expect(await page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
- await page.getByRole("link",{name:"查看任务详情",exact:true}).click();
- await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
  page.on("dialog",dialog=>dialog.accept());
  await page.getByRole("button",{name:"重试",exact:true}).click();
  await expect.poll(()=>retries).toBe(1);
@@ -187,7 +189,7 @@ test("admin task errors tab expands and copies redacted details",async({page,con
  await context.grantPermissions(["clipboard-read","clipboard-write"]);
  await page.goto("/admin/system");
  await expect(page.getByRole("heading",{name:"系统状态",exact:true})).toBeVisible();
- await expect(page.getByRole("region",{name:/最近错误|任务报错/})).toHaveCount(0);
+ await expect(page.getByRole("region",{name:"最近错误",exact:true})).toContainText(latest.message);
  await page.goto("/admin/tasks");
  await expect(page.getByRole("button",{name:"进行中",exact:true})).toHaveAttribute("aria-pressed","true");
  await page.getByRole("button",{name:"已归档",exact:true}).click();

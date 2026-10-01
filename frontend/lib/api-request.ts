@@ -15,14 +15,11 @@ function requestPath(input: RequestInfo | URL): string {
 export function modelRequestCalls(input: RequestInfo | URL, method = "GET"): number {
   const path = requestPath(input);
   if (method.toUpperCase() === "POST") {
-    // Understanding + answer, or profile extraction + narrative; retries stay server-side.
-    if (path === "/agent/match" || /^\/agent\/tasks\/[^/]+\/retry$/.test(path)) return 2;
+    // Matching: understanding + initial selection + detailed review; retries stay server-side.
+    if (path === "/agent/match" || /^\/agent\/tasks\/[^/]+\/retry$/.test(path)) return 3;
     if (path === "/admin/capability-tags/suggestions/scan") return 10;
-    if (/^\/partners\/[^/]+\/profile$/.test(path)) return 2;
-    if (/^\/development\/plans\/[^/]+\/conversation$/.test(path)) return 2;
-    if (path === "/agent/tasks" || path === "/development/plans"
-      || /^\/development\/plans\/[^/]+\/(revise|retry)$/.test(path)
-      || /^\/admin\/model-configs\/[^/]+\/test$/.test(path)) return 1;
+    if (/^\/partners\/[^/]+\/profile$/.test(path)) return 3;
+    if (/^\/admin\/model-configs\/[^/]+\/test$/.test(path)) return 1;
   }
   return 0;
 }

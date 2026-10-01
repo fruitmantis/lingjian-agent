@@ -2,9 +2,20 @@
 
 import json
 import httpx
+from contextvars import ContextVar
 from urllib.parse import urlsplit
 from .model_resolver import ModelConfigurationError, ResolvedModelConfig, resolve_model_config
 from .model_timeout_settings import get_settings
+
+_LAST_RETRY_COUNT = ContextVar('model_last_retry_count', default=0)
+
+
+def last_retry_count() -> int:
+    return _LAST_RETRY_COUNT.get()
+
+
+def reset_retry_count() -> None:
+    _LAST_RETRY_COUNT.set(0)
 
 
 def provider_request_options(base_url: str, model: str) -> dict:
@@ -90,6 +101,7 @@ def retry_model_timeout(send, *, policy, before_retry):
     from .error_diagnostics import record_error
     retries = policy.timeoutRetries
     for retry_count in range(retries + 1):
+        _LAST_RETRY_COUNT.set(retry_count)
         if retry_count:
             before_retry()
         try:

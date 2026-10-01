@@ -255,13 +255,21 @@ def test_separate_admin_maintenance_calls_use_their_scenes(monkeypatch):
     task_id = make_task(owner, "scene validation")
     recs = [match.PartnerRecommendation(**recommendation())]
     calls = []
-    responses = iter(['{}', 'synthetic profile', '{}', '[]', '{}', '[]', '[%s]' % json.dumps(recommendation())])
+    responses = iter(['{}', '{}', '[]', '{}', '[]', '[%s]' % json.dumps(recommendation())])
     def complete(messages, **kwargs):
         calls.append((kwargs.get("scene"), kwargs.get("timeout")))
         return next(responses)
     monkeypatch.setattr(profile, "chat_completion", complete)
     monkeypatch.setattr(match, "chat_completion", complete)
     monkeypatch.setattr(ai_client, "chat_completion", complete)
+    from .support.profile_report_fixture import patch_all
+    from backend.app import partner_match_context
+    def resolve(scene):
+        calls.append((scene, None))
+        return {'id': 'synthetic-profile-model'}
+    monkeypatch.setattr(profile, "resolve_model_record", resolve)
+    monkeypatch.setattr(profile.development_model, "completion", lambda *a: patch_all())
+    monkeypatch.setattr(partner_match_context, "generate_summary", lambda *a: True)
     profile.generate_profile("partner-1")
     match._generate_demand_profile(task_id, "需求", recs, datetime.now(timezone.utc).isoformat())
     assert match._generate_tag_suggestions("需求", task_id)

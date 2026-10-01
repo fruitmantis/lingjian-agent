@@ -1,0 +1,10 @@
+<testsuites id="" name="" tests="3" failures="0" skipped="0" errors="0" time="24.625223000000002">
+<testsuite name="task-failure.spec.ts" timestamp="2026-10-01T11:00:12.483Z" hostname="" tests="3" failures="0" skipped="0" time="9.366" errors="0">
+<testcase name="accepted matching timeout recovers original task after HTTP 202" classname="task-failure.spec.ts" time="5.016">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 502" classname="task-failure.spec.ts" time="2.256">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 500" classname="task-failure.spec.ts" time="2.094">
+</testcase>
+</testsuite>
+</testsuites>

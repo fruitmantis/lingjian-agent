@@ -1,4 +1,5 @@
 "use client";
+import { copyText } from "../lib/copy-text";
 import { CardEntryLabel } from "@/components/card-entry";
 import {failureMessage} from "@/components/task-failure";
 
@@ -56,18 +57,6 @@ function parseTags(val: string): string[] {
   return val.split(/[,，]/).map(t => t.trim()).filter(Boolean);
 }
 
-function copyToClipboard(text: string) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text);
-  } else {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand("copy");
-    document.body.removeChild(ta);
-  }
-}
 
 function buildCopyText(req: string, r: Recommendation, rank: number): string {
   const level = getRecommendLevel(r.matchScore);
@@ -191,7 +180,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
       const id = await submit(reqText);
       if (current !== generation.current) return;
       setRequirement(""); setTaskStatus("matching"); setActiveTaskId(id);
-      router.replace(`/?task=${encodeURIComponent(id)}`, { scroll: false });
+      router.push(`/tasks/${encodeURIComponent(id)}`);
     } catch (reason) {
       if (current !== generation.current) return;
       setError(reason instanceof Error ? reason.message : "任务提交失败");
@@ -199,9 +188,9 @@ function ProjectMatchTask({active}:{active:boolean}) {
     }
   }
 
-  function handleCopy(rank: number, r: Recommendation) {
+  async function handleCopy(rank: number, r: Recommendation) {
     const text = buildCopyText(submittedRequirement || requirement, r, rank);
-    copyToClipboard(text);
+    if (!await copyText(text)) { setError("复制失败，请选中内容按 Ctrl+C 手动复制。"); return; }
     setCopiedRank(rank);
     setTimeout(() => setCopiedRank(null), 2000);
   }
@@ -254,7 +243,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
           <div className="ui-surface-heading">
             <h2 style={{ margin: 0 }}>本次项目需求</h2>
             <div className="ui-control-row">
-              <button onClick={() => { const text = submittedRequirement; copyToClipboard(text); }} className="secondary-btn" >复制需求</button>
+              <button onClick={() => { const text = submittedRequirement; void copyText(text).then(ok => { if (!ok) setError("复制失败，请选中需求内容按 Ctrl+C 手动复制。"); }); }} className="secondary-btn" >复制需求</button>
               <button onClick={() => { setActiveTaskId(null); router.replace("/", { scroll: false }); setRequirement(submittedRequirement); setSubmittedRequirement(""); setRecommendations([]); setHasSearched(false); document.getElementById("requirement")?.focus(); }} className="secondary-btn" >重新编辑</button>
               <button onClick={() => { const req = submittedRequirement; handleMatchDirect(req); }} className="secondary-btn" style={{ color: "var(--brand)" }}>再次寻源</button>
             </div>
@@ -311,7 +300,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
                         </div>
                         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                           <span className="score-tag">匹配度: {r.matchScore}</span>
-                          <button onClick={() => handleCopy(rank, r)} className="secondary-btn" >
+                          <button onClick={() => void handleCopy(rank, r)} className="secondary-btn" >
                             {copiedRank === rank ? "已复制 ✓" : "复制推荐说明"}
                           </button>
                         </div>

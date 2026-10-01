@@ -14,15 +14,18 @@ from cryptography.fernet import Fernet
 TEST_ROOT = Path(tempfile.mkdtemp(prefix="lingjian-pytest-"))
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
-TEST_DB = TEST_ROOT / "app.db"
 TEST_UPLOADS = TEST_ROOT / "uploads"
 TEST_CHROMA = TEST_ROOT / "chroma"
 TEST_JWT_SECRET = "validation-secret-a-0123456789-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 BOOTSTRAP_PASSWORD = "BootstrapPass12345"
 
 os.environ["BANFEI_ERROR_LOG_PATH"] = str(TEST_ROOT / "errors.jsonl")
-os.environ["DATABASE_URL"] = "sqlite://"  # Explicit legacy test backend; never inherit runtime PostgreSQL.
-os.environ["LINGJIAN_DATABASE_PATH"] = str(TEST_DB)
+os.environ["BANFEI_IDENTITY_ORIGIN"] = "http://localhost"
+os.environ["CORS_ORIGINS"] = "http://localhost"
+from backend.tests.support.model_test_boundary import validation_url
+validation_url(os.environ.get("BANFEI_TEST_DATABASE_URL", ""))
+# Never inherit the runtime URL, even during collection.
+os.environ["DATABASE_URL"] = os.environ["BANFEI_TEST_DATABASE_URL"]
 os.environ["LINGJIAN_UPLOADS_DIR"] = str(TEST_UPLOADS)
 os.environ["LINGJIAN_CHROMA_DIR"] = str(TEST_CHROMA)
 os.environ["JWT_SECRET_KEY"] = TEST_JWT_SECRET
@@ -35,12 +38,23 @@ os.environ["USER_APPLICATION_PENDING_LIMIT"] = "200"
 import httpx  # noqa: E402
 
 from backend.app.auth import create_token, hash_password  # noqa: E402
-from backend.app.database import DATABASE_PATH, UPLOADS_DIR, get_db, initialize_storage  # noqa: E402
+from backend.app.database import UPLOADS_DIR, get_db, initialize_storage  # noqa: E402
 from backend.app.main import app, initialize_application  # noqa: E402
 from backend.app.routers import users as users_router  # noqa: E402
 
 
 DEFAULT_PASSWORD = "ValidationPass123"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def no_external_model_network():
+    # Unit/PG validation may use real loopback HTTP adapters, never a paid provider.
+    import socket
+    from backend.app.model_network_policy import install_model_network_policy
+    original=(socket.getaddrinfo,socket.socket.connect,socket.socket.connect_ex)
+    install_model_network_policy([])
+    try:yield
+    finally:socket.getaddrinfo,socket.socket.connect,socket.socket.connect_ex=original
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -57,37 +71,24 @@ def fresh_database(monkeypatch, request, tmp_path):
     monkeypatch.setenv("BOOTSTRAP_ADMIN_PASSWORD", BOOTSTRAP_PASSWORD)
     monkeypatch.setenv("USER_APPLICATION_RATE_LIMIT", "1000")
     monkeypatch.setenv("USER_APPLICATION_PENDING_LIMIT", "200")
-    monkeypatch.setenv("DATABASE_URL", "sqlite://")
-    if DATABASE_PATH.exists():
-        DATABASE_PATH.unlink()
+    from .postgres_support import empty_postgres_schema
+    from backend.app.postgres_storage import initialize_empty_schema
     shutil.rmtree(UPLOADS_DIR, ignore_errors=True)
+    UPLOADS_DIR.mkdir(parents=True)
     from backend.app.routers.local_identity import _ATTEMPTS
     _ATTEMPTS.clear()
-    initialize_storage()
-    # Migration/maintenance/fault-injection tests intentionally exercise native
-    # SQLite files and triggers. All other tests run on PostgreSQL when requested.
-    sqlite_modules = {
-        "test_migration", "test_enablement_migration", "test_development_migration",
-        "test_process_recovery", "test_phase_d_process", "test_pilot_import", "test_pilot_intake",
-        "test_historical_repair", "test_system_status", "test_business_taxonomy",
-        "test_applications", "test_enablement", "test_enablement_workspace",
-        "test_development_lifecycle", "test_phase_d_reliability", "test_partner_delete",
-    }
-    module = request.module.__name__.rsplit(".", 1)[-1]
-    if os.environ.get("BANFEI_TEST_DATABASE_URL") and module not in sqlite_modules:
-        import sqlite3
-        from .postgres_support import empty_postgres_schema
-        from scripts.migrate_sqlite_to_postgres import import_snapshot
-        with sqlite3.connect(DATABASE_PATH) as legacy_fixture:
-            legacy_fixture.execute("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER)")
-        with empty_postgres_schema() as url:
-            import_snapshot(DATABASE_PATH, url)
-            monkeypatch.setenv("DATABASE_URL", url)
-            request.node.user_properties.append(("database_backend", "postgresql"))
+    with empty_postgres_schema() as url:
+        monkeypatch.setenv("DATABASE_URL", url)
+        initialize_empty_schema(url)
+        request.node.user_properties.append(("database_backend", "postgresql"))
+        # Finish workers while their configuration, monkeypatches and schema still exist.
+        # Otherwise an accepted asynchronous task can write into the next test's schema.
+        from concurrent.futures import ThreadPoolExecutor
+        from backend.app.routers import development, match
+        with ThreadPoolExecutor(max_workers=4) as development_pool, ThreadPoolExecutor(max_workers=4) as match_pool:
+            monkeypatch.setattr(development, 'executor', development_pool)
+            monkeypatch.setattr(match, 'executor', match_pool)
             yield
-    else:
-        request.node.user_properties.append(("database_backend", "sqlite-legacy"))
-        yield
 
 
 @pytest.fixture
@@ -254,10 +255,3 @@ def identity_set(client):
         "disabled": disabled,
         "locked": locked,
     }
-
-
-def pytest_ignore_collect(collection_path, config):
-    # Archived Pilot suites import an obsolete API. Do not import them in current validation.
-    if collection_path.name in {'test_pilot_import.py','test_pilot_intake.py'}:
-        return config.getoption('markexpr') != 'archived'
-    return None

@@ -1,44 +1,21 @@
+> 2026-10-01：本文旧数据库测试数字及路径仅属于当时。当前应用与测试仅用 PostgreSQL 独立验证 schema，见 [PG-only 验证](../validation/POSTGRES_ONLY_20261001.md)。
+
 # 伴飞 Agent 当前项目交接（2026-09-26）
 
-用于同一正式工作区的新对话接续。先读本文件、根目录 AGENTS.md 和 README.md，再根据新任务读相关代码与 docs/validation。用户最新指示、实际代码和实时核验优先；不要因历史对话很长而重新实施已完成事项。
+本文件记录 2026-09-26/27 的历史交接，不是当前入口部署规范。当前唯一自有入口为 HTTP 80；先读根目录 AGENTS.md、README.md 和 [HTTP 运行说明](../HTTP_SETUP.md)。下文所有 HTTPS、证书和旧启停命令仅描述当时状态，禁止按它们恢复旧入口。实际代码、私有配置和实时核验优先。
 
-## 2026-09-27 公网 ARM HTTPS 部署（最新）
+## 当前 HTTP 入口（2026-10-01）
 
-- 用户在 GitHub 交付后明确授权部署 ARM 并测试近三天功能；应用基线 `ba14e03` 已构建并运行，本批仅补充文档和分页测试 `/api` 夹具，不改登录或业务逻辑。最终提交以 GitHub `main` 和 ARM `.deployment-commit` 为准。
-- ARM 使用原私有配置中的公网 IP HTTPS，Caddy 443、前端 loopback 3000、后端 loopback 8000；80 关闭。原 systemd 前后端保留，Caddy 用 `https-start|https-stop`，主机重启后需手动 `https-start`。持久 CA 位于 `/var/lib/banfei/caddy`，release 中为符号链接；不得随新版本重建 CA。
-- 150 项 ARM 后端、4 项配置、30 项前端定向检查及 15 项生产只读接口通过；实际公网可信证书登录页复验通过。30 项中 27 项为 WSL 浏览器访问 ARM 隔离服务，3 项为 WSL Node 纯前端检查；Windows 浏览器、内网 ARM 未实测。详见 [ARM HTTPS 验证](../validation/ARM_HTTPS_VALIDATION_20260927.md)。
-- 35 张正式表、3 个上传文件、原应用密钥前后摘要一致；未迁移、seed、整理伙伴、向远端复制本地业务数据或调用模型。隔离测试服务/schema 已退出；生产库仅只读核验。
-- 修正远端字体目录层级及私有部署文件权限；原服务安全设置保留。根证书从 `/var/lib/banfei/caddy/root.crt` 导出，本地副本 `.isolation/arm-deploy/20260927/arm-root.crt`，客户端需单独信任。WSL 443/3000/8000 持续运行，操作与备份留在原私有位置。
-
-## 2026-09-27 文档与 Git 交付（前一批次）
-
-- 用户明确要求更新 AGENTS.md、README.md，并提交、普通推送到 GitHub `origin/main`；本批包含 Caddy HTTPS、WSL 实际 IP 入口说明、旧身份保留与验证，以及后台概览高亮修复。没有远端部署授权。
-- 后台概览改为精确匹配 `/admin`；其他栏目仍匹配自身详情子路由，仅一处导航判断变化，TypeScript 检查通过。AGENTS/README 已同步导航规则、HTTPS 初始化/启停、CA 保留及 Windows/ARM 未验证边界。
-- 复用本会话已完成的定向验证，不重跑全量测试、业务模型、迁移或伙伴整理。私有配置、证书与密钥、上传、数据库和测试证据留在忽略目录，不进入提交；443/3000/8000 持续运行。
-- 下文“未提交”描述实施当时状态，最终提交与推送结果以实时 Git 和本次交付回复为准。
-
-## 2026-09-27 WSL 入口切换为 IP（实施时未提交）
-
-- 用户明确要求本地也取消 localhost 入口，使用 WSL 实际 IP。仅修改原私有 HTTPS/Origin 配置和运行说明，复用现有脚本重启，未改登录或业务代码，之前的未提交改动保留。
-- 实际入口以私有 `BANFEI_HTTPS_ORIGIN` 为准；用默认路由网卡的 IPv4 地址，不在代码或模板写死。443 为 Caddy，3000/8000 保持内部服务，80 仍关闭。
-- 保留原 CA、应用密钥、用户、凭据和历史。localhost 的 Cookie/Token 不跨主机继承，新 IP 首次访问用 `/login?method=key` 和原 Key 恢复原身份。WSL IP 若改变，更新配置、初始化并重启，保留 CA 数据目录。
-- 验证与数据核对追加至 [HTTPS 验证](../validation/HTTPS_VALIDATION_20260926.md)。未 commit、push、部署远端，Windows 浏览器信任仍未实测。
-
-## 2026-09-26 Caddy HTTPS 接入（前一批次，未提交）
-
-- 本轮基线 `6de96bd382c89e38ad09560cbe3c58ea735642a2`，仍在当前 `main`。用户仅授权最小 HTTPS 改造与本机验证，明确不自动 commit、push 或部署远端；下文旧批次授权不延伸到本轮。
-- WSL 浏览器入口为 `https://localhost`；Caddy 443 → 前端 3000 → 既有同源 `/api` → 后端 8000。80 跳转默认关闭。Origin 保持精确校验；后端仅信任 loopback 代理；已验证的旧 Cookie 保留原用户并升级 Secure。
-- 三种环境共用 `deploy/Caddyfile` 和 `enablement-dev.sh init-https|https-start|https-stop`。配置来自既有私有文件，默认 `.isolation/runtime/dev/environment.json`，可用 `BANFEI_ENV_FILE` 指向既有 JSON/dotenv；不初始化数据库或应用密钥。
-- Caddy 根证书导出 `.isolation/runtime/caddy/root.crt`，持久 CA/私钥目录 `.isolation/runtime/caddy/data` 不能清理或提交。客户端未信任时会告警；Windows 尚未导入或实测，不能声称自动受信任。
-- 原运行库 35 张表与原应用签名/加密密钥前后校验一致，无账号清理、seed、迁移或模型调用。WSL 隔离 PostgreSQL 与真实 TLS 浏览器验证见 [HTTPS 验证](../validation/HTTPS_VALIDATION_20260926.md)，操作方法见 [HTTPS 运行说明](../HTTPS_SETUP.md)。
-- 公网/内网 ARM HTTPS 本轮未连接、未部署、未验证；下文 ARM 报告只代表上轮业务兼容结果。后续远端变更须另获明确授权。
+- 伴飞自有页面与接口唯一入口为 `http://实际服务器IP` 的 80 端口；本机可用 `http://localhost`。Caddy 只转发到回环前端 3000，同源 `/api` 转发到回环后端 8000。当前规范见 [HTTP 运行说明](../HTTP_SETUP.md)。
+- 本机已按当前用户授权修改代码与私有入口配置；未提交、推送或部署 ARM。ARM 的 09-27 部署及相关 TLS 测试见 [历史验证](../validation/ARM_HTTPS_VALIDATION_20260927.md)，不代表新 HTTP 版已在 ARM 验证。
+- 原账号、Key、业务历史和签名/加密密钥仍保留。旧浏览器状态不跨协议复用，使用原 Key 在 HTTP 页面恢复同一身份。后续 ARM 更新须另获部署授权。
 
 ## 2026-09-26 ARM 部署补充（前一批次）
 
 - 用户随后明确授权提交、推送、部署和 ARM 定向验证，覆盖下文历史批次“未授权部署”的限制；仍只允许最小兼容适配，不改业务流程。
 - `e192810` 功能已推送；`8113f89`、`6c938f4` 仅补充既有维护 CLI 的显式本机数据库目标及代理测试适配。ARM 已构建并切换，数据库按既有流程从 schema 12 升至 17，备份、演练和原业务/原件对账通过。
 - ARM 定向结果：108 后端、3 纯前端兼容、17 合成接口浏览器、14 实际后台页面/分辨率检查通过；15 项部署后只读接口检查通过（含 4 个 Excel 下载）。没有真实模型调用或运行库测试写入。
-- **未完成项：公网普通身份登录需要 HTTPS。** 远端原入口为 HTTP；新增 HTTPS 组件被自动审批拦截，等待用户明确授权或已有域名/证书信息。没有放宽 HTTPS/Origin 校验；当前身份 Origin 暂恢复 localhost，不能宣称公网普通登录已通过。
+- 当时的远端登录限制已被后续历史部署替代；当前运行规则以 HTTP 80 为准，本轮未在 ARM 验证。
 - 本地 3000/8000 保持运行；本地 schema 17、178 家整理和官网增量不重跑、不向远端复制。远端保持自身数据和模型配置。主机定位、凭据和备份仅留私有忽略目录与远端私有证据目录，不写入 Git。
 - 详细范围、失败修正与后续边界见 [ARM 验证记录](../validation/ARM_VALIDATION_REPORT.md)。
 

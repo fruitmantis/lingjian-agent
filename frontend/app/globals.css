@@ -1479,3 +1479,20 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .resource-category-admin > summary { cursor: pointer; font-weight: var(--font-weight-body); }
 .resource-category-admin td input { min-width: 90px; max-width: 280px; }
 @media (max-width: 640px) { .learning-filters, .learning-content { padding: 20px; } .learning-search { width: 100%; } .learning-search input { flex: 1; } .learning-grid .learning-card { padding: 20px; } }
+
+/* Persisted task stages; no simulated progress or completion estimates. */
+.task-request-compact{animation:task-request-settle .24s ease-out;}
+.task-request-compact p{white-space:pre-wrap;overflow-wrap:anywhere;}
+@keyframes task-request-settle{from{padding-top:32px;padding-bottom:32px;transform:translateY(6px);}to{padding-top:24px;padding-bottom:24px;transform:translateY(0);}}
+.task-progress{padding:20px 24px;border:1px solid var(--border,#e7e7e5);border-radius:16px;background:#fff;margin-bottom:20px;}
+.task-progress-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;}
+.task-progress-heading h2{font-size:15px;margin:0;}.task-progress-heading span{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.task-progress ol{list-style:none;padding:0;margin:16px 0 0;display:grid;gap:12px;}
+.task-progress li{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:10px;font-size:14px;}
+.task-progress li small{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;}
+.task-progress-dot{width:7px;height:7px;background:#d1d1cf;border-radius:50%;}
+.task-progress li[data-status="running"] .task-progress-dot{background:var(--brand);animation:task-pulse 1.4s ease-in-out infinite;}
+.task-progress li[data-status="completed"] .task-progress-dot{background:#69796c;}
+.task-progress li[data-status="failed"] .task-progress-dot{background:#a46455;}
+@keyframes task-pulse{50%{opacity:.35;}}
+@media(prefers-reduced-motion:reduce){.task-request-compact,.task-progress li[data-status="running"] .task-progress-dot{animation:none;}}

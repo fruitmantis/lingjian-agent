@@ -2,7 +2,7 @@
 
 > 后续状态（09-27）：应用改动已提交为 `ba14e03` 并推送；随后按用户授权部署公网 ARM，见 [ARM HTTPS 验证](ARM_HTTPS_VALIDATION_20260927.md)。以下“未部署”只描述此前 WSL 实施阶段，Windows 与内网 ARM 仍未实测。
 
-实施基线 `6de96bd382c89e38ad09560cbe3c58ea735642a2`，正式工作区 `main`。实施时未 commit、push；09-27 用户随后授权更新文档并提交、推送，最终状态以实时 Git 为准，未部署远端。初始化与证书说明见 [HTTPS 运行说明](../HTTPS_SETUP.md)。
+实施基线 `6de96bd382c89e38ad09560cbe3c58ea735642a2`，正式工作区 `main`。实施时未 commit、push；09-27 用户随后授权更新文档并提交、推送，最终状态以实时 Git 为准，未部署远端。初始化与证书说明见 [HTTPS 运行说明](../HTTP_SETUP.md)。
 
 ## 2026-09-27 补充：WSL 改用实际 IP
 

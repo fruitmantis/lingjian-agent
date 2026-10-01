@@ -1,13 +1,13 @@
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {test, expect} from '@playwright/test';
-const API = 'http://localhost:8000';
+const API = 'http://localhost/api';
 
 for (const width of [1366, 1920]) test(`admin partner deletion preserves business history ${width}`, async ({page, request}) => {
   // Created by prepare_e2e only in its guarded /tmp fixture directory. No runtime credentials.
   expect(process.env.PLAYWRIGHT_REUSE_SERVER).not.toBe('1');
-  const session = JSON.parse(readFileSync('/tmp/lingjian-enablement-e2e/visual-session.json','utf8'));
-  expect(session.database).toBe(process.env.PLAYWRIGHT_DATABASE_URL?.startsWith('postgresql') ? `postgresql:${new URL(process.env.PLAYWRIGHT_DATABASE_URL).pathname.slice(1)}` : '/tmp/lingjian-enablement-e2e/app.db');
+  const session = JSON.parse(readFileSync(`${process.env.BANFEI_TEST_ROOT}/visual-session.json`,'utf8'));
+  expect(session.database).toBe(`postgresql:${new URL(process.env.PLAYWRIGHT_DATABASE_URL!).pathname.slice(1)}`);
   const headers = {Authorization: `Bearer ${session.access_token}`};
   // The ephemeral fixture token cannot authenticate against the private runtime database.
   expect((await request.get(`${API}/partners`,{headers})).status()).toBe(200);

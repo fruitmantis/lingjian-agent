@@ -1,0 +1,8 @@
+.report { color:var(--text-primary); font-size:15px; line-height:1.85; overflow-wrap:anywhere; }
+.report h3 { font-size:19px; margin:32px 0 14px; padding-bottom:10px; border-bottom:1px solid var(--border-default); }
+.report h4 { font-size:16px; margin:22px 0 10px; }
+.report p { white-space:pre-wrap; margin:12px 0; }
+.tableWrap { overflow-x:auto; margin:16px 0 24px; }
+.report table { width:100%; border-collapse:collapse; font-size:14px; }
+.report th,.report td { border:1px solid var(--border-strong); padding:10px 14px; text-align:left; vertical-align:top; white-space:pre-wrap; min-width:110px; }
+.report th { background:var(--bg-hover); font-weight:600; }

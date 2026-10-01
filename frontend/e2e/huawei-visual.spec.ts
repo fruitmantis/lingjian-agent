@@ -6,8 +6,7 @@ import path from 'node:path';
 import { createFontVerification } from './font-verification';
 import { writeFile } from 'node:fs/promises';
 
-const API = 'http://localhost:8000';
-const temporaryDatabase = '/tmp/lingjian-enablement-e2e/app.db';
+const API = 'http://localhost/api';
 
 // Fail closed before authentication: this suite must never reuse the manual server.
 async function isolatedSession() {
@@ -18,7 +17,6 @@ async function isolatedSession() {
       const command = (await readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0');
       if (!command.includes('uvicorn') || !command.includes('8000')) continue;
       const environment = (await readFile(`/proc/${pid}/environ`, 'utf8')).split('\0');
-      if (!environment.includes(`LINGJIAN_DATABASE_PATH=${temporaryDatabase}`)) throw new Error('Unexpected backend database');
       if (process.env.PLAYWRIGHT_DATABASE_URL && !environment.includes(`DATABASE_URL=${process.env.PLAYWRIGHT_DATABASE_URL}`)) throw new Error('Unexpected backend database');
       isolatedBackend = true;
     } catch (error) {
@@ -26,8 +24,8 @@ async function isolatedSession() {
     }
   }
   if (!isolatedBackend) throw new Error('Cannot verify isolated backend');
-  const session = JSON.parse(await readFile('/tmp/lingjian-enablement-e2e/visual-session.json', 'utf8'));
-  if (session.database !== (process.env.PLAYWRIGHT_DATABASE_URL?.startsWith('postgresql') ? 'postgresql:'+new URL(process.env.PLAYWRIGHT_DATABASE_URL).pathname.slice(1) : temporaryDatabase)) throw new Error('Unexpected fixture database');
+  const session = JSON.parse(await readFile(`${process.env.BANFEI_TEST_ROOT}/visual-session.json`, 'utf8'));
+  if (session.database !== 'postgresql:'+new URL(process.env.PLAYWRIGHT_DATABASE_URL!).pathname.slice(1)) throw new Error('Unexpected fixture database');
   return session;
 }
 
@@ -131,10 +129,10 @@ for (const width of [1366, 1920]) test(`Huawei visual system and layout ${width}
   }
   const publicContext = await browser.newContext();
   const login = await publicContext.newPage();
-  await login.goto('http://localhost:3000/login');
+  await login.goto('http://localhost/login');
   await expect(login.getByRole('heading', { name: '使用身份 Key 登录', exact: true })).toBeVisible();
   await publicContext.close();
-  expect((await request.get('http://localhost:3000/icon.svg')).status()).toBe(200);
+  expect((await request.get('http://localhost/icon.svg')).status()).toBe(200);
   if (typography) await writeFile(path.join(directory, `font-validation-${width}.json`), JSON.stringify(typography.evidence(), null, 2));
   expect(errors).toEqual([]);
 });

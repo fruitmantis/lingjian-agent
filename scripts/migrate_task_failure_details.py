@@ -6,7 +6,8 @@ from sqlalchemy import inspect,select
 from sqlalchemy.engine import make_url
 from backend.app.postgres_storage import engine_for
 from backend.app.storage_models import metadata
-from scripts.migrate_sqlite_to_postgres import digest
+def digest(rows):
+ return hashlib.sha256(json.dumps(sorted([list(r) for r in rows],key=lambda r:json.dumps(r,default=str)),ensure_ascii=False,default=str).encode()).hexdigest()
 
 def migrate(conn,fault=None):
  columns={c['name'] for c in inspect(conn).get_columns('match_records')}

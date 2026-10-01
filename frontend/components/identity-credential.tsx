@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { userApiFetch } from "./auth-provider";
+import { copyText } from "../lib/copy-text";
 
 export function IdentityCredential() {
   const [key, setKey] = useState("");
+  const keyValue = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(""); const [message, setMessage] = useState("");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -21,8 +23,8 @@ export function IdentityCredential() {
     return () => { cancelled = true; };
   }, [attempt]);
   async function copy() {
-    try { await navigator.clipboard.writeText(key); setMessage("Key 已复制"); setError(""); }
-    catch { setError("复制失败，请选中上方 Key 手动复制"); }
+    if (await copyText(key, keyValue.current)) { setMessage("Key 已复制"); setError(""); }
+    else { setMessage(""); setError("复制失败，Key 已选中，请按 Ctrl+C 手动复制；下载仍可使用。"); }
   }
   function download() {
     const content = `伴飞 Agent 身份凭据\n\n身份 Key：\n${key}\n\n在伴飞身份入口输入此 Key 或导入此文件，可恢复原身份和全部历史。\n请妥善保存，勿分享给他人。\n`;
@@ -33,7 +35,7 @@ export function IdentityCredential() {
   }
   return <div className="identity-credential">
     <p>换浏览器、换电脑或清除浏览器数据后，使用此 Key 可继续访问原来的历史。请妥善保存，勿分享给他人。</p>
-    <div className="identity-key-value" aria-label="当前身份 Key" data-testid="identity-key">{key || "正在读取…"}</div>
+    <div ref={keyValue} tabIndex={-1} className="identity-key-value" aria-label="当前身份 Key" data-testid="identity-key">{key || "正在读取…"}</div>
     <div className="identity-key-actions">
       <button type="button" disabled={!key} onClick={() => void copy()}>复制 Key</button>
       <button type="button" className="secondary-btn" disabled={!key} onClick={download}>下载凭据 .txt</button>

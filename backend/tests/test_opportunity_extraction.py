@@ -67,15 +67,19 @@ def test_retry_saves_grouped_regions_and_preserves_existing_results(client, monk
     user = make_user("tolerant-retry"); make_partner(); task = make_task(user, "合成医疗项目", task_status="partial")
     with get_db() as conn:
         conn.execute("INSERT INTO demand_profiles(id,match_record_id,requirement_text,created_at) VALUES ('kept-demand',?,'合成医疗项目','2026')", (task,))
-    calls = []
-    def completion(*args, **kwargs):
-        calls.append(kwargs["scene"])
-        return json.dumps(BASE)
-    monkeypatch.setattr(ai_client, "chat_completion", completion)
-    monkeypatch.setattr(match, "_perform_partner_match", lambda *_: (_ for _ in ()).throw(AssertionError("No rematch")))
+    from .support.matching import install,snapshot
+    from backend.app import match_understanding
+    calls=install(monkeypatch)
+    saved=snapshot('合成医疗项目',user,task)
+    # The existing facts snapshot is the source for missing derivative records.
+    saved['understanding']['facts']=dict(BASE)
+    saved['outcome']={'answer':'已有推荐','supplyStatus':'partial','gapAnalysis':'待核实'}
+    saved['candidate_stamp']=match._candidate_stamp()
+    with get_db() as conn:match_understanding.save(conn,task,saved)
+    monkeypatch.setattr(match,'_perform_partner_match',lambda *_:(_ for _ in ()).throw(AssertionError('No rematch')))
     response = client.post(f"/agent/tasks/{task}/retry", headers=auth_headers(user))
     assert response.status_code == 200 and response.json()["taskStatus"] == "ready"
-    assert calls == ["demand_profile"]
+    assert calls == ["MatchUnderstanding"]  # Only fixture preparation; retry reuses saved facts.
     with get_db() as conn:
         row = conn.execute("SELECT region,industry,project_name FROM project_opportunities WHERE match_record_id=?", (task,)).fetchone()
         assert tuple(row) == ("上海", "教育医疗", BASE["projectName"])

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { fetchWithTimeout, type ApiRequestInit } from "../lib/api-request";
 import { readIdentityKeyFile } from "../lib/identity-key-file";
 import { SaveIdentityDialog } from "./identity-credential";
+import { identityLock } from "../lib/identity-coordination";
 import { LingjianMark } from "./ui-icons";
 
 export type CurrentUser = {
@@ -17,7 +18,7 @@ export type AuthScope = "user" | "admin";
 type AuthContextValue = { user: CurrentUser | null; loading: boolean; scope: AuthScope;
   refresh: () => Promise<void>; saveSession: (token: string, user: CurrentUser) => void; logout: () => Promise<void>; };
 const AuthContext = createContext<AuthContextValue | null>(null);
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 export const PASSWORD_CHANGE_PATH = "/admin/change-password";
 const SIGNED_OUT = "banfei:user:signed-out";
 const storageKey = (scope: AuthScope, name: string) => `banfei:${scope}:${name}`;
@@ -68,19 +69,18 @@ async function result(response: Response): Promise<IdentitySession> {
   }
   return data;
 }
-// Serialize creation, switching and logout across tabs. React strict effects also
-// share the creation promise, so one visit cannot create duplicate identities.
-const identityLock = async <T,>(action: () => Promise<T>): Promise<T> => navigator.locks
-  ? await navigator.locks.request("banfei-browser-identity", action) : await action();
 let browserCreation: Promise<IdentitySession> | null = null;
 function createBrowser() {
-  if (!browserCreation) browserCreation = identityLock(async () => {
+  if (!browserCreation) browserCreation = (async () => {
     if (localStorage.getItem(SIGNED_OUT)) throw new Error("已退出，请使用身份 Key 登录或选择创建新身份");
     const existing = await identityRequest("/session");
     if (existing.ok) return result(existing);
     if (existing.status !== 404) return result(existing);
-    return result(await identityRequest("/session", { create: true }));
-  }).finally(() => { browserCreation = null; });
+    const created = await result(await identityRequest("/session", { create: true }));
+    // Keep the existing save reminder even if the initiating view unmounts before adopt().
+    if (created.created) localStorage.setItem(`banfei:key-save:${created.user.id}`, "pending");
+    return created;
+  })().finally(() => { browserCreation = null; });
   return browserCreation;
 }
 
@@ -126,7 +126,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
         if (!response.ok) throw new Error("暂时无法退出，请重试");
         const state = await response.json();
         localStorage.setItem(SIGNED_OUT, state.remembered ? "remembered" : "1");
-        clearSession("user");
+        clearSession("user"); setUser(null); setNotice(false);
       });
       else clearSession("admin");
       setUser(null); setNotice(false);
@@ -154,13 +154,14 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
           }
           return;
         }
+        await identityLock(async () => {
         const token = getToken(scope);
         if (token) {
           const response = await fetchWithTimeout(`${apiBaseUrl}/auth/me`, { headers: authHeaders(scope), cache: "no-store" });
           if (response.ok) {
             const next = await response.json() as CurrentUser;
             if (next.role === scope) {
-              if (!cancelled) { setUser(next); setNotice(scope === "user" && localStorage.getItem(`banfei:key-save:${next.id}`) === "pending"); }
+              if (!cancelled && (scope === "admin" || !localStorage.getItem(SIGNED_OUT))) { setUser(next); setNotice(scope === "user" && localStorage.getItem(`banfei:key-save:${next.id}`) === "pending"); }
               return;
             }
           } else if (response.status !== 401) throw new Error("暂时无法验证身份，请重试");
@@ -168,14 +169,15 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
         }
         if (scope === "admin") return;
         if (window.location.pathname === "/login") {
-          const restored = await identityLock(() => identityRequest("/session"));
+          const restored = await identityRequest("/session");
           if (restored.status === 404) return;
           const data = await result(restored);
-          if (!cancelled) adopt(data);
+          if (!cancelled && !localStorage.getItem(SIGNED_OUT)) adopt(data);
         } else {
           const data = await createBrowser();
-          if (!cancelled) adopt(data);
+          if (!cancelled && !localStorage.getItem(SIGNED_OUT)) adopt(data);
         }
+        });
       } catch (reason) {
         if (!cancelled) reportIdentityError(reason, "暂时无法进入，请重试");
       } finally { if (!cancelled) setLoading(false); }
@@ -205,20 +207,24 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     setBusy(true); setError(""); setIdentityErrorCode("");
     try {
       const key = typeof source === "string" ? source : await readIdentityKeyFile(source);
-      const data = await identityLock(async () => result(await identityRequest("/key/login", { key })));
-      setKeyInput(""); adopt(data); router.replace("/");
+      await identityLock(async () => {
+        const data = await result(await identityRequest("/key/login", { key }));
+        setKeyInput(""); adopt(data); router.replace("/");
+      });
     } catch (reason) { reportIdentityError(reason, "登录失败，请重试"); }
     finally { setBusy(false); }
   }
   async function continueRemembered() {
     if (busy) return; setBusy(true); setError(""); setIdentityErrorCode("");
     try {
-      const response = await identityLock(() => identityRequest("/session"));
-      if (response.status === 401 || response.status === 404) {
-        setRemembered(false); localStorage.setItem(SIGNED_OUT, "1");
-      }
-      const data = await result(response);
-      adopt(data); router.replace("/");
+      await identityLock(async () => {
+        const response = await identityRequest("/session");
+        if (response.status === 401 || response.status === 404) {
+          setRemembered(false); localStorage.setItem(SIGNED_OUT, "1");
+        }
+        const data = await result(response);
+        adopt(data); router.replace("/");
+      });
     } catch (reason) { reportIdentityError(reason, "暂时无法继续，请重试"); }
     finally { setBusy(false); }
   }
@@ -227,8 +233,10 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     if (identityErrorCode !== "identity_deleted") setError("");
     try {
       // Explicit creation after logout. Never called by a Key login error.
-      const data = await identityLock(async () => result(await identityRequest("/session", { create: true, replace: true })));
-      adopt(data); router.replace("/");
+      await identityLock(async () => {
+        const data = await result(await identityRequest("/session", { create: true, replace: true }));
+        adopt(data); router.replace("/");
+      });
     } catch (reason) { setError(reason instanceof Error ? reason.message : "暂时无法进入，请重试"); }
     finally { setBusy(false); }
   }

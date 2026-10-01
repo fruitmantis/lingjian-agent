@@ -61,7 +61,7 @@ def list_tags(search: str | None = None, category: str | None = None):
         conditions = []
         params = []
         if search:
-            conditions.append("name LIKE ?")
+            conditions.append("name ILIKE ?")
             params.append(f"%{search}%")
         if category:
             conditions.append("category = ?")
@@ -184,7 +184,7 @@ def list_categories(search: str | None = None, enabled: bool | None = None):
         conditions = []
         params = []
         if search:
-            conditions.append("name LIKE ?")
+            conditions.append("name ILIKE ?")
             params.append(f"%{search}%")
         if enabled is not None:
             conditions.append("enabled = ?")
@@ -304,7 +304,7 @@ def list_suggestions(status: str | None = None, keyword: str | None = None, cate
             conditions.append("status = ?")
             params.append(status)
         if keyword:
-            conditions.append("suggested_name LIKE ?")
+            conditions.append("suggested_name ILIKE ?")
             params.append(f"%{keyword}%")
         if categoryId:
             conditions.append("suggested_category_id = ?")

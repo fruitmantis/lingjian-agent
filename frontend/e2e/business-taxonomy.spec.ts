@@ -1,7 +1,7 @@
 import {fixtureLogin} from "./identity-fixture";
 import {test,expect} from '@playwright/test';
 import standard from '../../shared/business-taxonomy.json';
-const API='http://localhost:8000';
+const API='http://localhost/api';
 for(const width of [1366,1920])test(`standard industry and grouped regions ${width}`,async({page,request})=>{
  const login=await fixtureLogin(request, 'admin1', 'ValidationPass123');expect(login.ok()).toBeTruthy();const session=await login.json();const headers={Authorization:`Bearer ${session.access_token}`};await page.addInitScript(s=>localStorage.setItem('banfei:admin:token',s.access_token),session);await page.setViewportSize({width,height:width===1366?768:1080});
  await page.goto('/admin/partners');const section=page.locator('section').filter({has:page.getByRole('heading',{name:'新增伙伴',exact:true})});

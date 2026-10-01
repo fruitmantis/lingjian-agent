@@ -4,7 +4,7 @@ import { fetchWithTimeout, modelRequestCalls, modelRequestBudgetMs, responseErro
 
 const requestTimeoutMs = (input: string, method: string) => modelRequestCalls(input, method) ? modelRequestBudgetMs({timeoutSeconds:300, timeoutRetries:3}, modelRequestCalls(input, method)) : 30_000;
 
-const API = "http://localhost:8000";
+const API = "http://localhost/api";
 
 async function login(page: Page, request: APIRequestContext, username = "admin1") {
   const response = await fixtureLogin(request, username, "ValidationPass123");

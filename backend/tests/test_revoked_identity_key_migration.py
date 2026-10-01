@@ -6,7 +6,6 @@ from scripts.migrate_revoked_identity_keys import migrate
 from .test_local_identity import browser, key_for
 
 
-@pytest.mark.skipif(not os.getenv('BANFEI_TEST_DATABASE_URL'), reason='PostgreSQL migration')
 def test_revoked_key_migration_atomic_idempotent_preserves_all_existing_data(client):
     identity = browser(client); key_for(client, identity)
     engine = engine_for(os.environ['DATABASE_URL'])
@@ -34,7 +33,6 @@ def test_revoked_key_migration_atomic_idempotent_preserves_all_existing_data(cli
             assert conn.exec_driver_sql('SELECT * FROM "'+name+'"').all() == rows
 
 
-@pytest.mark.skipif(not os.getenv('BANFEI_TEST_DATABASE_URL'), reason='PostgreSQL migration')
 def test_revoked_key_migration_refuses_unexpected_version(client):
     engine = engine_for(os.environ['DATABASE_URL'])
     with engine.begin() as conn:

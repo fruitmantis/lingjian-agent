@@ -11,6 +11,16 @@ router=APIRouter(prefix='/development',tags=['development'])
 # In-process execution; Database transactions own concurrency/idempotency. Restart recovery interrupts unfinished runs.
 executor=ThreadPoolExecutor(max_workers=4,thread_name_prefix='development')
 
+def dispatch(result):
+    if result.get('run_id') and not result.get('replayed'):
+        try:executor.submit(engine.execute,result['run_id'])
+        except RuntimeError as error:
+            # Acceptance is already committed: return its IDs even if dispatch stops.
+            run=life.claim(result['run_id'])
+            if run:life.finish_failure(run['id'],run['execution_token'],'interrupted','interrupted',error)
+    return result
+
+
 def private(response:Response):response.headers['Cache-Control']='no-store'
 router.dependencies.append(Depends(private))
 
@@ -24,8 +34,7 @@ def clarify(body:DevelopmentRequest,user:dict=Depends(require_active_user)):retu
 @router.post('/plans',status_code=202)
 def create(body:Submit,user:dict=Depends(require_active_user)):
     result=life.create(body,user)
-    if result.get('run_id') and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
-    return result
+    return dispatch(result)
 
 @router.get('/plans/{plan_id}')
 def detail(plan_id:str,version_id:str|None=None,user:dict=Depends(require_active_user)):return views.detail(plan_id,user,version_id)
@@ -42,8 +51,7 @@ def submission(submission_id:str,user:dict=Depends(require_active_user)):
 @router.post('/plans/{plan_id}/revise',status_code=202)
 def revise(plan_id:str,body:Revise,user:dict=Depends(require_active_user)):
     result=life.revise(plan_id,body,user)
-    if result.get('run_id') and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
-    return result
+    return dispatch(result)
 
 @router.post('/plans/{plan_id}/edit')
 def edit(plan_id:str,body:Edit,user:dict=Depends(require_active_user)):return views.edit(plan_id,body,user)
@@ -61,8 +69,7 @@ def copy(plan_id:str,body:VersionAction,user:dict=Depends(require_active_user)):
 @router.post('/plans/{plan_id}/conversation')
 def conversation(plan_id:str,body:Conversation,user:dict=Depends(require_active_user)):
     result=views.converse(plan_id,body,user)
-    if result['kind']=='revise' and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
-    return result
+    return dispatch(result)
 
 
 class RetryRun(BaseModel):
@@ -74,5 +81,4 @@ class RetryRun(BaseModel):
 @router.post('/plans/{plan_id}/retry',status_code=202)
 def retry(plan_id:str,body:RetryRun,user:dict=Depends(require_active_user)):
     result=life.retry(plan_id,body,user)
-    if result.get('run_id') and not result.get('replayed'):executor.submit(engine.execute,result['run_id'])
-    return result
+    return dispatch(result)

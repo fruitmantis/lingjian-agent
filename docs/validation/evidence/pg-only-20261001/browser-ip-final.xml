@@ -1,0 +1,6 @@
+<testsuites id="" name="" tests="1" failures="0" skipped="0" errors="0" time="29.185816">
+<testsuite name="http-identity.spec.ts" timestamp="2026-10-01T11:06:13.929Z" hostname="" tests="1" failures="0" skipped="0" time="17.198" errors="0">
+<testcase name="actual-IP HTTP entry keeps identity, copy fallback and tabs consistent" classname="http-identity.spec.ts" time="17.198">
+</testcase>
+</testsuite>
+</testsuites>

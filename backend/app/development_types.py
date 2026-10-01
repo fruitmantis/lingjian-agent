@@ -1,7 +1,9 @@
 """Strict request and generated plan contracts. Unknown fields never reach persistence."""
-from typing import Literal
-from pydantic import Field, StrictBool
+from typing import Annotated, Literal
+from pydantic import Field, StrictBool, StringConstraints
 from .enablement import StrictModel
+
+RawInput = Annotated[str, StringConstraints(strip_whitespace=False)]
 
 class Target(StrictModel):
     capability_tag_id: str
@@ -11,10 +13,10 @@ class Target(StrictModel):
 
 class DevelopmentRequest(StrictModel):
     target_partner_id: str=''
-    development_direction: str=Field(default='',max_length=4000)
+    development_direction: RawInput=Field(default='',max_length=4000)
     request_source: Literal['partner','partner_manager','jointly_confirmed']='partner_manager'
-    raw_demand: str=Field(default='',max_length=4000)
-    development_goal: str=Field(default='',max_length=2000)
+    raw_demand: RawInput=Field(default='',max_length=4000)
+    development_goal: RawInput=Field(default='',max_length=2000)
     trainee_role: str=Field(default='',max_length=300)
     trainee_count: int | None=Field(default=None,ge=1,le=100000)
     known_baseline: str=Field(default='',max_length=2000)
@@ -36,7 +38,7 @@ class Submit(StrictModel):
 class Revise(StrictModel):
     submission_id: str=Field(min_length=8,max_length=128)
     based_on_version_id: str | None
-    instruction: str=Field(min_length=1,max_length=2000)
+    instruction: RawInput=Field(min_length=1,max_length=2000)
     request: DevelopmentRequest | None=None
 
 class Ref(StrictModel):
@@ -124,7 +126,7 @@ class AdviceOutput(PlanOutput):
 class Conversation(StrictModel):
     submission_id: str=Field(min_length=8,max_length=128)
     based_on_version_id: str
-    message: str=Field(min_length=1,max_length=2000)
+    message: RawInput=Field(min_length=1,max_length=2000)
 
 class ConversationOutput(StrictModel):
     target_partner_id: str

@@ -169,7 +169,7 @@ def update_partner(partner_id: str, payload: PartnerUpdate) -> PartnerOut:
 def delete_partner(partner_id: str, actor: dict = Depends(require_admin)) -> None:
     """Delete only unused partners; check references and delete under one write lock."""
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.lock_writer()
         if conn.execute("SELECT id FROM partners WHERE id = ?", (partner_id,)).fetchone() is None:
             raise HTTPException(404, "伙伴不存在")
         queries = {
@@ -183,7 +183,7 @@ def delete_partner(partner_id: str, actor: dict = Depends(require_admin)) -> Non
         counts = {key: conn.execute(sql, (partner_id,)).fetchone()[0] for key, sql in queries.items()}
         counts["matching_tasks"] = 0
         counts["unverifiable_matching_tasks"] = 0
-        # JSON references are not SQLite foreign keys. Include all owners/states/archives,
+        # JSON references are not database foreign keys. Include all owners/states/archives,
         # count each task once, and never mistake an ID substring for a reference.
         for row in conn.execute("SELECT recommendations_json FROM match_records"):
             try:

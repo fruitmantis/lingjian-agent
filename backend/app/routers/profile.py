@@ -5,11 +5,13 @@ import os
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
-from ..ai_client import ModelResponseError, chat_completion, model_error_message
+from ..ai_client import chat_completion, model_error_message
 from ..model_resolver import ModelConfigurationError
 from ..auth import require_admin
 from ..business_taxonomy import canonical, taxonomy_prompt, preserve_pending
 from ..database import get_db
+from .. import profile_report, development_model
+from ..model_resolver import resolve_model_record
 
 router = APIRouter(prefix="/partners", tags=["ai"])
 _P_COLS = "id, name, intro, capabilities, service_areas, industries, ai_profile, created_at"
@@ -26,16 +28,21 @@ def generate_profile(partner_id: str) -> ProfileOut:
         partner = conn.execute("SELECT * FROM partners WHERE id = ?", (partner_id,)).fetchone()
         if partner is None: raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Partner not found")
         cases = conn.execute(f"SELECT {_CASE_COLS} FROM cases WHERE partner_id = ?", (partner_id,)).fetchall()
-        docs = [dict(r) for r in conn.execute("SELECT filename,extracted_text,processing_status FROM partner_documents WHERE partner_id=?",(partner_id,))]
+        docs = [dict(r) for r in conn.execute("SELECT id,filename,file_path,file_type,doc_category,extracted_text,processing_status,created_at FROM partner_documents WHERE partner_id=?",(partner_id,))]
         docs += [dict(r) for r in conn.execute("SELECT d.filename,d.extracted_text,d.processing_status FROM deliverables d JOIN cases c ON c.id=d.case_id WHERE c.partner_id=?",(partner_id,))]
         if any(d['processing_status'] in ('processing','failed') for d in docs):
             raise HTTPException(409,'部分资料尚未完成文字提取，请处理完成或重试后更新画像。')
     p = dict(partner)
+    originals = [d for d in docs if d.get('doc_category') == 'profile_import' and d.get('file_type') == 'docx' and d['processing_status'] == 'ready']
+    try:
+        report, new_report = profile_report.baseline(p.get('ai_profile'), originals)
+    except profile_report.ReportError as error:
+        raise HTTPException(422, str(error)) from None
     parts = [f"伙伴名称: {p['name']}"]
     case_list = [dict(c) for c in cases]
     if case_list: parts.append("项目案例:\n" + "\n".join(f"- {c['title']}: {c.get('description') or '无描述'}" for c in case_list))
     else: parts.append("项目案例: 暂无")
-    doc_list = [dict(d) for d in docs]
+    doc_list = [dict(d) for d in docs if d.get("doc_category") != "profile_import"]
     if doc_list:
         doc_text_parts = []
         for d in doc_list:
@@ -44,7 +51,7 @@ def generate_profile(partner_id: str) -> ProfileOut:
         if doc_text_parts: parts.append("上传文档内容:\n" + "\n\n".join(doc_text_parts))
         else: parts.append("上传文档: 有文档但未提取到文本内容")
     else: parts.append("上传文档: 暂无")
-    context = "\n".join(parts)
+    context = json.dumps({"mode": "create" if new_report else "update", "current_report": report.text, "materials": "\n".join(parts)}, ensure_ascii=False)
     # An explicit conservative input budget; originals/cache are never truncated.
     limit=max(1000,int(os.getenv('BANFEI_PROFILE_INPUT_MAX_CHARS','100000')))
     if len(context)>limit:
@@ -91,23 +98,21 @@ def generate_profile(partner_id: str) -> ProfileOut:
     except Exception:
         structured_updates = {}
     try:
-        ai_profile = chat_completion([
-            {"role": "system", "content": "你是交付伙伴能力分析专家。根据资料和文档生成能力画像摘要：优势领域、核心技术能力、行业经验总结、交付能力评估、潜在风险或缺口。用中文分点描述，不编造，证据不足时说明。"},
-            {"role": "user", "content": context}
-        ], scene="partner_profile")
-        if not isinstance(ai_profile, str) or not ai_profile.strip():
-            raise ModelResponseError("Empty profile")
-        # A prose profile must not expose an unexpected structured response.
-        if ai_profile.lstrip().startswith(("{", "[", "```")):
-            raise ModelResponseError("Unexpected structured profile")
+        raw = development_model.completion(resolve_model_record('partner_profile'), [
+            {"role": "system", "content": profile_report.UPDATE_PROMPT},
+            {"role": "user", "content": context},
+        ], profile_report.ReportPatch.model_json_schema())
+        ai_profile = profile_report.merge(report, raw, new=new_report)
     except ModelConfigurationError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=model_error_message(exc)) from None
     except Exception as e:
+        from ..error_diagnostics import record_error
+        record_error(e, stage='partner_profile')
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=model_error_message(e)) from None
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
-        current=conn.execute('SELECT materials_revision,profile_updated_at FROM partners WHERE id=?',(partner_id,)).fetchone()
-        if not current or current['materials_revision']!=p['materials_revision'] or current['profile_updated_at']!=p['profile_updated_at']:
+        conn.lock_writer()
+        current=conn.execute('SELECT materials_revision,profile_updated_at,ai_profile,updated_at FROM partners WHERE id=?',(partner_id,)).fetchone()
+        if not current or current['materials_revision']!=p['materials_revision'] or current['profile_updated_at']!=p['profile_updated_at'] or current['ai_profile']!=p['ai_profile'] or current['updated_at']!=p['updated_at']:
             raise HTTPException(409,'资料或画像在生成期间发生变化，未覆盖当前画像，请重新更新。')
         updates = ["ai_profile = ?", "updated_at = ?", "profile_updated_at = ?", "profile_materials_revision = materials_revision"]
         stamp=datetime.now(timezone.utc).isoformat()
@@ -118,6 +123,8 @@ def generate_profile(partner_id: str) -> ProfileOut:
         conn.execute(
             f"UPDATE partners SET {', '.join(updates)} WHERE id = ?", [*values, partner_id],
         )
+    from ..partner_match_context import generate_summary
+    generate_summary(partner_id)
     return ProfileOut(partner_id=partner_id, ai_profile=ai_profile)
 
 

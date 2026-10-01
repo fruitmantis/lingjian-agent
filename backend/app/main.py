@@ -17,8 +17,9 @@ from .auth import get_bootstrap_admin
 
 def get_cors_origins() -> list[str]:
     import os
-    configured_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
-    return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+    configured_origins = os.getenv("CORS_ORIGINS", "")
+    return [origin.strip().rstrip('/').removesuffix(':80')
+            for origin in configured_origins.split(',') if origin.strip()]
 
 
 def initialize_application() -> None:
@@ -35,7 +36,7 @@ def initialize_application() -> None:
                 "INSERT INTO users (id, username, hashed_password, display_name, role, status, must_change_password, token_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (admin["id"], admin["username"], admin["hashed_password"], admin["display_name"], admin["role"], admin["status"], admin["must_change_password"], admin["token_version"], admin["created_at"], admin["updated_at"]),
             )
-    recover_stale_tasks()
+    recover_stale_tasks(startup=True)
     from .development_lifecycle import recover
     recover(startup=True)
     from .material_files import recover_processing

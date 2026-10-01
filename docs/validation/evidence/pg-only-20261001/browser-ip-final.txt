@@ -1,0 +1,41 @@
+
+> lingjian-agent-frontend@0.1.0 test:e2e
+> playwright test http-identity.spec.ts --reporter=line,junit
+
+[WebServer] INFO:     Started server process [127127]
+[WebServer] INFO:     Waiting for application startup.
+
+[WebServer] INFO:     Application startup complete.
+
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[WebServer] (node:127141) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:127172) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] {"level":"info","ts":1790852771.7046378,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+[WebServer] {"level":"info","ts":1790852771.7046769,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":7495582924,"previous":9223372036854775807}
+[WebServer] {"level":"info","ts":1790852771.704681,"msg":"using config from file","file":"../deploy/Caddyfile"}
+[WebServer] {"level":"info","ts":1790852771.7046833,"msg":"adapted config to JSON","adapter":"caddyfile"}
+[WebServer] {"level":"warn","ts":1790852771.704687,"logger":"admin","msg":"admin endpoint disabled"}
+
+[WebServer] {"level":"warn","ts":1790852771.7047706,"logger":"http.auto_https","msg":"server is listening only on the HTTP port, so no automatic HTTPS will be applied to this server","server_name":"srv0","http_port":80}
+[WebServer] {"level":"info","ts":1790852771.7048914,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0x2f1cf00ba280"}
+
+[WebServer] {"level":"warn","ts":1790852771.70824,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":80"}
+[WebServer] {"level":"warn","ts":1790852771.708265,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":80"}
+[WebServer] {"level":"info","ts":1790852771.7082684,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+[WebServer] {"level":"info","ts":1790852771.7083082,"msg":"serving initial configuration"}
+
+[WebServer] {"level":"info","ts":1790852771.709951,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/home/yuan/.local/share/caddy","instance":"80de6c44-2c7d-4c98-b0a6-680101eabc4c","try_again":1790939171.709949,"try_again_in":86399.999999538}
+[WebServer] {"level":"info","ts":1790852771.7100158,"logger":"tls","msg":"finished cleaning storage units"}
+
+
+Running 1 test using 1 worker
+
+[1/1] http-identity.spec.ts:5:5 › actual-IP HTTP entry keeps identity, copy fallback and tabs consistent
+  Slow test file: http-identity.spec.ts (17.2s)
+  Consider splitting slow test files to speed up parallel execution
+  1 passed (29.2s)

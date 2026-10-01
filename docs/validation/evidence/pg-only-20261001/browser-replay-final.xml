@@ -1,0 +1,32 @@
+<testsuites id="" name="" tests="13" failures="0" skipped="0" errors="0" time="114.282481">
+<testsuite name="task-navigation.spec.ts" timestamp="2026-10-01T11:04:04.948Z" hostname="" tests="10" failures="0" skipped="0" time="43.7" errors="0">
+<testcase name="submission appears before acknowledgement and survives navigation and reload" classname="task-navigation.spec.ts" time="14.387">
+</testcase>
+<testcase name="ten-row pages preserve scroll, selection and statuses when a new task arrives" classname="task-navigation.spec.ts" time="3.471">
+</testcase>
+<testcase name="directly opened older task stays visible without changing the first page" classname="task-navigation.spec.ts" time="1.701">
+</testcase>
+<testcase name="load-more failure retains existing rows and retry appends the next ten" classname="task-navigation.spec.ts" time="2.209">
+</testcase>
+<testcase name="lost acknowledgement confirms the same ID without a second submission" classname="task-navigation.spec.ts" time="2.31">
+</testcase>
+<testcase name="unconfirmed submission survives reload and only queries its original ID" classname="task-navigation.spec.ts" time="4.024">
+</testcase>
+<testcase name="task access stays visible at 1024px and empty new task creates no record" classname="task-navigation.spec.ts" time="2.195">
+</testcase>
+<testcase name="task access stays visible at 768px and empty new task creates no record" classname="task-navigation.spec.ts" time="2.271">
+</testcase>
+<testcase name="starting a blank task during submission keeps the previous job in navigation" classname="task-navigation.spec.ts" time="6.62">
+</testcase>
+<testcase name="detail polling preserves unsaved opportunity fields" classname="task-navigation.spec.ts" time="4.512">
+</testcase>
+</testsuite>
+<testsuite name="unified-entry.spec.ts" timestamp="2026-10-01T11:04:04.948Z" hostname="" tests="3" failures="0" skipped="0" time="57.786" errors="0">
+<testcase name="Unified task modes, source links and shared history 1366" classname="unified-entry.spec.ts" time="29.808">
+</testcase>
+<testcase name="Unified task modes, source links and shared history 1920" classname="unified-entry.spec.ts" time="24.028">
+</testcase>
+<testcase name="Switching mode during matching acknowledgement preserves explicit intent" classname="unified-entry.spec.ts" time="3.95">
+</testcase>
+</testsuite>
+</testsuites>

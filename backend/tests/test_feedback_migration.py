@@ -9,8 +9,6 @@ from .conftest import make_user
 
 def test_additive_migration_rollback_and_repeatability(client):
     url = os.environ['DATABASE_URL']
-    if not url.startswith('postgresql'):
-        pytest.skip('Explicit PostgreSQL validation required')
     user = make_user('migration-preserved')
     engine = engine_for(url)
     with engine.begin() as conn:

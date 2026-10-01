@@ -1,11 +1,12 @@
 """Standards, legacy retention and UPDATE-only repair: all records are synthetic /tmp data."""
 import json
-import sqlite3
+import os
+import subprocess
 import socket
 import pytest
 from backend.app.business_taxonomy import (STANDARD, INDUSTRIES, REGION_TYPES, ClassificationInput, canonical,
     classify, project_partner, taxonomy_prompt)
-from backend.app.database import DATABASE_PATH, get_db
+from backend.app.database import get_db
 from backend.app.development_engine import profile_context
 from backend.app.routers.demand import _count_tags, standard_filter
 from scripts.normalize_business_taxonomy import plan, state, checks, update_transaction, run
@@ -13,8 +14,15 @@ from .conftest import make_partner, make_user, auth_headers
 
 @pytest.fixture(autouse=True)
 def forbid_external_calls(monkeypatch):
-    def deny(*args,**kwargs): raise AssertionError('No socket/model call permitted')
-    monkeypatch.setattr(socket.socket,'connect',deny)
+    def deny(*args,**kwargs): raise AssertionError('No external/model call permitted')
+    from backend.tests.support.model_test_boundary import require_test_database
+    database = require_test_database()
+    original_connect = socket.socket.connect
+    def only_postgres(sock, address):
+        if not isinstance(address, tuple) or address[0] not in ('127.0.0.1', 'localhost', '::1') or address[1] != (database.port or 5432):
+            deny()
+        return original_connect(sock, address)
+    monkeypatch.setattr(socket.socket, 'connect', only_postgres)
     from backend.app import ai_client
     monkeypatch.setattr(ai_client,'chat_completion',deny)
 
@@ -87,8 +95,7 @@ def test_update_only_atomic_rollback_and_no_data_loss(fault):
  make_partner()
  with get_db() as conn:
   conn.execute("UPDATE partners SET industries='银行,政务',service_areas='深圳,广州,全国',ai_profile='深圳银行案例' WHERE id='partner-1'")
- conn=sqlite3.connect(DATABASE_PATH,isolation_level=None)
- try:
+ with get_db() as conn:
   before=state(conn);other=state(conn,True);baseline=checks(conn);changes,pending=plan(conn)
   assert len(changes)==2 and pending
   if fault:
@@ -96,22 +103,22 @@ def test_update_only_atomic_rollback_and_no_data_loss(fault):
    assert state(conn)==before
   else:
    update_transaction(conn,changes,before)
-   assert conn.execute("SELECT industries,service_areas,ai_profile FROM partners").fetchone()==('金融,政务','广东,全国','深圳银行案例')
+   assert tuple(conn.execute("SELECT industries,service_areas,ai_profile FROM partners").fetchone())==('金融,政务','广东,全国','深圳银行案例')
    assert not plan(conn)[0]
   assert checks(conn)==baseline and state(conn,True)==other
- finally:conn.close()
 
-def test_dry_run_and_consistent_backup():
+def test_dry_run_and_consistent_backup(tmp_path):
  make_partner()
  with get_db() as conn:conn.execute("UPDATE partners SET industries='保险',service_areas='西安'")
- before=DATABASE_PATH.read_bytes();dry=run(DATABASE_PATH)
- assert dry['updates'] and DATABASE_PATH.read_bytes()==before
- result=run(DATABASE_PATH,True)
- with sqlite3.connect(result['backup']) as snap:
-  assert snap.execute('SELECT industries,service_areas FROM partners').fetchone()==('保险','西安')
+ with get_db() as conn:before=state(conn)
+ dry=run(os.environ['DATABASE_URL'])
+ with get_db() as conn:assert dry['updates'] and state(conn)==before
+ result=run(os.environ['DATABASE_URL'],True,tmp_path/'backup')
+ dump=subprocess.run(['pg_restore','--file=-',result['backup']],capture_output=True,text=True,check=True).stdout
+ assert '保险' in dump and '西安' in dump
  assert result['checks_after']==result['checks_before']
  assert all(result['before'][t]['count']==result['after'][t]['count'] for t in result['before'])
 
-@pytest.mark.parametrize('path',['/home/yuan/project/lingjian-agent/data/app.db','/home/yuan/project/lingjian-agent-enablement/.isolation/runtime/app.db'])
+@pytest.mark.parametrize('path',['postgresql://localhost/other','postgresql://remote/banfei_agent'])
 def test_protected_database_refused(path):
  with pytest.raises(ValueError,match='Only'):run(path,True)

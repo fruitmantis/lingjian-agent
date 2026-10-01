@@ -58,13 +58,13 @@ def catalogue(partner_id: str | None = None, category_group: str | None = None,
     if q.strip():
         # Search is a literal substring, including user-entered SQL wildcard characters.
         needle=q.strip().lower().replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
-        where.append("LOWER(title) LIKE ? ESCAPE '\\'"); args.append('%'+needle+'%')
+        where.append("LOWER(title) ILIKE ? ESCAPE '\\'"); args.append('%'+needle+'%')
     clause=' WHERE '+' AND '.join(where) if where else ''
     with get_db() as conn:
         partners=[dict(r) for r in conn.execute('SELECT id,name FROM partners ORDER BY name,id')]
         if partner_id and not any(p['id']==partner_id for p in partners): raise HTTPException(404,'伙伴不存在')
         total=conn.execute(CATALOGUE+'SELECT COUNT(*) FROM materials'+clause, args).fetchone()[0]
-        rows=conn.execute(CATALOGUE+'SELECT * FROM materials'+clause+" ORDER BY CASE WHEN category_id LIKE 'marketing-%' THEN 0 WHEN category_id LIKE 'delivery-%' THEN 1 WHEN category_id LIKE 'technical-%' THEN 2 ELSE 3 END, updated_at DESC,id LIMIT ? OFFSET ?", [*args,page_size,(page-1)*page_size]).fetchall()
+        rows=conn.execute(CATALOGUE+'SELECT * FROM materials'+clause+" ORDER BY CASE WHEN category_id ILIKE 'marketing-%' THEN 0 WHEN category_id ILIKE 'delivery-%' THEN 1 WHEN category_id ILIKE 'technical-%' THEN 2 ELSE 3 END, updated_at DESC,id LIMIT ? OFFSET ?", [*args,page_size,(page-1)*page_size]).fetchall()
     return {'items':[{**dict(r),'visible':bool(r['visible']),'profile_needs_update':bool(r['profile_needs_update'])} for r in rows], 'total':total,'partners':partners}
 
 @router.put('/documents/{document_id}/classify', response_model=CaseOut)
@@ -72,7 +72,7 @@ def classify_document(document_id: str, payload: CaseCreate, actor=Depends(requi
     """Admin explicitly categorizes a legacy file; keep its ID, bytes and cached output."""
     check_category(payload.category_id)
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         old=conn.execute('SELECT * FROM partner_documents WHERE id=?',(document_id,)).fetchone()
         if not old: raise HTTPException(404,'资料不存在')
         if old['doc_category']=='profile_import': raise HTTPException(409,'画像原件不属于案例资料')

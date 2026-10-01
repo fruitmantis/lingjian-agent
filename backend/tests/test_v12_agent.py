@@ -1,6 +1,7 @@
 """V1.2 direction/profile/intent contracts, using only synthetic local model responses."""
 from backend.tests.support.legacy_development import legacy_confirmed
 import copy,json,uuid
+from backend.tests.support.development_execution import finish,answer as completed_answer
 from concurrent.futures import ThreadPoolExecutor
 import pytest
 from fastapi import HTTPException
@@ -86,13 +87,15 @@ def test_short_labs_gap_and_no_capability_update(scenario,client):
 
 
 @pytest.mark.parametrize('message',['为什么推荐这个方向？','这两个实验有什么区别？'])
-def test_current_explanations_do_not_create_run_or_version_and_are_durable(scenario,message):
+def test_current_explanations_do_not_create_version_and_are_durable(scenario,message):
     d=run(scenario,'数据库迁移');pid=d['plan']['id'];v1=d['plan']['current_version_id'];user=scenario[0][0]
     body=Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v1,message=message)
-    a=views.converse(pid,body,user);assert a['kind']=='explain' and a['answer']
-    assert views.converse(pid,body,user)==a
-    after=views.detail(pid,user);assert len(after['versions'])==len(after['runs'])==1
-    assert after['conversation'][-1]['answer']==a['answer']
+    a=views.converse(pid,body,user);answer=completed_answer(a,user);assert answer
+    replay=views.converse(pid,body,user)
+    assert replay['run_id']==a['run_id'] and replay['replayed']
+    assert completed_answer(replay,user)==answer
+    after=views.detail(pid,user);assert len(after['versions'])==1 and len(after['runs'])==2
+    assert after['conversation'][-1]['answer']==answer
     assert plan(pid)['confirmed_version_id'] is None
     with pytest.raises(HTTPException):views.converse(pid,body.model_copy(update={'message':'changed'}),user)
     with pytest.raises(HTTPException) as exc:views.converse(pid,body,scenario[0][1])
@@ -137,24 +140,38 @@ def test_conversation_output_rejected_for_fake_reference_or_secret(scenario,monk
     original=scenario[2]
     def malicious(c,m,s):
         output=json.loads(original(c,m,s))
-        if 'converse' in m[0]['content']:output['answer']=CANARY
+        if s['title']=='Understanding':output['answer']=CANARY
         return json.dumps(output)
     monkeypatch.setattr(model,'completion',malicious)
-    with pytest.raises(HTTPException):views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=d['plan']['current_version_id'],message='为什么'),user)
+    accepted=views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=d['plan']['current_version_id'],message='为什么'),user)
+    after,failed=finish(accepted,user)
+    assert failed['status']=='failed' and len(after['versions'])==1
+    assert after['plan']['current_version_id']==d['plan']['current_version_id']
     assert not views.detail(pid,user)['conversation']
 
 
 def test_simple_resource_search_does_not_call_model(scenario,monkeypatch):
     add(scenario[0][2],'lab','数据库进阶实验',scenario[0][3].targets[0].capability_tag_id)
+    # A development task still understands the request and saves a validated resource answer.
+    task=run(scenario,'只给几个数据库进阶实验，不要基础课')
+    assert items(task) and {i['source_type'] for i in items(task)}=={'lab'}
+    previous_calls=len(scenario[1]);assert previous_calls==2
     def forbidden(*args):raise AssertionError('Simple search must not invoke a model')
     monkeypatch.setattr(model,'configuration',forbidden);monkeypatch.setattr(model,'completion',forbidden)
-    d=run(scenario,'只给几个数据库进阶实验，不要基础课')
-    assert items(d) and not scenario[1]
+    from backend.app.enablement_catalog import catalog
+    result=catalog(source_type='lab',q='数据库')
+    assert result['items'] and len(scenario[1])==previous_calls
+
 
 
 def test_explanation_cannot_be_misrouted_to_revision(scenario,monkeypatch):
     d=run(scenario,'数据库迁移');user=scenario[0][0]
-    monkeypatch.setattr(model,'completion',lambda *args:json.dumps({'target_partner_id':'partner-1','kind':'revise','answer':'','references':[]}))
-    with pytest.raises(HTTPException):views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=d['plan']['current_version_id'],message='为什么推荐这个方向？'),user)
-    after=views.detail(d['plan']['id'],user)
-    assert len(after['versions'])==len(after['runs'])==1
+    calls=[];original=scenario[2]
+    def invalid(c,m,s):
+        calls.append(s['title']);output=json.loads(original(c,m,s));output['action']='regenerate'
+        return json.dumps(output)
+    monkeypatch.setattr(model,'completion',invalid)
+    accepted=views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=d['plan']['current_version_id'],message='为什么推荐这个方向？'),user)
+    after,failed=finish(accepted,user)
+    assert calls==['Understanding'] and failed['status']=='failed'
+    assert len(after['versions'])==1 and after['plan']['current_version_id']==d['plan']['current_version_id']

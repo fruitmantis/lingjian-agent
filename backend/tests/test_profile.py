@@ -6,6 +6,13 @@ from backend.app.database import get_db
 from backend.app.routers import profile
 
 from .conftest import auth_headers, make_partner, make_user
+from .support.profile_report_fixture import patch_all
+from backend.app import profile_report, partner_match_context
+
+
+@pytest.fixture(autouse=True)
+def no_summary_model(monkeypatch):
+    monkeypatch.setattr(partner_match_context, "generate_summary", lambda *_: True)
 
 
 def partner_row(partner_id):
@@ -14,15 +21,12 @@ def partner_row(partner_id):
 
 
 def mock_profile_calls(monkeypatch, structured, narrative="合成画像正文"):
-    responses = iter([structured, narrative])
-
-    def complete(*_args, **_kwargs):
-        result = next(responses)
+    def respond(result):
         if isinstance(result, Exception):
             raise result
         return result
-
-    monkeypatch.setattr(profile, "chat_completion", complete)
+    monkeypatch.setattr(profile, "chat_completion", lambda *a, **k: respond(structured))
+    monkeypatch.setattr(profile.development_model, "completion", lambda *a, **k: patch_all(respond(narrative)))
 
 
 @pytest.mark.parametrize("structured", [
@@ -38,7 +42,7 @@ def test_profile_preserves_existing_fields_when_extraction_is_unusable(client, m
     response = client.post(f"/partners/{partner['id']}/profile", headers=auth_headers(admin))
     assert response.status_code == 200
     after = partner_row(partner["id"])
-    assert after["ai_profile"] == "合成画像正文"
+    assert after["ai_profile"] == profile_report.merge(profile_report.empty_report(), patch_all("合成画像正文"), new=True)
     for field in ("capabilities", "service_areas", "industries"):
         assert after[field] == before[field]
     assert after["updated_at"] != before["updated_at"]

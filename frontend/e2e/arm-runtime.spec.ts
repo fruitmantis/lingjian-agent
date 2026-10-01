@@ -22,19 +22,19 @@ const requestTimeoutMs = (input: string, method: string) => modelRequestCalls(in
 
 test("same-origin proxy preserves direct API model request budgets", () => {
   const cases: [string, string, number][] = [
-    ["/agent/match", "POST", 2_430_000],
-    ["/agent/tasks/task-id/retry", "POST", 2_430_000],
-    ["/partners/partner-id/profile", "POST", 2_430_000],
+    ["/agent/match", "POST", 3_630_000],
+    ["/agent/tasks/task-id/retry", "POST", 3_630_000],
+    ["/partners/partner-id/profile", "POST", 3_630_000],
     ["/admin/model-configs/model-id/test", "POST", 1_230_000],
-    ["/agent/tasks", "POST", 1_230_000],
-    ["/development/plans", "POST", 1_230_000],
-    ["/development/plans/plan-id/revise", "POST", 1_230_000],
-    ["/development/plans/plan-id/retry", "POST", 1_230_000],
+    ["/agent/tasks", "POST", 30_000],
+    ["/development/plans", "POST", 30_000],
+    ["/development/plans/plan-id/revise", "POST", 30_000],
+    ["/development/plans/plan-id/retry", "POST", 30_000],
     ["/agent/tasks", "GET", 30_000],
-    ["/development/plans/plan-id/conversation", "POST", 2_430_000],
+    ["/development/plans/plan-id/conversation", "POST", 30_000],
   ];
   for (const [path, method, budget] of cases) {
-    expect(requestTimeoutMs("http://localhost:8000" + path, method)).toBe(budget);
+    expect(requestTimeoutMs("http://localhost/api" + path, method)).toBe(budget);
     expect(requestTimeoutMs("/api" + path, method)).toBe(budget);
     expect(requestTimeoutMs("http://app.test:3000/api" + path, method)).toBe(budget);
   }
@@ -43,7 +43,7 @@ test("same-origin proxy preserves direct API model request budgets", () => {
 test("proxy configuration has no build-time model timeout setting", () => {
   const code = `import config from './next.config.mjs'; console.log(JSON.stringify(config));`;
   const result = JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", code], {
-    cwd: process.cwd(), env: {...process.env, BANFEI_BUILD_CPUS:"1", BANFEI_API_PROXY_TARGET:"http://localhost:8000"}, encoding:"utf8"}));
+    cwd: process.cwd(), env: {...process.env, BANFEI_BUILD_CPUS:"1", BANFEI_API_PROXY_TARGET:"http://127.0.0.1:8000"}, encoding:"utf8"}));
   expect(result).toEqual({experimental:{cpus:1}});
 });
 
@@ -52,4 +52,7 @@ test("current policy determines timeout and retry budget without a rebuild", () 
   expect(modelRequestBudgetMs({timeoutSeconds:60, timeoutRetries:1}, 2)).toBe(270_000);
   expect(modelRequestBudgetMs({timeoutSeconds:60, timeoutRetries:0})).toBe(90_000);
   expect(modelRequestCalls("/api/agent/tasks", "GET")).toBe(0);
+  expect(modelRequestCalls("/api/agent/match", "POST")).toBe(3);
+  expect(modelRequestCalls("/api/agent/tasks/task-id/retry", "POST")).toBe(3);
+  expect(modelRequestCalls("/api/partners/partner-id/profile", "POST")).toBe(3);
 });

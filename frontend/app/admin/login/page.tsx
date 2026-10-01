@@ -8,7 +8,7 @@ export default function AdminLogin() {
   const [username, setUsername] = useState(""); const [password, setPassword] = useState("");
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   async function login(event: FormEvent) { event.preventDefault(); if (busy) return; setBusy(true); setError("");
-    try { const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000"}/auth/admin/login`, {
+    try { const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api"}/auth/admin/login`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }), signal: AbortSignal.timeout(30000) });
       const data = await response.json(); if (!response.ok) throw new Error(data.detail || "登录失败");
       saveSession(data.access_token, data.user); router.replace(data.user.must_change_password ? PASSWORD_CHANGE_PATH : "/admin");

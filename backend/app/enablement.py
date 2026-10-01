@@ -172,7 +172,7 @@ def write_transaction(connection=None):
         yield connection
     else:
         with get_db() as conn:
-            conn.execute('BEGIN IMMEDIATE')
+            conn.lock_writer()
             yield conn
 
 
@@ -253,9 +253,15 @@ def resolve_reference(conn, source_type, source_id, source_version, purpose='sys
         from .case_content import projection
         return projection(conn,source_id,purpose)
     row=row_for(conn,'resource',source_id)
+    version=conn.execute('SELECT * FROM enablement_resource_versions WHERE source_id=? AND version=?',(source_id,source_version)).fetchone()
+    from .resource_categories import read
+    tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1')}
+    return _resource_projection(row,version,source_type,source_id,source_version,purpose,tags,read(conn))
+
+
+def _resource_projection(row,version,source_type,source_id,source_version,purpose,enabled_tags,categories):
     if row['status']!='published' or row['published_version']!=source_version:
         fail(409,'引用已不可用，请重新选择资源或生成方案')
-    version=conn.execute('SELECT * FROM enablement_resource_versions WHERE source_id=? AND version=?',(source_id,source_version)).fetchone()
     if not version or version['authorization_epoch']!=row['authorization_epoch']:
         fail(409,'授权已变化，请重新核验发布并生成方案')
     data=json.loads(version['payload_json'])
@@ -263,12 +269,38 @@ def resolve_reference(conn, source_type, source_id, source_version, purpose='sys
     flags=['system_visible'] + ({'model':['model_allowed'],'partner':['partner_allowed']}.get(purpose,[]))
     if any(not row[f] or not data['_permissions'].get(f,False) for f in flags):
         fail(403,'当前内容未获得此用途的明确授权')
-    from .resource_categories import labels
     data={**data,**resource_metadata(data)}
-    tags=[tag for tag in data.get('capability_tag_ids',[]) if conn.execute('SELECT 1 FROM capability_tags WHERE id=? AND enabled=1',(tag,)).fetchone()]
+    tags=[tag for tag in data.get('capability_tag_ids',[]) if tag in enabled_tags]
     fields=('title','summary','role_ids','zone_ids','level','duration_minutes','course_goals','audience','outline','lab_goals','lab_requirements')
     result={k:data.get(k) for k in fields}
-    result.update(labels(conn,data))
+    result.update({key:[{'id':r['id'],'name':r['name']} for r in categories if r['kind']==kind and r['id'] in data.get(field,[])]
+                   for key,field,kind in [('roles','role_ids','role'),('zones','zone_ids','zone')]})
     if purpose!='model': result.update(source_url=data['source_url'],cover_url=data.get('cover_url',''))
     if purpose!='partner': result.update(source_type=source_type,source_id=source_id,source_version=source_version,capability_tag_ids=tags)
     return result
+
+
+def model_references(conn):
+    """Project all candidates in one read snapshot; no per-row database queries or writes."""
+    from .enablement_catalog import POOL
+    from .resource_categories import read
+    from .case_content import case_projection
+    tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1')}
+    categories=read(conn)
+    rows=conn.execute(POOL+"""SELECT visible.source_type,visible.source_id,visible.source_version,
+        visible.payload_json,r.status,r.published_version,r.authorization_epoch,r.system_visible,r.model_allowed,r.partner_allowed,
+        v.authorization_epoch AS version_epoch,c.*,p.name AS partner_name,p.status AS partner_status
+        FROM visible LEFT JOIN enablement_resources r ON visible.kind='resource' AND r.id=visible.source_id
+        LEFT JOIN enablement_resource_versions v ON v.source_id=r.id AND v.version=visible.source_version
+        LEFT JOIN cases c ON visible.kind='case' AND c.id=visible.source_id
+        LEFT JOIN partners p ON p.id=c.partner_id
+        ORDER BY visible.published_at DESC,visible.source_id""")
+    for row in rows:
+        try:
+            if row['source_type']=='case':
+                yield case_projection(dict(row),'model')
+            else:
+                version={'payload_json':row['payload_json'],'authorization_epoch':row['version_epoch']}
+                yield _resource_projection(row,version,row['source_type'],row['source_id'],row['source_version'],'model',tags,categories)
+        except HTTPException:
+            continue

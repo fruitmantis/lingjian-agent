@@ -1,0 +1,193 @@
+
+> lingjian-agent-frontend@0.1.0 test:e2e
+> playwright test --reporter=line,junit
+
+[WebServer] INFO:     Started server process [118912]
+
+[WebServer] INFO:     Waiting for application startup.
+
+[WebServer] INFO:     Application startup complete.
+
+[WebServer] INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[WebServer] (node:118937) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:118968) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] {"level":"info","ts":1790851756.802554,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+
+[WebServer] {"level":"info","ts":1790851756.8030677,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":7495582924,"previous":9223372036854775807}
+
+[WebServer] {"level":"info","ts":1790851756.8034396,"msg":"using config from file","file":"../deploy/Caddyfile"}
+
+[WebServer] {"level":"info","ts":1790851756.803657,"msg":"adapted config to JSON","adapter":"caddyfile"}
+
+[WebServer] {"level":"warn","ts":1790851756.8037903,"logger":"admin","msg":"admin endpoint disabled"}
+
+[WebServer] {"level":"warn","ts":1790851756.8040535,"logger":"http.auto_https","msg":"server is listening only on the HTTP port, so no automatic HTTPS will be applied to this server","server_name":"srv0","http_port":80}
+
+[WebServer] {"level":"info","ts":1790851756.804393,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0x2548e6c50180"}
+
+[WebServer] {"level":"warn","ts":1790851756.8072631,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":80"}
+
+[WebServer] {"level":"warn","ts":1790851756.8117154,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":80"}
+
+[WebServer] {"level":"info","ts":1790851756.8120472,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+
+[WebServer] {"level":"info","ts":1790851756.8124194,"msg":"serving initial configuration"}
+
+[WebServer] {"level":"info","ts":1790851756.8170664,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/home/yuan/.local/share/caddy","instance":"80de6c44-2c7d-4c98-b0a6-680101eabc4c","try_again":1790938156.817064,"try_again_in":86399.999999628}
+[WebServer] {"level":"info","ts":1790851756.8171375,"logger":"tls","msg":"finished cleaning storage units"}
+
+
+Running 95 tests using 1 worker
+
+[1/95] arm-runtime.spec.ts:7:5 › HTTP origins without randomUUID keep safe unique submission IDs
+[2/95] arm-runtime.spec.ts:23:5 › same-origin proxy preserves direct API model request budgets
+[3/95] arm-runtime.spec.ts:43:5 › proxy configuration has no build-time model timeout setting
+arm-runtime.spec.ts:43:5 › proxy configuration has no build-time model timeout setting
+(node:119089) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+[4/95] arm-runtime.spec.ts:50:5 › current policy determines timeout and retry budget without a rebuild
+[5/95] business-taxonomy.spec.ts:5:36 › standard industry and grouped regions 1366
+[6/95] business-taxonomy.spec.ts:5:36 › standard industry and grouped regions 1920
+[7/95] feedback.spec.ts:9:39 › feedback paste upload review and status 1366
+[8/95] feedback.spec.ts:9:39 › feedback paste upload review and status 1920
+[9/95] feedback.spec.ts:63:5 › feedback validates images and preserves draft after submission failure
+[10/95] first-login.spec.ts:3:36 › administrator temporary password remains isolated 1366
+[11/95] first-login.spec.ts:3:36 › administrator temporary password remains isolated 1920
+[12/95] local-identity.spec.ts:31:5 › first visit enters automatically, same Key in popup/account, copy download and reload
+[13/95] local-identity.spec.ts:57:5 › saved Key restores same user and history after site data loss without creating users
+[14/95] local-identity.spec.ts:71:5 › explicit Key entry and invalid input never create users or request business history
+[15/95] local-identity.spec.ts:83:5 › popup existing-Key action switches identity without another user or merge
+[16/95] local-identity.spec.ts:97:5 › logout retains browser identity, explicitly continues without Key after restart
+[17/95] local-identity.spec.ts:127:5 › administrator sees masked Key matched to user ID and ordinary logout remains independent
+[WebServer] {"level":"warn","ts":1790851858.6988928,"logger":"http.handlers.reverse_proxy","msg":"aborting with incomplete response","upstream":"127.0.0.1:3000","duration":0.02088052,"request":{"remote_ip":"::1","remote_port":"42802","client_ip":"::1","proto":"HTTP/1.1","method":"GET","host":"localhost","uri":"/_next/static/chunks/main-app.js?v=1790851858473","headers":{"X-Forwarded-For":["::1"],"Sec-Fetch-Site":["same-origin"],"Cookie":["REDACTED"],"Sec-Ch-Ua":["\"HeadlessChrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\""],"Accept":["*/*"],"Sec-Fetch-Mode":["no-cors"],"User-Agent":["Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/131.0.6778.33 Safari/537.36"],"Via":["1.1 Caddy"],"X-Forwarded-Proto":["http"],"Sec-Fetch-Dest":["script"],"Referer":["http://localhost/login"],"Sec-Ch-Ua-Platform":["\"Linux\""],"Sec-Ch-Ua-Mobile":["?0"],"X-Forwarded-Host":["localhost"],"Accept-Encoding":["gzip, deflate, br, zstd"],"Accept-Language":["en-US"]}},"error":"reading: context canceled"}
+
+[18/95] local-identity.spec.ts:159:5 › ordinary identities cannot read each other tasks, and expired token restores browser session
+[19/95] local-identity.spec.ts:171:5 › two first-open tabs create one identity; logout updates the other tab
+[20/95] local-identity.spec.ts:186:5 › Chrome Key logs into the same identity in Edge without platform verification
+[21/95] local-identity.spec.ts:197:5 › same browser auto-enters normal login route with either token or remembered Cookie
+[22/95] local-identity.spec.ts:208:5 › lost remembered Cookie after logout offers Key without creating a replacement
+[23/95] local-identity.spec.ts:221:5 › business 401 restores same browser identity without Key or a new user
+[24/95] local-identity.spec.ts:235:5 › credential file import restores downloaded identity and history without uploading the file
+[25/95] local-identity.spec.ts:270:5 › credential file import accepts plain Key with BOM and Windows line endings after logout
+[26/95] local-identity.spec.ts:281:5 › credential file import rejects invalid files locally and cancellation preserves the remembered identity
+[27/95] local-identity.spec.ts:322:5 › credential file import with an unknown Key creates no user and can retry the same filename
+[28/95] local-identity.spec.ts:345:45 › deleted Key paste shows explicit new identity action without automatic creation
+[29/95] local-identity.spec.ts:345:45 › deleted Key file shows explicit new identity action without automatic creation
+[30/95] local-identity.spec.ts:385:5 › deleted Key cannot clear a different remembered identity; explicit creation produces a new user
+[31/95] local-identity.spec.ts:415:5 › disabled Key is distinguished from deletion and provides no new identity shortcut
+[32/95] local-identity.spec.ts:430:5 › unknown Key with a stale remembered marker offers explicit creation without claiming deletion
+[33/95] local-identity.spec.ts:447:48 › account soft deletion from list keeps history and uses one-sentence confirmation
+[34/95] local-identity.spec.ts:447:48 › account soft deletion from detail keeps history and uses one-sentence confirmation
+[35/95] local-identity.spec.ts:476:5 › account soft deletion is available for admins and protects the current operator
+[36/95] model-boundary.spec.ts:3:5 › model deletion supports cancel, success and server errors
+[37/95] model-boundary.spec.ts:50:5 › UI tests do not require a model: login, navigation and resource browsing
+[38/95] model-timeout-settings.spec.ts:30:5 › timeout form saves, reloads and takes effect immediately
+[39/95] model-timeout-settings.spec.ts:46:5 › timeout save failure preserves input and releases the save button
+[40/95] model-timeout-settings.spec.ts:58:5 › timeout form rejects zero seconds and fractional retries without saving
+[41/95] model-timeout-transport.spec.ts:7:5 › asynchronous task creation sends directly and only lost acknowledgement is uncertain
+[42/95] model-timeout-transport.spec.ts:28:5 › model request reads current saved policy every time and never retries business POST
+[43/95] model-timeout-transport.spec.ts:52:5 › proxy preserves request data, Origin, authorization, multiple cookies and redirects
+[44/95] model-timeout-transport.spec.ts:83:5 › proxy delivers streaming chunks before the upstream response finishes
+[45/95] model-timeout-transport.spec.ts:110:5 › proxy waits past old 30 second idle cap and cancels upstream on client abort
+[46/95] pagination.spec.ts:69:53 › PAG resource course totals, jump and boundaries
+[47/95] pagination.spec.ts:69:53 › PAG resource lab totals, jump and boundaries
+[48/95] pagination.spec.ts:69:53 › PAG resource case totals, jump and boundaries
+[49/95] pagination.spec.ts:95:5 › PAG resource refresh clamps a vanished last page and fits a narrow screen
+[50/95] pagination.spec.ts:114:52 › PAG /tasks keeps archived and search filters when jumping
+[51/95] pagination.spec.ts:114:52 › PAG /admin/tasks keeps archived and search filters when jumping
+[52/95] pagination.spec.ts:126:5 › PAG users and audit logs keep separate pages
+[53/95] pagination.spec.ts:139:5 › PAG feedback translates page number to offset
+[54/95] pagination.spec.ts:147:5 › PAG demand and supply gap lists jump independently and retain size controls
+[55/95] pagination.spec.ts:157:5 › PAG opportunities jump and reset on filtering
+[56/95] pagination.spec.ts:165:5 › PAG scenes show totals, jump and recalculate when changing page size
+[57/95] partner-delete.spec.ts:6:39 › admin partner deletion preserves business history 1366
+[58/95] partner-delete.spec.ts:6:39 › admin partner deletion preserves business history 1920
+[59/95] partner-materials.spec.ts:10:5 › one materials page: partner shortcut, private profile originals and legacy file classification
+partner-materials.spec.ts:10:5 › one materials page: partner shortcut, private profile originals and legacy file classification
+
+
+[WebServer] BANFEI_ERROR {"id": "ceb4c414-706d-4790-b58f-022be8937b4b", "time": "2026-10-01T10:54:16.056299+00:00", "request_id": "dae909d2-3556-4101-ac0d-a61c3ebc9cca", "task_id": null, "run_id": null, "stage": "match_summary", "exception_type": "ModelConfigurationError", "message": "没有启用的模型配置，请管理员新增或启用模型", "model": null, "http_status": null, "response_excerpt": null, "traceback": "  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/partner_match_context.py\", line 240, in generate_summary\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/partner_match_context.py\", line 275, in _generate_summary\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 42, in resolve_model_record\n  File \"/home/yuan/project/lingjian-agent-enablement/backend/app/model_resolver.py\", line 47, in resolve_model_record\nModelConfigurationError: 没有启用的模型配置，请管理员新增或启用模型"}
+
+[60/95] partner-materials.spec.ts:44:5 › multiple files in one card, safe preview, same-ID replacement and live display permission
+[61/95] partner-materials.spec.ts:68:5 › global partner/category search, three-column groups and total-page jump
+[62/95] partner-profile-report.spec.ts:6:38 › admin profile renders ten chapters and tables safely
+[63/95] partner-profile-report.spec.ts:6:38 › admin profile renders legacy text safely
+[64/95] partner-select.spec.ts:55:5 › new task searches 500 partners by partial Chinese or case-insensitive English name
+[65/95] partner-select.spec.ts:69:5 › keyboard selection, IME, Escape and outside clicks preserve intentional selection
+[66/95] partner-select.spec.ts:86:5 › source task keeps the original partner locked
+[67/95] partner-select.spec.ts:93:5 › materials partner filter searches locally and can return to all partners
+[68/95] partner-select.spec.ts:110:5 › material create and edit submit selected ID, never typed search text
+[69/95] resource-transfer.spec.ts:43:5 › resource filters, cancel, batch publication and removal pass selected revisions
+[70/95] resource-transfer.spec.ts:65:5 › Excel download, import success and actionable row error
+[71/95] resource-transfer.spec.ts:84:5 › resource maintenance toolbar fits mobile and supports keyboard selection
+[72/95] resource-transfer.spec.ts:95:5 › partner Excel and resource template download entries
+[73/95] task-failure.spec.ts:30:5 › ordinary list shows simple messages including legacy failures
+[74/95] task-failure.spec.ts:41:36 › partial and failed revise preserve useful results at 1366
+[75/95] task-failure.spec.ts:41:36 › partial and failed revise preserve useful results at 1920
+[76/95] task-failure.spec.ts:57:5 › configuration failure asks for admin without technical detail
+[77/95] task-failure.spec.ts:66:5 › failed refresh preserves existing development advice
+[78/95] task-failure.spec.ts:76:5 › empty match is a normal outcome
+[79/95] task-failure.spec.ts:84:56 › uncertain disconnect uses simple wording and keeps original pending task
+[80/95] task-failure.spec.ts:84:56 › uncertain commit-error uses simple wording and keeps original pending task
+[81/95] task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 202
+[82/95] task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 502
+  1) task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 502 ─
+
+    Test timeout of 45000ms exceeded.
+
+    Error: locator.click: Test timeout of 45000ms exceeded.
+    Call log:
+      - waiting for getByRole('link', { name: '查看任务详情', exact: true })
+
+
+      111 |  await expect(page.locator(".pending-task")).toHaveCount(0);
+      112 |  expect(await page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
+    > 113 |  await page.getByRole("link",{name:"查看任务详情",exact:true}).click();
+          |                                                          ^
+      114 |  await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
+      115 |  page.on("dialog",dialog=>dialog.accept());
+      116 |  await page.getByRole("button",{name:"重试",exact:true}).click();
+        at /home/yuan/project/lingjian-agent-enablement/frontend/e2e/task-failure.spec.ts:113:58
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/task-failure-accepted-matc-58d45-riginal-task-after-HTTP-502/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[83/95] task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 500
+[84/95] task-failure.spec.ts:123:5 › restored pending matching task resolves failed record without another submission
+[85/95] task-failure.spec.ts:134:5 › accepted development timeout opens the saved failed plan with retry available
+[86/95] task-failure.spec.ts:150:5 › failed development task clears old pending marker and retries same plan only once
+[87/95] task-failure.spec.ts:173:5 › admin task errors tab expands and copies redacted details
+[88/95] task-failure.spec.ts:218:5 › development service failure has no retry and no false usable advice claim
+[89/95] task-failure.spec.ts:229:5 › initial generation failure preserves request without claiming old advice
+[90/95] task-failure.spec.ts:241:5 › answer failure survives polling and can retry only after response ends
+[91/95] task-failure.spec.ts:263:5 › lost development retry response only queries original run even after reload
+[92/95] task-failure.spec.ts:280:5 › lost create response queries submission and never claims the demand was saved
+[93/95] task-progress.spec.ts:4:6 › match: accepted task selects itself and restores input, stages, results and elapsed time
+[94/95] task-progress.spec.ts:4:6 › development: accepted task selects itself and restores input, stages, results and elapsed time
+[95/95] http-identity.spec.ts:5:5 › actual-IP HTTP entry keeps identity, copy fallback and tabs consistent
+  Slow test file: local-identity.spec.ts (2.7m)
+  Slow test file: model-timeout-transport.spec.ts (31.2s)
+  Slow test file: task-progress.spec.ts (27.2s)
+  Slow test file: partner-materials.spec.ts (26.3s)
+  Slow test file: pagination.spec.ts (25.5s)
+  Consider splitting slow test files to speed up parallel execution
+  1 failed
+    task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 502 ──
+  1 skipped
+  93 passed (7.9m)

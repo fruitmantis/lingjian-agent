@@ -112,7 +112,7 @@ def plan_enrichment(conn, manifest, capture):
 
 def apply_enrichment(manifest, capture, actor):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         if not conn.execute("SELECT id FROM users WHERE id=? AND role='admin' AND status='active'", (actor,)).fetchone():
             raise ValueError('An active administrator is required')
         plan = plan_enrichment(conn, manifest, capture)

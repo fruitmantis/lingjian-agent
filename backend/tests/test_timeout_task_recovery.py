@@ -18,6 +18,13 @@ def timeout(*args, **kwargs):
     raise TimeoutError('synthetic provider timeout')
 
 
+@pytest.fixture(autouse=True)
+def inline_background(monkeypatch):
+    # Deterministically finish isolated API jobs before each fixture database is removed.
+    for executor in (match.executor, development.executor):
+        monkeypatch.setattr(executor, 'submit', lambda fn,*args,**kwargs: fn(*args,**kwargs))
+
+
 def counts():
     with get_db() as conn:
         return tuple(conn.execute('SELECT count(*) FROM '+table).fetchone()[0] for table in ('development_requests','development_plans','development_runs','development_versions'))
@@ -30,16 +37,18 @@ def test_matching_understanding_timeout_keeps_original_request_and_retry(client,
     monkeypatch.setattr(model,'completion',failed)
     body={'requestId':identifier,'requirement':'需要数据库交付伙伴'}
     result=client.post('/agent/tasks',headers=headers,json=body)
-    assert result.status_code==202 and result.json()=={'recordId':identifier,'taskStatus':'failed'}
+    assert result.status_code==202 and result.json()['recordId']==identifier and result.json()['runId']
     detail=client.get('/agent/tasks/'+identifier,headers=headers).json()
     assert detail['failureDetails'][0]['code']=='timeout' and detail['recommendations']==[]
-    assert client.post('/agent/tasks',headers=headers,json=body).json()==result.json()
+    replay=client.post('/agent/tasks',headers=headers,json=body).json()
+    assert replay['runId']==result.json()['runId'] and replay['taskStatus']=='failed'
     assert client.get('/agent/tasks/'+identifier,headers=auth_headers(unified[0][1])).status_code==404
     # A further timeout on retry preserves this same Task and its failure reason.
     assert client.post('/agent/tasks/'+identifier+'/retry',headers=headers).status_code==502
     assert client.get('/agent/tasks/'+identifier,headers=headers).json()['failureDetails'][0]['code']=='timeout'
     def complete(config,messages,schema):
         if schema['title']=='MatchUnderstanding':return '{"in_scope":true,"facts":{"technicalNeeds":"数据库迁移"}}'
+        if schema['title']=='InitialSelection':return '{"candidates":[{"partnerId":"partner-1","verificationFocus":"数据库迁移"}]}'
         return '{"answer":"待补充资料。","recommendations":[],"supplyStatus":"unknown","gapAnalysis":"资料不足"}'
     monkeypatch.setattr(model,'completion',complete)
     assert client.post('/agent/tasks/'+identifier+'/retry',headers=headers).json()['taskStatus']=='ready'
@@ -67,7 +76,8 @@ def test_development_timeout_creates_failed_run_and_retries_same_plan(unified,mo
     assert views.detail(pid,user)['plan']['active_run_id'] is None
     retry_body=development.RetryRun(submission_id='retry-same-task',run_id=rid,based_on_version_id=None)
     again=life.retry(pid,retry_body,user)
-    assert counts()==(1,1,2,0) and again['status']=='failed'
+    engine.execute(again['run_id'])
+    assert counts()==(1,1,2,0) and views.detail(pid,user)['runs'][0]['status']=='failed'
     assert life.retry(pid,retry_body,user)['run_id']==again['run_id'] and counts()==(1,1,2,0)
     monkeypatch.setattr(model,'completion',unified[2])
     final=life.retry(pid,development.RetryRun(submission_id='retry-success',run_id=again['run_id']),user)
@@ -83,6 +93,7 @@ def test_concurrent_timeout_submission_creates_only_one_request_plan_and_run(uni
         accepted=list(pool.map(lambda _:life.create(payload,unified[0][0]),range(3)))
     assert len({item['plan_id'] for item in accepted})==len({item['run_id'] for item in accepted})==1
     assert counts()==(1,1,1,0)
+    engine.execute(accepted[0]['run_id'])
     with get_db() as conn:
         run=conn.execute('SELECT status,safe_error_message FROM development_runs').fetchone()
     assert run['status']=='failed' and json.loads(run['safe_error_message'])[0]['code']=='timeout'
@@ -93,7 +104,8 @@ def test_later_understanding_timeout_preserves_successful_result(unified,monkeyp
     monkeypatch.setattr(model,'completion',timeout)
     body=Revise(submission_id='later-understanding-timeout',based_on_version_id=version,instruction='重新规划建议',request=unified[0][3])
     failed=life.revise(pid,body,user)
-    assert failed['status']=='failed' and failed['plan_id']==pid
+    engine.execute(failed['run_id'])
+    assert views.detail(pid,user)['runs'][0]['status']=='failed' and failed['plan_id']==pid
     assert life.revise(pid,body,user)['run_id']==failed['run_id']
     after=views.detail(pid,user)
     assert after['plan']['current_version_id']==version and after['payload']==detail['payload']
@@ -107,8 +119,10 @@ def test_known_preparation_failure_is_not_uncertain_but_commit_failure_is(unifie
     def failed(*args,**kwargs):raise PublicTaskError(httpx.ConnectError('synthetic unreachable'))
     monkeypatch.setattr(match.understanding,'prepare',failed)
     response=client.post('/agent/tasks',headers=auth_headers(user),json=body)
-    assert response.status_code==502 and response.json()['submissionAccepted'] is False
-    assert response.json()['failureCode']=='connection'
+    assert response.status_code==202
+    detail=client.get('/agent/tasks/'+body['requestId'],headers=auth_headers(user)).json()
+    assert detail['taskStatus']=='failed' and detail['failureDetails'][0]['code']=='connection'
+    body['requestId']=str(uuid4())
     monkeypatch.setattr(match.understanding,'prepare',lambda *_: {})
     original=match.get_db;calls=0
     @contextmanager
@@ -117,14 +131,16 @@ def test_known_preparation_failure_is_not_uncertain_but_commit_failure_is(unifie
         calls+=1
         with original() as conn:
             yield conn
-            if calls==2:raise RuntimeError('synthetic ambiguous commit response')
+            if calls==1:raise RuntimeError('synthetic ambiguous commit response')
     monkeypatch.setattr(match,'get_db',fail_commit)
     response=client.post('/agent/tasks',headers=auth_headers(user),json=body)
     assert response.status_code==500 and 'submissionAccepted' not in response.json()
 
 
-def test_out_of_scope_matching_still_has_no_task(unified,monkeypatch,client):
+def test_out_of_scope_matching_keeps_normal_task(unified,monkeypatch,client):
     monkeypatch.setattr(model,'completion',lambda *_:'{"in_scope":false}')
     response=client.post('/agent/tasks',headers=auth_headers(unified[0][0]),json={'requestId':str(uuid4()),'requirement':'合成范围外'})
-    assert response.status_code==422
-    with get_db() as conn:assert conn.execute('SELECT count(*) FROM match_records').fetchone()[0]==0
+    assert response.status_code==202
+    result=match.get_match_record(response.json()['recordId'],unified[0][0])
+    assert result.taskStatus=='ready' and result.scopeMessage and not result.failureDetails
+    with get_db() as conn:assert conn.execute('SELECT count(*) FROM match_records').fetchone()[0]==1

@@ -5,18 +5,12 @@ import sys
 import uuid
 from sqlalchemy.engine import make_url
 
-url = os.getenv('PLAYWRIGHT_DATABASE_URL', '')
-if url:
-    parsed = make_url(url)
-    if not parsed.drivername.startswith('postgresql') or parsed.database not in ('banfei_agent_test', 'banfei_validation') or parsed.host not in ('localhost', '127.0.0.1'):
-        raise SystemExit('Dedicated local validation database required')
-    os.environ['DATABASE_URL'] = url
-else:
-    os.environ['DATABASE_URL'] = 'sqlite://'
-    os.environ['LINGJIAN_DATABASE_PATH'] = '/tmp/lingjian-enablement-e2e/app.db'
+from backend.tests.support.model_test_boundary import require_test_database
+os.environ['DATABASE_URL'] = os.environ['PLAYWRIGHT_DATABASE_URL']
+require_test_database()
 from backend.app.database import get_db
 with get_db() as conn:
-    conn.execute('BEGIN IMMEDIATE')
+    conn.lock_writer()
     user = conn.execute("SELECT id FROM users WHERE id=? AND role='user'", (sys.argv[1],)).fetchone()
     if not user:
         raise SystemExit('Synthetic ordinary identity required')

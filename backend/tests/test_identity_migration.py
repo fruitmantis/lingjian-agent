@@ -5,7 +5,6 @@ from backend.app.postgres_storage import engine_for
 from scripts.migrate_local_identity import migrate
 from .conftest import make_user
 
-@pytest.mark.skipif(not os.getenv('BANFEI_TEST_DATABASE_URL'),reason='PostgreSQL migration')
 def test_identity_migration_atomic_and_idempotent(client):
     admin=make_user('migration_admin',role='admin')
     engine=engine_for(os.environ['DATABASE_URL'])

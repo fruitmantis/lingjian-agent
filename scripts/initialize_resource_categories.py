@@ -26,7 +26,7 @@ def main():
     with (args.backup_dir/'before.pgdump').open('xb') as output:
         subprocess.run(['pg_dump','--format=custom','--no-owner','--no-acl'],env=env,stdout=output,stderr=subprocess.PIPE,check=True)
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         existed=bool(conn.execute('SELECT 1 FROM app_metadata WHERE key=?',(KEY,)).fetchone())
         initialize(conn)
         result={'created':not existed,'category_count':len(read(conn)),'schema_version':conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0],'time':datetime.now(timezone.utc).isoformat()}

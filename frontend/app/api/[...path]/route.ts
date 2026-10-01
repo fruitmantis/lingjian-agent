@@ -1,7 +1,6 @@
 // Same-origin transport. Model deadlines belong to the API's saved policy, so
 // this proxy must not impose Next's independent 30-second idle timeout.
 import http from "node:http";
-import https from "node:https";
 import { Readable } from "node:stream";
 
 export const runtime = "nodejs";
@@ -21,7 +20,8 @@ async function proxy(request: Request): Promise<Response> {
   const origin = process.env.BANFEI_API_PROXY_TARGET;
   if (!origin) return new Response(null, { status: 404 });
   const target = new URL(origin);
-  if (!["http:", "https:"].includes(target.protocol) || target.username || target.password || target.search || target.hash || target.pathname !== "/") {
+  if (target.protocol !== "http:" || target.hostname !== "127.0.0.1" || !/^\d+$/.test(target.port)
+      || target.username || target.password || target.search || target.hash || target.pathname !== "/") {
     return new Response(null, { status: 503 });
   }
   const incoming = new URL(request.url);
@@ -29,10 +29,11 @@ async function proxy(request: Request): Promise<Response> {
   target.search = incoming.search;
   const headers = filtered(request.headers);
   headers.set("x-forwarded-host", request.headers.get("host") || incoming.host);
+  headers.set("x-forwarded-proto", "http");
   headers.set("host", target.host);
 
   return new Promise(resolve => {
-    const upstream = (target.protocol === "https:" ? https : http).request(target, {
+    const upstream = http.request(target, {
       method: request.method, headers: Object.fromEntries(headers), signal: request.signal,
     }, response => {
       const raw = new Headers();

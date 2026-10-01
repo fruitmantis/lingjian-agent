@@ -142,7 +142,7 @@ def plan_import(conn, records):
 
 def apply_catalog(catalog, actor):
     with get_db() as conn:
-        conn.execute('BEGIN IMMEDIATE')
+        conn.lock_writer()
         admin = conn.execute("SELECT id FROM users WHERE id=? AND role='admin' AND status='active'", (actor,)).fetchone()
         if not admin: raise ValueError('An active administrator is required')
         plan = plan_import(conn, prepare(catalog, categories.read(conn)))

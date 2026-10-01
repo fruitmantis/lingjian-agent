@@ -1,44 +1,28 @@
-"""Create a clean, synthetic E2E database in the dedicated /tmp directory."""
+"""Seed the owned PostgreSQL E2E schema; uploads and credentials use a private /tmp directory."""
 
 import os
 import json
-import shutil
 from pathlib import Path
-from backend.tests.support.model_test_boundary import POSTGRES_TEST_DATABASES
 
 
 def main() -> None:
-    database = Path(os.environ["LINGJIAN_DATABASE_PATH"]).resolve()
-    validation_root = Path("/tmp/lingjian-enablement-e2e").resolve()
-    if database.parent != validation_root or database.name != "app.db":
-        raise RuntimeError("refusing to reset a database outside the dedicated E2E directory")
-    shutil.rmtree(validation_root, ignore_errors=True)
-    validation_root.mkdir(parents=True)
-    target = os.environ.get("DATABASE_URL", "sqlite://")
-    os.environ["DATABASE_URL"] = "sqlite://"
+    from backend.tests.support.model_test_boundary import require_test_database
+    parsed = require_test_database()
+    validation_root = Path(os.environ['BANFEI_TEST_ROOT']).resolve()
+    if validation_root.parent != Path('/tmp') or not validation_root.name.startswith('banfei-e2e-'):
+        raise RuntimeError('Owned temporary browser directory required')
+    from backend.app.postgres_storage import initialize_empty_schema
+    initialize_empty_schema(os.environ['DATABASE_URL'])
     from backend.tests.support.seed_validation_db import seed
     seed()
-    if target.startswith("postgresql"):
-        from sqlalchemy.engine import make_url
-        parsed = make_url(target)
-        if parsed.database not in POSTGRES_TEST_DATABASES or parsed.host not in ("127.0.0.1", "localhost"):
-            raise RuntimeError("E2E requires the dedicated PostgreSQL validation database")
-        import sqlite3
-        with sqlite3.connect(database) as staged_fixture:
-            staged_fixture.execute("CREATE TABLE IF NOT EXISTS _health_check (id INTEGER)")
-        from scripts.migrate_sqlite_to_postgres import import_snapshot
-        import_snapshot(database, target)
-    os.environ["DATABASE_URL"] = target
     # Private, ephemeral browser credential: never stored in the repository.
     from backend.app.auth import create_token
     from backend.app.database import get_db
     with get_db() as conn:
         user = dict(conn.execute("SELECT id, username, display_name, department, role, status, must_change_password, token_version FROM users WHERE username = 'admin1'").fetchone())
-    session = {"database": f"postgresql:{parsed.database}" if target.startswith("postgresql") else str(database), "access_token": create_token(user["id"], user["username"], user["role"], user["token_version"]), "user": user}
+    session = {"database": f"postgresql:{parsed.database}", "access_token": create_token(user["id"], user["username"], user["role"], user["token_version"]), "user": user}
     with get_db() as conn:
         fixture_users = [dict(row) for row in conn.execute("SELECT * FROM users")]
-    from backend.app.identity_keys import create_identity_key
-    from backend.app.routers.local_identity import add_browser_session
     sessions = {}
     with get_db() as conn:
         for u in fixture_users:

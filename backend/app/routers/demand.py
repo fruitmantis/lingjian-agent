@@ -182,7 +182,7 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
                WHERE dp.created_at >= ? AND (dp.match_record_id IS NULL OR mr.archived_at IS NULL)"""
         params = [cutoff]
         if capability:
-            q += " AND capability_tags LIKE ?"
+            q += " AND capability_tags ILIKE ?"
             params.append(f"%{capability}%")
         q += " ORDER BY created_at DESC"
         rows = conn.execute(q, params).fetchall()
@@ -422,10 +422,10 @@ def list_opportunities(keyword: str | None = None, industry: str | None = None, 
         conditions = ["(match_record_id IS NULL OR match_record_id IN (SELECT id FROM match_records WHERE archived_at IS NULL))"]
         params = []
         if keyword:
-            conditions.append("(project_name LIKE ? OR customer_name LIKE ? OR requirement_text LIKE ?)")
+            conditions.append("(project_name ILIKE ? OR customer_name ILIKE ? OR requirement_text ILIKE ?)")
             params.extend([f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"])
         if stage:
-            conditions.append("project_stage LIKE ?"); params.append(f"%{stage}%")
+            conditions.append("project_stage ILIKE ?"); params.append(f"%{stage}%")
         if supplyStatus:
             conditions.append("supply_status = ?"); params.append(supplyStatus)
         if conditions:
@@ -450,7 +450,7 @@ def update_opportunity(opp_id: str, payload: OpportunityUpdate) -> OpportunityOu
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.lock_writer()
         row = conn.execute(f"SELECT {_OPP_COLS} FROM project_opportunities WHERE id = ?", (opp_id,)).fetchone()
         if row is None:
             from fastapi import HTTPException, status as _st
@@ -464,7 +464,7 @@ def update_opportunity(opp_id: str, payload: OpportunityUpdate) -> OpportunityOu
 def update_own_opportunity(record_id: str, payload: OpportunityUpdate, user: dict = Depends(require_active_user)) -> OpportunityOut:
     now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute("BEGIN IMMEDIATE")
+        conn.lock_writer()
         task = conn.execute("SELECT owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
         if task is None or (task["owner_user_id"] != user["id"] and user["role"] != "admin"):
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="任务不存在")

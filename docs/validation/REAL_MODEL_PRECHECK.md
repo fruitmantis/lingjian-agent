@@ -16,6 +16,6 @@
 
 现有可执行工具：[verify_real_model.py](../../scripts/verify_real_model.py)。它要求 `--execute`、私有环境文件、已批准模型配置 ID 和新的私有审计路径；最多两次合成请求，`--stage analyze` 可限制为一次。不修改配置，不读取伙伴/附件，不创建任务。
 
-历史 `validate_pilot_data.py --real-model-precheck` 属于 SQLite Pilot 门禁，不是当前 PostgreSQL 真实模型开关，不能据其旧 BLOCKED 判断当前模型不可用。原机制见 [历史归档](../archive/v1.1/REAL_MODEL_PRECHECK.md)。本文件不引入替代门禁脚本。
+旧 Pilot 门禁及文件数据库工具已删除；真实模型验证沿用当前场景权限和专用 PostgreSQL 临时 schema。旧 BLOCKED 记录不代表当前模型状态。
 
 输入、场景及结果记录按 [验证计划](REAL_MODEL_VALIDATION_PLAN.md)；模型可调用不等于业务验收通过。
