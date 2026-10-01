@@ -1,5 +1,7 @@
 # PostgreSQL-only 清理与验证（2026-10-01）
 
+> 后续更正：独立复核确认原“迟到保护已覆盖”的结论遗漏了匹配完善阶段的派生保存，原实现存在 P1 迟到覆盖缺陷。下文 941 项等数字保留为当时批次，不能用于本轮修改后的代码。缺口、定点修复及新验证记录见 [迟到写入修复](MATCH_LATE_WRITES_20261001.md)，原失败见 [独立复核](POSTGRES_ONLY_INDEPENDENT_REVIEW_20261001.md)。
+
 **本轮收口结果：** 最终完整后端 PG 941 项、浏览器去重 108 项、脚本 12 项及 15 个子测试通过；typecheck/build/diff-check 通过。3000 条资源候选检索最终 p95 0.622 秒（原门槛 <2 秒）。追加授权的 8 次真实模型请求及版本/重试断言通过。运行数据与 13 份保留备份摘要不变。本报告保留前面失败批次，最后结果见文末；原始证据存于 [现有验证目录](evidence/pg-only-20261001/final-results.json)。
 
 工作目录 `/home/yuan/project/lingjian-agent-enablement`，分支 `main`，基线 `b63a903`。保留开始时已有 HTTP、伙伴匹配/画像、任务持久化等未提交改动；未切分支、stash、reset、commit、push 或部署远端。本轮不新增业务状态、接口、表或版本；schema 仍为 18。
@@ -177,7 +179,7 @@ Git 保持 main / `b63a9035ebec63648ade23e89158072f2ecae384`；工作区仍有�
 - 真实 HTTP 阻塞模型验证：伙伴匹配 3 次并发创建返回耗时 **61.5–69.7ms**；能力发展 **71.2–76.5ms**。两类均返回 202，独立 PG 可见、列表/详情可查、同提交只有一个任务/一次调度；模型等待时同 schema 写事务锁可取得。丢失响应重发不重复调度，模型释放后真实 timeout 写回原任务。
 - 3000 条资源：候选检索 30 次 p50 **0.196 秒**、p95 **0.474 秒**、最大 **0.518 秒**，每次 4 次 SQL；SQL 平均 **0.032 秒**，其余处理平均 **0.193 秒**。目录查询 60 次 p95 **0.064 秒**。原 `<2 秒` 门槛与计时范围保留，造数不进入计时，全部资源参与原筛选。
 
-该批后端原始证据：[backend-before-auto-navigation.xml](evidence/pg-only-20261001/backend-before-auto-navigation.xml)、[backend-before-auto-navigation.txt](evidence/pg-only-20261001/backend-before-auto-navigation.txt)。最终工程记录另见下表。941 条后端用例均附带 `database_backend=postgresql` 标记，逐项临时 schema 由受保护的 PG fixture 创建和清理；HTTP 创建时间和完整性能样本直接保存在 JUnit properties。
+该批后端原始证据：[backend-before-auto-navigation.xml](evidence/pg-only-20261001/backend-before-auto-navigation.xml)。最终工程记录另见下表。941 条后端用例均附带 `database_backend=postgresql` 标记，逐项临时 schema 由受保护的 PG fixture 创建和清理；HTTP 创建时间和完整性能样本直接保存在 JUnit properties。
 
 
 最后一轮浏览器默认组发现 **93 passed / 1 failed / 1 skipped**：`accepted matching timeout recovers original task after HTTP 502` 仍点击首页的临时“查看任务详情”链接，实际页面已自动进入原任务详情。失败轨迹显示 `/tasks/<原 requestId>`、失败提示和可用重试按钮；不是任务消失或需要扩大创建等待时间。三个状态用例统一改为直接等待自动导航，并在已选中侧栏条目核验“生成失败，可重试”，继续检查 pending 清理、原任务单次提交与单次重试；不降低业务断言。第一步适配还保留了首页 `.current-task-summary` 定位，三项因此明确失败；随后定位到实际选中的任务行，三项均通过。完整失败记录和中间记录均保留，未通过盲目重跑选取通过。
@@ -228,3 +230,7 @@ Git 保持 main / `b63a9035ebec63648ade23e89158072f2ecae384`；工作区仍有�
 最终在服务恢复后对运行库做 READ ONLY 对账：**35 表 / 2314 行全部行摘要不变**；包含私有配置、HTTP 入口配置、上传文件与 **13 份保留备份**在内的 **169 个文件摘要不变**。未清理这些备份，未重建、seed 或替换运行库。见 [数据/文件/端口核验](evidence/pg-only-20261001/runtime-protection-final.json)、[服务状态](evidence/pg-only-20261001/runtime-status-final.txt)。
 
 分支仍为 main，HEAD 仍为 `b63a9035ebec63648ade23e89158072f2ecae384`；保留既有及本轮未提交改动，没有 commit、push、分支操作或远端部署。最终源文件指纹复核不变。Windows Edge 和 ARM 未执行本轮验证；浏览器结果为当前 WSL 环境，未宣称远端或人工业务验收通过。
+
+## 证据归档说明
+
+2026-10-01 提交收口仅整理重复/中间证据及文档引用；正文中的测试结果、源码指纹和当时 Git 状态均保留原口径。原被测清单和证据指纹不重写；已删除文件的原 SHA-256、用途及保留替代证据见[收口记录](GIT_CLOSEOUT_20261001.md)与[清理清单](evidence/cleanup-20261001.json)。

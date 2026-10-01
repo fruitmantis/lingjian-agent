@@ -1,0 +1,53 @@
+{
+  "database": "banfei_agent_test",
+  "remaining_validation_schemas": [
+    {
+      "nspname": "validation_0d407746abce4ee6b4773411dc99f645"
+    },
+    {
+      "nspname": "validation_8221f29fb57f45459a13e604d45d08b6"
+    },
+    {
+      "nspname": "validation_8c14711aab6e41d1867da1c3598cc9b3"
+    },
+    {
+      "nspname": "validation_aa068e6b2844440193e7a6ab56b93fb5"
+    }
+  ],
+  "scope": "read-only catalog; no unrelated schema removed",
+  "existing_schemas_checked_for_this_run": [
+    {
+      "schema": "validation_0d407746abce4ee6b4773411dc99f645",
+      "audit_specific_records": 0
+    },
+    {
+      "schema": "validation_8221f29fb57f45459a13e604d45d08b6",
+      "audit_specific_records": 0
+    },
+    {
+      "schema": "validation_8c14711aab6e41d1867da1c3598cc9b3",
+      "audit_specific_records": 0
+    },
+    {
+      "schema": "validation_aa068e6b2844440193e7a6ab56b93fb5",
+      "audit_specific_records": 0
+    }
+  ],
+  "explicitly_observed_schemas_removed": {
+    "validation_028ad8d337694fb782cfdd468ac50067": true,
+    "validation_967096f46cac4b288b31079e7592a334": true,
+    "validation_db68ed2f3a334d5f92d4fecfe19dfd0e": true,
+    "validation_bcd9e4aeb1284a03abe6ea67dedd4ac4": true
+  },
+  "own_test_data_remaining": 0,
+  "supplier_schemas_removed": {
+    "validation_dae6acfc7199433682c4c222c6816569": true,
+    "validation_4e3b3d121f6d420cb8bdef9218f981c2": true,
+    "validation_1836ab8ca2cf4bf2aa7a31b915fb19bb": true,
+    "validation_d816a6d8f1d14e62bcc1f199b7e9ab1a": true,
+    "validation_92a3dbfc887c4d7ebc939d0875ed115e": true,
+    "validation_ff28bb9f1fa24ff4a60241139a769328": true,
+    "validation_0757fb8da3b44a5c9b69645543edebf2": true,
+    "validation_3a1c58fe9bd741179a8f1a5adb671558": true
+  }
+}

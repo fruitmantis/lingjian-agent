@@ -1,0 +1,16 @@
+{
+  "verified": false,
+  "existing_allowed_databases": [
+    {
+      "datname": "banfei_agent_test"
+    },
+    {
+      "datname": "banfei_validation"
+    }
+  ],
+  "current_role": {
+    "rolcreatedb": false,
+    "rolsuper": false
+  },
+  "reason": "No fresh allowlisted database target; the existing role cannot create a database. No overwrite, privilege change or private dump schema rewrite was attempted."
+}

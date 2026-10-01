@@ -1,0 +1,15 @@
+{
+  "branch": "main",
+  "head": "727e122a4f340e8ad8d1e5509e9d45af22a4fcef",
+  "reported_baseline": "b63a9035ebec63648ade23e89158072f2ecae384",
+  "reported_input_sha256": "c5e404f8b974bdddeaae4b8d5d59c05e74dc2fd1a58839faf344a91a5a75050b",
+  "manifest_entries": 416,
+  "mismatches": [],
+  "tracked_diff": [],
+  "retained_backup_paths": 13,
+  "all_retained_backup_files_present": true,
+  "final_git_status": [
+    "?? docs/validation/POSTGRES_ONLY_INDEPENDENT_REVIEW_20261001.md",
+    "?? docs/validation/evidence/pg-independent-20261001/"
+  ]
+}

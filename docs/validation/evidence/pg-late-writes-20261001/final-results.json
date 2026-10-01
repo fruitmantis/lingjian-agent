@@ -1,0 +1,34 @@
+{
+  "final-backend.xml": {
+    "tests": 954,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "final-independent-results.xml": {
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "final-browser.xml": {
+    "tests": 36,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "proxy-adapted-targeted.xml": {
+    "tests": 37,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "original_reproduction_after": {
+    "new_retry_value": "AUDIT_NEW",
+    "after_old_worker": "AUDIT_NEW",
+    "task_status": "ready"
+  },
+  "input_sha256": "8b7759ce37e4d64df1896b3363f3c6b70f55b9761b8fe6663fae83e4e98efedd",
+  "head": "727e122a4f340e8ad8d1e5509e9d45af22a4fcef",
+  "remaining_blocker": false
+}

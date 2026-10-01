@@ -1,0 +1,15 @@
+....F........                                                            [100%]
+=================================== FAILURES ===================================
+_____________ test_old_matching_enrichment_cannot_overwrite_retry ______________
+docs/validation/evidence/pg-independent-20261001/test_independent_pg.py:217: in test_old_matching_enrichment_cannot_overwrite_retry
+    assert after==new, 'Old matching worker overwrote the newer retry demand profile'
+E   AssertionError: Old matching worker overwrote the newer retry demand profile
+E   assert 'AUDIT_OLD' == 'AUDIT_NEW'
+E     
+E     - AUDIT_NEW
+E     + AUDIT_OLD
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "3def6c75-a165-4e4e-9eaf-95dc19c8e405", "time": "2026-10-01T13:22:08.965321+00:00", "request_id": "bf11e200-6538-4001-b61d-d6e68f7ba48b", "task_id": "e15b1753-3dcf-4d70-8d1f-de5784d8e98d", "run_id": null, "stage": "interrupted", "exception_type": "RuntimeError", "message": "Unfinished matching exceeded the recovery deadline", "model": null, "http_status": null, "response_excerpt": null, "traceback": "RuntimeError: Unfinished matching exceeded the recovery deadline"}
+=========================== short test summary info ============================
+FAILED docs/validation/evidence/pg-independent-20261001/test_independent_pg.py::test_old_matching_enrichment_cannot_overwrite_retry
+1 failed, 12 passed in 25.45s

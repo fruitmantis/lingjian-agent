@@ -62,7 +62,12 @@ def test_multiple_partial_reasons_preserve_recommendations(client,monkeypatch):
   reached.append(True);kwargs['failures'].append(failure('project_opportunity',http_error(429)));return False
  monkeypatch.setattr(match,'_extract_project_opportunity',opportunity)
  recs=[match.PartnerRecommendation.model_validate(recommendation())]
- assert match._run_task_enrichment(task,'synthetic',recs,'2026',include_tag_suggestions=False,snapshot={'understanding':{'facts':{},'tag_suggestions':[]},'outcome':{'supplyStatus':'partial','gapAnalysis':'需核实'}})=='partial'
+ from backend.app import match_understanding,task_progress
+ snapshot={'progress':task_progress.new('partner_match','partial-reasons-run'),'understanding':{'facts':{},'tag_suggestions':[]},'outcome':{'supplyStatus':'partial','gapAnalysis':'需核实'}}
+ with get_db() as conn:
+  conn.execute("UPDATE match_records SET task_status='enriching' WHERE id=?",(task,))
+  match_understanding.save(conn,task,snapshot)
+ assert match._run_task_enrichment(task,'synthetic',recs,'2026',include_tag_suggestions=False,snapshot=snapshot)=='partial'
  assert reached==[True]
  details=client.get('/agent/tasks/'+task,headers=auth_headers(a)).json()
  assert {x['code'] for x in details['failureDetails']}=={'timeout','rate_limit'}

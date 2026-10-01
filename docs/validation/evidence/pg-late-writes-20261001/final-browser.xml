@@ -1,0 +1,84 @@
+<testsuites id="" name="" tests="36" failures="0" skipped="0" errors="0" time="193.34388099999998">
+<testsuite name="release-validation.spec.ts" timestamp="2026-10-01T14:01:40.738Z" hostname="" tests="1" failures="0" skipped="0" time="6.565" errors="0">
+<testcase name="E2E-006 failed tasks retry while completed tasks return conflict" classname="release-validation.spec.ts" time="6.565">
+</testcase>
+</testsuite>
+<testsuite name="task-failure.spec.ts" timestamp="2026-10-01T14:01:40.738Z" hostname="" tests="20" failures="0" skipped="0" time="51.204" errors="0">
+<testcase name="ordinary list shows simple messages including legacy failures" classname="task-failure.spec.ts" time="1.424">
+</testcase>
+<testcase name="partial and failed revise preserve useful results at 1366" classname="task-failure.spec.ts" time="4.061">
+</testcase>
+<testcase name="partial and failed revise preserve useful results at 1920" classname="task-failure.spec.ts" time="2.78">
+</testcase>
+<testcase name="configuration failure asks for admin without technical detail" classname="task-failure.spec.ts" time="1.315">
+</testcase>
+<testcase name="failed refresh preserves existing development advice" classname="task-failure.spec.ts" time="4.163">
+</testcase>
+<testcase name="empty match is a normal outcome" classname="task-failure.spec.ts" time="1.171">
+</testcase>
+<testcase name="uncertain disconnect uses simple wording and keeps original pending task" classname="task-failure.spec.ts" time="1.66">
+</testcase>
+<testcase name="uncertain commit-error uses simple wording and keeps original pending task" classname="task-failure.spec.ts" time="2.892">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 202" classname="task-failure.spec.ts" time="3.237">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 502" classname="task-failure.spec.ts" time="2.197">
+</testcase>
+<testcase name="accepted matching timeout recovers original task after HTTP 500" classname="task-failure.spec.ts" time="2.627">
+</testcase>
+<testcase name="restored pending matching task resolves failed record without another submission" classname="task-failure.spec.ts" time="1.221">
+</testcase>
+<testcase name="accepted development timeout opens the saved failed plan with retry available" classname="task-failure.spec.ts" time="2.167">
+</testcase>
+<testcase name="failed development task clears old pending marker and retries same plan only once" classname="task-failure.spec.ts" time="3.303">
+</testcase>
+<testcase name="admin task errors tab expands and copies redacted details" classname="task-failure.spec.ts" time="5.261">
+</testcase>
+<testcase name="development service failure has no retry and no false usable advice claim" classname="task-failure.spec.ts" time="1.216">
+</testcase>
+<testcase name="initial generation failure preserves request without claiming old advice" classname="task-failure.spec.ts" time="1.448">
+</testcase>
+<testcase name="answer failure survives polling and can retry only after response ends" classname="task-failure.spec.ts" time="3.339">
+</testcase>
+<testcase name="lost development retry response only queries original run even after reload" classname="task-failure.spec.ts" time="2.448">
+</testcase>
+<testcase name="lost create response queries submission and never claims the demand was saved" classname="task-failure.spec.ts" time="3.274">
+</testcase>
+</testsuite>
+<testsuite name="task-navigation.spec.ts" timestamp="2026-10-01T14:01:40.738Z" hostname="" tests="10" failures="0" skipped="0" time="40.215" errors="0">
+<testcase name="submission appears before acknowledgement and survives navigation and reload" classname="task-navigation.spec.ts" time="10.153">
+</testcase>
+<testcase name="ten-row pages preserve scroll, selection and statuses when a new task arrives" classname="task-navigation.spec.ts" time="3.575">
+</testcase>
+<testcase name="directly opened older task stays visible without changing the first page" classname="task-navigation.spec.ts" time="1.922">
+</testcase>
+<testcase name="load-more failure retains existing rows and retry appends the next ten" classname="task-navigation.spec.ts" time="2.348">
+</testcase>
+<testcase name="lost acknowledgement confirms the same ID without a second submission" classname="task-navigation.spec.ts" time="2.402">
+</testcase>
+<testcase name="unconfirmed submission survives reload and only queries its original ID" classname="task-navigation.spec.ts" time="4.195">
+</testcase>
+<testcase name="task access stays visible at 1024px and empty new task creates no record" classname="task-navigation.spec.ts" time="2.162">
+</testcase>
+<testcase name="task access stays visible at 768px and empty new task creates no record" classname="task-navigation.spec.ts" time="2.232">
+</testcase>
+<testcase name="starting a blank task during submission keeps the previous job in navigation" classname="task-navigation.spec.ts" time="6.648">
+</testcase>
+<testcase name="detail polling preserves unsaved opportunity fields" classname="task-navigation.spec.ts" time="4.578">
+</testcase>
+</testsuite>
+<testsuite name="task-progress.spec.ts" timestamp="2026-10-01T14:01:40.738Z" hostname="" tests="2" failures="0" skipped="0" time="29.431" errors="0">
+<testcase name="match: accepted task selects itself and restores input, stages, results and elapsed time" classname="task-progress.spec.ts" time="16.389">
+</testcase>
+<testcase name="development: accepted task selects itself and restores input, stages, results and elapsed time" classname="task-progress.spec.ts" time="13.042">
+</testcase>
+</testsuite>
+<testsuite name="unified-entry.spec.ts" timestamp="2026-10-01T14:01:40.738Z" hostname="" tests="3" failures="0" skipped="0" time="52.671" errors="0">
+<testcase name="Unified task modes, source links and shared history 1366" classname="unified-entry.spec.ts" time="28.105">
+</testcase>
+<testcase name="Unified task modes, source links and shared history 1920" classname="unified-entry.spec.ts" time="20.985">
+</testcase>
+<testcase name="Switching mode during matching acknowledgement preserves explicit intent" classname="unified-entry.spec.ts" time="3.581">
+</testcase>
+</testsuite>
+</testsuites>

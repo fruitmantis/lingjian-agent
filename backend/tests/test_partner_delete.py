@@ -200,7 +200,10 @@ def test_late_match_after_deletion_is_retryable_not_stuck(client, admin, monkeyp
         response = client.post(f'/agent/tasks/{task}/retry',headers=auth_headers(admin))
         assert response.status_code == 409
     else:
-        with pytest.raises(HTTPException) as caught: match._execute_match(task,'Synthetic','2026-09-08')
+        from backend.app import match_understanding,task_progress
+        run_id='late-deletion-run'
+        with get_db() as conn:match_understanding.save(conn,task,{'progress':task_progress.new('partner_match',run_id)})
+        with pytest.raises(HTTPException) as caught: match._execute_match(task,'Synthetic','2026-09-08',run_id)
         assert caught.value.status_code == 409
     with get_db() as conn:
         row = conn.execute('SELECT task_status,recommendations_json FROM match_records WHERE id=?',(task,)).fetchone()

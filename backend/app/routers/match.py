@@ -475,6 +475,22 @@ def _context_excerpt(value: str | None, limit: int) -> str:
     return text if len(text) <= limit else text[:limit] + '…（摘要截取）'
 
 
+class _MatchExecutionLost(HTTPException):
+    def __init__(self):
+        super().__init__(409, '任务状态已变化，请刷新查看当前结果')
+
+
+def _require_match_run(conn, record_id, run_id, allowed_statuses=('matching', 'enriching')):
+    """Check ownership under the same writer lock as recovery, retry and saving."""
+    conn.lock_writer()
+    row = conn.execute('SELECT task_status FROM match_records WHERE id=?', (record_id,)).fetchone()
+    snapshot = understanding.load(conn, record_id) or {}
+    if (not run_id or not row or row['task_status'] not in allowed_statuses
+            or snapshot.get('progress', {}).get('run_id') != run_id):
+        raise _MatchExecutionLost()
+    return snapshot
+
+
 def _match_stage(record_id, snapshot, key, state):
     if not snapshot.get('progress'):
         return
@@ -483,7 +499,7 @@ def _match_stage(record_id, snapshot, key, state):
         row = conn.execute('SELECT task_status FROM match_records WHERE id=?', (record_id,)).fetchone()
         current = understanding.load(conn, record_id) or {}
         if not row or row['task_status'] not in ('matching', 'enriching') or current.get('progress',{}).get('run_id') != snapshot['progress']['run_id']:
-            raise RuntimeError('Task execution no longer owns this attempt')
+            raise _MatchExecutionLost()
         task_progress.stage(snapshot['progress'], key, state)
         understanding.save(conn, record_id, snapshot)
         conn.execute('UPDATE match_records SET updated_at=? WHERE id=?', (task_progress.now(), record_id))
@@ -681,7 +697,7 @@ def _set_task_state(
         if expected_run_id and (not current or current['task_status'] not in ('matching','enriching') or stored.get('progress',{}).get('run_id') != expected_run_id):
             return
         if snapshot and snapshot.get('progress') and (not current or current['task_status'] not in ('matching','enriching') or stored.get('progress',{}).get('run_id') != snapshot['progress']['run_id']):
-            raise RuntimeError('Task execution no longer owns this attempt')
+            raise _MatchExecutionLost()
         if recommendations is None:
             cursor = conn.execute(
                 "UPDATE match_records SET task_status = ?, last_error_stage = ?, last_error_details = ?, updated_at = ? WHERE id = ?",
@@ -717,7 +733,7 @@ def _set_task_state(
             if stored: understanding.save(conn,record_id,stored)
 
 
-def _claim_task_retry(record_id: str, current_status: str, next_status: str, user_id: str) -> None:
+def _claim_task_retry(record_id: str, current_status: str, next_status: str, user_id: str, run_id: str) -> None:
     """Atomically prevent two retry requests from running the same task."""
     with get_db() as conn:
         conn.lock_writer()
@@ -730,6 +746,9 @@ def _claim_task_retry(record_id: str, current_status: str, next_status: str, use
         )
         if cursor.rowcount != 1:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="任务状态已变化，请刷新后再试")
+        cached = understanding.load(conn, record_id) or {}
+        cached['progress'] = task_progress.new('partner_match', run_id)
+        understanding.save(conn, record_id, cached)
 
 
 def _run_task_enrichment(
@@ -743,6 +762,7 @@ def _run_task_enrichment(
     refresh: bool = False,
 ) -> str:
     """Generate missing task derivatives and persist a truthful final task state."""
+    run_id = snapshot['progress']['run_id']
     with get_db() as conn:
         demand_exists = conn.execute(
             "SELECT 1 FROM demand_profiles WHERE match_record_id = ? LIMIT 1", (record_id,),
@@ -756,8 +776,11 @@ def _run_task_enrichment(
     if not demand_exists or refresh:
         bind_context(stage="demand_profile")
         try:
-            _generate_demand_profile(record_id, requirement, recommendations, created_at, data={**snapshot['understanding']['facts'],**snapshot['outcome']})
+            _generate_demand_profile(record_id, requirement, recommendations, created_at,
+                data={**snapshot['understanding']['facts'],**snapshot['outcome']}, expected_run_id=run_id)
             demand_exists = True
+        except _MatchExecutionLost:
+            raise
         except Exception as exc:
             failures.append(failure("demand_profile",exc))
             failed_stages.append("demand_profile")
@@ -765,19 +788,21 @@ def _run_task_enrichment(
 
     if include_tag_suggestions:
         bind_context(stage="tag_suggestion")
-        if not _generate_tag_suggestions(requirement, record_id, items=snapshot['understanding']['tag_suggestions']):
+        if not _generate_tag_suggestions(requirement, record_id,
+                items=snapshot['understanding']['tag_suggestions'], expected_run_id=run_id):
             failures.append(failure("tag_suggestion"));failed_stages.append("tag_suggestion")
             print(f"[WARN] tag suggestion generation failed for task {record_id}", flush=True)
 
     if not opportunity_exists or refresh:
         bind_context(stage="project_opportunity")
-        opportunity_exists = _extract_project_opportunity(requirement, record_id, recommendations, failures=failures, data=snapshot['understanding']['facts'])
+        opportunity_exists = _extract_project_opportunity(requirement, record_id, recommendations,
+            failures=failures, data=snapshot['understanding']['facts'], expected_run_id=run_id)
         if not opportunity_exists:
             failed_stages.append("project_opportunity")
 
     bind_context(stage="persistence")
     final_status = "ready" if demand_exists and opportunity_exists and not failed_stages else "partial"
-    _set_task_state(record_id, final_status, ",".join(failed_stages) or None, failures=failures, expected_run_id=(snapshot.get('progress') or {}).get('run_id'))
+    _set_task_state(record_id, final_status, ",".join(failed_stages) or None, failures=failures, expected_run_id=run_id)
     return final_status
 
 
@@ -786,6 +811,7 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
     if not req.requirement.strip():
         raise HTTPException(422, detail="请输入项目需求")
     record_id = str(uuid.uuid4())
+    run_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     try:
         with get_db() as conn:
@@ -798,25 +824,25 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
                    VALUES (?, ?, '[]', ?, ?, ?, 'matching', NULL, ?)""",
                 (record_id, req.requirement, now, user["username"], user["id"], now),
             )
+            understanding.save(conn,record_id,{'progress':task_progress.new('partner_match',run_id,now)})
     except HTTPException:
         raise
     except Exception as error:
         record_error(error, "submission", task_id=record_id)
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="服务异常，请联系管理员。")
 
-    with get_db() as conn:understanding.save(conn,record_id,{'progress':task_progress.new('partner_match',str(uuid.uuid4()),now)})
-    return _execute_match(record_id, req.requirement, now)
+    return _execute_match(record_id, req.requirement, now, run_id)
 
 
-def _execute_match(record_id: str, requirement: str, created_at: str) -> MatchResponse:
+def _execute_match(record_id: str, requirement: str, created_at: str, run_id: str) -> MatchResponse:
     with diagnostic_scope(task_id=record_id, stage='partner_match'):
-        return _execute_match_inner(record_id, requirement, created_at)
+        return _execute_match_inner(record_id, requirement, created_at, run_id)
 
 
-def _execute_match_inner(record_id: str, requirement: str, created_at: str) -> MatchResponse:
+def _execute_match_inner(record_id: str, requirement: str, created_at: str, run_id: str) -> MatchResponse:
     stage = 'understanding'
     with get_db() as conn:
-        cached = understanding.load(conn,record_id) or {}
+        cached = _require_match_run(conn, record_id, run_id, ('matching',))
         row = conn.execute('SELECT recommendations_json FROM match_records WHERE id=?',(record_id,)).fetchone()
     snapshot = cached
     bind_context(stage='understanding',run_id=(snapshot.get('progress') or {}).get('run_id'),request_id=record_id)
@@ -832,7 +858,7 @@ def _execute_match_inner(record_id: str, requirement: str, created_at: str) -> M
         snapshot['_task_id'] = record_id
         _match_stage(record_id, snapshot, 'understanding', 'completed')
         if not snapshot['understanding']['in_scope']:
-            _set_task_state(record_id,'ready',expected_run_id=(snapshot.get('progress') or {}).get('run_id'))
+            _set_task_state(record_id,'ready',expected_run_id=run_id)
             return MatchResponse(requirement=requirement,recommendations=[],recordId=record_id,taskStatus='ready')
         stage = 'partner_match';bind_context(stage=stage,run_id=(snapshot.get('progress') or {}).get('run_id'))
         recs = [PartnerRecommendation.model_validate(item) for item in saved_recommendations] if reusable else _perform_partner_match(requirement,snapshot)
@@ -843,11 +869,13 @@ def _execute_match_inner(record_id: str, requirement: str, created_at: str) -> M
         task_status = _run_task_enrichment(record_id, requirement, recs, created_at,
             include_tag_suggestions=True, snapshot=snapshot, refresh=not reusable)
         return MatchResponse(requirement=requirement,recommendations=recs,recordId=record_id,taskStatus=task_status)
+    except _MatchExecutionLost:
+        raise
     except Exception as error:
         # A successful earlier result stays readable, including on a later retry.
         try:
             _set_task_state(record_id, 'partial' if saved_recommendations or snapshot.get('visible_answer') else 'failed', stage,
-                            failures=[failure(stage,error)], expected_run_id=(snapshot.get('progress') or {}).get('run_id'))
+                            failures=[failure(stage,error)], expected_run_id=run_id)
         except Exception as persistence_error:
             record_error(persistence_error,'persistence',task_id=record_id)
         if isinstance(error, HTTPException): raise
@@ -855,9 +883,11 @@ def _execute_match_inner(record_id: str, requirement: str, created_at: str) -> M
         raise PublicTaskError(error, error_status) from error
 
 
-def _process_created_task(record_id: str, requirement: str, created_at: str) -> None:
+def _process_created_task(record_id: str, requirement: str, created_at: str, run_id: str) -> None:
     try:
-        _execute_match(record_id, requirement, created_at)
+        _execute_match(record_id, requirement, created_at, run_id)
+    except _MatchExecutionLost:
+        return
     except Exception:
         # The response was already sent. _execute_match persists stage-specific failure state.
         print(f"[WARN] background processing failed for task {record_id}", flush=True)
@@ -892,14 +922,19 @@ def create_task(req: TaskCreateRequest, user: dict = Depends(require_active_user
 
     # get_db has independently committed. No model work can run before this line.
     try:
-        executor.submit(_process_created_task,record_id,requirement,stamp)
+        executor.submit(_process_created_task,record_id,requirement,stamp,run_id)
     except RuntimeError as error:
         _set_task_state(record_id,'failed','interrupted',failures=[failure('interrupted',error)],expected_run_id=run_id)
         return TaskAccepted(recordId=record_id,runId=run_id,taskStatus='failed')
     return TaskAccepted(recordId=record_id,runId=run_id,taskStatus='matching')
 
 
-def _save_derivative(conn, table, columns, values):
+def _save_derivative(conn, table, columns, values, *, expected_run_id=None):
+    if expected_run_id is not None:
+        _require_match_run(conn, values[1], expected_run_id, ('enriching',))
+    else:
+        # Explicit maintenance extraction is outside the task executor.
+        conn.lock_writer()
     row=conn.execute('SELECT id FROM '+table+' WHERE match_record_id=? ORDER BY created_at DESC LIMIT 1',(values[1],)).fetchone()
     if row:
         updates=[(k,v) for k,v in zip(columns,values) if k not in ('id','created_at')]
@@ -911,6 +946,7 @@ def _save_derivative(conn, table, columns, values):
 def _extract_project_opportunity(
     requirement: str, match_record_id: str, recommendations: list[PartnerRecommendation],
     *, strict: bool = False, failures: list[dict] | None = None, data: dict | None = None,
+    expected_run_id: str | None = None,
 ) -> bool:
     try:
         from ..ai_client import chat_completion
@@ -959,9 +995,12 @@ def _extract_project_opportunity(
         with get_db() as conn:
             _save_derivative(conn,
                 'project_opportunities', ['id', 'match_record_id', 'requirement_text', 'customer_name', 'project_name', 'industry', 'region', 'project_stage', 'business_needs', 'technical_needs', 'delivery_needs', 'qualification_requirements', 'case_requirements', 'onsite_requirement', 'timeline_requirement', 'cloud_platform_preference', 'matched_capability_tags', 'unmatched_capability_signals', 'recommended_partner_ids', 'recommended_partner_names', 'supply_status', 'completeness_score', 'missing_fields', 'follow_up_questions', 'created_at', 'updated_at'],
-                (opp_id, match_record_id, requirement, data.get("customerName","未识别"), data.get("projectName","未识别"), data.get("industry","未识别"), data.get("region","未识别"), data.get("projectStage","未识别"), data.get("businessNeeds","未识别"), data.get("technicalNeeds","未识别"), data.get("deliveryNeeds","未识别"), data.get("qualificationRequirements","未识别"), data.get("caseRequirements","未识别"), data.get("onsiteRequirement","未识别"), data.get("timelineRequirement","未识别"), data.get("cloudPlatformPreference","未识别"), cap_tags, "", "", rec_names, supply, completeness, ",".join(missing), json.dumps(data.get("followUpQuestions",[]), ensure_ascii=False), now, now)
+                (opp_id, match_record_id, requirement, data.get("customerName","未识别"), data.get("projectName","未识别"), data.get("industry","未识别"), data.get("region","未识别"), data.get("projectStage","未识别"), data.get("businessNeeds","未识别"), data.get("technicalNeeds","未识别"), data.get("deliveryNeeds","未识别"), data.get("qualificationRequirements","未识别"), data.get("caseRequirements","未识别"), data.get("onsiteRequirement","未识别"), data.get("timelineRequirement","未识别"), data.get("cloudPlatformPreference","未识别"), cap_tags, "", "", rec_names, supply, completeness, ",".join(missing), json.dumps(data.get("followUpQuestions",[]), ensure_ascii=False), now, now),
+                expected_run_id=expected_run_id,
             )
         return True
+    except _MatchExecutionLost:
+        raise
     except Exception as exc:
         record_error(exc, "project_opportunity", task_id=match_record_id)
         if failures is not None:failures.append(failure("project_opportunity",exc))
@@ -969,7 +1008,8 @@ def _extract_project_opportunity(
         return False
 
 
-def _generate_tag_suggestions(requirement: str, match_record_id: str, *, items: list | None = None) -> bool:
+def _generate_tag_suggestions(requirement: str, match_record_id: str, *, items: list | None = None,
+                              expected_run_id: str | None = None) -> bool:
     try:
         with get_db() as conn:
             std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
@@ -987,11 +1027,15 @@ def _generate_tag_suggestions(requirement: str, match_record_id: str, *, items: 
             if clean.startswith("json"): clean = clean[4:].strip()
             items = json.loads(clean)
         now = datetime.now(timezone.utc).isoformat()
-        for item in items:
-            name = item.get("suggestedName", "").strip()
-            if not name or name in std_tags or name in existing_sugs:
-                continue
-            with get_db() as conn:
+        with get_db() as conn:
+            if expected_run_id is not None:
+                _require_match_run(conn, match_record_id, expected_run_id, ('enriching',))
+            else:
+                conn.lock_writer()
+            for item in items:
+                name = item.get("suggestedName", "").strip()
+                if not name or name in std_tags or name in existing_sugs:
+                    continue
                 existing = conn.execute("SELECT id, occurrence_count FROM capability_tag_suggestions WHERE suggested_name = ? AND status = 'pending'", (name,)).fetchone()
                 if existing:
                     conn.execute("UPDATE capability_tag_suggestions SET occurrence_count = occurrence_count + 1, updated_at = ? WHERE id = ?", (now, existing["id"]))
@@ -1000,8 +1044,10 @@ def _generate_tag_suggestions(requirement: str, match_record_id: str, *, items: 
                         "INSERT INTO capability_tag_suggestions (id, suggested_name, suggested_category_id, suggested_category_name, description, evidence_text, source_requirement, source_match_record_id, confidence, occurrence_count, status, created_at, updated_at, adopted_at) VALUES (?,?,?,?,?,?,?,?,?,1,'pending',?,?,NULL)",
                         (str(uuid.uuid4()), name, None, item.get("suggestedCategoryName", "其他"), item.get("description", ""), item.get("evidenceText", ""), requirement, match_record_id, float(item.get("confidence", 0.5)), now, now)
                     )
-            existing_sugs.add(name)
+                existing_sugs.add(name)
         return True
+    except _MatchExecutionLost:
+        raise
     except Exception as error:
         record_error(error, "tag_suggestion", task_id=match_record_id)
         return False
@@ -1018,7 +1064,7 @@ def _generate_demand_profile(
     requirement: str,
     recs: list[PartnerRecommendation],
     created_at: str,
-    *, strict: bool = False, data: dict | None = None,
+    *, strict: bool = False, data: dict | None = None, expected_run_id: str | None = None,
 ) -> None:
     """Persist shared facts; maintenance calls retain their explicit extraction path."""
     partner_count=len(recs)
@@ -1072,7 +1118,8 @@ def _generate_demand_profile(
     with get_db() as conn:
         _save_derivative(conn,
             'demand_profiles', ['id', 'match_record_id', 'requirement_text', 'industry_tags', 'capability_tags', 'delivery_type_tags', 'region_tags', 'complexity_level', 'urgency_level', 'project_keywords', 'matched_partner_count', 'top_partner_names', 'supply_status', 'gap_analysis', 'created_at'],
-            (profile_id, match_record_id, requirement, industry_tags, capability_tags, delivery_type_tags, region_tags, complexity_level, urgency_level, project_keywords, partner_count, top_names, llm_supply_status, gap_analysis, created_at)
+            (profile_id, match_record_id, requirement, industry_tags, capability_tags, delivery_type_tags, region_tags, complexity_level, urgency_level, project_keywords, partner_count, top_names, llm_supply_status, gap_analysis, created_at),
+            expected_run_id=expected_run_id,
         )
 
 
@@ -1094,12 +1141,9 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
         raise HTTPException(status.HTTP_409_CONFLICT, detail="任务正在处理中，请稍后再试")
 
     requirement=row['requirement'];created_at=row['created_at']
-    _claim_task_retry(record_id,row['task_status'],'matching',user['id'])
-    with get_db() as conn:
-        cached=understanding.load(conn,record_id) or {}
-        cached['progress']=task_progress.new('partner_match',str(uuid.uuid4()))
-        understanding.save(conn,record_id,cached)
-    return _execute_match(record_id,requirement,created_at)
+    run_id = str(uuid.uuid4())
+    _claim_task_retry(record_id,row['task_status'],'matching',user['id'],run_id)
+    return _execute_match(record_id,requirement,created_at,run_id)
 
 
 @router.patch("/tasks/{record_id}/archive", status_code=status.HTTP_204_NO_CONTENT)

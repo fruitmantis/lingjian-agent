@@ -1,0 +1,22 @@
+{
+  "head": "727e122a4f340e8ad8d1e5509e9d45af22a4fcef",
+  "branch": "main",
+  "files": {
+    "docs/validation/evidence/pg-independent-20261001/audit-manifest.json": "0729f6af5d11f999577a3430f7b697f919c1396704c351764b6505893c7a4b68",
+    "docs/validation/evidence/pg-independent-20261001/catalog-result.json": "30f725f2c6f4217d83779308641c0a500bf22995ae92c5f981ea879fdcc6746b",
+    "docs/validation/evidence/pg-independent-20261001/catalog_audit.py": "da4a4c103bed36dc763ed8d13b4fef80783eeff5fc1ec547a64194aedda2a066",
+    "docs/validation/evidence/pg-independent-20261001/cleanup-result.json": "7e200d635c6e056f5c2510346a04b7dcafd7ed3877aa536c8376f83d1297de1b",
+    "docs/validation/evidence/pg-independent-20261001/independent.txt": "2de824779af069628089036c34e75782a4c327033b086ff917d5b4ce57557f26",
+    "docs/validation/evidence/pg-independent-20261001/independent.xml": "d84dedb5af567b27822794744f7a4a4e7d13aa056542c94a5f7e2bd0b5866f5b",
+    "docs/validation/evidence/pg-independent-20261001/original-72-review.json": "005d504d1f2fbe258bdeabf903d5c6bfa21e69db1d6fa7ac24d87b9e7bddc726",
+    "docs/validation/evidence/pg-independent-20261001/restore-safety.json": "ca7d73e82ccc90c5db03edc9db5b0c1d06685df71587fd2cb31d177157375a72",
+    "docs/validation/evidence/pg-independent-20261001/review-state.json": "397194be1da1f53f4da2a53c432fdefeef7ad6dbcc4930d0542b72d214a4faea",
+    "docs/validation/evidence/pg-independent-20261001/run_checks.py": "ea774e82c4f32578929d82b9edaef3b48cf024b722de2c4b5ec74fcfb93ffe3d",
+    "docs/validation/evidence/pg-independent-20261001/supplier-evidence.txt": "30fc6bc653265a75b70280fb72fcc42ba5f61e3833ee054e4e8e6e38f8545797",
+    "docs/validation/evidence/pg-independent-20261001/supplier-evidence.xml": "24485a8c8d9f26b1b598c810f8cebcbd781f541c6f7ef0da134a0ab0503e2e87",
+    "docs/validation/evidence/pg-independent-20261001/test_independent_pg.py": "3e10f6377da4055304296322ade1b2d90956afb5f1483de232b9eab8e13b64e2",
+    "docs/validation/evidence/pg-independent-20261001/test_supplier_evidence.py": "337409db7013b5aa9a1a9812984409fb4d34ff3fccf8715a24a736aa3519eee8",
+    "docs/validation/evidence/pg-independent-20261001/trigger-diagnostics.json": "78de2e0f53a5b2e330849aa1c4228078ceb89e81fd12803bb3b57c9fa381c84a",
+    "backend/app/routers/match.py": "df2e5e8eaf513144d02b0f765d4fc35a81934690b31d891bb5cef67f19ec8b81"
+  }
+}

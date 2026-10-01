@@ -1,0 +1,104 @@
+
+> lingjian-agent-frontend@0.1.0 test:e2e
+> playwright test task-failure.spec.ts task-navigation.spec.ts task-progress.spec.ts unified-entry.spec.ts release-validation.spec.ts --grep task-failure|task-navigation|task-progress|unified-entry|E2E-006 --reporter=line,junit --output=/tmp/banfei-late-writes-final-zr06yr_k/browser-artifacts
+
+[1A[2K[2m[WebServer] [22mINFO:     Started server process [165324]
+[2m[WebServer] [22mINFO:     Waiting for application startup.
+[2m[WebServer] [22mINFO:     Application startup complete.
+
+[1A[2K[2m[WebServer] [22mINFO:     Uvicorn running on http://127.0.0.1:18180 (Press CTRL+C to quit)
+
+[1A[2K[2m[WebServer] [22mINFO:     Started server process [165334]
+[2m[WebServer] [22mINFO:     Waiting for application startup.
+
+[1A[2K[2m[WebServer] [22mINFO:     Application startup complete.
+
+[1A[2K[2m[WebServer] [22mINFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+[1A[2K[2m[WebServer] [22m(node:165345) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[2m[WebServer] [22m(node:165373) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+
+[1A[2K[2m[WebServer] [22m{"level":"info","ts":1790863298.6831162,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+[2m[WebServer] [22m{"level":"info","ts":1790863298.6831923,"msg":"GOMEMLIMIT is updated","GOMEMLIMIT":7495582924,"previous":9223372036854775807}
+[2m[WebServer] [22m{"level":"info","ts":1790863298.6831958,"msg":"using config from file","file":"../deploy/Caddyfile"}
+[2m[WebServer] [22m{"level":"info","ts":1790863298.6831975,"msg":"adapted config to JSON","adapter":"caddyfile"}
+[2m[WebServer] [22m{"level":"warn","ts":1790863298.6832216,"logger":"admin","msg":"admin endpoint disabled"}
+
+[1A[2K[2m[WebServer] [22m{"level":"warn","ts":1790863298.6835253,"logger":"http.auto_https","msg":"server is listening only on the HTTP port, so no automatic HTTPS will be applied to this server","server_name":"srv0","http_port":80}
+[2m[WebServer] [22m{"level":"info","ts":1790863298.6836095,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0x110a2c1c8f80"}
+
+[1A[2K[2m[WebServer] [22m{"level":"warn","ts":1790863298.694446,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":80"}
+[2m[WebServer] [22m{"level":"warn","ts":1790863298.69451,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":80"}
+[2m[WebServer] [22m{"level":"info","ts":1790863298.694514,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+[2m[WebServer] [22m{"level":"info","ts":1790863298.694605,"msg":"serving initial configuration"}
+
+[1A[2K[2m[WebServer] [22m{"level":"info","ts":1790863298.699515,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/home/yuan/.local/share/caddy","instance":"80de6c44-2c7d-4c98-b0a6-680101eabc4c","try_again":1790949698.6995122,"try_again_in":86399.999999322}
+
+[1A[2K[2m[WebServer] [22m{"level":"info","ts":1790863298.6996799,"logger":"tls","msg":"finished cleaning storage units"}
+
+
+Running 36 tests using 1 worker
+
+[1A[2K[1/36] release-validation.spec.ts:85:5 › E2E-006 failed tasks retry while completed tasks return conflict
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"understanding","partner_count":0,"input_chars":4645,"estimated_input_tokens":2771,"preparation_ms":11,"call_ms":48,"retry_count":0}
+
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"initial_selection","partner_count":1,"input_chars":1796,"estimated_input_tokens":1097,"preparation_ms":6,"call_ms":20,"retry_count":0}
+
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"detailed_review","partner_count":1,"input_chars":3325,"estimated_input_tokens":1906,"preparation_ms":6,"call_ms":22,"retry_count":0}
+
+[1A[2K[2/36] task-failure.spec.ts:30:5 › ordinary list shows simple messages including legacy failures
+[1A[2K[3/36] task-failure.spec.ts:41:36 › partial and failed revise preserve useful results at 1366
+[1A[2K[4/36] task-failure.spec.ts:41:36 › partial and failed revise preserve useful results at 1920
+[1A[2K[5/36] task-failure.spec.ts:57:5 › configuration failure asks for admin without technical detail
+[1A[2K[6/36] task-failure.spec.ts:66:5 › failed refresh preserves existing development advice
+[1A[2K[7/36] task-failure.spec.ts:76:5 › empty match is a normal outcome
+[1A[2K[8/36] task-failure.spec.ts:84:56 › uncertain disconnect uses simple wording and keeps original pending task
+[1A[2K[9/36] task-failure.spec.ts:84:56 › uncertain commit-error uses simple wording and keeps original pending task
+[1A[2K[10/36] task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 202
+[1A[2K[11/36] task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 502
+[1A[2K[12/36] task-failure.spec.ts:101:39 › accepted matching timeout recovers original task after HTTP 500
+[1A[2K[13/36] task-failure.spec.ts:125:5 › restored pending matching task resolves failed record without another submission
+[1A[2K[14/36] task-failure.spec.ts:136:5 › accepted development timeout opens the saved failed plan with retry available
+[1A[2K[15/36] task-failure.spec.ts:152:5 › failed development task clears old pending marker and retries same plan only once
+[1A[2K[16/36] task-failure.spec.ts:175:5 › admin task errors tab expands and copies redacted details
+[1A[2K[17/36] task-failure.spec.ts:220:5 › development service failure has no retry and no false usable advice claim
+[1A[2K[18/36] task-failure.spec.ts:231:5 › initial generation failure preserves request without claiming old advice
+[1A[2K[19/36] task-failure.spec.ts:243:5 › answer failure survives polling and can retry only after response ends
+[1A[2K[20/36] task-failure.spec.ts:265:5 › lost development retry response only queries original run even after reload
+[1A[2K[21/36] task-failure.spec.ts:282:5 › lost create response queries submission and never claims the demand was saved
+[1A[2K[22/36] task-navigation.spec.ts:37:5 › submission appears before acknowledgement and survives navigation and reload
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"understanding","partner_count":0,"input_chars":4656,"estimated_input_tokens":2781,"preparation_ms":6,"call_ms":5042,"retry_count":0}
+
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"initial_selection","partner_count":1,"input_chars":1796,"estimated_input_tokens":1097,"preparation_ms":13,"call_ms":26,"retry_count":0}
+
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"detailed_review","partner_count":1,"input_chars":3325,"estimated_input_tokens":1906,"preparation_ms":8,"call_ms":34,"retry_count":0}
+
+[1A[2K[23/36] task-navigation.spec.ts:74:5 › ten-row pages preserve scroll, selection and statuses when a new task arrives
+[1A[2K[24/36] task-navigation.spec.ts:107:5 › directly opened older task stays visible without changing the first page
+[1A[2K[25/36] task-navigation.spec.ts:116:5 › load-more failure retains existing rows and retry appends the next ten
+[1A[2K[26/36] task-navigation.spec.ts:132:5 › lost acknowledgement confirms the same ID without a second submission
+[1A[2K[27/36] task-navigation.spec.ts:152:5 › unconfirmed submission survives reload and only queries its original ID
+[1A[2K[28/36] task-navigation.spec.ts:176:7 › task access stays visible at 1024px and empty new task creates no record
+[1A[2K[29/36] task-navigation.spec.ts:176:7 › task access stays visible at 768px and empty new task creates no record
+[1A[2K[30/36] task-navigation.spec.ts:195:5 › starting a blank task during submission keeps the previous job in navigation
+[1A[2K[31/36] task-navigation.spec.ts:226:5 › detail polling preserves unsaved opportunity fields
+[1A[2K[32/36] task-progress.spec.ts:4:6 › match: accepted task selects itself and restores input, stages, results and elapsed time
+[1A[2K[33/36] task-progress.spec.ts:4:6 › development: accepted task selects itself and restores input, stages, results and elapsed time
+[1A[2K[34/36] unified-entry.spec.ts:8:36 › Unified task modes, source links and shared history 1366
+[1A[2K[35/36] unified-entry.spec.ts:8:36 › Unified task modes, source links and shared history 1920
+[1A[2K[36/36] unified-entry.spec.ts:50:5 › Switching mode during matching acknowledgement preserves explicit intent
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"understanding","partner_count":0,"input_chars":4647,"estimated_input_tokens":2779,"preparation_ms":5,"call_ms":26,"retry_count":0}
+
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"initial_selection","partner_count":1,"input_chars":1796,"estimated_input_tokens":1097,"preparation_ms":7,"call_ms":29,"retry_count":0}
+
+[1A[2K[2m[WebServer] [22mINFO:     MATCH_STAGE {"stage":"detailed_review","partner_count":1,"input_chars":3325,"estimated_input_tokens":1906,"preparation_ms":8,"call_ms":41,"retry_count":0}
+
+[1A[2K  Slow test file: unified-entry.spec.ts (52.7s)
+  Slow test file: task-failure.spec.ts (51.2s)
+  Slow test file: task-navigation.spec.ts (40.2s)
+  Slow test file: task-progress.spec.ts (29.4s)
+  Consider splitting slow test files to speed up parallel execution
+  36 passed (3.2m)

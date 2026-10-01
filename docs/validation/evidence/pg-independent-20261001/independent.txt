@@ -1,0 +1,31 @@
+....F                                                                    [100%]
+=================================== FAILURES ===================================
+_____________ test_old_matching_enrichment_cannot_overwrite_retry ______________
+docs/validation/evidence/pg-independent-20261001/test_independent_pg.py:217: in test_old_matching_enrichment_cannot_overwrite_retry
+    assert after==new, 'Old matching worker overwrote the newer retry demand profile'
+E   AssertionError: Old matching worker overwrote the newer retry demand profile
+E   assert 'AUDIT_OLD' == 'AUDIT_NEW'
+E     
+E     - AUDIT_NEW
+E     + AUDIT_OLD
+------------------------------ Captured log call -------------------------------
+ERROR    banfei.errors:error_diagnostics.py:156 BANFEI_ERROR {"id": "35d70b6e-cb49-4c25-ae55-c33b9cfd8673", "time": "2026-10-01T12:57:46.669318+00:00", "request_id": "392571c7-9d57-4636-88fe-5d2f7eb0c4b2", "task_id": "3262e147-c726-4f95-b9b2-16692b7e3349", "run_id": null, "stage": "interrupted", "exception_type": "RuntimeError", "message": "Unfinished matching exceeded the recovery deadline", "model": null, "http_status": null, "response_excerpt": null, "traceback": "RuntimeError: Unfinished matching exceeded the recovery deadline"}
+=============================== warnings summary ===============================
+docs/validation/evidence/pg-independent-20261001/test_independent_pg.py::test_two_owners_progress_without_model_wait_lock[kinds0]
+docs/validation/evidence/pg-independent-20261001/test_independent_pg.py::test_two_owners_progress_without_model_wait_lock[kinds1]
+docs/validation/evidence/pg-independent-20261001/test_independent_pg.py::test_two_owners_progress_without_model_wait_lock[kinds2]
+  docs/validation/evidence/pg-independent-20261001/test_independent_pg.py:67: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    @pytest.mark.parametrize('kinds',[('development','development'),('match','match'),('development','match')])
+
+docs/validation/evidence/pg-independent-20261001/test_independent_pg.py::test_answer_failure_patch_retry_and_late_result_independent_pg
+  docs/validation/evidence/pg-independent-20261001/test_independent_pg.py:143: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_answer_failure_patch_retry_and_late_result_independent_pg(client,unified,monkeypatch,record_property):
+
+docs/validation/evidence/pg-independent-20261001/test_independent_pg.py::test_old_matching_enrichment_cannot_overwrite_retry
+  docs/validation/evidence/pg-independent-20261001/test_independent_pg.py:188: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_old_matching_enrichment_cannot_overwrite_retry(prepared,monkeypatch,record_property):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED docs/validation/evidence/pg-independent-20261001/test_independent_pg.py::test_old_matching_enrichment_cannot_overwrite_retry
+1 failed, 4 passed, 5 warnings in 8.12s

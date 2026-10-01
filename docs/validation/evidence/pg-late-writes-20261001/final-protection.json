@@ -1,0 +1,22 @@
+{
+  "runtime_tables_unchanged": true,
+  "table_count": 35,
+  "row_count": 2322,
+  "changed_tables": [],
+  "runtime_config_and_13_backups_unchanged": true,
+  "remaining_validation_schemas": [
+    "validation_0d407746abce4ee6b4773411dc99f645",
+    "validation_8221f29fb57f45459a13e604d45d08b6",
+    "validation_8c14711aab6e41d1867da1c3598cc9b3",
+    "validation_aa068e6b2844440193e7a6ab56b93fb5"
+  ],
+  "source_input_drift": [],
+  "original_audit_evidence_drift": [],
+  "health": {
+    "http://172.21.208.223": 200,
+    "http://localhost": 200
+  },
+  "head": "727e122a4f340e8ad8d1e5509e9d45af22a4fcef",
+  "branch": "main",
+  "only_preexisting_validation_schemas_remain": true
+}

@@ -1,0 +1,164 @@
+{
+  "tables": {
+    "_health_check": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "app_metadata": {
+      "count": 10,
+      "sha256": "ef5579b6dc4c7d577ea1e590f2f67704f5882efdb216b3a7cc16fc40bd4b81b8"
+    },
+    "capability_tag_categories": {
+      "count": 7,
+      "sha256": "4cb3729fbbcfb778c11386a73667a17eed96e36863ee081bb10a3c79400846fa"
+    },
+    "capability_tag_suggestions": {
+      "count": 53,
+      "sha256": "69efcdc052e936e35369f2d9c9a0503c1f1aea4beafa00c0e93d604ade575412"
+    },
+    "capability_tags": {
+      "count": 24,
+      "sha256": "a0bf19cc8948b1a68b3f6795ba94b538b947e20a47bb00b76f519b62ed596118"
+    },
+    "cases": {
+      "count": 1,
+      "sha256": "96e74a6b16d6a31fc594535d371f8a393fa85d84e71d1bbe8cec05466518e9bb"
+    },
+    "deliverables": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "demand_profiles": {
+      "count": 60,
+      "sha256": "45999a436af82502bb64029dc44a326d7b3ff10acfad987903f41585ff7053fa"
+    },
+    "development_audit_events": {
+      "count": 6,
+      "sha256": "8292c7b8192e0225e2d822b8cdba519a8376ba0c20fdaa8e51850662104bfbb2"
+    },
+    "development_diagnoses": {
+      "count": 1,
+      "sha256": "e966a4124ea643a7e8eea110b9ebd3a3597921a4ec11ac2fca8b5ffaf2b7abd6"
+    },
+    "development_plans": {
+      "count": 2,
+      "sha256": "160f3220642c079446716ca1a27c3f5c2344874a197f29b2cfa73bff5c66502a"
+    },
+    "development_requests": {
+      "count": 2,
+      "sha256": "72e85908fa8e660448415dae745eecdf656b5401805a99f3dc781ec6cff6811a"
+    },
+    "development_runs": {
+      "count": 3,
+      "sha256": "b16eadcb6fb2715c1a373c6e7a8437aba559e0c378a885dc61d5313be7f878b0"
+    },
+    "development_version_items": {
+      "count": 15,
+      "sha256": "165a48e10e920adea186eac535497cd4c8f2f6305872cb5a2659edca50244164"
+    },
+    "development_versions": {
+      "count": 2,
+      "sha256": "8c889ba761f3aa17159513ebb11a3b28fe1931a9177eca359d70ea436da3b6f0"
+    },
+    "enablement_audit_events": {
+      "count": 1097,
+      "sha256": "6f331ec9d47f774a38e8fe6f44eb658c99f0f84bca1ac9f62194979cd89a5e03"
+    },
+    "enablement_resource_versions": {
+      "count": 301,
+      "sha256": "6a30423dee2fe2cdd9b71e48d6be6582bd3c7770c790b1f682fe0d7d4ada72f0"
+    },
+    "enablement_resources": {
+      "count": 173,
+      "sha256": "3c92e2de00388554ff603f2ecf459cd0adcc7afd3f126d4941ebca396b4d760c"
+    },
+    "feedback_attachment": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "feedback_issue": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "identity_challenges": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "identity_credentials": {
+      "count": 4,
+      "sha256": "a4040b1bea9659a67c29eaa7dc3cb11cbe28a0b1ac8d6611bff142c88a959185"
+    },
+    "match_records": {
+      "count": 61,
+      "sha256": "9f0a2168f339da1697030bc89c3d8199ed3553df3cabd5b8696cd37d27da899a"
+    },
+    "model_configs": {
+      "count": 2,
+      "sha256": "52fcbc915908cd8dbaa40e599d1c18a30262661a390dfec1dab5491df3c0ade5"
+    },
+    "model_usage_configs": {
+      "count": 7,
+      "sha256": "833f3d0cc4397fba42bcfe8b1244cd4109f78ae7563b9172009fc81f99a030ab"
+    },
+    "partner_documents": {
+      "count": 76,
+      "sha256": "ce034bcf8fd872691393f20917645e974846fc64b20ba6abafe4cdc5503b1ef3"
+    },
+    "partners": {
+      "count": 179,
+      "sha256": "7d6da38da60cb4a218f3e210e65b6a6526755f5612c33f75c2a212cd96a40cd4"
+    },
+    "project_opportunities": {
+      "count": 60,
+      "sha256": "099aa6cfef5810faffdb0a3ed84a9a60c2d78777446e277bc5fa026ca5af00c1"
+    },
+    "resource_capability_map": {
+      "count": 13,
+      "sha256": "241e1fdefbf407ab5066acc27ef5a838959ac3e635db5b763950ef95eb1ee6ef"
+    },
+    "resource_redirect_events": {
+      "count": 5,
+      "sha256": "8d17a15cce97fe26e2c5488ba7e5d8f2de2e9620ab3a43f5b8bbe1a323d46f85"
+    },
+    "revoked_identity_keys": {
+      "count": 3,
+      "sha256": "bfe25969def59b8fa4ba617e190f8d92534b56369db1f6b52313c57fad69deee"
+    },
+    "user_applications": {
+      "count": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "user_audit_logs": {
+      "count": 148,
+      "sha256": "07f6b83d8646e0aecd889da351752fa9c5fc075ef743beb0dd3513eca640f1ec"
+    },
+    "user_identity_keys": {
+      "count": 1,
+      "sha256": "48362370c7fe7a4c82a07cbb3d459bc8de42629287df4908ecdbbcc56efb58bb"
+    },
+    "users": {
+      "count": 6,
+      "sha256": "fa85100789751f4777f21aeaf549fb0641aa641a5596e22666be0b3b331e2a8c"
+    }
+  },
+  "files": {
+    "data/app.db.bak-before-task-hardening-v9-20260904": "05eba54be5cf8cf24af0489eea7f6d16c4e9a51a54b278dd7edfc02868ddfb1e",
+    ".isolation/postgres-migration/20260908T161533Z-apply/sqlite-consistent-backup.db": "0c2ded73ded64f7528a5409d6bc14d19591deb8f45577cba4b1710cc88d61bcc",
+    ".isolation/postgres-migration/20260908T152706Z/source-backup.db": "73e86d276d254b541dfae9fd4e9b6ab085ef8f5ce8b06b2e23a696f40f9ca435",
+    ".isolation/postgres-migration/20260908T154122Z/before-approved-deletion.db": "73e86d276d254b541dfae9fd4e9b6ab085ef8f5ce8b06b2e23a696f40f9ca435",
+    ".isolation/backups/before-registration-fields-20260907-231009.db": "f7d30c380b4017ac6093bfc358474590ef9c8fd522a07bd611720fcf30fd3e64",
+    ".isolation/runtime/app.db": "6967e7ec24c720c106a152876978ba5c53cfcfb4949d45036495b2d519be9050",
+    ".isolation/runtime/dev/pre-advisor-ux.db": "e35a2d5d865eedd0777ff70535a459e6fb0c87e4eae7437f00b153aa7aa4b308",
+    ".isolation/runtime/dev/pre-v12-20260907.db": "69101429b3423a354eed8655b7754c1486242a01b23518635ec4937e397a020c",
+    ".isolation/runtime/dev/taxonomy-backups/before-20260908T032945278330Z.db": "b3eeaf56368c17a7e46c50494f2b230617270cb99de6a7e5ee00692704ed8fd5",
+    ".isolation/snapshots/baseline.db": "500dce3603f06c921ab735e3b54455514519ffc2475004f780de5353b19e1682",
+    ".isolation/snapshots/phase-d-pre.db": "63b169fa9308710eb7b9817b22b020e25258eb6f24e1be864ef80d64cb2c0e40",
+    ".isolation/snapshots/phase-b-pre-v11.db": "5f5cdebeb3bb34b06f6f59d3fd2ca89d9f875c9717e2a893b6bf2f05dfc84883",
+    ".isolation/snapshots/phase-c-pre-v12.db": "0a0efa237b54db202652961c8c582eba9de8a3b1f4d1206f4dd737770ecebf87",
+    ".isolation/runtime/dev/environment.json": "e3e38581900e6a5c10af5617e170ce61bbe120db22935f417c967606874f1dbd"
+  },
+  "active_tasks": {
+    "match_records": 0,
+    "development_runs": 0
+  }
+}

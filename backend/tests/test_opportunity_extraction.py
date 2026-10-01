@@ -114,19 +114,24 @@ def test_database_failure_rolls_back_instead_of_saving_unknown(client, monkeypat
     from contextlib import contextmanager
     user = make_user("save-failure"); make_partner(); task = make_task(user, "合成保存失败")
     monkeypatch.setattr(ai_client, "chat_completion", lambda *a, **k: json.dumps(BASE))
+    reached = []
     @contextmanager
     def failing_database():
         with get_db() as connection:
             class Proxy:
+                def lock_writer(self):
+                    return connection.lock_writer()
                 def execute(self, sql, params):
                     result = connection.execute(sql, params)
                     if sql.startswith("INSERT INTO project_opportunities"):
+                        reached.append(True)
                         raise SQLAlchemyError("synthetic failure after insert")
                     return result
             yield Proxy()
     monkeypatch.setattr(match, "get_db", failing_database)
     failures = []
     assert not match._extract_project_opportunity("合成保存失败", task, [], failures=failures)
+    assert reached == [True]
     assert failures[0]["code"] == "persistence"
     with get_db() as conn:
         assert conn.execute("SELECT count(*) FROM project_opportunities WHERE match_record_id=?", (task,)).fetchone()[0] == 0

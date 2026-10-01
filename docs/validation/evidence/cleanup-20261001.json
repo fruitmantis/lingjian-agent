@@ -1,0 +1,148 @@
+{
+  "date": "2026-10-01",
+  "scope": "Evidence-only closeout; no executable source, tests or runtime files changed",
+  "tested_input_sha256": "8b7759ce37e4d64df1896b3363f3c6b70f55b9761b8fe6663fae83e4e98efedd",
+  "original_manifests_preserved": true,
+  "removed": [
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/backend-before-auto-navigation.txt",
+      "sha256": "76124ba84a36a7f75505fe243dba56027556f9bca199cebc719d0c27eabeecd7",
+      "bytes": 1961,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/backend-before-auto-navigation.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/backend-before-barrier.txt",
+      "sha256": "3b56c2312559787d70384936a8dd632a2997a6a5d7bc8a9922f588de286f957f",
+      "bytes": 2653,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/backend-before-barrier.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/browser-before-auto-navigation.txt",
+      "sha256": "32f0283abcbf9f7411be26d40c510afd3db304c9667ec5182b280377c4c7ed0d",
+      "bytes": 18330,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/browser-before-auto-navigation.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/browser-navigation-adapter-intermediate.txt",
+      "sha256": "8c7b4552f9b8f349417307c927ff142204ab5582ce7be0117f1d3652b083d333",
+      "bytes": 10734,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/browser-navigation-adapter-intermediate.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/browser-navigation-adapter-final.txt",
+      "sha256": "9a7959d379b2c3ad6f20f639b7235c8f7cc6d7e119536e692009e671fbdbd338",
+      "bytes": 3010,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/browser-navigation-adapter-final.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/performance-before.txt",
+      "sha256": "95e5f28264e6fbf7c19a6f44496ffbb0938771c24798fbdeae544f59ba3352b7",
+      "bytes": 5127,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/performance-before.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/targeted-discussion.xml",
+      "sha256": "c1609c6478c5a160c093e9ce6f4806fa4717381f41a80b6d020a843da0c3f3ce",
+      "bytes": 13101,
+      "reason": "中间全通过批次；全部用例标识已核对包含于保留的最终批次",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/backend-final.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/targeted-recovery.xml",
+      "sha256": "e850756390a07983e0852a60982d0d46e320ea01b8e695fd07f8aff84ee88868",
+      "bytes": 39916,
+      "reason": "中间全通过批次；全部用例标识已核对包含于保留的最终批次",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/backend-final.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-only-20261001/browser-adaptation-after.xml",
+      "sha256": "b24e4a450f16a63a93149d03c39c4a9221c42d888f35657a65cdcf72a1f2f914",
+      "bytes": 553,
+      "reason": "中间全通过批次；全部用例标识已核对包含于保留的最终批次",
+      "retained_evidence": "docs/validation/evidence/pg-only-20261001/browser-default-final.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/final-targeted.txt",
+      "sha256": "daa0c98697bf8bdd7f026c2f48e537450245780fb7b5da630223b15cd927d5fb",
+      "bytes": 100,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/final-targeted.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/fixture-cache-failure-results.txt",
+      "sha256": "158387f47547acc4f512c81b0aba0fabb18f49fb9f935183e44e40a2f87c728e",
+      "bytes": 1316,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/fixture-cache-failure-results.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/fixture-source-failure-results.txt",
+      "sha256": "70b229824b99f78db55b92fe4828b16bb8678462e9ca6ebe01fc5792502f44cc",
+      "bytes": 18730,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/fixture-source-failure-results.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/interrupted-backend.txt",
+      "sha256": "95f193a9992db954e2c665c1d824b3e1e8d12bd22f33ddda1324eea90c52adc5",
+      "bytes": 3127,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/interrupted-backend.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/proxy-adapted-targeted.txt",
+      "sha256": "8cc994bfd2d9beb7f7cfcd6a13c45c78fc134931132036cbdf6b720f730d3663",
+      "bytes": 100,
+      "reason": "重复的文本结果；保留同批完整 JUnit、失败内容及报告中的历史结论",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/proxy-adapted-targeted.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/after-independent-results.txt",
+      "sha256": "74a2e893af2a6e3cc2aa8d6b1138ee6843f665244861262ad31b2a5f003053fa",
+      "bytes": 100,
+      "reason": "中间全通过批次；全部用例标识已核对包含于保留的最终批次",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/final-independent-results.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/after-independent-results.xml",
+      "sha256": "00c2e818077f09e082c36c093afb54d75b5f97c4bf6b4dbb8ad519d79c7f0c86",
+      "bytes": 13956,
+      "reason": "中间全通过批次；全部用例标识已核对包含于保留的最终批次",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/final-independent-results.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/targeted-results.txt",
+      "sha256": "43f85c303b73ee97092cc2dd185fdbc36aea6a7d7ee511e285c11a73571d3b34",
+      "bytes": 100,
+      "reason": "中间全通过批次；全部用例标识已核对包含于保留的最终批次",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/final-targeted.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/targeted-results.xml",
+      "sha256": "caa397e886a34126bfee3ae2adefed846acc829d792b6c2d4903674d6fa8bc64",
+      "bytes": 22151,
+      "reason": "中间全通过批次；全部用例标识已核对包含于保留的最终批次",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/final-targeted.xml"
+    },
+    {
+      "path": "docs/validation/evidence/pg-late-writes-20261001/completion-status.json",
+      "sha256": "07b4f0e0eeb2a56e537863ba48a1d5241ffd42695c1ba4007638ebb7ed8e71a3",
+      "bytes": 70,
+      "reason": "重复进程退出码汇总；保留最终测试汇总及各原始 JUnit",
+      "retained_evidence": "docs/validation/evidence/pg-late-writes-20261001/final-results.json"
+    },
+    {
+      "path": "docs/validation/evidence/pg-independent-20261001/__pycache__/catalog_audit.cpython-312.pyc",
+      "sha256": "dc695b985c05f2d3a204ade775c02bb6d3c9176cf75f773c143336413ea5ca48",
+      "bytes": 10739,
+      "reason": "独立复核脚本的可再生 Python 字节码缓存；头部时间和大小与保留源脚本一致",
+      "retained_evidence": "docs/validation/evidence/pg-independent-20261001/catalog_audit.py"
+    }
+  ]
+}

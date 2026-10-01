@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="1.233" timestamp="2026-10-01T21:31:08.654902+08:00" hostname="DESKTOP-6PIIH64"><testcase classname="backend.tests.test_match_late_writes" name="test_old_enrichment_cannot_write_after_recovery[retry-demand_profiles]" file="backend/tests/test_match_late_writes.py" line="77" time="1.111"><properties><property name="database_backend" value="postgresql" /></properties><failure message="AssertionError: assert 'OLD' == 'NEW'&#10;  &#10;  - NEW&#10;  + OLD">backend/tests/test_match_late_writes.py:139: in test_old_enrichment_cannot_write_after_recovery
+    assert before['opportunity'][0]['technical_needs'] == 'NEW'
+E   AssertionError: assert 'OLD' == 'NEW'
+E     
+E     - NEW
+E     + OLD</failure></testcase></testsuite></testsuites>

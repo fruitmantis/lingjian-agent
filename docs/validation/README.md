@@ -6,6 +6,8 @@
 
 | 目的 | 文档 |
 |---|---|
+| PG-only 与匹配迟到写入提交范围、证据整理 | [2026-10-01 Git 收口](GIT_CLOSEOUT_20261001.md) |
+| 匹配旧执行迟到写入：独立复核 P1、定点修复及新回归 | [迟到写入修复](MATCH_LATE_WRITES_20261001.md)；[原独立复核](POSTGRES_ONLY_INDEPENDENT_REVIEW_20261001.md) |
 | PostgreSQL-only 清理、完整测试收口及 8 次真实模型补测 | [PostgreSQL-only 验证](POSTGRES_ONLY_20261001.md) |
 | 任务先落库、后台执行、真实进度与渐进展示 | [任务执行与恢复验证](DURABLE_TASK_EXECUTION_20261001.md) |
 | WSL 模型响应延迟代理（超时由系统自行配置） | [慢响应模拟使用说明](SLOW_MODEL_SIMULATION.md) |

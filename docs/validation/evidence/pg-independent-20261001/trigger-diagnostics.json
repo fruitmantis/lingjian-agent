@@ -1,0 +1,15 @@
+[
+  {
+    "source": "/tmp/pytest-of-yuan/pytest-34/test_answer_failure_patch_retr0/errors.jsonl",
+    "sha256": "a20d1caf9295c3a0234ad8023a6ca34e874d6834e519fb2e358dc2d091eb3cbd",
+    "stage": "persistence",
+    "exception_type": "IntegrityError",
+    "message": "independent audit pointer failure\nCONTEXT:  PL/pgSQL function audit_pointer_fault() line 1 at RAISE",
+    "application_frames": [
+      "File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_engine.py\", line 363, in _execute_claimed",
+      "File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 256, in complete",
+      "File \"/home/yuan/project/lingjian-agent-enablement/backend/app/development_lifecycle.py\", line 242, in save_version",
+      "File \"/home/yuan/project/lingjian-agent-enablement/backend/app/postgres_storage.py\", line 80, in execute"
+    ]
+  }
+]

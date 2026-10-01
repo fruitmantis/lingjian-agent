@@ -1,0 +1,671 @@
+{
+  "case_count": 72,
+  "module_counts": {
+    "test_advisor_ux": 10,
+    "test_enablement": 2,
+    "test_enablement_workspace": 1,
+    "test_model_config": 1,
+    "test_model_test_boundary": 1,
+    "test_opportunity_extraction": 1,
+    "test_p0_closure": 1,
+    "test_partner_delete": 2,
+    "test_phase_d_model_and_samples": 8,
+    "test_phase_d_process": 1,
+    "test_phase_d_reliability": 5,
+    "test_recommendations": 26,
+    "test_task_failures": 3,
+    "test_user_cleanup": 4,
+    "test_v12_agent": 6
+  },
+  "note": "JUnit mapping is provenance only; conclusions also inspect source diffs, injection and final assertions.",
+  "cases": [
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_discussion_keeps_current_advice_without_confirmation[\\u4e3a\\u4ec0\\u4e48\\u63a8\\u8350 RAG\\uff1f]",
+      "original_failure": "AssertionError: assert ('revise' == 'explain'\n  \n  - explain\n  + revise)",
+      "final_case": "test_discussion_keeps_current_advice_without_confirmation[\\u4e3a\\u4ec0\\u4e48\\u63a8\\u8350 RAG\\uff1f]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_discussion_keeps_current_advice_without_confirmation[\\u8fd9\\u4e2a\\u8bfe\\u7a0b\\u4e3a\\u4ec0\\u4e48\\u9002\\u5408\\uff1f]",
+      "original_failure": "AssertionError: assert ('revise' == 'explain'\n  \n  - explain\n  + revise)",
+      "final_case": "test_discussion_keeps_current_advice_without_confirmation[\\u8fd9\\u4e2a\\u8bfe\\u7a0b\\u4e3a\\u4ec0\\u4e48\\u9002\\u5408\\uff1f]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_discussion_keeps_current_advice_without_confirmation[\\u8fd9\\u4e24\\u4e2a\\u5b9e\\u9a8c\\u6709\\u4ec0\\u4e48\\u533a\\u522b\\uff1f]",
+      "original_failure": "AssertionError: assert ('revise' == 'explain'\n  \n  - explain\n  + revise)",
+      "final_case": "test_discussion_keeps_current_advice_without_confirmation[\\u8fd9\\u4e24\\u4e2a\\u5b9e\\u9a8c\\u6709\\u4ec0\\u4e48\\u533a\\u522b\\uff1f]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_discussion_keeps_current_advice_without_confirmation[\\u54ea\\u4e2a\\u5b9e\\u9a8c\\u66f4\\u96be\\uff1f]",
+      "original_failure": "AssertionError: assert ('revise' == 'explain'\n  \n  - explain\n  + revise)",
+      "final_case": "test_discussion_keeps_current_advice_without_confirmation[\\u54ea\\u4e2a\\u5b9e\\u9a8c\\u66f4\\u96be\\uff1f]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_discussion_keeps_current_advice_without_confirmation[\\u6709\\u6ca1\\u6709\\u66f4\\u8fdb\\u9636\\u4e00\\u70b9\\u7684\\u5b9e\\u9a8c\\uff1f]",
+      "original_failure": "AssertionError: assert ('revise' == 'explain'\n  \n  - explain\n  + revise)",
+      "final_case": "test_discussion_keeps_current_advice_without_confirmation[\\u6709\\u6ca1\\u6709\\u66f4\\u8fdb\\u9636\\u4e00\\u70b9\\u7684\\u5b9e\\u9a8c\\uff1f]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_natural_adjustment_reorders_focus_and_failed_retry_keeps_current",
+      "original_failure": "AssertionError: assert '应用集成与云服务基础' == 'Agent 系统集成与 POC 调优'\n  \n  - Agent 系统集成与 POC 调优\n  + 应用集成与云服务基础",
+      "final_case": "test_natural_adjustment_reorders_focus_and_failed_retry_keeps_current",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_difficulty_discussion_cannot_be_misclassified_as_revision",
+      "original_failure": "Failed: DID NOT RAISE HTTPException",
+      "final_case": "test_difficulty_discussion_cannot_be_misclassified_as_revision",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_formatted_discussion_persists_and_replays_without_versions[### \\u7ed3\\u8bba\\n\\n\\u4f18\\u5148\\u9a8c\\u8bc1\\u7cfb\\u7edf\\u96c6\\u6210\\u3002\\n\\n#### \\u63a5\\u53e3\\u7ea6\\u675f\\n\\n- \\u6838\\u5b9e\\u8f93\\u5165\\u8f93\\u51fa\\u3002\\n- \\u51c6\\u5907\\u5f02\\u5e38\\u5904\\u7406\\u3002]",
+      "original_failure": "AssertionError: assert {'kind': 'rev...nt_plan', ...} == {'kind': 'exp...。\\n- 准备异常处理。'}\n  \n  Differing items:\n  {'kind': 'revise'} != {'kind': 'explain'}\n  Left contains 4 more items:\n  {'plan_id': 'c629e615-f70a-4df5-b707-39f673f77375',\n   'replayed': False,\n   'run_id': 'afc19d3f-6623-429a-ac54-2d0d224e531d',...\n  \n  ...Full output truncated (4 lines hidden), use '-vv' to show",
+      "final_case": "test_formatted_discussion_persists_and_replays_without_versions[### \\u7ed3\\u8bba\\n\\n\\u4f18\\u5148\\u9a8c\\u8bc1\\u7cfb\\u7edf\\u96c6\\u6210\\u3002\\n\\n#### \\u63a5\\u53e3\\u7ea6\\u675f\\n\\n- \\u6838\\u5b9e\\u8f93\\u5165\\u8f93\\u51fa\\u3002\\n- \\u51c6\\u5907\\u5f02\\u5e38\\u5904\\u7406\\u3002]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_formatted_discussion_persists_and_replays_without_versions[### \\u7ed3\\u8bba\\n\\n\\u4e24\\u7c7b\\u5b9e\\u9a8c\\u5404\\u6709\\u4fa7\\u91cd\\u3002\\n\\n#### \\u6570\\u636e\\u63a5\\u5165\\n\\n\\u5148\\u68c0\\u67e5\\u6570\\u636e\\u6761\\u4ef6\\u3002\\n\\n#### \\u8bc4\\u4f30\\u65b9\\u5f0f\\n\\n1. \\u660e\\u786e\\u8bc4\\u4f30\\u6837\\u672c\\u3002\\n2. \\u9a8c\\u8bc1\\u5b9e\\u9645\\u6548\\u679c\\u3002\\n\\n#### \\u9009\\u62e9\\u6761\\u4ef6\\n\\n\\u6309\\u76ee\\u6807\\u9009\\u62e9\\u3002]",
+      "original_failure": "AssertionError: assert {'kind': 'rev...nt_plan', ...} == {'kind': 'exp...条件\\n\\n按目标选择。'}\n  \n  Differing items:\n  {'kind': 'revise'} != {'kind': 'explain'}\n  Left contains 4 more items:\n  {'plan_id': '910eab09-36dd-4b28-b4d4-c3ab82632960',\n   'replayed': False,\n   'run_id': '7108cb54-5753-4b71-a2ae-5d360cf9404d',...\n  \n  ...Full output truncated (19 lines hidden), use '-vv' to show",
+      "final_case": "test_formatted_discussion_persists_and_replays_without_versions[### \\u7ed3\\u8bba\\n\\n\\u4e24\\u7c7b\\u5b9e\\u9a8c\\u5404\\u6709\\u4fa7\\u91cd\\u3002\\n\\n#### \\u6570\\u636e\\u63a5\\u5165\\n\\n\\u5148\\u68c0\\u67e5\\u6570\\u636e\\u6761\\u4ef6\\u3002\\n\\n#### \\u8bc4\\u4f30\\u65b9\\u5f0f\\n\\n1. \\u660e\\u786e\\u8bc4\\u4f30\\u6837\\u672c\\u3002\\n2. \\u9a8c\\u8bc1\\u5b9e\\u9645\\u6548\\u679c\\u3002\\n\\n#### \\u9009\\u62e9\\u6761\\u4ef6\\n\\n\\u6309\\u76ee\\u6807\\u9009\\u62e9\\u3002]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_advisor_ux",
+      "original_case": "test_empty_answer_records_actual_reason_and_preserves_advice",
+      "original_failure": "assert (200 == 422)\n +  where 200 = <Response [200 OK]>.status_code",
+      "final_case": "test_empty_answer_records_actual_reason_and_preserves_advice",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Wait for the accepted Run, verify successful answer and unchanged Version; contradictory action is a separate rejection test."
+    },
+    {
+      "module": "test_enablement",
+      "original_case": "test_all_new_api_operations_require_admin[anonymous]",
+      "original_failure": "assert 14 == 10",
+      "final_case": "test_all_new_api_operations_require_admin[anonymous]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Enumerate and authorize all 14 method/path operations, including delete if introduced; no count-only pass."
+    },
+    {
+      "module": "test_enablement",
+      "original_case": "test_all_new_api_operations_require_admin[user]",
+      "original_failure": "assert 14 == 10",
+      "final_case": "test_all_new_api_operations_require_admin[user]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Enumerate and authorize all 14 method/path operations, including delete if introduced; no count-only pass."
+    },
+    {
+      "module": "test_enablement_workspace",
+      "original_case": "test_catalog_3000_published_resources_search_p95",
+      "original_failure": "assert 2.36954711600265 < 2",
+      "final_case": "test_catalog_3000_published_resources_search_p95",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Same 3000 inputs and p95 <2s; batch projection reuses current permission gates."
+    },
+    {
+      "module": "test_model_config",
+      "original_case": "test_no_enabled_model_returns_actionable_error_without_calling_model[partner_match-/agent/match]",
+      "original_failure": "assert 502 == 503\n +  where 502 = <Response [502 Bad Gateway]>.status_code",
+      "final_case": "test_no_enabled_model_returns_actionable_error_without_calling_model[partner_match-/agent/match]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "First model configuration errors preserve 503."
+    },
+    {
+      "module": "test_model_test_boundary",
+      "original_case": "test_deepseek_json_mode_keeps_schema_and_strict_validation",
+      "original_failure": "AssertionError: assert 'additionalProperties' in 'Synthetic explanation'",
+      "final_case": "test_deepseek_json_mode_keeps_schema_and_strict_validation",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Inspect full transmitted messages for schema; last message remains user input."
+    },
+    {
+      "module": "test_opportunity_extraction",
+      "original_case": "test_retry_saves_grouped_regions_and_preserves_existing_results",
+      "original_failure": "assert (502 == 200)\n +  where 502 = <Response [502 Bad Gateway]>.status_code",
+      "final_case": "test_retry_saves_grouped_regions_and_preserves_existing_results",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Retry reuses persisted facts and preserves existing derivatives."
+    },
+    {
+      "module": "test_p0_closure",
+      "original_case": "test_matching_uses_existing_profile_and_evidence_without_raw_files",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_matching_uses_existing_profile_and_evidence_without_raw_files",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Supply actual saved staged snapshot; no raw private file data in model input."
+    },
+    {
+      "module": "test_partner_delete",
+      "original_case": "test_late_match_after_deletion_is_retryable_not_stuck[False]",
+      "original_failure": "AssertionError: assert 502 == 409\n +  where 502 = PublicTaskError(status_code=502, detail='服务异常，请联系管理员。').status_code\n +    where PublicTaskError(status_code=502, detail='服务异常，请联系管理员。') = <ExceptionInfo PublicTaskError(status_code=502, detail='服务异常，请联系管理员。') tblen=4>.value",
+      "final_case": "test_late_match_after_deletion_is_retryable_not_stuck[False]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Keep 409 on recommendation-save conflict after partner deletion."
+    },
+    {
+      "module": "test_partner_delete",
+      "original_case": "test_late_match_after_deletion_is_retryable_not_stuck[True]",
+      "original_failure": "assert 502 == 409\n +  where 502 = <Response [502 Bad Gateway]>.status_code",
+      "final_case": "test_late_match_after_deletion_is_retryable_not_stuck[True]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Keep 409 on recommendation-save conflict after partner deletion."
+    },
+    {
+      "module": "test_phase_d_model_and_samples",
+      "original_case": "test_loopback_supplier_schema_error_timeout_and_retry[normal]",
+      "original_failure": "assert None",
+      "final_case": "test_loopback_supplier_schema_error_timeout_and_retry[normal]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Persist loopback config before fixed-model validation; original test still uses a fresh revise to recover, not retry API. Additional audit verifies per-mode handler reached and error code."
+    },
+    {
+      "module": "test_phase_d_model_and_samples",
+      "original_case": "test_loopback_supplier_schema_error_timeout_and_retry[markdown]",
+      "original_failure": "assert None",
+      "final_case": "test_loopback_supplier_schema_error_timeout_and_retry[markdown]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Persist loopback config before fixed-model validation; original test still uses a fresh revise to recover, not retry API. Additional audit verifies per-mode handler reached and error code."
+    },
+    {
+      "module": "test_phase_d_model_and_samples",
+      "original_case": "test_loopback_supplier_schema_error_timeout_and_retry[empty]",
+      "original_failure": "assert None",
+      "final_case": "test_loopback_supplier_schema_error_timeout_and_retry[empty]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Persist loopback config before fixed-model validation; original test still uses a fresh revise to recover, not retry API. Additional audit verifies per-mode handler reached and error code."
+    },
+    {
+      "module": "test_phase_d_model_and_samples",
+      "original_case": "test_loopback_supplier_schema_error_timeout_and_retry[invalid]",
+      "original_failure": "assert None",
+      "final_case": "test_loopback_supplier_schema_error_timeout_and_retry[invalid]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Persist loopback config before fixed-model validation; original test still uses a fresh revise to recover, not retry API. Additional audit verifies per-mode handler reached and error code."
+    },
+    {
+      "module": "test_phase_d_model_and_samples",
+      "original_case": "test_loopback_supplier_schema_error_timeout_and_retry[enum]",
+      "original_failure": "assert None",
+      "final_case": "test_loopback_supplier_schema_error_timeout_and_retry[enum]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Persist loopback config before fixed-model validation; original test still uses a fresh revise to recover, not retry API. Additional audit verifies per-mode handler reached and error code."
+    },
+    {
+      "module": "test_phase_d_model_and_samples",
+      "original_case": "test_loopback_supplier_schema_error_timeout_and_retry[http_error]",
+      "original_failure": "assert None",
+      "final_case": "test_loopback_supplier_schema_error_timeout_and_retry[http_error]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Persist loopback config before fixed-model validation; original test still uses a fresh revise to recover, not retry API. Additional audit verifies per-mode handler reached and error code."
+    },
+    {
+      "module": "test_phase_d_model_and_samples",
+      "original_case": "test_loopback_supplier_schema_error_timeout_and_retry[slow]",
+      "original_failure": "assert None",
+      "final_case": "test_loopback_supplier_schema_error_timeout_and_retry[slow]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Persist loopback config before fixed-model validation; original test still uses a fresh revise to recover, not retry API. Additional audit verifies per-mode handler reached and error code."
+    },
+    {
+      "module": "test_phase_d_model_and_samples",
+      "original_case": "test_loopback_supplier_schema_error_timeout_and_retry[dribble]",
+      "original_failure": "assert None",
+      "final_case": "test_loopback_supplier_schema_error_timeout_and_retry[dribble]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Persist loopback config before fixed-model validation; original test still uses a fresh revise to recover, not retry API. Additional audit verifies per-mode handler reached and error code."
+    },
+    {
+      "module": "test_phase_d_process",
+      "original_case": "test_development_kill_restart_retry_and_http_creation",
+      "original_failure": "AssertionError: assert ('07003b85-88ee-4a59-86a0-eed90414f833' != '07003b85-88ee-4a59-86a0-eed90414f833')",
+      "final_case": "test_development_kill_restart_retry_and_http_creation",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Actual retry API reuses interrupted input and creates new current version."
+    },
+    {
+      "module": "test_phase_d_reliability",
+      "original_case": "test_run_watchdog_without_polling_preserves_confirmed_and_retries",
+      "original_failure": "AssertionError: assert ('03cb0359-1700-41d1-80b0-ca1d0c8204c5' != '03cb0359-1700-41d1-80b0-ca1d0c8204c5')",
+      "final_case": "test_run_watchdog_without_polling_preserves_confirmed_and_retries",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "PG server triggers abort the real save; retry API preserves old confirmed pointer."
+    },
+    {
+      "module": "test_phase_d_reliability",
+      "original_case": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[version]",
+      "original_failure": "assert 2 == 3",
+      "final_case": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[version]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "PG server triggers abort the real save; retry API preserves old confirmed pointer."
+    },
+    {
+      "module": "test_phase_d_reliability",
+      "original_case": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[item]",
+      "original_failure": "assert 2 == 3",
+      "final_case": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[item]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "PG server triggers abort the real save; retry API preserves old confirmed pointer."
+    },
+    {
+      "module": "test_phase_d_reliability",
+      "original_case": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[diagnosis]",
+      "original_failure": "assert 2 == 3",
+      "final_case": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[diagnosis]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "PG server triggers abort the real save; retry API preserves old confirmed pointer."
+    },
+    {
+      "module": "test_phase_d_reliability",
+      "original_case": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[pointer]",
+      "original_failure": "assert 2 == 3",
+      "final_case": "test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows[pointer]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "PG server triggers abort the real save; retry API preserves old confirmed pointer."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_scores_sorted_unique_limited_and_best_duplicate_kept",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_scores_sorted_unique_limited_and_best_duplicate_kept",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[NaN]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[NaN]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[Infinity]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[Infinity]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[-Infinity]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[-Infinity]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[92\\u5206]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[92\\u5206]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[-1]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[-1]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[101]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[101]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[True]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[True]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[None]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[None]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[score9]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[score9]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_invalid_score_cannot_be_a_recommendation[score10]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_invalid_score_cannot_be_a_recommendation[score10]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_boundary_and_decimal_scores_remain_valid[0-0]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_boundary_and_decimal_scores_remain_valid[0-0]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_boundary_and_decimal_scores_remain_valid[100-100]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_boundary_and_decimal_scores_remain_valid[100-100]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_boundary_and_decimal_scores_remain_valid[ 83.5 -83.5]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_boundary_and_decimal_scores_remain_valid[ 83.5 -83.5]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_active_identity_is_required_and_ambiguous_names_cannot_fallback",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_active_identity_is_required_and_ambiguous_names_cannot_fallback",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_only_owned_references_are_displayed_as_canonical_labels",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_only_owned_references_are_displayed_as_canonical_labels",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_exact_legacy_names_work_but_fabricated_narratives_do_not",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_exact_legacy_names_work_but_fabricated_narratives_do_not",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_ambiguous_evidence_names_need_ids",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_ambiguous_evidence_names_need_ids",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_unsupported_match_attributes_and_empty_risks_are_replaced",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_unsupported_match_attributes_and_empty_risks_are_replaced",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_missing_or_nontext_reasons_are_rejected[None]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_missing_or_nontext_reasons_are_rejected[None]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_missing_or_nontext_reasons_are_rejected[ ]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_missing_or_nontext_reasons_are_rejected[ ]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_missing_or_nontext_reasons_are_rejected[reason2]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_missing_or_nontext_reasons_are_rejected[reason2]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_missing_or_nontext_reasons_are_rejected[reason3]",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_missing_or_nontext_reasons_are_rejected[reason3]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_snake_case_and_wrapped_legacy_results_still_work",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_snake_case_and_wrapped_legacy_results_still_work",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_recommendations",
+      "original_case": "test_new_task_persists_only_validated_results_without_rewriting_history",
+      "original_failure": "assert 502 == 200\n +  where 502 = <Response [502 Bad Gateway]>.status_code",
+      "final_case": "test_new_task_persists_only_validated_results_without_rewriting_history",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Direct tests now exercise retained canonicalization; actual staged protocol has separate strict integration tests."
+    },
+    {
+      "module": "test_task_failures",
+      "original_case": "test_actual_model_failure_list_detail_owner_and_success_clear",
+      "original_failure": "AssertionError: assert ('configuration' == 'timeout'\n  \n  - timeout\n  + configuration)",
+      "final_case": "test_actual_model_failure_list_detail_owner_and_success_clear",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Inject at active completion path, check call reached and expected stored failure code."
+    },
+    {
+      "module": "test_task_failures",
+      "original_case": "test_multiple_partial_reasons_preserve_recommendations",
+      "original_failure": "TypeError: _run_task_enrichment() missing 1 required keyword-only argument: 'snapshot'",
+      "final_case": "test_multiple_partial_reasons_preserve_recommendations",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Inject at active completion path, check call reached and expected stored failure code."
+    },
+    {
+      "module": "test_task_failures",
+      "original_case": "test_successful_real_matching_path_still_returns_recommendations",
+      "original_failure": "TypeError: _perform_partner_match() missing 1 required positional argument: 'snapshot'",
+      "final_case": "test_successful_real_matching_path_still_returns_recommendations",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Inject at active completion path, check call reached and expected stored failure code."
+    },
+    {
+      "module": "test_user_cleanup",
+      "original_case": "test_deletion_during_understanding_cannot_start_a_task[task]",
+      "original_failure": "AssertionError: {\"runId\":\"51f78f17-9797-45b3-9433-4a3e1f43eebd\",\"recordId\":\"8ab5d60b-1463-43ab-8ebd-219b6bff3e02\",\"taskStatus\":\"matching\"}\nassert 202 == 401\n +  where 202 = <Response [202 Accepted]>.status_code",
+      "final_case": "test_deletion_during_understanding_preserves_committed_task_and_protects_running_owner[task]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Task commits before understanding; running-owner deletion returns 409, timeout ends same persisted task."
+    },
+    {
+      "module": "test_user_cleanup",
+      "original_case": "test_deletion_during_understanding_cannot_start_a_task[match]",
+      "original_failure": "AssertionError: {\"detail\":\"本次处理失败，请重试。\",\"failureCode\":\"unknown\"}\nassert 502 == 401\n +  where 502 = <Response [502 Bad Gateway]>.status_code",
+      "final_case": "test_deletion_during_understanding_preserves_committed_task_and_protects_running_owner[match]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Task commits before understanding; running-owner deletion returns 409, timeout ends same persisted task."
+    },
+    {
+      "module": "test_user_cleanup",
+      "original_case": "test_deletion_during_understanding_cannot_start_a_task[retry]",
+      "original_failure": "AssertionError: {\"detail\":\"本次处理失败，请重试。\",\"failureCode\":\"unknown\"}\nassert 502 == 401\n +  where 502 = <Response [502 Bad Gateway]>.status_code",
+      "final_case": "test_deletion_during_understanding_preserves_committed_task_and_protects_running_owner[retry]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Task commits before understanding; running-owner deletion returns 409, timeout ends same persisted task."
+    },
+    {
+      "module": "test_user_cleanup",
+      "original_case": "test_deletion_during_understanding_cannot_start_a_task[plan]",
+      "original_failure": "AssertionError: {\"plan_id\":\"90578edc-2ee4-4b11-bab0-2f49248842b7\",\"run_id\":\"1b135eca-0c20-4115-bf96-cfc4607d2183\",\"task_type\":\"development_plan\",\"replayed\":false}\nassert 202 == 401\n +  where 202 = <Response [202 Accepted]>.status_code",
+      "final_case": "test_deletion_during_understanding_preserves_committed_task_and_protects_running_owner[plan]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Task commits before understanding; running-owner deletion returns 409, timeout ends same persisted task."
+    },
+    {
+      "module": "test_v12_agent",
+      "original_case": "test_current_explanations_do_not_create_run_or_version_and_are_durable[\\u4e3a\\u4ec0\\u4e48\\u63a8\\u8350\\u8fd9\\u4e2a\\u65b9\\u5411\\uff1f]",
+      "original_failure": "AssertionError: assert ('revise' == 'explain'\n  \n  - explain\n  + revise)",
+      "final_case": "test_current_explanations_do_not_create_version_and_are_durable[\\u4e3a\\u4ec0\\u4e48\\u63a8\\u8350\\u8fd9\\u4e2a\\u65b9\\u5411\\uff1f]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Explanations have a durable Run but no Version; task generation and direct catalog search are distinct boundaries."
+    },
+    {
+      "module": "test_v12_agent",
+      "original_case": "test_current_explanations_do_not_create_run_or_version_and_are_durable[\\u8fd9\\u4e24\\u4e2a\\u5b9e\\u9a8c\\u6709\\u4ec0\\u4e48\\u533a\\u522b\\uff1f]",
+      "original_failure": "AssertionError: assert ('revise' == 'explain'\n  \n  - explain\n  + revise)",
+      "final_case": "test_current_explanations_do_not_create_version_and_are_durable[\\u8fd9\\u4e24\\u4e2a\\u5b9e\\u9a8c\\u6709\\u4ec0\\u4e48\\u533a\\u522b\\uff1f]",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Explanations have a durable Run but no Version; task generation and direct catalog search are distinct boundaries."
+    },
+    {
+      "module": "test_v12_agent",
+      "original_case": "test_conversation_modify_advances_current_and_leaves_legacy_pointer_untouched",
+      "original_failure": "AssertionError: assert {'course', 'lab'} == {'lab'}\n  \n  Extra items in the left set:\n  'course'\n  Use -v to get more diff",
+      "final_case": "test_conversation_modify_advances_current_and_leaves_legacy_pointer_untouched",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Explanations have a durable Run but no Version; task generation and direct catalog search are distinct boundaries."
+    },
+    {
+      "module": "test_v12_agent",
+      "original_case": "test_conversation_output_rejected_for_fake_reference_or_secret",
+      "original_failure": "Failed: DID NOT RAISE HTTPException",
+      "final_case": "test_conversation_output_rejected_for_fake_reference_or_secret",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Explanations have a durable Run but no Version; task generation and direct catalog search are distinct boundaries."
+    },
+    {
+      "module": "test_v12_agent",
+      "original_case": "test_simple_resource_search_does_not_call_model",
+      "original_failure": "AssertionError: assert 'failed' == 'ready'\n  \n  - ready\n  + failed",
+      "final_case": "test_simple_resource_search_does_not_call_model",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Explanations have a durable Run but no Version; task generation and direct catalog search are distinct boundaries."
+    },
+    {
+      "module": "test_v12_agent",
+      "original_case": "test_explanation_cannot_be_misrouted_to_revision",
+      "original_failure": "Failed: DID NOT RAISE HTTPException",
+      "final_case": "test_explanation_cannot_be_misrouted_to_revision",
+      "present_in_final_junit": true,
+      "final_status": "passed",
+      "review_interpretation": "Explanations have a durable Run but no Version; task generation and direct catalog search are distinct boundaries."
+    }
+  ]
+}
