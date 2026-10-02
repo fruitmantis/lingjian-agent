@@ -1298,8 +1298,7 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .development-composer .development-partner>h2,.development-composer .development-form>h2 { margin:0 0 12px; font-size:16px; font-weight:var(--font-weight-heading); }
 .development-entry .development-composer .development-form textarea { height:176px; min-height:160px; padding:14px 16px; border:1px solid var(--border-strong); border-radius:4px; box-shadow:none; }
 .development-entry .development-composer .development-form textarea:focus { border-color:var(--brand-primary); box-shadow:var(--focus-ring); }
-.development-form-actions { display:flex; align-items:center; gap:28px; margin-top:24px; padding-top:24px; border-top:1px solid var(--border-default); }
-.development-form-actions>.muted { flex:1; margin:0; font-size:12px; line-height:1.7; }
+.development-form-actions { display:flex; align-items:center; justify-content:flex-end; gap:28px; margin-top:24px; padding-top:24px; border-top:1px solid var(--border-default); }
 .development-form-actions>button { flex-shrink:0; margin:0; white-space:nowrap; }
 @media(max-width:800px) {
  .development-composer .development-context-row,.development-composer .development-form { padding:24px; }
@@ -1481,9 +1480,8 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 @media (max-width: 640px) { .learning-filters, .learning-content { padding: 20px; } .learning-search { width: 100%; } .learning-search input { flex: 1; } .learning-grid .learning-card { padding: 20px; } }
 
 /* Persisted task stages; no simulated progress or completion estimates. */
-.task-request-compact{animation:task-request-settle .24s ease-out;}
+
 .task-request-compact p{white-space:pre-wrap;overflow-wrap:anywhere;}
-@keyframes task-request-settle{from{padding-top:32px;padding-bottom:32px;transform:translateY(6px);}to{padding-top:24px;padding-bottom:24px;transform:translateY(0);}}
 .task-progress{padding:20px 24px;border:1px solid var(--border,#e7e7e5);border-radius:16px;background:#fff;margin-bottom:20px;}
 .task-progress-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;}
 .task-progress-heading h2{font-size:15px;margin:0;}.task-progress-heading span{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;}
@@ -1495,4 +1493,4 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .task-progress li[data-status="completed"] .task-progress-dot{background:#69796c;}
 .task-progress li[data-status="failed"] .task-progress-dot{background:#a46455;}
 @keyframes task-pulse{50%{opacity:.35;}}
-@media(prefers-reduced-motion:reduce){.task-request-compact,.task-progress li[data-status="running"] .task-progress-dot{animation:none;}}
+@media(prefers-reduced-motion:reduce){.task-progress li[data-status="running"] .task-progress-dot{animation:none;}}

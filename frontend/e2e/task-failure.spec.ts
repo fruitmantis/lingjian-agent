@@ -88,7 +88,7 @@ for(const outcome of ["disconnect","commit-error"])test(`uncertain ${outcome} us
  await page.route(/\/agent\/tasks\/[a-f0-9-]{36}$/,route=>route.fulfill({status:404,json:{detail:"not yet confirmed"}}));
  await page.goto("/");
  await page.getByPlaceholder(/例如：寻找/).fill("隔离验证需求");
- await page.getByRole("button",{name:/开始匹配|匹配伙伴|开始分析/}).click();
+ await page.getByRole("button",{name:/开始|匹配伙伴|开始分析/}).click();
  await expect(page.getByText("暂未确认结果，请刷新查看。",{exact:true})).toBeVisible();
  const navigation=page.getByRole("button",{name:"展开导航",exact:true});
  if(await navigation.isVisible())await navigation.click();
@@ -106,7 +106,7 @@ for(const status of [202,502,500])test(`accepted matching timeout recovers origi
  await page.route(/\/agent\/tasks\/[a-f0-9-]{36}\/retry$/,route=>{retries++;expect(route.request().url()).toContain(identifier);return route.fulfill({status:502,json:{detail:"本次处理失败，请重试。",failureCode:"timeout"}});});
  await page.goto("/");
  await page.getByPlaceholder(/例如：寻找/).fill("合成超时恢复需求");
- await page.getByRole("button",{name:/开始匹配|匹配伙伴|开始分析/}).click();
+ await page.getByRole("button",{name:/开始|匹配伙伴|开始分析/}).click();
  // Recovery now navigates automatically; do not race its transient home-page link.
  await expect(page).toHaveURL(new RegExp(`/tasks/${identifier}$`));
  const selected=page.locator(`.sidebar-task-item[data-task-id="${identifier}"]`);
@@ -141,7 +141,7 @@ test("accepted development timeout opens the saved failed plan with retry availa
  await page.route("**/development/plans/plan-fixture",route=>route.fulfill({json:{...developmentDetail,plan:{...developmentDetail.plan,current_version_id:null},presentation:{...presentation,current_available:false},payload:null,runs:[{...developmentDetail.runs[0],run_type:"generate"}]}}));
  await page.goto("/?mode=development&partner_id=fixture-partner");
  await page.getByLabel("发展方向",{exact:true}).fill("合成发展诉求");
- await page.getByRole("button",{name:"生成能力发展建议",exact:true}).click();
+ await page.getByRole("button",{name:"开始",exact:true}).click();
  await expect(page).toHaveURL(/tasks\/plan-fixture/);
  await expect(page.getByTestId("advisor-status")).toContainText("生成失败，可重试");
  await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
@@ -287,12 +287,12 @@ test("lost create response queries submission and never claims the demand was sa
  await page.route("**/development/submissions/*",route=>{expect(route.request().url()).toContain(submission);return found?route.fulfill({json:{plan_id:"plan-fixture",status:"pending"}}):route.fulfill({status:404,json:{detail:"暂未确认结果，请刷新查看。"}});});
  await page.goto("/?mode=development&partner_id=fixture-partner");
  await page.getByLabel("发展方向",{exact:true}).fill("合成发展诉求");
- await page.getByRole("button",{name:"生成能力发展建议",exact:true}).click();
+ await page.getByRole("button",{name:"开始",exact:true}).click();
  const notice=page.getByRole("region",{name:"任务未完成说明"});
  await expect(notice).toContainText("暂未确认结果，请刷新查看。");
  await expect(notice).not.toContainText("发展诉求已保留");
  await page.reload();
- await expect(page.getByRole("button",{name:"生成能力发展建议",exact:true})).toBeDisabled();
+ await expect(page.getByRole("button",{name:"开始",exact:true})).toBeDisabled();
  await page.getByRole("button",{name:"刷新查看",exact:true}).click();
  await expect(notice).toContainText("暂未确认结果，请刷新查看。");
  found=true;

@@ -33,7 +33,7 @@ def unified(prepared, monkeypatch):
         if 'patch' in messages[0]['content']:
             return json.dumps({'target_partner_id':request.target_partner_id,'changes':[{'action':'replace','item_id':data['understanding']['edit_item_ids'][0],
                 'items':[{'source_type':'lab','source_id':'unified-lab-3','source_version':1,'reason':'按要求替换第二个实验','estimated_hours':1}]}],
-                'answer_changes':[],'answer':'已替换第二个实验，其他内容保留。'})
+                'answer_changes':[],'answer':'已替换第二个实验，其他内容保留。',**data['current']['presentation']})
         result=response(messages)
         result['stages'][0]['items']=sorted(result['stages'][0]['items'],key=lambda item:item['source_id'])[:2]
         return json.dumps(result,ensure_ascii=False)

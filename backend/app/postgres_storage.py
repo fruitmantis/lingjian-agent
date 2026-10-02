@@ -107,8 +107,11 @@ def verify_schema(url):
             raise RuntimeError('PostgreSQL schema is incomplete; explicit migration required')
         if 'last_error_details' not in {c['name'] for c in inspect(conn).get_columns('match_records')}:
             raise RuntimeError('Task failure detail column missing; run explicit additive migration')
-        if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='18':
-            raise RuntimeError('PostgreSQL schema version is not 18; refusing automatic changes')
+        if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='19':
+            raise RuntimeError('PostgreSQL schema version is not 19; refusing automatic changes')
+
+        from .development_partner_schema import verify_optional_partner
+        verify_optional_partner(Connection(conn))
 
         if 'timeout_seconds' in {c['name'] for c in inspect(conn).get_columns('model_configs')}:
             raise RuntimeError('Obsolete per-model timeout column remains; explicit cleanup required')

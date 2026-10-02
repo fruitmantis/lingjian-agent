@@ -79,7 +79,7 @@ def detail(plan_id,user,version_id=None):
         if version_id or plan['current_version_id']:
             row=version_row(conn,plan,version_id);payload=readable_payload(conn,row);hidden=payload is None
             if payload:request.update(payload.get('effective_request',{}))
-        partner=conn.execute('SELECT name FROM partners WHERE id=?',(plan['target_partner_id'],)).fetchone()
+        partner=conn.execute('SELECT name FROM partners WHERE id=?',(plan['target_partner_id'],)).fetchone() if plan['target_partner_id'] is not None else None
         from .development_context import exchanges
         conversation=exchanges(conn,plan,request)
         request.pop('_conversation',None)
@@ -109,7 +109,7 @@ def detail(plan_id,user,version_id=None):
                 pass
         return {'progress':latest_snapshot.get('progress'),'analysis':interim,'scopeMessage':latest_snapshot.get('scope_message'),
                 'executionInput':None if hidden else latest_snapshot.get('instruction') or request.get('raw_demand') or request.get('development_direction'),
-                'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else '不可用伙伴','request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
+                'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else ('不可用伙伴' if plan['target_partner_id'] is not None else None),'request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
 
 def edit(plan_id,body,user):
     bind_context(task_id=plan_id, stage='validation')

@@ -33,7 +33,7 @@ export type SceneDefinition = {
 export const SCENE_REGISTRY: readonly SceneDefinition[] = [
   {
     id: "partner-enablement-prepare", name: "制定伙伴能力发展建议",
-    description: "选择伙伴并描述发展方向，结合当前画像生成建议，继续解释、比较和调整。",
+    description: "描述当前基础和发展需求，可选关联已有伙伴资料，继续解释、比较和调整。",
     category: "能力发展", skillId: "enablement_workspace", exampleQueries: ["整理伙伴服务能力发展诉求"],
     tags: ["伙伴发展", "诉求整理"], enabled: true, sortOrder: 61,
     availability: "ready", actionHref: "/?mode=development", actionLabel: "制定发展建议",
@@ -210,3 +210,16 @@ export const SCENE_REGISTRY: readonly SceneDefinition[] = [
 export const ENABLED_SCENES = SCENE_REGISTRY
   .filter((scene) => scene.enabled)
   .sort((a, b) => a.sortOrder - b.sortOrder);
+
+
+/** Homepage writing starters; the full scene square retains its existing links. */
+export type HomeTaskMode = "match" | "development";
+export type HomeScene = {id:string;name:string;mode:HomeTaskMode;prompt:string};
+export const HOME_SCENES: readonly HomeScene[] = [
+  {id:"home-ai-project",name:"AI项目找伙伴",mode:"match",prompt:"为【行业与业务场景】寻找AI合作伙伴，希望解决【问题或目标】。需要伙伴负责【工作范围】，最终交付【成果】。关键技术要求：【选填】。"},
+  {id:"home-industry",name:"按行业找伙伴",mode:"match",prompt:"帮我找在【行业】有相关经验的伙伴，用于【具体业务场景】。希望伙伴承担【哪些工作及交付成果】，优先考虑有【描述项目经验需求】的伙伴。"},
+  {id:"home-capability",name:"按能力找伙伴",mode:"match",prompt:"帮我找具备【某几类核心技术能力】的伙伴，用于【业务场景】。需要完成【具体工作内容】，交付【预期成果内容】。"},
+  {id:"home-development",name:"伙伴发展建议",mode:"development",prompt:"希望向【能力或业务方向】发展，主要面向【行业或场景】，下一步能承担【工作内容或项目类型】。目前的能力或经验：【选填】。请结合已提供的信息给出优先提升建议和适合的学习资源。"},
+  {id:"home-gap",name:"能力短板分析",mode:"development",prompt:"为了做好【目标业务或项目】，需要具备【哪些关键能力】，完成【哪些工作或交付哪些成果】。目前的能力或经验：【选填】。请结合已提供的信息，区分实际短板和资料不足、尚待核实的部分。"},
+  {id:"home-project-readiness",name:"为项目补能力",mode:"development",prompt:"准备参与【项目及目标】，计划负责【工作范围】，关键要求是【技术要求或交付标准】。目前的能力或经验：【选填】。请分析需要补齐哪些能力，并推荐适合的现有课程或实验。"},
+];

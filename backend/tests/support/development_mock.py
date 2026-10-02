@@ -84,5 +84,5 @@ def response(messages):
   if conversation['kind']=='revise' or any(word in message for word in ('调整','修改','重新规划')):
    action='regenerate';direction += '；' + message
   else:action='answer';answer=conversation['answer'];refs=conversation['references']
- result.update(in_scope=True,action=action,effective_direction=direction,effective_constraints=data.get('constraints',{}),answer=answer,references=refs,edit_item_ids=[],edit_answer_spans=[])
+ result.update(in_scope=message not in {'明天天气怎么样？','帮我安排三天旅游行程','写一个 Python 快速排序函数','写一首关于月亮的诗'},action=action,effective_direction=direction,effective_baseline=data['request'].get('known_baseline',''),effective_constraints=data.get('constraints',{}),answer=answer,references=refs,edit_item_ids=[],edit_answer_spans=[])
  return result

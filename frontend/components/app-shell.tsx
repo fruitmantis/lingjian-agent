@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 import { PASSWORD_CHANGE_PATH, useAuth } from "./auth-provider";
 import { LingjianMark, UiIcon, type IconName } from "./ui-icons";
 
-import { NEW_TASK, TaskSidebar } from "./task-navigation";
+import { TaskTransitionLayer } from "./task-transition";
+import { NEW_TASK, TaskSidebar, useTaskNavigation } from "./task-navigation";
 
 type NavItem = { label: string; href: string; icon: IconName };
 
@@ -48,6 +49,7 @@ function SidebarLink({ item, pathname }: { item: NavItem; pathname: string }) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const {arrival} = useTaskNavigation();
   const { user, logout } = useAuth();
   const [health, setHealth] = useState<boolean | null>(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -106,7 +108,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href={isAdmin ? "/admin/account" : "/account"} className="topbar-user"><UiIcon name="user" size={17} /><span>{user?.display_name || user?.username || "账号"}</span></Link>
           </div>
         </header>
-        <main className="page-content">{children}</main>
+        <main className="page-content"><div className="task-route-content" style={arrival?.phase === "waiting" ? {visibility:"hidden"} : undefined}>{children}</div><TaskTransitionLayer/></main>
       </div>
     </div>
   );

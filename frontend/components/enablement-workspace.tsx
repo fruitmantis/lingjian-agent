@@ -8,7 +8,7 @@ import { MaterialFiles } from "./material-files";
 import contract from "../../shared/partner-materials.json";
 import { Pagination } from "./pagination";
 import {UiIcon} from "./ui-icons";
-import {DevelopmentRequestForm} from "./development-assistant";
+import {DevelopmentRequestForm,type DevelopmentDraftProps} from "./development-assistant";
 import {PartnerSelect} from "./partner-select";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -62,24 +62,24 @@ function ReadError({message,retry}:{message:string;retry:()=>void}) {
 }
 
 /** Shared new-task mode; all context still comes from the authorized backend API. */
-export function DevelopmentEntry() {
-  const search=useSearchParams(),router=useRouter();
+export function DevelopmentEntry(draft:DevelopmentDraftProps) {
+  const search=useSearchParams();
   const contextParams=new URLSearchParams();
   for(const key of ["partner_id","task_id","case_id","case_version"]) {const value=search.get(key);if(value)contextParams.set(key,value);}
   const context=useAuthorizedData<Context>(`/enablement/context?${contextParams}`);
   const partners=useAuthorizedData<{id:string;name:string}[]>("/partners");
-  function selectPartner(id:string){const next=new URLSearchParams(search);next.set("mode","development");if(id)next.set("partner_id",id);else next.delete("partner_id");router.replace(`/?${next}`,{scroll:false});}
+  function selectPartner(id:string){const next=new URLSearchParams(search);next.set("mode","development");if(id)next.set("partner_id",id);else next.delete("partner_id");if(id!==(search.get("partner_id")||"")||!id){for(const key of ["task_id","case_id","case_version"])next.delete(key);}window.history.replaceState(null,"",`/?${next}`);}
   const partner=context.data?.partner,project=context.data?.project,shared=context.data?.shared_case;
   return <div className="development-entry">
-    <p className="assistant-subtitle">选择伙伴，说说你希望发展的方向</p>
+    <p className="assistant-subtitle">说说当前情况和希望发展的方向</p>
     <div className="development-composer"><div className={`development-context-row${project||shared?" has-source":""}`} >
-    <section className="card development-partner"><div className="enablement-field"><span>目标伙伴</span><PartnerSelect label="选择目标伙伴" partners={partners.data||[]} value={search.get("partner_id")||""} disabled={!!search.get("task_id")} onChange={selectPartner}/></div>{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}
-    {search.get("task_id")&&<p className="muted">目标伙伴来自所选匹配结果。切换伙伴请返回匹配结果选择。</p>}
+    <section className="card development-partner"><div className="enablement-field"><span>关联已有伙伴资料（可选）</span><PartnerSelect label="关联已有伙伴资料（可选）" placeholder="不关联已有伙伴资料" partners={partners.data||[]} value={search.get("partner_id")||""} onChange={selectPartner}/></div>{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}
+    {(search.get("task_id")||search.get("case_id"))&&<p className="muted">已关联来源资料；更换或清除关联会移除来源，保留输入。</p>}
     {context.error?<ReadError message={context.error} retry={context.retry}/>:!context.data?<p role="status">正在核验来源上下文…</p>:partner&&<details className="development-profile"><summary>当前伙伴画像摘要</summary><div className="development-profile-heading"><CardEntry href={`/partners/${encodeURIComponent(partner.id)}`}>查看伙伴资料</CardEntry></div><dl className="development-profile-facts">{[["正式能力",partner.capabilities],["行业经验",partner.industries],["服务区域",partner.service_areas]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||"暂无已维护信息"}</dd></div>)}</dl><ClassificationNotice pending={partner.classification_pending}/><p className="profile-preview">{partner.ai_profile||partner.intro||"当前画像依据有限，可继续描述发展方向。"}</p><details className="development-profile-evidence"><summary>查看获准引用的依据</summary><h3>当前可访问的证据引用</h3>{context.data.evidence.length?<ul>{context.data.evidence.map(e=><li key={e.source_type+e.source_id}>{e.title}</li>)}</ul>:<p className="muted">暂无可引用证据。</p>}<p className="muted">内部资料可见不代表获准发送模型或对伙伴外发。</p></details></details>}
     </section>
     {(project||shared)&&<section className="card development-source" data-testid="source-context"><h2>来源上下文</h2>{project&&<><Link href={`/tasks/${encodeURIComponent(project.task_id)}`}>返回来源项目任务</Link><h3>项目需求</h3><p className="enablement-prose">{project.requirement}</p><h3>原匹配风险 / 缺口</h3><span className="enablement-badge">{project.risk_status}</span><p className="enablement-prose">{project.risk_notes||"原匹配未提供风险信息"}</p><p className="muted">这是原匹配提示，尚未确认能力短板，也未转化为培训需求。</p></>}{shared&&<><Link href={resourcePath(shared)}>{shared.title}</Link><p>{shared.summary}</p><p className="muted">贡献伙伴：{shared.contributor_name}</p></>}</section>}
     </div>
-    <DevelopmentRequestForm partnerId={search.get("partner_id")||""} sourceTask={search.get("task_id")} sourceCase={search.get("case_id")} sourceVersion={search.get("case_version")?Number(search.get("case_version")):null}/>
+    <DevelopmentRequestForm {...draft} partnerId={search.get("partner_id")} sourceTask={search.get("task_id")} sourceCase={search.get("case_id")} sourceVersion={search.get("case_version")?Number(search.get("case_version")):null}/>
     </div>
   </div>;
 }

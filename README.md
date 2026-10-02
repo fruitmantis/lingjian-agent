@@ -4,7 +4,7 @@
 
 ## 项目接续与最新状态
 
-当前本地正式库已为 **schema 18**；六类文档与统一伙伴资料管理已实施，2026-09-26 用户指定的 **178 家伙伴名单**整理已完成。不要重复执行迁移、名单脚本或初始化数据。当前业务规则以本文件和 [AGENTS.md](AGENTS.md) 为准；新对话再读 [项目交接](docs/handoff/CURRENT_HANDOFF_20260926.md) 和 [验证文档索引](docs/validation/README.md)。[09-26 收口记录](docs/validation/GIT_CLOSEOUT_20260926.md) 保留当时的验证与提交范围。
+当前本地正式库已为 **schema 19**；六类文档与统一伙伴资料管理已实施，2026-09-26 用户指定的 **178 家伙伴名单**整理已完成。不要重复执行迁移、名单脚本或初始化数据。当前业务规则以本文件和 [AGENTS.md](AGENTS.md) 为准；新对话再读 [项目交接](docs/handoff/CURRENT_HANDOFF_20260926.md) 和 [验证文档索引](docs/validation/README.md)。[09-26 收口记录](docs/validation/GIT_CLOSEOUT_20260926.md) 保留当时的验证与提交范围。
 
 **2026-09-28 更新：** 两类任务已统一为“理解 → 按需检索 → 顾问答复”；范围判断合并到理解，追问继承当前结果，局部修改只改涉及内容，一次运行固定模型配置。模型配置支持删除并保留任务历史，结构化输出统一使用现有配置参数和 `json_object`。已完成限定范围的 PostgreSQL 回归、浏览器展示检查及 11 次真实模型调用；GLM 检索问题修正后补测通过。当时的 HTTPS 入口为历史状态；本次流程改动尚未部署或验证 ARM，详见 [最新流程验证记录](docs/validation/UNIFIED_TASK_FLOW_20260928.md)。
 
@@ -80,7 +80,7 @@ AI 按名称、简介、分类、层级、课程目标/大纲、实验目标检�
 
 ## 技术与安全边界
 
-Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 18**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
+Next.js 15 / React 19 / TypeScript；FastAPI / Python；**PostgreSQL 16 / SQLAlchemy Core / psycopg，schema version 19**；本地上传存储；OpenAI-compatible 模型接口。无 Alembic；未接入 Chroma、Embedding、向量库、RAG 检索、队列或微服务。
 
 保留 `user/admin`、后端管理权限和任务 owner 隔离。普通用户首次访问自动建立身份，浏览器记住会话；长期身份 Key 可在其他浏览器恢复同一用户，不再注册、审批、使用密码或 Passkey。管理员通过独立入口保留密码登录和首次改密；没有固定默认凭据。课程/实验的系统可见、模型可发送、伙伴可外发分别校验；伙伴案例只检查当前展示开关与伙伴启用状态。伙伴可传递视图只取 current 版本并实时重检权限，复制时校验预览版本仍为 current，不输出内部诊断或备注。
 

@@ -1,16 +1,24 @@
 "use client";
 import { copyText } from "../lib/copy-text";
-import { CardEntryLabel } from "@/components/card-entry";
 import {failureMessage} from "@/components/task-failure";
 
 import Link from "next/link";
 import { DevelopmentEntry } from "@/components/enablement-workspace";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, useEffect, useRef } from "react";
-import { ENABLED_SCENES } from "@/lib/scenes";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, type RefObject } from "react";
+import { HOME_SCENES, type HomeScene, type HomeTaskMode } from "@/lib/scenes";
 import { apiFetch } from "@/components/auth-provider";
 import { NEW_TASK, taskLabels, useTaskNavigation } from "@/components/task-navigation";
 import { UiIcon, type IconName } from "@/components/ui-icons";
+
+const homeSceneIcons: Record<string, IconName> = {
+  "home-ai-project": "users",
+  "home-industry": "building",
+  "home-capability": "puzzle",
+  "home-development": "trend",
+  "home-gap": "search",
+  "home-project-readiness": "toolbox",
+};
 
 type Recommendation = {
   partnerId: string;
@@ -24,25 +32,6 @@ type Recommendation = {
   evidenceDeliverables: string;
   riskNotes: string;
 };
-
-const HOME_CATEGORIES = ["猜你想做", "智能匹配", "伙伴洞察", "能力发展", "项目机会", "运营分析"] as const;
-type HomeCategory = (typeof HOME_CATEGORIES)[number];
-
-function sceneIcon(category: string): IconName {
-  if (category === "智能匹配") return "spark";
-  if (category === "伙伴洞察") return "users";
-  if (category === "能力发展") return "chart";
-  if (category === "项目机会") return "file";
-  return "grid";
-}
-
-function sceneTone(category: string): string {
-  if (category === "智能匹配") return "match";
-  if (category === "伙伴洞察") return "partner";
-  if (category === "能力发展") return "capability";
-  if (category === "项目机会") return "opportunity";
-  return "operations";
-}
 
 function getRecommendLevel(score: string): { label: string; color: string; bg: string } {
   const num = parseInt(score) || 0;
@@ -88,52 +77,58 @@ function TagPills({ tags, color, bg, border }: { tags: string[]; color: string; 
   );
 }
 
-function ProjectMatchTask({active}:{active:boolean}) {
+function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChange}:{
+  active:boolean;requirement:string;setRequirement:(value:string)=>void;
+  inputRef:RefObject<HTMLTextAreaElement|null>;onBusyChange:(busy:boolean)=>void;
+}) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { submit } = useTaskNavigation();
+  const { submit, openCreatedTask, pending } = useTaskNavigation();
+  const sameDraftPending = pending.some(task => task.requirement === requirement);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [taskStatus, setTaskStatus] = useState("");
   const generation = useRef(0);
-  const [requirement, setRequirement] = useState("");
   const [submittedRequirement, setSubmittedRequirement] = useState("");
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [copiedRank, setCopiedRank] = useState<number | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<HomeCategory>("猜你想做");
-  const [sceneOffset, setSceneOffset] = useState(0);
-  const requirementInput = useRef<HTMLTextAreaElement | null>(null);
+  const requirementInput = inputRef;
+  const lastPrompt = useRef<string | null>(null);
+  const submitting = useRef(false);
+  useEffect(() => { onBusyChange(loading); }, [loading, onBusyChange]);
 
   useEffect(() => {
     if (searchParams.get("mode") === "development") {
       // The shared task provider retains pending work; a late match response
       // must not navigate away from the explicitly selected development mode.
-      generation.current += 1;
+      generation.current += 1; submitting.current = false;
       setActiveTaskId(null); setLoading(false); setTaskStatus("");
       setHasSearched(false); setSubmittedRequirement(""); setRecommendations([]); setError(null);
       return;
     }
     const prompt = searchParams.get("prompt");
-    if (prompt) {
+    if (!prompt) lastPrompt.current = null;
+    if (prompt && prompt !== lastPrompt.current) {
+      lastPrompt.current = prompt;
       setRequirement(prompt);
       window.setTimeout(() => requirementInput.current?.focus(), 0);
     }
     setActiveTaskId(searchParams.get("task"));
     if (searchParams.get("view") === "history") router.replace("/tasks");
-  }, [searchParams, router]);
+  }, [searchParams, router, setRequirement, requirementInput]);
 
   useEffect(() => {
     const reset = () => {
-      generation.current += 1;
+      generation.current += 1; submitting.current = false;
       setActiveTaskId(null); setRequirement(""); setSubmittedRequirement("");
       setRecommendations([]); setHasSearched(false); setLoading(false); setError(null); setTaskStatus("");
       requirementInput.current?.focus();
     };
     window.addEventListener(NEW_TASK, reset);
     return () => { generation.current += 1; window.removeEventListener(NEW_TASK, reset); };
-  }, []);
+  }, [setRequirement, requirementInput]);
 
   useEffect(() => {
     if (!activeTaskId) return;
@@ -171,7 +166,8 @@ function ProjectMatchTask({active}:{active:boolean}) {
   }
 
   async function handleMatchDirect(reqText: string) {
-    if (!reqText.trim()) return;
+    if (submitting.current || loading || pending.some(task => task.requirement === reqText) || !reqText.trim()) return;
+    submitting.current = true;
     const current = ++generation.current;
     setActiveTaskId(null); setLoading(true); setError(null); setHasSearched(true);
     setRecommendations([]); setCopiedRank(null); setTaskStatus("submitting");
@@ -179,12 +175,13 @@ function ProjectMatchTask({active}:{active:boolean}) {
     try {
       const id = await submit(reqText);
       if (current !== generation.current) return;
-      setRequirement(""); setTaskStatus("matching"); setActiveTaskId(id);
-      router.push(`/tasks/${encodeURIComponent(id)}`);
+      openCreatedTask(id, reqText, requirementInput.current?.closest("form") || null);
     } catch (reason) {
       if (current !== generation.current) return;
       setError(reason instanceof Error ? reason.message : "任务提交失败");
       setTaskStatus(""); setLoading(false);
+    } finally {
+      if (current === generation.current) submitting.current = false;
     }
   }
 
@@ -196,25 +193,13 @@ function ProjectMatchTask({active}:{active:boolean}) {
   }
 
   const top3 = recommendations.slice(0, 3);
-  const featuredScenes = ENABLED_SCENES.filter((scene) => [
-    "ai-project-partner-recommendation",
-    "partner-capability-query",
-    "partner-ai-profile",
-    "partner-capability-gap-analysis",
-    "project-demand-profile",
-    "project-opportunity-identification",
-  ].includes(scene.id));
-  const scenePool = selectedCategory === "猜你想做" ? featuredScenes : ENABLED_SCENES.filter(scene => scene.category === selectedCategory);
-  const visibleScenes = scenePool.length <= 4
-    ? scenePool
-    : Array.from({ length: 4 }, (_, index) => scenePool[(sceneOffset + index) % scenePool.length]);
 
   return (
     <div hidden={!active} role="tabpanel" id="match-panel" aria-labelledby="match-tab">
       <section className="assistant-hero">
         <p className="assistant-subtitle">告诉伴飞你的项目需要什么样的伙伴</p>
 
-        <form onSubmit={handleMatch} className="assistant-composer">
+        <form onSubmit={handleMatch} className="assistant-composer" data-task-composer>
           <label htmlFor="requirement" className="sr-only">输入项目需求</label>
           <textarea
             ref={requirementInput}
@@ -222,14 +207,15 @@ function ProjectMatchTask({active}:{active:boolean}) {
             value={requirement}
             onChange={(event) => setRequirement(event.target.value)}
             required
+            readOnly={loading}
             rows={4}
             maxLength={2000}
             placeholder="例如：寻找有金融行业数据库迁移经验、能够完成实施交付的伙伴…"
           />
           <div className="assistant-composer-footer">
             <span className="assistant-counter">{requirement.length}/2000</span>
-            <button type="submit" disabled={loading || !requirement.trim()} className="assistant-submit" aria-label={loading ? "分析中" : "开始匹配"}>
-              {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={18} />}<span>{loading ? "分析中" : "开始匹配"}</span>
+            <button type="submit" disabled={loading || sameDraftPending || !requirement.trim()} className="assistant-submit" aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
+              {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={18} />}<span>{loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}</span>
             </button>
           </div>
         </form>
@@ -238,7 +224,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
       {error && <p className="error-text assistant-error">{error}</p>}
 
       {/* 本次项目需求卡片 - only show after submit */}
-      {!loading && submittedRequirement && (
+      {!loading && !error && submittedRequirement && (
         <section className="card">
           <div className="ui-surface-heading">
             <h2 style={{ margin: 0 }}>本次项目需求</h2>
@@ -255,7 +241,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
       )}
 
       {/* Loading state */}
-      {loading && (
+      {loading && taskStatus !== "submitting" && (
         <section className="card">
           <h2>{taskLabels[taskStatus] || "正在更新任务状态"}</h2>
           <p role="status" style={{ marginTop: "16px", lineHeight: 1.8 }}>{taskStatus === "submitting" ? "正在保存项目需求…" : "任务会自动更新，您可以切换页面或开启新任务。"}{activeTaskId && <> <Link href={`/tasks/${activeTaskId}`}>查看任务详情</Link></>}</p>
@@ -356,31 +342,7 @@ function ProjectMatchTask({active}:{active:boolean}) {
         </>
       )}
 
-      <details className="assistant-section home-scene-disclosure">
-        <summary id="featured-heading">从场景开始<span>查看现有场景与示例</span></summary>
-        <div className="assistant-category-row">
-          <div className="assistant-category-tabs" role="tablist" aria-label="推荐场景分类">
-            {HOME_CATEGORIES.map(item => <button key={item} type="button" role="tab" aria-selected={selectedCategory === item} className={selectedCategory === item ? "active" : ""} onClick={() => { setSelectedCategory(item); setSceneOffset(0); }}>{item}</button>)}
-          </div>
-          <button type="button" className="assistant-refresh" onClick={() => setSceneOffset(current => scenePool.length ? (current + 4) % scenePool.length : 0)}><UiIcon name="refresh" size={16} /><span>换一批</span></button>
-        </div>
-        <div className="featured-scene-grid">
-          {visibleScenes.map((scene) => {
-            const content = (
-              <>
-                <div className="featured-scene-heading">
-                  <span className={`scene-line-icon scene-tone-${sceneTone(scene.category)}`}><UiIcon name={sceneIcon(scene.category)} size={20} /></span>
-                  <h3>{scene.name}</h3>
-                </div>
-                <p>{scene.description}</p>
-                <ul className="featured-scene-queries">{scene.exampleQueries.slice(0, 2).map(query => <li key={query}>{query}</li>)}</ul>
-                <div className="featured-scene-action"><CardEntryLabel>{scene.actionLabel}</CardEntryLabel></div>
-              </>
-            );
-            return scene.actionHref ? <Link className="featured-scene-card" href={scene.actionHref} key={scene.id}>{content}</Link> : <article className="featured-scene-card disabled" key={scene.id}>{content}</article>;
-          })}
-        </div>
-      </details>
+
 
     </div>
   );
@@ -389,14 +351,58 @@ function ProjectMatchTask({active}:{active:boolean}) {
 export default function HomePage() {
   const search=useSearchParams();
   const development=search.get("mode")==="development";
+  const [drafts,setDrafts]=useState({match:"",development:""});
+  const [busy,setBusy]=useState({match:false,development:false});
+  const [focusRequest,setFocusRequest]=useState<{mode:HomeTaskMode;sequence:number}|null>(null);
+  const matchInput=useRef<HTMLTextAreaElement>(null),developmentInput=useRef<HTMLTextAreaElement>(null);
+  const changeMatch=useCallback((value:string)=>setDrafts(current=>({...current,match:value})),[]);
+  const changeDevelopment=useCallback((value:string)=>setDrafts(current=>({...current,development:value})),[]);
+  const matchBusy=useCallback((value:boolean)=>setBusy(current=>current.match===value?current:{...current,match:value}),[]);
+  const developmentBusy=useCallback((value:boolean)=>setBusy(current=>current.development===value?current:{...current,development:value}),[]);
+  useEffect(()=>{
+    const reset=()=>{setDrafts({match:"",development:""});setFocusRequest(null);};
+    window.addEventListener(NEW_TASK,reset);
+    return()=>window.removeEventListener(NEW_TASK,reset);
+  },[]);
+  function selectMode(mode:HomeTaskMode) {
+    const next=new URLSearchParams(search);
+    if(mode==="development")next.set("mode","development");else next.delete("mode");
+    next.delete("scene");next.delete("prompt");
+    // Native history updates the existing page and retains authorized source context.
+    window.history.replaceState(null,"",`/${next.size?`?${next}`:""}`);
+  }
+  function useScene(scene:HomeScene) {
+    if(busy.match||busy.development)return;
+    const current=drafts[scene.mode];
+    const unchangedTemplate=HOME_SCENES.some(item=>item.mode===scene.mode&&item.prompt===current);
+    if(current.trim()&&!unchangedTemplate&&!window.confirm("已有未提交内容，要替换成这个场景模板吗？"))return;
+    setDrafts(value=>({...value,[scene.mode]:scene.prompt}));
+    selectMode(scene.mode);
+    setFocusRequest(value=>({mode:scene.mode,sequence:(value?.sequence||0)+1}));
+  }
+  useLayoutEffect(()=>{
+    if(!focusRequest||(focusRequest.mode==="development")!==development)return;
+    const input=focusRequest.mode==="development"?developmentInput.current:matchInput.current;
+    if(!input)return;
+    input.focus();
+    const start=input.value.indexOf("【"),end=input.value.indexOf("】",start);
+    if(start>=0&&end>start)input.setSelectionRange(start,end+1);
+  },[focusRequest,development]);
+  const currentDraft=development?drafts.development:drafts.match;
   return <div className={`page assistant-page unified-task-page${development?" development-task-page":""}`}>
     <header className="unified-task-heading"><div className="assistant-title"><h1>开启新任务</h1></div>
       <nav className="enablement-tabs task-mode-tabs" role="tablist" aria-label="任务模式">
-        <Link id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" href="/" className={!development?"active":""}>伙伴匹配</Link>
-        <Link id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" href="/?mode=development" className={development?"active":""}>伙伴发展</Link>
+        <button type="button" id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" onClick={()=>selectMode("match")} className={!development?"active":""}>伙伴匹配</button>
+        <button type="button" id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" onClick={()=>selectMode("development")} className={development?"active":""}>伙伴发展</button>
       </nav>
     </header>
-    <ProjectMatchTask active={!development}/>
-    {development&&<div role="tabpanel" id="development-panel" aria-labelledby="development-tab"><DevelopmentEntry/></div>}
+    <ProjectMatchTask active={!development} requirement={drafts.match} setRequirement={changeMatch} inputRef={matchInput} onBusyChange={matchBusy}/>
+    {development&&<div role="tabpanel" id="development-panel" aria-labelledby="development-tab"><DevelopmentEntry direction={drafts.development} onDirectionChange={changeDevelopment} inputRef={developmentInput} onBusyChange={developmentBusy}/></div>}
+    {!search.get("task")&&<section className="home-scenes" aria-label="需求场景">
+      {/【[^】]+】/.test(currentDraft)&&<p className="home-template-hint" role="status">请将【】中的提示替换为实际需求，也可以直接改写。</p>}
+      <div className="home-scene-buttons">
+        {HOME_SCENES.map(scene=><button type="button" className="home-scene-button" key={scene.id} disabled={busy.match||busy.development} onClick={()=>useScene(scene)}><UiIcon name={homeSceneIcons[scene.id]} size={18} className="home-scene-icon"/><span>{scene.name}</span></button>)}
+      </div>
+    </section>}
   </div>;
 }

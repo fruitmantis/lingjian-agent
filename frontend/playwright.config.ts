@@ -41,7 +41,7 @@ export default defineConfig({
   testMatch: replay ? "**/*.spec.ts" : [
     "**/business-taxonomy.spec.ts", "**/partner-delete.spec.ts", "**/model-boundary.spec.ts", "**/resource-transfer.spec.ts",
     "**/partner-materials.spec.ts", "**/partner-profile-report.spec.ts", "**/partner-select.spec.ts", "**/pagination.spec.ts", "**/arm-runtime.spec.ts", "**/model-timeout-settings.spec.ts", "**/model-timeout-transport.spec.ts", "**/task-failure.spec.ts", "**/feedback.spec.ts", "**/first-login.spec.ts", "**/local-identity.spec.ts",
-    "**/http-identity.spec.ts", "**/task-progress.spec.ts",
+    "**/http-identity.spec.ts", "**/task-progress.spec.ts", "**/task-transition.spec.ts", "**/home-scenes.spec.ts", "**/home-scenes-boundaries.spec.ts",
   ],
   fullyParallel: false,
   workers: 1,

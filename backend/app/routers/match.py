@@ -181,9 +181,9 @@ def _query_tasks(
     cte = """WITH unified AS (
         SELECT id, owner_user_id, requirement, recommendations_json, created_at, archived_at, task_status, last_error_stage, last_error_details AS failure_details, 'partner_match' AS task_type FROM match_records
         UNION ALL
-        SELECT p.id,p.owner_user_id,(q.payload_json::jsonb #>> '{development_goal}'),CAST(jsonb_build_array(jsonb_build_object('partnerName',t.name)) AS TEXT),p.created_at,p.archived_at,
+        SELECT p.id,p.owner_user_id,(q.payload_json::jsonb #>> '{development_goal}'),CASE WHEN p.target_partner_id IS NULL THEN '[]' ELSE CAST(jsonb_build_array(jsonb_build_object('partnerName',COALESCE(t.name,''))) AS TEXT) END,p.created_at,p.archived_at,
         CASE WHEN r.status IN ('pending','running') THEN 'matching' WHEN p.current_version_id IS NOT NULL OR r.status='ready' THEN 'ready' ELSE 'failed' END,r.error_stage,r.safe_error_message,'development_plan'
-        FROM development_plans p JOIN development_requests q ON q.id=p.request_id JOIN partners t ON t.id=p.target_partner_id
+        FROM development_plans p JOIN development_requests q ON q.id=p.request_id LEFT JOIN partners t ON t.id=p.target_partner_id
         LEFT JOIN development_runs r ON r.id=COALESCE(p.active_run_id,(SELECT id FROM development_runs WHERE plan_id=p.id ORDER BY created_at DESC,id DESC LIMIT 1))
     ) """
     conditions = ["mr.archived_at IS NOT NULL" if archived else "mr.archived_at IS NULL"]

@@ -25,11 +25,11 @@ PLAN_COLUMNS='id,owner_user_id,request_id,target_partner_id,status,current_versi
 def clarify(payload: DevelopmentRequest):
     data=payload.model_dump()
     direction=(data['development_direction'] or data['development_goal'] or data['raw_demand']).strip()
-    # Optional legacy fields remain stored, but never control V1.2 creation/retrieval.
+    # Legacy scheduling fields remain stored; direction and self-reported baseline drive advice.
     data['development_direction']=direction
     data['development_goal']=direction
     if not data['raw_demand']:data['raw_demand']=direction
-    missing=[k for k,v in [('target_partner_id',data['target_partner_id']),('development_direction',direction)] if not v.strip()]
+    missing=[] if direction else ['development_direction']
     return {'missing_fields':missing,'request':data}
 
 
@@ -45,8 +45,10 @@ def audit(conn,plan_id,actor,action,version_id=None):
 
 def checked_request(payload,user):
     result=clarify(payload)
-    if result['missing_fields']:fail(422,'请选择伙伴并描述发展方向')
+    if result['missing_fields']:fail(422,'请描述发展需求')
     data=result['request']
+    if data['target_partner_id'] is None and any(data[k] for k in ('source_task_id','source_case_id','source_case_version')):
+        fail(422,'来源资料需要关联已有伙伴；不关联时请清除来源资料')
     context=enablement_catalog.context(user,data['target_partner_id'],data['source_task_id'],data['source_case_id'],data['source_case_version'])
     if context['shared_case']:data['source_case_version']=context['shared_case']['source_version']
     return data
@@ -151,7 +153,7 @@ def save_answer(plan_id,payload,user,data,understanding,digest,run=None):
                 return {'kind':'explain','answer':item['answer'],'replayed':True}
         history.append({'submission_id':payload.submission_id,'fingerprint':digest,'version_id':payload.based_on_version_id,'message':payload.instruction,'answer':result['answer'],'references':result['references'],'created_at':now()})
         stored.update(_conversation=history,_effective_version_id=payload.based_on_version_id,_effective_request={
-            **fresh['request'],'development_direction':result['effective_direction'],'development_goal':result['effective_direction'],'constraints':result['effective_constraints']})
+            **fresh['request'],'development_direction':result['effective_direction'],'development_goal':result['effective_direction'],'constraints':result['effective_constraints'],'known_baseline':result.get('effective_baseline',fresh['request'].get('known_baseline',''))})
         conn.execute('UPDATE development_requests SET payload_json=? WHERE id=?',(dump(stored),plan['request_id']))
         audit(conn,plan_id,user['id'],'conversation_explained',payload.based_on_version_id)
         if run: finish_without_version(conn,current_run)

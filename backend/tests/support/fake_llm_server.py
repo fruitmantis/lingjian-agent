@@ -87,7 +87,7 @@ async def completions(payload: dict):
     if stage in {'understanding','initial_selection','detailed_review'}:
         data=json.loads(messages[-1]['content'])
         if stage=='understanding':
-            content=json.dumps({'in_scope':True,'facts':json.loads(_content('opportunity')),'tag_suggestions':[]},ensure_ascii=False)
+            content=json.dumps({'in_scope':data.get('requirement') not in {'明天天气怎么样？','帮我安排三天旅游行程','写一个 Python 快速排序函数','写一首关于月亮的诗'},'facts':json.loads(_content('opportunity')),'tag_suggestions':[]},ensure_ascii=False)
         elif stage=='initial_selection':
             content=json.dumps({'candidates':[{'partnerId':p['partnerId'],'verificationFocus':'核实数据库及知识库交付经验'} for p in data['partners'][:2]]},ensure_ascii=False)
         else:

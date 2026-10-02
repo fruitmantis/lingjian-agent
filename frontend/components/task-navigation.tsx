@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import {useTaskTransitionState} from "./task-transition";
 import { usePathname, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { userApiFetch as apiFetch, PASSWORD_CHANGE_PATH, useAuth } from "./auth-provider";
@@ -28,7 +29,7 @@ export function newTaskId(): string {
   const hex = Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
-const NavigationContext = createContext<{
+const NavigationContext = createContext<ReturnType<typeof useTaskTransitionState> & {
   pending: PendingTask[];
   submit: (requirement: string) => Promise<string>;
   confirm: (id: string) => Promise<void>;
@@ -47,6 +48,7 @@ export function TaskNavigationProvider({ children }: { children: React.ReactNode
   return <UserTaskNavigation key={userId || "anonymous"} userId={userId}>{children}</UserTaskNavigation>;
 }
 function UserTaskNavigation({ userId, children }: { userId?: string; children: React.ReactNode }) {
+  const transition = useTaskTransitionState();
   const [pending, setPending] = useState<PendingTask[]>([]);
   const alive = useRef(true);
   const key = userId ? `lingjian:pending-tasks:${userId}` : null;
@@ -122,7 +124,7 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
     const timer = setInterval(() => { pendingRef.current.filter(item => item.taskStatus === "unconfirmed").forEach(item => void check(item.id)); }, 4000);
     return () => clearInterval(timer);
   }, [key, pending.length]);
-  return <NavigationContext.Provider value={{ pending, submit, confirm: async id => { await check(id); } }}>{children}</NavigationContext.Provider>;
+  return <NavigationContext.Provider value={{ ...transition, pending, submit, confirm: async id => { await check(id); } }}>{children}</NavigationContext.Provider>;
 }
 
 const orderTasks = (items: NavigationTask[]) => [...new Map(items.map(item => [item.id, item])).values()]

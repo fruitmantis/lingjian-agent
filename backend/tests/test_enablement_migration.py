@@ -32,7 +32,7 @@ def assert_initialization_rollback_and_retry(failure_point):
         verify_schema(url)
         with engine.connect() as conn:
             before = state(conn)
-            assert conn.exec_driver_sql("SELECT value FROM app_metadata WHERE key='schema_version'").scalar() == '18'
+            assert conn.exec_driver_sql("SELECT value FROM app_metadata WHERE key='schema_version'").scalar() == '19'
         with pytest.raises(RuntimeError, match='empty'):
             initialize_empty_schema(url)
         verify_schema(url)

@@ -54,7 +54,7 @@ async function reachable(page: Page) {
 
 test('new task searches 500 partners by partial Chinese or case-insensitive English name',async({page},testInfo)=>{
   const state=await fixture(page);await page.goto('/?mode=development');
-  const picker=page.getByRole('combobox',{name:'选择目标伙伴',exact:true});
+  const picker=page.getByRole('combobox',{name:'关联已有伙伴资料（可选）',exact:true});
   await picker.fill('星河');await expect(page.getByRole('option')).toHaveCount(1);
   await reachable(page);await page.evaluate(()=>document.fonts.ready);
   await page.screenshot({path:testInfo.outputPath('new-task-partner-search.png')});
@@ -68,7 +68,7 @@ test('new task searches 500 partners by partial Chinese or case-insensitive Engl
 
 test('keyboard selection, IME, Escape and outside clicks preserve intentional selection',async({page})=>{
   const state=await fixture(page);await page.goto('/?mode=development&partner_id=partner-499');
-  const picker=page.getByRole('combobox',{name:'选择目标伙伴',exact:true});
+  const picker=page.getByRole('combobox',{name:'关联已有伙伴资料（可选）',exact:true});
   await expect(picker).toHaveValue(partners[499].name);
   await picker.fill('不存在的伙伴');await expect(page.getByText('没有匹配的伙伴，请换个名称试试。')).toBeVisible();
   await picker.press('Enter');await expect(picker).toHaveAttribute('data-partner-id','partner-499');
@@ -83,10 +83,12 @@ test('keyboard selection, IME, Escape and outside clicks preserve intentional se
   expect(state.writes).toEqual([]);expect(state.errors).toEqual([]);expect(state.unexpected).toEqual([]);
 });
 
-test('source task keeps the original partner locked',async({page})=>{
+test('source task retains the partner and permits clearing the association',async({page})=>{
   const state=await fixture(page);await page.goto('/?mode=development&partner_id=partner-499&task_id=source-task');
-  const picker=page.getByRole('combobox',{name:'选择目标伙伴',exact:true});
-  await expect(picker).toBeDisabled();await expect(picker).toHaveValue(partners[499].name);
+  const picker=page.getByRole('combobox',{name:'关联已有伙伴资料（可选）',exact:true});
+  await expect(picker).toBeEnabled();await expect(picker).toHaveValue(partners[499].name);
+  await page.getByLabel('发展方向',{exact:true}).fill('保留我的描述');await picker.click();await page.getByRole('option',{name:'不关联已有伙伴资料',exact:true}).click();
+  await expect(picker).toHaveAttribute('data-partner-id','');expect(new URL(page.url()).searchParams.has('task_id')).toBe(false);await expect(page.getByLabel('发展方向',{exact:true})).toHaveValue('保留我的描述');
   await expect(page.getByRole('listbox')).toHaveCount(0);expect(state.writes).toEqual([]);expect(state.errors).toEqual([]);expect(state.unexpected).toEqual([]);
 });
 

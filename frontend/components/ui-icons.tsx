@@ -4,6 +4,10 @@ export type IconName =
   | "add"
   | "apps"
   | "archive"
+  | "building"
+  | "puzzle"
+  | "trend"
+  | "toolbox"
   | "chart"
   | "clock"
   | "file"
@@ -25,6 +29,10 @@ function iconContent(name: IconName): ReactNode {
     case "add": return <><path d="M12 5v14M5 12h14" /></>;
     case "apps": return <><rect x="4" y="4" width="6" height="6" rx="1.4" /><rect x="14" y="4" width="6" height="6" rx="1.4" /><rect x="4" y="14" width="6" height="6" rx="1.4" /><rect x="14" y="14" width="6" height="6" rx="1.4" /></>;
     case "archive": return <><path d="M4 8h16M5 8v11h14V8M3 4h18v4H3zM9 12h6" /></>;
+    case "building": return <><rect x="4" y="3" width="11" height="18" rx="1.5" /><path d="M15 8h5v13h-5M8 7h3M8 11h3M8 15h3M8 21v-2h3v2M17 12h.1M17 16h.1" /></>;
+    case "puzzle": return <><path d="M11 4a2.5 2.5 0 1 1 5 0h4v5a2.5 2.5 0 1 0 0 5v6h-6a2.5 2.5 0 1 0-5 0H4v-6a2.5 2.5 0 1 0 0-5V4z" /></>;
+    case "trend": return <><path d="m3 17 6-6 4 4 8-9M15 6h6v6" /></>;
+    case "toolbox": return <><rect x="3" y="8" width="18" height="12" rx="2" /><path d="M8 8V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v3M3 13h18M8 11v4M16 11v4" /></>;
     case "chart": return <><path d="M5 19V9M12 19V5M19 19v-7M3 19h18" /></>;
     case "clock": return <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3.2 2" /></>;
     case "file": return <><path d="M7 3.5h7l4 4V20H7z" /><path d="M14 3.5V8h4M10 12h5M10 15.5h5" /></>;

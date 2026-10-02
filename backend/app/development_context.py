@@ -60,9 +60,10 @@ def load(request, user, *, plan_id=None, base=None, message='', connection=None)
             current = {'version_id': base, 'answer': '', 'resources': [], 'content_unavailable': not _model_readable(conn, row) or (not request.get('model_input_allowed') and payload.get('effective_request',{}).get('model_input_allowed',False))}
             if not current['content_unavailable']:
                 current['answer'] = payload.get('answer') or '\n\n'.join(filter(None, [payload.get('analysis',{}).get('interpretation'), *[f.get('name','')+'：'+f.get('reason','') for f in payload.get('analysis',{}).get('priorities',[])]]))
+                current['presentation'] = {key:copy.deepcopy(payload.get(key,[])) for key in ('limitations','resource_gaps','next_steps')}
                 for index, item in enumerate(i for s in payload['stages'] for i in s['items']):
                     source = resources.resolve_reference(conn, item['source_type'], item['source_id'], item['source_version'], 'model')
-                    current['resources'].append({**source, 'item_id': item['item_id'], 'position': index+1, 'focus': item.get('focus',''), 'reason': item['reason']})
+                    current['resources'].append({**source, 'item_id': item['item_id'], 'position': index+1, 'focus': item.get('focus',''), 'reason': item['reason'], 'note': item.get('note','')})
                 for exchange in exchanges(conn, plan, stored):
                     old = version_row(conn, plan, exchange['version_id'])
                     if _model_readable(conn, old):
@@ -73,7 +74,7 @@ def load(request, user, *, plan_id=None, base=None, message='', connection=None)
         state = {
             'resources': [dict(r) for r in conn.execute('SELECT * FROM enablement_resources ORDER BY id')],
             'cases': [dict(r) for r in conn.execute('SELECT id,visible,updated_at FROM cases ORDER BY id')],
-            'partner': dict(conn.execute('SELECT * FROM partners WHERE id=?', (request['target_partner_id'],)).fetchone()),
+            'partner': dict(conn.execute('SELECT * FROM partners WHERE id=?', (request['target_partner_id'],)).fetchone()) if request['target_partner_id'] is not None else None,
         }
     if request.get('model_input_allowed'):
         source = context(user, request['target_partner_id'], request.get('source_task_id'), request.get('source_case_id'), request.get('source_case_version'))

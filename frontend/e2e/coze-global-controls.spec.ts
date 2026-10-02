@@ -28,7 +28,7 @@ for(const [width,height] of [[1366,768],[1920,1080],[390,844]])test(`global dial
   await expect(viewer.locator('pre')).toHaveCSS('font-family',/Segoe UI/);await expect(viewer.locator('pre')).toHaveCSS('font-size','16px');await expect(viewer.locator('pre')).toHaveCSS('line-height','26px');
   await capture('material-preview','[role=dialog][aria-label="合成材料.txt"]');await viewer.getByRole('button',{name:'关闭'}).click();await expect(viewer).toHaveCount(0);
   await typography.inspect('material-dialog');
-  await page.goto('/enablement?partner_id=coze-partner');await expect(page).toHaveURL(/mode=development/);await expect(page.getByLabel('选择目标伙伴')).toHaveAttribute('data-partner-id',partner.id);
+  await page.goto('/enablement?partner_id=coze-partner');await expect(page).toHaveURL(/mode=development/);await expect(page.getByLabel('关联已有伙伴资料（可选）',{exact:true})).toHaveAttribute('data-partner-id',partner.id);
   await page.goto('/enablement?tab=resources&resource_type=lab');await expect(page).toHaveURL(/\/resources\?resource_type=lab/);await expect(page.locator('.learning-card')).toHaveCount(6);
   await page.goto('/enablement/resources/course/course-0');await expect(page).toHaveURL(/\/resources\/course\/course-0/);await expect(page.locator('.learning-content')).toBeVisible();
   await page.goto('/admin/partners/coze-partner/cases/case-0/sharing');await expect(page).toHaveURL(/\/admin\/partner-materials\?partner_id=coze-partner/);await expect(page.getByLabel('筛选伙伴')).toHaveAttribute('data-partner-id',partner.id);

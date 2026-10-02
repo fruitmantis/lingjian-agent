@@ -39,7 +39,7 @@ def seed_defaults(connection):
                 (str(uuid.uuid4()), name, category, "", now, now)
             )
 
-    connection.execute("INSERT INTO app_metadata(key,value) VALUES ('schema_version','18')")
+    connection.execute("INSERT INTO app_metadata(key,value) VALUES ('schema_version','19')")
     connection.execute("""INSERT INTO model_configs
         (id,name,provider,base_url,api_key_source,api_key_env_name,model_name,temperature,top_p,max_tokens,enabled,is_default,created_at,updated_at)
         VALUES (?,?,'OpenAI Compatible',?,'env','LLM_API_KEY',?,0.3,1.0,131072,1,1,?,?)""",

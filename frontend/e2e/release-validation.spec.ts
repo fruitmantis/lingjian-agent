@@ -128,9 +128,9 @@ test("E2E-009 workbench and key admin pages handle upstream and backend outages"
   await user.page.route("**/agent/tasks", route => route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ detail: "上游模型服务不可用" }) }));
   await user.page.goto("/");
   await user.page.locator("#requirement").fill("验证 502 错误处理");
-  await user.page.getByRole("button", { name: /开始匹配/ }).click();
+  await user.page.getByRole("button", { name: /开始/ }).click();
   await expect(user.page.locator(".assistant-error")).toContainText("暂未确认结果，请刷新查看。");
-  await expect(user.page.getByRole("button", { name: /开始匹配/ })).toBeEnabled();
+  await expect(user.page.getByRole("button", { name: /开始/ })).toBeEnabled();
   await user.context.close();
 
   const adminUsers = await loggedPage(browser, request, "admin1");

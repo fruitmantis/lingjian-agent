@@ -39,7 +39,7 @@ for(const [width,height] of [[1366,768],[1920,1080],[390,844]])test(`representat
   await expect(page).toHaveURL(/partner_id=coze-partner/);
   await expect(page.locator('.development-profile > summary')).toBeVisible();
   await page.locator('.development-profile > summary').click();await expect(page.getByText(partner.ai_profile,{exact:true})).toBeVisible();
-  await page.getByLabel('发展方向',{exact:true}).fill('优先验证系统集成');await page.getByRole('button',{name:'生成能力发展建议',exact:true}).click();
+  await page.getByLabel('发展方向',{exact:true}).fill('优先验证系统集成');await page.getByRole('button',{name:'开始',exact:true}).click();
   await expect(page).toHaveURL(/\/tasks\/coze-plan$/);
   await page.getByLabel('消息',{exact:true}).fill('先验证哪些环节？');await page.getByRole('button',{name:'发送',exact:true}).click();
   await expect(page.getByTestId('conversation')).toContainText('建议先对照接口清单');
@@ -54,7 +54,7 @@ for(const [width,height] of [[1366,768],[1920,1080],[390,844]])test(`representat
   await page.goto('/resources?resource_type=case');await page.getByLabel('一级分类',{exact:true}).selectOption({index:1});await page.getByLabel('二级分类',{exact:true}).selectOption({index:1});
   await page.locator('.enablement-resource-card h2 a').first().click();await expect(page.getByRole('heading',{name:'案例文件',exact:true})).toBeVisible();
   await page.getByRole('link',{name:'围绕此案例制定发展建议',exact:true}).click();await expect(page).toHaveURL(/mode=development.*case_id=case-0/);
-  await page.goto('/');await page.locator('#requirement').fill(match.requirement);await page.getByRole('button',{name:'开始匹配',exact:true}).click();
+  await page.goto('/');await page.locator('#requirement').fill(match.requirement);await page.getByRole('button',{name:'开始',exact:true}).click();
   await expect.poll(()=>requests.some(r=>r.path==='/agent/tasks'&&r.method==='POST')).toBeTruthy();
   const creation=requests.find(r=>r.path==='/development/plans'&&r.method==='POST')!;
   expect(creation.body.request.target_partner_id).toBe(partner.id);

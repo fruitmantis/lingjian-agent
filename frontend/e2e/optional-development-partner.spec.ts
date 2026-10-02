@@ -1,0 +1,27 @@
+import {test,expect} from '@playwright/test';
+import {fixtureLogin} from './identity-fixture';
+const raw='我有个伙伴，现在只有基本的上云迁移能力，想往AI agent开发方向发展，请推荐下相应的课程和实验';
+test.use({video:{mode:'on',size:{width:1366,height:768}}});
+for(const width of [1366,390])test(`unlinked real HTTP development persists and reopens at ${width}px`,async({page,request},info)=>{
+ test.setTimeout(90000);await page.setViewportSize({width,height:width===1366?900:844});
+ const session=await(await fixtureLogin(request,'user_a')).json();const headers={Authorization:`Bearer ${session.access_token}`};
+ await page.addInitScript(s=>{localStorage.setItem('banfei:user:token',s.access_token);localStorage.setItem('banfei:user:user',JSON.stringify(s.user));},session);
+ await page.goto('/?mode=development');const input=page.getByRole('textbox',{name:'发展方向',exact:true});
+ const combo=page.getByRole('combobox',{name:'关联已有伙伴资料（可选）',exact:true});await expect(combo).toHaveAttribute('data-partner-id','');
+ await input.fill(raw);await page.evaluate(()=>document.fonts.ready);await page.addStyleTag({content:'nextjs-portal{display:none}'});
+ await page.screenshot({path:info.outputPath('unlinked-before-start.png'),fullPage:true});
+ const creation=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith('/development/plans'));
+ await page.getByRole('button',{name:'开始',exact:true}).evaluate(el=>{(el as HTMLButtonElement).click();(el as HTMLButtonElement).click();});
+ const accepted=await creation;expect(accepted.status()).toBe(202);expect(accepted.request().postDataJSON().request.target_partner_id).toBeNull();
+ const {plan_id:id}=await accepted.json();await expect(page).toHaveURL(`/tasks/${id}`);
+ await expect.poll(async()=>{const data=await(await request.get(`http://localhost/api/development/plans/${id}`,{headers})).json();return data.runs[0]?.status;},{timeout:60000}).toBe('ready');
+ await expect(page.locator('.task-answer')).toBeVisible();await expect(page.locator('.task-request-compact p')).toHaveText(raw);await expect(page.getByText('不可用伙伴',{exact:true})).toHaveCount(0);
+ await page.reload();await expect(page.locator('.task-answer')).toBeVisible();await expect(page.locator('.task-request-compact p')).toHaveText(raw);
+ if(width===1366)await expect(page.locator(`.sidebar-task-item[href="/tasks/${id}"]`)).toHaveAttribute('aria-current','page');
+ const detail=await(await request.get(`http://localhost/api/development/plans/${id}`,{headers})).json();expect(detail.plan.target_partner_id).toBeNull();expect(detail.partner_name).toBeNull();expect(detail.versions).toHaveLength(1);
+ const listing=await(await request.get('http://localhost/api/agent/tasks?task_type=development_plan&keyword='+encodeURIComponent('上云迁移'),{headers})).json();expect(listing.items.some((i:any)=>i.id===id)).toBe(true);
+ await page.screenshot({path:info.outputPath('unlinked-persisted-result.png'),fullPage:true});
+ await page.getByLabel('消息',{exact:true}).fill('为什么推荐这个方向？');await page.getByRole('button',{name:'发送',exact:true}).click();await expect(page.locator('.advisor-exchange')).toBeVisible({timeout:30000});
+ const after=await(await request.get(`http://localhost/api/development/plans/${id}`,{headers})).json();expect(after.plan.current_version_id).toBe(detail.plan.current_version_id);expect(after.request.raw_demand).toBe(raw);
+ await info.attach('isolated-task',{body:JSON.stringify({id,width,partner:null,versions:after.versions.length,model:'loopback replay',storage:'dedicated PostgreSQL temporary schema'}),contentType:'application/json'});
+});

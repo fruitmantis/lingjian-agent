@@ -1,4 +1,5 @@
 "use client";
+import {TaskRequest,TaskResult,TaskArrivalReadError} from "./task-transition";
 import {TaskProgress,type TaskProgressData} from "./task-progress";
 import {AdvisorAnswer} from "./advisor-answer";
 import {ClassificationFields, ClassificationNotice} from "@/components/business-taxonomy";
@@ -84,6 +85,10 @@ function questionsText(value: string): string {
 
 export default function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  return <TaskDetail key={id} id={id}/>;
+}
+
+function TaskDetail({id}:{id:string}) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const returnHref = pathname.startsWith("/admin") ? "/admin/tasks" : "/tasks";
@@ -158,7 +163,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
   if (task?.task_type === "development_plan") return <DevelopmentPlanDetail key={id} id={id}/>;
   if (loading) return <main className="page"><p>任务加载中...</p></main>;
-  if (!task) return <main className="page"><div className="card empty-state"><h1>无法查看任务</h1><p className="error-text">{error || "任务不存在"}</p><div className="table-actions"><button className="secondary-btn" onClick={() => void load()}>重试</button><Link href={returnHref} className="btn-primary-lg">返回任务列表</Link></div></div></main>;
+  if (!task) return <main className="page match-detail"><TaskArrivalReadError id={id}/><div className="card empty-state"><h1>无法查看任务</h1><p className="error-text">{error || "任务不存在"}</p><div className="table-actions"><button className="secondary-btn" onClick={() => void load()}>重试</button><Link href={returnHref} className="btn-primary-lg">返回任务列表</Link></div></div></main>;
 
   return (
     <main className="page match-detail">
@@ -166,27 +171,27 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重新加载</button></div>}
       {(task.task_type || "partner_match") === "partner_match" ? <>
       {(task.taskStatus === "partial" || task.taskStatus === "failed") ? <FailureNotice details={task.failureDetails} stages={task.lastErrorStage} partial={task.recommendations.length>0} title={task.recommendations.length>0?"部分完成 · 伙伴推荐可用":"本次匹配未完成"} impact={task.recommendations.length>0?"已保存的伙伴推荐可继续查看。重试将补充未完成的步骤。":"项目需求已保留，可重新执行。"}><button onClick={()=>void retryTask()} disabled={retrying||!!task.archivedAt}>{retrying?"重试中…":"重试"}</button></FailureNotice> : task.taskStatus!=="ready" && <div className="notice-warning task-status-notice"><strong>{taskStatusText[task.taskStatus]}</strong></div>}
-      <section className="card task-request task-request-compact"><h2>本次需求</h2><p className="requirement-block">{task.requirement}</p></section>
-      <TaskProgress value={task.progress}/>
-      {task.scopeMessage&&<section className="card task-answer" data-testid="scope-result"><p>{task.scopeMessage}</p></section>}
-      {task.understanding&&<section className="card" data-testid="task-understanding"><h2>需求理解</h2><div className="detail-grid">{Object.entries({"业务需求":task.understanding.businessNeeds,"技术需求":task.understanding.technicalNeeds,"交付要求":task.understanding.deliveryNeeds,"行业":task.understanding.industry,"区域":task.understanding.region,"时间要求":task.understanding.timelineRequirement}).filter(([,value])=>value&&value!=="未知").map(([label,value])=><div key={label as string}><span>{label as string}</span><strong>{String(value)}</strong></div>)}</div><p className="muted">仅根据本次需求确认；未提供的信息保留待核实。</p></section>}
-      {task.answer&&<section className="card task-answer"><AdvisorAnswer text={task.answer}/></section>}
-      {!task.scopeMessage&&<section className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">{task.taskStatus==="ready"||task.taskStatus==="partial"?"没有匹配项，可调整需求后重新匹配。":"暂未生成推荐结果。"}</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
-        <article className="recommendation-item" key={item.partnerId}>
+      <TaskRequest id={id}>{task.requirement}</TaskRequest>
+      <TaskProgress value={task.progress} taskId={id}/>
+      {task.scopeMessage&&<TaskResult id={id} className="card task-answer" testId="scope-result"><p>{task.scopeMessage}</p></TaskResult>}
+      {task.understanding&&<TaskResult id={id} className="card" testId="task-understanding"><h2>需求理解</h2><div className="detail-grid">{Object.entries({"业务需求":task.understanding.businessNeeds,"技术需求":task.understanding.technicalNeeds,"交付要求":task.understanding.deliveryNeeds,"行业":task.understanding.industry,"区域":task.understanding.region,"时间要求":task.understanding.timelineRequirement}).filter(([,value])=>value&&value!=="未知").map(([label,value])=><div key={label as string}><span>{label as string}</span><strong>{String(value)}</strong></div>)}</div><p className="muted">仅根据本次需求确认；未提供的信息保留待核实。</p></TaskResult>}
+      {task.answer&&<TaskResult id={id} className="card task-answer"><AdvisorAnswer text={task.answer}/></TaskResult>}
+      {!task.scopeMessage&&<TaskResult id={id} className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">{task.taskStatus==="ready"||task.taskStatus==="partial"?"没有匹配项，可调整需求后重新匹配。":"暂未生成推荐结果。"}</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
+        <TaskResult as="article" id={id} className="recommendation-item" key={item.partnerId}>
           <div className="recommendation-title"><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><CardEntry href={`/partners/${item.partnerId}`}>查看伙伴</CardEntry></div>
           <div className="evidence-grid"><div><strong>匹配能力</strong><p>{text(item.matchedCapabilities)}</p></div><div><strong>行业经验</strong><p>{text(item.matchedIndustries)}</p></div><div><strong>覆盖区域</strong><p>{text(item.matchedRegions)}</p></div><div><strong>推荐理由</strong><p>{text(item.recommendationReason)}</p></div><div><strong>支撑案例</strong><p>{text(item.evidenceCases)}</p></div><div><strong>支撑交付物</strong><p>{text(item.evidenceDeliverables)}</p></div></div>
           <div className="risk-note"><strong>风险或缺口</strong><p>{text(item.riskNotes)}</p></div>
           <div className="enablement-actions"><Link className="secondary-btn" href={`/?mode=development&partner_id=${encodeURIComponent(item.partnerId)}&task_id=${encodeURIComponent(task.id)}`}>针对该伙伴制定发展建议</Link></div>
-        </article>
-      ))}</div>}</section>}
-      {task.demandProfile && <section className="card"><h2>需求画像</h2><div className="detail-grid">{Object.entries({
+        </TaskResult>
+      ))}</div>}</TaskResult>}
+      {task.demandProfile && <TaskResult id={id} className="card"><h2>需求画像</h2><div className="detail-grid">{Object.entries({
         "行业标签": task.demandProfile.industryTags, "能力标签": task.demandProfile.capabilityTags,
         "交付类型": task.demandProfile.deliveryTypeTags, "项目区域": task.demandProfile.regionTags,
         "复杂度": task.demandProfile.complexityLevel, "紧急程度": task.demandProfile.urgencyLevel,
         "项目关键词": task.demandProfile.projectKeywords, "供给状态": supplyText(task.demandProfile.supplyStatus),
         "缺口分析": task.demandProfile.gapAnalysis,
-      }).map(([label, value]) => <div key={label}><span>{label}</span><strong>{text(value)}</strong></div>)}</div></section>}
-      {task.opportunity && <section className="card"><div className="section-heading-row"><div><h2>项目机会</h2><p>可补充业务字段，AI 抽取字段保持只读。</p></div><span className="score-chip">完整度 {task.opportunity.completenessScore}%</span></div>
+      }).map(([label, value]) => <div key={label}><span>{label}</span><strong>{text(value)}</strong></div>)}</div></TaskResult>}
+      {task.opportunity && <TaskResult id={id} className="card"><div className="section-heading-row"><div><h2>项目机会</h2><p>可补充业务字段，AI 抽取字段保持只读。</p></div><span className="score-chip">完整度 {task.opportunity.completenessScore}%</span></div>
         <ClassificationNotice pending={task.opportunity.classification_pending}/><form onSubmit={saveOpportunity} className="form-grid">{editableFields.filter(field=>!["industry","region"].includes(field.key)).map(field => <div className={`form-row ${field.multiline ? "form-span-two" : ""}`} key={field.key}><label>{field.label}</label>{field.multiline ? <textarea rows={3} value={form[field.key] || ""} onChange={event => setForm(current => ({ ...current, [field.key]: event.target.value }))} /> : <input value={form[field.key] || ""} onChange={event => setForm(current => ({ ...current, [field.key]: event.target.value }))} />}</div>)}<ClassificationFields industries={form.industry||""} regions={form.region||""} onIndustries={industry=>setForm(current=>({...current,industry}))} onRegions={region=>setForm(current=>({...current,region}))}/><div className="form-span-two"><button disabled={saving}>{saving ? "保存中..." : "保存项目信息"}</button></div></form>
         <div className="detail-grid readonly-grid">{Object.entries({
           "技术需求": task.opportunity.technicalNeeds, "交付要求": task.opportunity.deliveryNeeds,
@@ -196,7 +201,7 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
           "推荐伙伴": task.opportunity.recommendedPartnerNames, "供给状态": supplyText(task.opportunity.supplyStatus),
           "待补充问题": questionsText(task.opportunity.followUpQuestions),
         }).map(([label, value]) => <div key={label}><span>{label}</span><strong>{text(value)}</strong></div>)}</div>
-      </section>}
+      </TaskResult>}
       </> : <section className="card"><p>此类型任务的业务详情尚未开放。</p></section>}
     </main>
   );

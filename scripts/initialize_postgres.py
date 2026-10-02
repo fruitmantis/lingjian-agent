@@ -8,7 +8,7 @@ from backend.app.postgres_storage import initialize_empty_schema
 if __name__ == '__main__':
     try:
         initialize_empty_schema(database_url())
-        print('Initialized empty PostgreSQL schema to version 18')
+        print('Initialized empty PostgreSQL schema to version 19')
     except (RuntimeError, ValueError) as error:
         print('PostgreSQL initialization refused: ' + str(error), file=sys.stderr)
         raise SystemExit(1)

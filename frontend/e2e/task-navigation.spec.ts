@@ -48,7 +48,7 @@ test("submission appears before acknowledgement and survives navigation and relo
   const requirement = "SIDEBAR_SLOW 即时任务验证";
   await page.locator("#requirement").fill(requirement);
   const accepted = page.waitForResponse(response => response.url() === `${API}/agent/tasks` && response.request().method() === "POST");
-  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
+  await page.getByRole("button", { name: "开始", exact: true }).click();
   await expect(page.locator(".pending-task")).toContainText("提交中");
   const response = await accepted;
   expect(response.status()).toBe(202);
@@ -142,8 +142,12 @@ test("lost acknowledgement confirms the same ID without a second submission", as
   });
   await page.goto("/");
   await page.locator("#requirement").fill("确认原任务");
-  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
-  await expect(page.locator(".current-task-summary")).toContainText("已完成");
+  await page.getByRole("button", { name: "开始", exact: true }).click();
+  await expect(page).toHaveURL(`/tasks/${records[0].id}`);
+  await expect(page.locator('.task-request-compact p')).toHaveText('确认原任务');
+  const recovered = page.locator(`.sidebar-task-item[href="/tasks/${records[0].id}"]`);
+  await expect(recovered).toHaveAttribute('aria-current', 'page');
+  await expect(recovered).toContainText('已完成');
   await expect(rows(page)).toHaveCount(1);
   await expect(page.locator(".pending-task")).toHaveCount(0);
   expect(attempts).toBe(1);
@@ -161,7 +165,7 @@ test("unconfirmed submission survives reload and only queries its original ID", 
   });
   await page.goto("/");
   await page.locator("#requirement").fill("暂未确认的任务");
-  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
+  await page.getByRole("button", { name: "开始", exact: true }).click();
   await expect(page.locator(".pending-task")).toContainText("正在获取任务结果");
   await page.reload();
   await expect(page.locator(".pending-task")).toContainText("待恢复的任务");
@@ -208,7 +212,7 @@ test("starting a blank task during submission keeps the previous job in navigati
   });
   await page.goto("/");
   await page.locator("#requirement").fill("保留后台任务");
-  await page.getByRole("button", { name: "开始匹配", exact: true }).click();
+  await page.getByRole("button", { name: "开始", exact: true }).click();
   await expect(page.locator(".pending-task")).toContainText("提交中");
   await page.getByRole("link", { name: "开启新任务", exact: true }).click();
   await expect(page.locator("#requirement")).toHaveValue("");

@@ -13,7 +13,7 @@ def test_empty_pg_schema_initializes_current_version_in_subprocess():
         with engine_for(url).connect() as conn:
             before = snapshot(conn)
             assert len(before) == 35
-            assert conn.exec_driver_sql("SELECT value FROM app_metadata WHERE key='schema_version'").scalar() == '18'
+            assert conn.exec_driver_sql("SELECT value FROM app_metadata WHERE key='schema_version'").scalar() == '19'
         for _ in range(2):
             subprocess.run([sys.executable, '-c', 'from backend.app.database import initialize_storage; initialize_storage()'], env=env, check=True, capture_output=True)
         with engine_for(url).connect() as conn: assert snapshot(conn) == before

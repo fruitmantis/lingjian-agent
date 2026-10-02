@@ -29,7 +29,7 @@ for (const kind of ['match','development'] as const) {
   });
   await page.goto(kind==='match'?'/':'/?mode=development&partner_id=partner-1');
   await page.locator(kind==='match'?'#requirement':'textarea[aria-label="发展方向"]').fill(original);
-  await page.getByRole('button',{name:kind==='match'?'开始匹配':'生成能力发展建议',exact:true}).click();
+  await page.getByRole('button',{name:'开始',exact:true}).click();
   await expect(page).toHaveURL(new RegExp(`/tasks/${id}$`));
   await expect(page.locator(`.sidebar-task-item[href="/tasks/${id}"]`)).toHaveAttribute('aria-current','page');
   await expect(page.locator('aside').getByRole('link',{name:'全部任务',exact:true})).toHaveAttribute('aria-current','page');
