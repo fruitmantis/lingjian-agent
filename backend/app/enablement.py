@@ -8,7 +8,8 @@ from typing import Literal
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator, ValidationError
+from pydantic import Field, HttpUrl, field_validator, model_validator, ValidationError
+from backend.business.common import StrictModel
 
 from .database import get_db
 
@@ -16,10 +17,6 @@ Kind = Literal['resource']
 TABLES = {
     'resource': ('enablement_resources', 'enablement_resource_versions', 'id'),
 }
-
-
-class StrictModel(BaseModel):
-    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
 
 
 class ResourceMetadata(StrictModel):
