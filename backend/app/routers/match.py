@@ -541,7 +541,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
             try:
                 config, chars, tokens = match_context.checked_config(
                     pinned_configuration(snapshot['model']), messages, schema,
-                    match_context.INITIAL_CHAR_LIMIT, match_context.INITIAL_OUTPUT_TOKENS)
+                    match_context.INITIAL_CHAR_LIMIT)
             except MatchInputBudgetError:
                 # Shrink duplicate/less relevant text, never omit a partner.
                 compact_input = [{**item,
@@ -553,7 +553,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
                 try:
                     config, chars, tokens = match_context.checked_config(
                         pinned_configuration(snapshot['model']), messages, schema,
-                        match_context.INITIAL_CHAR_LIMIT, match_context.INITIAL_OUTPUT_TOKENS)
+                        match_context.INITIAL_CHAR_LIMIT)
                 except MatchInputBudgetError:
                     compact_input = [{**item, 'intro': '；'.join(match_context.select_passages(
                         item['intro'], requirement, 180))} for item in compact_input]
@@ -563,7 +563,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
                                                          'partners': compact_input}, ensure_ascii=False, separators=(',', ':'))
                     config, chars, tokens = match_context.checked_config(
                         pinned_configuration(snapshot['model']), messages, schema,
-                        match_context.INITIAL_CHAR_LIMIT, match_context.INITIAL_OUTPUT_TOKENS)
+                        match_context.INITIAL_CHAR_LIMIT)
             prepared = round((perf_counter() - start) * 1000)
             call_start = perf_counter()
             reset_retry_count()
@@ -628,7 +628,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
         try:
             config, chars, tokens = match_context.checked_config(
                 pinned_configuration(snapshot['model']), detail_messages, schema,
-                match_context.DETAIL_CHAR_LIMIT, match_context.DETAIL_OUTPUT_TOKENS)
+                match_context.DETAIL_CHAR_LIMIT)
         except MatchInputBudgetError:
             # Dedupe is already applied; reduce lower-ranked passages/cases for every
             # selected partner rather than dropping the tail of the candidate list.
@@ -636,7 +636,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
             detail_messages[1]['content'] = content
             config, chars, tokens = match_context.checked_config(
                 pinned_configuration(snapshot['model']), detail_messages, schema,
-                match_context.DETAIL_CHAR_LIMIT, match_context.DETAIL_OUTPUT_TOKENS)
+                match_context.DETAIL_CHAR_LIMIT)
         prepared = round((perf_counter() - detail_start) * 1000)
         call_start = perf_counter()
         reset_retry_count()

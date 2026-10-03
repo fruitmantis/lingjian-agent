@@ -27,9 +27,6 @@ INITIAL_CHAR_LIMIT = 60_000
 DETAIL_CHAR_LIMIT = 25_000
 SUMMARY_CHAR_LIMIT = 25_000
 DETAIL_PARTNER_TARGET = 1_500
-INITIAL_OUTPUT_TOKENS = 2_048
-DETAIL_OUTPUT_TOKENS = 8_192
-SUMMARY_OUTPUT_TOKENS = 512
 # DeepSeek's published Flash context is 1,048,576 tokens. Other providers are
 # held to a deliberately smaller local ceiling until their capacity is known.
 DEEPSEEK_CONTEXT_TOKENS = 1_048_576
@@ -140,14 +137,16 @@ def input_metrics(config: dict, messages: list[dict], schema: dict) -> tuple[int
     return len(packed), _token_estimate(packed)
 
 
-def checked_config(config: dict, messages: list[dict], schema: dict, char_limit: int, output_cap: int):
+def checked_config(config: dict, messages: list[dict], schema: dict, char_limit: int):
     resolved = model_config_from_record(config)
     chars, estimated_tokens = input_metrics(config, messages, schema)
-    output_tokens = min(resolved.max_tokens, output_cap)
     host = urlsplit(resolved.base_url).hostname
     context_ceiling = (DEEPSEEK_CONTEXT_TOKENS if host == 'api.deepseek.com' and
                        resolved.model in ('deepseek-v4-flash', 'deepseek-flash') else UNKNOWN_CONTEXT_CEILING)
-    if chars > char_limit or estimated_tokens + output_tokens > context_ceiling:
+    # Thinking and final content share the output allowance. Short business JSON
+    # does not imply short reasoning: use the saved limit within remaining context.
+    output_tokens = min(resolved.max_tokens, context_ceiling - estimated_tokens)
+    if chars > char_limit or output_tokens <= 0:
         raise MatchInputBudgetError(f'模型输入超过本阶段预算（字符 {chars}/{char_limit}，估算输入 Token {estimated_tokens} + 输出预留 {output_tokens}/{context_ceiling}），任务已保留，请调整资料后重试')
     return {**config, '_match_output_tokens': output_tokens}, chars, estimated_tokens
 
@@ -274,7 +273,7 @@ def _generate_summary(partner_id: str) -> bool:
     ]
     config = resolve_model_record('partner_profile')
     try:
-        budgeted, chars, estimated = checked_config(config, messages, MatchingSummary.model_json_schema(), SUMMARY_CHAR_LIMIT, SUMMARY_OUTPUT_TOKENS)
+        budgeted, chars, estimated = checked_config(config, messages, MatchingSummary.model_json_schema(), SUMMARY_CHAR_LIMIT)
         prepared = round((perf_counter() - start) * 1000)
         call_start = perf_counter()
         reset_retry_count()

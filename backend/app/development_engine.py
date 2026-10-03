@@ -116,6 +116,14 @@ def call(config,stage,payload,contract,blocked):
     if stage=='analyze':
         # Existing advice cannot be generated as a new task; the model sees only valid transitions.
         schema['properties']['action']['enum']=['answer','patch','regenerate'] if payload.get('current') else ['answer','generate']
+        # JSON mode guarantees JSON syntax, not adherence to this contract. Derive
+        # the output boundary from the schema so input aliases cannot become fields.
+        messages[0]['content'] += (
+            '\n本阶段响应根字段白名单（由本次 schema 生成）：' + json.dumps(list(schema['properties']),ensure_ascii=False) + '。'
+            'request、profile、formal_tags、current、recent_exchanges 和 message 仅为输入上下文，不把其路径平铺、改名或复制为响应字段。'
+            '用户自述基础的更新只返回 effective_baseline，不另造同义字段；说明只放入 schema 已定义的说明字段。'
+            '返回前检查根对象及嵌套对象的每个键；schema 未定义的键一律不输出，即使值为空字符串或 null。'
+        )
     elif stage=='patch':
         # Mirror the existing authorized-target guard in the provider-visible contract.
         schema['$defs']['ItemChange']['properties']['item_id']['enum']=payload['understanding']['edit_item_ids']
@@ -222,7 +230,9 @@ def strong_guard(output):
         for value in output.values():strong_guard(value)
     elif isinstance(output,list):
         for value in output:strong_guard(value)
-    elif isinstance(output,str) and re.search(r'确认.*不具备|确认不足|明确不满足|没有.{0,12}能力|学完.{0,8}具备|能力已提升',output):
+    # Missing capability records/evidence is not a claim of missing capability.
+    # Exclude only that local noun phrase, never the rest of the statement.
+    elif isinstance(output,str) and re.search(r'确认.*不具备|确认不足|明确不满足|没有(?:(?!能力)[^，。！？；,.;!?\n]){0,12}能力(?![ \t]*(?:的[ \t]*)?(?:记载|记录|证据))|学完.{0,8}具备|能力已提升',output):
         raise InvalidOutput('Unsupported capability conclusion')
 
 
