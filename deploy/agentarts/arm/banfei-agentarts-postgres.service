@@ -1,0 +1,23 @@
+[Unit]
+Description=Banfei AgentArts independent PostgreSQL 16 instance
+After=network.target
+
+[Service]
+Type=simple
+User=banfei-agentarts-pg
+Group=banfei-agentarts-pg
+RuntimeDirectory=banfei-agentarts-pg
+RuntimeDirectoryMode=0700
+ExecStart=/usr/lib/postgresql/16/bin/postgres -D /var/lib/banfei-agentarts-pg/data -c config_file=/etc/banfei-agentarts/postgresql.conf
+KillSignal=SIGINT
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+InaccessiblePaths=-/opt/banfei -/var/lib/postgresql -/etc/postgresql -/var/backups
+ReadWritePaths=/var/lib/banfei-agentarts-pg /run/banfei-agentarts-pg
+
+[Install]
+WantedBy=multi-user.target

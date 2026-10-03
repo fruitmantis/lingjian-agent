@@ -1,0 +1,133 @@
+{
+  "suite": "existing AgentArts synthetic fault tests",
+  "run_date_utc": "2026-10-03",
+  "status": "passed",
+  "passed_count": 19,
+  "duration_seconds": 30.22,
+  "selection": "timeout_needs_fresh or lost_retry_ack or runtime_waits_and_deduplicates or non_timeout_failure or runtime_cancels_orphaned or runtime_failure_preserves or actual_runtime_process_kill or actual_vm_process_kill or runtime_protocol_auth_dedup",
+  "command_from_repository_root": [
+    "python",
+    "-B",
+    "scripts/run_postgres_validation.py",
+    "backend",
+    "-vv",
+    "-p",
+    "no:cacheprovider",
+    "-k",
+    "timeout_needs_fresh or lost_retry_ack or runtime_waits_and_deduplicates or non_timeout_failure or runtime_cancels_orphaned or runtime_failure_preserves or actual_runtime_process_kill or actual_vm_process_kill or runtime_protocol_auth_dedup"
+  ],
+  "environment": "Dedicated validation PostgreSQL with test-owned random schemas; global external-model network block; no production service mutation. Privately configure BANFEI_TEST_DATABASE_URL before execution.",
+  "test_source_sha256": {
+    "backend/tests/test_agentarts_runtime.py": "cd726bc5bf6b3ebaea149fcd0e92a0042e636c00d0ee7ba5aa4d516362ae186f",
+    "backend/tests/test_agentarts_qa_fixes.py": "88286abfdaad9375d4a5c2dad1df69195c103114376fea19b97c676642205dbe"
+  },
+  "cases": [
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_timeout_needs_fresh_vm_authorization[model_disabled-match]",
+      "status": "passed",
+      "asserted_scope": "Synthetic first ReadTimeout plus model/source/owner revocation; only one provider transport call, no retry authorization; 4001 seconds / 5 retries are preserved configuration, not elapsed waits."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_timeout_needs_fresh_vm_authorization[model_disabled-development]",
+      "status": "passed",
+      "asserted_scope": "Synthetic first ReadTimeout plus model/source/owner revocation; only one provider transport call, no retry authorization; 4001 seconds / 5 retries are preserved configuration, not elapsed waits."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_timeout_needs_fresh_vm_authorization[source_revoked-match]",
+      "status": "passed",
+      "asserted_scope": "Synthetic first ReadTimeout plus model/source/owner revocation; only one provider transport call, no retry authorization; 4001 seconds / 5 retries are preserved configuration, not elapsed waits."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_timeout_needs_fresh_vm_authorization[source_revoked-development]",
+      "status": "passed",
+      "asserted_scope": "Synthetic first ReadTimeout plus model/source/owner revocation; only one provider transport call, no retry authorization; 4001 seconds / 5 retries are preserved configuration, not elapsed waits."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_timeout_needs_fresh_vm_authorization[owner_disabled-match]",
+      "status": "passed",
+      "asserted_scope": "Synthetic first ReadTimeout plus model/source/owner revocation; only one provider transport call, no retry authorization; 4001 seconds / 5 retries are preserved configuration, not elapsed waits."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_timeout_needs_fresh_vm_authorization[owner_disabled-development]",
+      "status": "passed",
+      "asserted_scope": "Synthetic first ReadTimeout plus model/source/owner revocation; only one provider transport call, no retry authorization; 4001 seconds / 5 retries are preserved configuration, not elapsed waits."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_lost_retry_ack_reconciles_without_duplicate[match]",
+      "status": "passed",
+      "asserted_scope": "Drop one retry acknowledgement; one retry grant, reconcile by GET; no duplicate provider invocation (match 4 total / development 3 total, including the initial timeout)."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_lost_retry_ack_reconciles_without_duplicate[development]",
+      "status": "passed",
+      "asserted_scope": "Drop one retry acknowledgement; one retry grant, reconcile by GET; no duplicate provider invocation (match 4 total / development 3 total, including the initial timeout)."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_runtime_waits_and_deduplicates_retry_grants",
+      "status": "passed",
+      "asserted_scope": "No retry before VM grant; reject another job, wrong session/incarnation/attempt; duplicate valid grant calls provider only once more; cancelled job refuses further grants."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_non_timeout_failure_is_not_retried[match]",
+      "status": "passed",
+      "asserted_scope": "Synthetic ConnectError: exactly one transport call and no retry grant."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_qa_fixes.py::test_non_timeout_failure_is_not_retried[development]",
+      "status": "passed",
+      "asserted_scope": "Synthetic ConnectError: exactly one transport call and no retry grant."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_runtime.py::test_runtime_protocol_auth_dedup_session_restart_and_budget",
+      "status": "passed",
+      "asserted_scope": "401 without key; idempotent POST executes once; reject changed payload, wrong session/run, old incarnation after restart; explicit budget rejection."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_runtime.py::test_runtime_cancels_orphaned_model_work[lease]",
+      "status": "passed",
+      "asserted_scope": "Synthetic provider sleep(30) is interrupted by expired lease; wait at most 3 seconds for stop; failed/interrupted job has no result. Does not wait the full 30 seconds."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_runtime.py::test_runtime_cancels_orphaned_model_work[cancel]",
+      "status": "passed",
+      "asserted_scope": "Synthetic provider sleep(30) is interrupted by DELETE cancellation; wait at most 3 seconds for stop; failed/interrupted job has no result. Does not wait the full 30 seconds."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_runtime.py::test_runtime_failure_preserves_current_and_historical_confirmed[runtime_restart]",
+      "status": "passed",
+      "asserted_scope": "Inject runtime_restart during development edit; current and legacy confirmed pointers, one existing version and payload remain unchanged."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_runtime.py::test_runtime_failure_preserves_current_and_historical_confirmed[vm_restart]",
+      "status": "passed",
+      "asserted_scope": "Inject vm_restart during development edit; current and legacy confirmed pointers, one existing version and payload remain unchanged."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_runtime.py::test_runtime_failure_preserves_current_and_historical_confirmed[wrong_run]",
+      "status": "passed",
+      "asserted_scope": "Inject wrong_run during development edit; current and legacy confirmed pointers, one existing version and payload remain unchanged."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_runtime.py::test_actual_runtime_process_kill_rejects_old_operation",
+      "status": "passed",
+      "asserted_scope": "Kill/restart disposable local Runtime process after one synthetic provider call; old operation GET 404 / replay 409, no second invocation."
+    },
+    {
+      "node_id": "backend/tests/test_agentarts_runtime.py::test_actual_vm_process_kill_preserves_pg_and_rejects_late_result",
+      "status": "passed",
+      "asserted_scope": "Kill disposable local VM worker after one synthetic provider call; startup recovery marks run/stage interrupted, late result cannot create a version, no second call."
+    }
+  ],
+  "not_claimed": [
+    "No 4001-second elapsed wait",
+    "No 100+ second wall-clock Runtime wait in this subset",
+    "No full timeout-retry exhaustion claim for this subset",
+    "No paid cloud cancellation or failure injection"
+  ],
+  "real_cloud_evidence_separate": {
+    "match_seconds_approx": 87,
+    "development_seconds_approx": 66,
+    "successful_model_stages": 5,
+    "retries": 0
+  }
+}

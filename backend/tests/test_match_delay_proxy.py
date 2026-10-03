@@ -24,7 +24,7 @@ def test_loopback_transport_preserves_provider_options_and_large_input_budget(mo
     schema = {'type': 'object'}
     stamp = configuration_stamp(config)
     # This input exceeds the unknown-provider ceiling but fits the original model.
-    budgeted, chars, tokens = partner_match_context.checked_config(config, messages, schema, 60000, 2048)
+    budgeted, chars, tokens = partner_match_context.checked_config(config, messages, schema, 60000)
     assert tokens + 2048 > partner_match_context.UNKNOWN_CONTEXT_CEILING
     with upstream() as (url, received, _):
         with slow_proxy(url, delay=.1, port=0, events=Capture()) as server:
@@ -35,8 +35,8 @@ def test_loopback_transport_preserves_provider_options_and_large_input_budget(mo
             assert time.monotonic() - started >= .1
     assert result == 'synthetic result' and len(received) == 1
     body = json.loads(received[0][1])
-    assert body['thinking'] == {'type': 'disabled'}
-    assert body['max_tokens'] == 2048 and body['model'] == 'deepseek-v4-flash'
+    assert body['thinking'] == {'type': 'enabled'}
+    assert body['max_tokens'] == config['max_tokens'] and body['model'] == 'deepseek-v4-flash'
     assert body['messages'][-1]['content'] == messages[0]['content']
     assert configuration_stamp(budgeted) == stamp
     assert partner_match_context.input_metrics(budgeted, messages, schema)[0] == chars

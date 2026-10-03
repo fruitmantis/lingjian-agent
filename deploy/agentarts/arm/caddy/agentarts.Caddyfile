@@ -1,0 +1,20 @@
+{
+    admin off
+    persist_config off
+}
+
+http://banfei-agentarts.test {
+    @api path /api /api/*
+    handle @api {
+        header Content-Type application/json
+        header Cache-Control no-store
+        respond `{ "detail": "AgentArts 正在维护，请稍后重试。", "code": "AGENTARTS_MAINTENANCE" }` 503
+    }
+    handle {
+        reverse_proxy 127.0.0.1:3001
+    }
+}
+
+:80 {
+    respond "Not found" 404
+}

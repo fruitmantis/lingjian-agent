@@ -1,0 +1,15 @@
+**
+!backend/
+!backend/__init__.py
+!backend/app/
+!backend/app/__init__.py
+!backend/app/business_taxonomy.py
+!backend/agent_runtime/
+!backend/agent_runtime/**
+!shared/
+!shared/business-taxonomy.json
+!deploy/
+!deploy/agentarts/
+!deploy/agentarts/requirements.lock
+!deploy/agentarts/Dockerfile
+**/__pycache__

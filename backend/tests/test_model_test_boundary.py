@@ -58,7 +58,10 @@ def test_deepseek_json_mode_keeps_schema_and_strict_validation(monkeypatch):
 
 def test_reasoning_override_only_for_verified_provider_model():
     from backend.app.ai_client import provider_request_options
-    assert provider_request_options("https://api.deepseek.com","deepseek-v4-flash")=={"thinking":{"type":"disabled"}}
+    assert provider_request_options("https://api.deepseek.com","deepseek-v4-flash")=={"thinking":{"type":"enabled"}}
+    assert provider_request_options("https://api.deepseek.com/v1","deepseek-flash")=={"thinking":{"type":"enabled"}}
+    assert provider_request_options("https://dashscope.aliyuncs.com/compatible-mode/v1","glm-5.3")=={}
+    assert provider_request_options("https://api.deepseek.com.evil.test","deepseek-flash")=={}
     assert provider_request_options("https://elsewhere.test","deepseek-v4-flash")=={}
     assert provider_request_options("https://api.deepseek.com","other-model")=={}
 

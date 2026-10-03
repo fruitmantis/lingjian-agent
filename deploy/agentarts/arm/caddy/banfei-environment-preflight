@@ -1,0 +1,22 @@
+#!/usr/bin/python3
+# Refuse mixed environments and occupied HTTP 80; never stop/start services.
+import subprocess
+import sys
+if len(sys.argv) != 3 or sys.argv[1] not in ('original', 'agentarts') or sys.argv[2] not in ('app', 'http'):
+    raise SystemExit(2)
+environment, role = sys.argv[1:]
+other = 'banfei-agentarts' if environment == 'original' else 'banfei'
+for suffix in ('http', 'frontend', 'backend'):
+    unit = other + '-' + suffix + '.service'
+    state = subprocess.run(['/usr/bin/systemctl', 'show', unit, '--property=ActiveState', '--value'], capture_output=True, text=True, check=True).stdout.strip()
+    if state not in ('inactive', 'failed'):
+        print('Start refused: opposite environment service is ' + state + ': ' + unit, flush=True)
+        raise SystemExit(1)
+ports = [3001, 8001] if environment == 'original' else [3000, 8000]
+if role == 'http':
+    ports.append(80)
+for port in ports:
+    listeners = subprocess.run(['/usr/bin/ss', '-H', '-ltn', 'sport = :' + str(port)], capture_output=True, text=True, check=True).stdout.strip()
+    if listeners:
+        print('Start refused: protected port is already listening: ' + str(port), flush=True)
+        raise SystemExit(1)

@@ -146,6 +146,15 @@ def record_error(error, stage=None, **values):
     if response is not None:
         record['http_status'] = response.status_code
         record['response_excerpt'] = excerpt(response.text)
+    # Remote Runtime failures contain only a rebuilt whitelist. Do not reuse any
+    # model response excerpt from the surrounding VM diagnostic context.
+    from backend.agent_runtime.diagnostics import StageFailure, sanitize_diagnostic
+    if isinstance(original, StageFailure):
+        safe = sanitize_diagnostic(original.runtime_diagnostic)
+        if safe:
+            record['runtime_diagnostic'] = safe
+            record['http_status'] = safe.get('upstream_http_status')
+            record['response_excerpt'] = None
     # Include the actual stack without locals, raw SQL bind parameters or request payloads.
     stack = ''.join(f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}\n'
                     for frame in traceback.extract_tb(original.__traceback__))

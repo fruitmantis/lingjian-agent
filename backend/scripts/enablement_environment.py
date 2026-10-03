@@ -4,6 +4,7 @@ import http.client
 import ipaddress
 import json
 import os
+import re
 import shutil
 import signal
 import socket
@@ -21,6 +22,64 @@ STATE = RUN / 'services.json'
 ENTRY_STATE = RUN / 'entry-service.json'
 CADDYFILE = ROOT / 'deploy/Caddyfile'
 SYSTEMD_UNITS = ('banfei-backend.service', 'banfei-frontend.service', 'banfei-http.service')
+AGENTARTS_FRONTEND_ENV = Path('/etc/banfei-agentarts/frontend.env')
+AGENTARTS_UNITS = ('banfei-agentarts-backend.service', 'banfei-agentarts-frontend.service')
+
+
+def deployment_profile(environment):
+    profile = environment.get('BANFEI_DEPLOYMENT_PROFILE', 'original')
+    if profile not in ('original', 'agentarts'):
+        raise RuntimeError('Unknown deployment profile')
+    return profile
+
+
+def isolated_location():
+    return ROOT.is_relative_to('/opt/banfei-agentarts') or ROOT.name == 'lingjian-agent-agentarts'
+
+
+def systemd_units(environment):
+    profile = deployment_profile(environment)
+    if isolated_location() and profile != 'agentarts':
+        raise RuntimeError('AgentArts worktree must explicitly select its isolated deployment profile')
+    return AGENTARTS_UNITS if profile == 'agentarts' else SYSTEMD_UNITS
+
+
+def api_target(environment):
+    return 'http://127.0.0.1:' + ('8001' if deployment_profile(environment) == 'agentarts' else '8000')
+
+
+def validate_agentarts(environment):
+    if deployment_profile(environment) != 'agentarts':
+        return
+    if service_manager(environment) != 'systemd':
+        raise RuntimeError('AgentArts ARM deployment requires its dedicated systemd services')
+    database = urlsplit(environment.get('DATABASE_URL', ''))
+    if (database.scheme not in ('postgresql', 'postgresql+psycopg')
+            or database.hostname != '127.0.0.1' or database.port != 55432
+            or database.path != '/banfei_agentarts' or database.username != 'banfei_agentarts_app'
+            or not database.password or database.query or database.fragment):
+        raise RuntimeError('AgentArts requires its own PG instance/account/database on loopback port 55432')
+    required = {'LINGJIAN_UPLOADS_DIR': '/var/lib/banfei-agentarts/uploads',
+                'TMPDIR': '/var/lib/banfei-agentarts/tmp',
+                'BANFEI_ERROR_LOG_PATH': '/var/log/banfei-agentarts/errors.jsonl'}
+    if any(environment.get(key) != value or str(Path(value).resolve()) != value for key, value in required.items()):
+        raise RuntimeError('AgentArts writable data paths must use their dedicated directories without aliases')
+    if any(environment.get(key) != 'runtime' for key in ('BANFEI_MATCH_EXECUTOR', 'BANFEI_DEVELOPMENT_EXECUTOR')):
+        raise RuntimeError('Both AgentArts business executors must remain runtime')
+
+
+
+def validate_agentarts_frontend(environment):
+    if deployment_profile(environment) != 'agentarts':
+        return
+    from dotenv import dotenv_values
+    if not AGENTARTS_FRONTEND_ENV.is_file():
+        raise RuntimeError('Isolated frontend environment is required; run init after provisioning')
+    frontend = dotenv_values(AGENTARTS_FRONTEND_ENV, interpolate=False)
+    if (frontend.get('BANFEI_API_PROXY_TARGET') != api_target(environment)
+            or frontend.get('NEXT_PUBLIC_API_BASE_URL') != '/api'
+            or frontend.get('BANFEI_IDENTITY_ORIGIN') != ','.join(origins(environment))):
+        raise RuntimeError('Isolated frontend target/origin mismatch; no service was started')
 
 
 def service_manager(environment):
@@ -38,7 +97,10 @@ def read_environment():
     else:
         from dotenv import dotenv_values
         values = dotenv_values(CONFIG)
-    return {key: str(value) for key, value in values.items() if value is not None}
+    environment = {key: str(value) for key, value in values.items() if value is not None}
+    if isolated_location():
+        systemd_units(environment)  # Refuse an accidental original-service binding.
+    return environment
 
 
 def origins(environment):
@@ -53,9 +115,17 @@ def origins(environment):
         try:
             host = ipaddress.ip_address(parsed.hostname).compressed
         except ValueError:
-            if parsed.hostname != 'localhost':
-                raise RuntimeError('BANFEI_IDENTITY_ORIGIN must use the actual IP or localhost') from None
-            host = 'localhost'
+            if deployment_profile(environment) == 'agentarts':
+                host = parsed.hostname.lower()
+                if len(host) > 253 or '.' not in host or any(not re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label) for label in host.split('.')):
+                    raise RuntimeError('AgentArts requires its own valid HTTP hostname') from None
+            else:
+                if parsed.hostname != 'localhost':
+                    raise RuntimeError('BANFEI_IDENTITY_ORIGIN must use the actual IP or localhost') from None
+                host = 'localhost'
+        else:
+            if deployment_profile(environment) == 'agentarts':
+                raise RuntimeError('AgentArts requires a separate hostname for browser identity isolation')
         origin = 'http://' + ('[' + host + ']' if ':' in host else host)
         if origin not in result:
             result.append(origin)
@@ -122,22 +192,32 @@ def update_frontend(path, updates):
 def initialize():
     environment = read_environment()
     allowed = origins(environment)
+    validate_agentarts(environment)
     if running(STATE) or running(ENTRY_STATE):
         raise RuntimeError('Stop this project before changing its HTTP entry configuration')
-    check_ports([80])
-    binary = caddy_binary(environment)
-    result = subprocess.run([binary, 'adapt', '--config', str(CADDYFILE), '--adapter', 'caddyfile'],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    if result.returncode:
-        raise RuntimeError('Caddy HTTP configuration was rejected; private configuration was not changed')
+    if deployment_profile(environment) == 'agentarts':
+        for unit in systemd_units(environment):
+            if subprocess.run(['systemctl', 'is-active', '--quiet', unit], check=False).returncode == 0:
+                raise RuntimeError('Stop only the AgentArts application services before changing their configuration')
+    else:
+        check_ports([80])
+        binary = caddy_binary(environment)
+        result = subprocess.run([binary, 'adapt', '--config', str(CADDYFILE), '--adapter', 'caddyfile'],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        if result.returncode:
+            raise RuntimeError('Caddy HTTP configuration was rejected; private configuration was not changed')
     updates = {'BANFEI_IDENTITY_ORIGIN': ','.join(allowed), 'CORS_ORIGINS': ','.join(allowed),
-               'NEXT_PUBLIC_API_BASE_URL': '/api', 'BANFEI_API_PROXY_TARGET': 'http://127.0.0.1:8000',
+               'NEXT_PUBLIC_API_BASE_URL': '/api', 'BANFEI_API_PROXY_TARGET': api_target(environment),
                'FORWARDED_ALLOW_IPS': '127.0.0.1'}
     update_environment(updates)
-    for name in ('.env.local', '.env.production.local'):
-        path = ROOT / 'frontend' / name
-        if name == '.env.local' or path.exists():
-            update_frontend(path, {key: updates[key] for key in ('NEXT_PUBLIC_API_BASE_URL', 'BANFEI_API_PROXY_TARGET')})
+    if deployment_profile(environment) == 'agentarts':
+        update_frontend(AGENTARTS_FRONTEND_ENV, {key: updates[key] for key in
+                        ('NEXT_PUBLIC_API_BASE_URL', 'BANFEI_API_PROXY_TARGET', 'BANFEI_IDENTITY_ORIGIN')})
+    else:
+        for name in ('.env.local', '.env.production.local'):
+            path = ROOT / 'frontend' / name
+            if name == '.env.local' or path.exists():
+                update_frontend(path, {key: updates[key] for key in ('NEXT_PUBLIC_API_BASE_URL', 'BANFEI_API_PROXY_TARGET')})
     print(f'HTTP configuration ready: {allowed[0]}; existing accounts, data and application keys preserved')
 
 
@@ -186,10 +266,11 @@ def stop_state(state):
 
 
 def stop():
-    if service_manager(read_environment()) == 'systemd':
+    environment = read_environment()
+    if service_manager(environment) == 'systemd':
         require_root()
-        subprocess.run(['systemctl', 'stop', *reversed(SYSTEMD_UNITS)], check=True)
-        print('Stopped only the three Banfei systemd services')
+        subprocess.run(['systemctl', 'stop', *reversed(systemd_units(environment))], check=True)
+        print('Stopped only the application services selected by this deployment profile')
         return
     stop_state(ENTRY_STATE)
     stop_state(STATE)
@@ -198,15 +279,17 @@ def stop():
 
 def start():
     environment = read_environment()
+    validate_agentarts(environment)
     if service_manager(environment) == 'systemd':
         require_root()
         origins(environment)
-        subprocess.run(['systemctl', 'start', *SYSTEMD_UNITS], check=True)
+        validate_agentarts_frontend(environment)
+        subprocess.run(['systemctl', 'start', *systemd_units(environment)], check=True)
         for _ in range(60):
             try:
-                with urlopen('http://127.0.0.1/api/health', timeout=2) as response:
+                with urlopen('http://127.0.0.1:3001/api/health' if deployment_profile(environment) == 'agentarts' else 'http://127.0.0.1/api/health', timeout=2) as response:
                     if response.status == 200:
-                        print(f'HTTP ready: {origins(environment)[0]}; Banfei systemd services active')
+                        print('AgentArts application ready on loopback 3001/8001; shared HTTP entry managed separately' if deployment_profile(environment) == 'agentarts' else f'HTTP ready: {origins(environment)[0]}; Banfei systemd services active')
                         return
             except OSError:
                 time.sleep(0.5)
@@ -280,9 +363,10 @@ def require_root():
 
 
 def status():
-    if service_manager(read_environment()) == 'systemd':
+    environment = read_environment()
+    if service_manager(environment) == 'systemd':
         result = []
-        for name in SYSTEMD_UNITS:
+        for name in systemd_units(environment):
             active = subprocess.run(['systemctl', 'is-active', '--quiet', name], check=False).returncode == 0
             result.append({'name': name, 'running': active})
         print(json.dumps(result))

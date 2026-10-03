@@ -58,6 +58,8 @@ def recover_stale_tasks(
             from . import match_understanding, task_progress
             snapshot = match_understanding.load(conn, row['id'])
             if snapshot:
+                from .runtime_bridge import interrupt_operations
+                interrupt_operations(conn,(snapshot.get('progress') or {}).get('run_id'))
                 task_progress.finish(snapshot.get('progress'), failed=True, finished_at=now)
                 match_understanding.save(conn, row['id'], snapshot)
             record_error(RuntimeError('Service restart interrupted unfinished matching' if startup else 'Unfinished matching exceeded the recovery deadline'), 'interrupted', task_id=row['id'])

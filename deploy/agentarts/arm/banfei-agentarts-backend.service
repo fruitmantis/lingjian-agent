@@ -1,0 +1,25 @@
+[Unit]
+ConditionPathExists=/etc/banfei-agentarts/data-copy-ready
+ConditionPathExists=/etc/banfei-agentarts/private-config-ready
+Description=Banfei AgentArts isolated business API and task workers
+After=network-online.target banfei-agentarts-postgres.service
+Requires=banfei-agentarts-postgres.service
+
+[Service]
+Type=simple
+User=banfei-agentarts
+Group=banfei-agentarts
+WorkingDirectory=/opt/banfei-agentarts/current
+EnvironmentFile=/etc/banfei-agentarts/backend.env
+ExecStart=/opt/banfei-agentarts/venv/bin/python -B -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8001 --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+InaccessiblePaths=-/opt/banfei -/var/lib/postgresql -/etc/postgresql -/var/backups
+ReadWritePaths=/var/lib/banfei-agentarts /var/log/banfei-agentarts
+
+[Install]
+WantedBy=multi-user.target

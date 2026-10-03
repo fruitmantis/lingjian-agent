@@ -1,0 +1,11 @@
+http://banfei-agentarts.test {
+    @api path /api /api/*
+    handle @api {
+        header Content-Type application/json
+        header Cache-Control no-store
+        respond `{ "detail": "AgentArts 后台待安全配置，请联系管理员。", "code": "AGENTARTS_CONFIGURATION_PENDING" }` 503
+    }
+    handle {
+        reverse_proxy 127.0.0.1:3001
+    }
+}

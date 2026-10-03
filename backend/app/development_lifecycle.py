@@ -285,6 +285,8 @@ def recover(startup=False,owner_user_id=None,plan_id=None):
         threshold=(datetime.now(timezone.utc)-timedelta(seconds=run_timeout())).isoformat()
         rows=conn.execute("SELECT * FROM development_runs WHERE status IN ('pending','running') AND (?=1 OR COALESCE(started_at,created_at)<?) AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(int(startup),threshold,owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
         for row in rows:
+            from .runtime_bridge import interrupt_operations
+            interrupt_operations(conn,row['id'])
             finish_progress(conn,row,failed=True)
             record_error(RuntimeError('Service restart interrupted unfinished execution' if startup else 'Stale execution exceeded the recovery deadline'), 'interrupted', task_id=row['plan_id'], run_id=row['id'])
             conn.execute("UPDATE development_runs SET status='interrupted',ended_at=?,safe_error_message='执行已中断，旧版本保持不变',error_stage='interrupted' WHERE id=?",(now(),row['id']))

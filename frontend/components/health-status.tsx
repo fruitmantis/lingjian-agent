@@ -43,7 +43,7 @@ export function HealthStatus() {
           return;
         }
         setConnectionState("offline");
-        setDetail("无法连接后端，请确认 FastAPI 已在 8000 端口启动");
+        setDetail("无法连接后端服务，请联系管理员检查服务状态");
       }
     }
 

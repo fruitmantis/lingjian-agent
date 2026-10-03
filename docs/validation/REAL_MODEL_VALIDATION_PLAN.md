@@ -6,7 +6,7 @@
 
 - 复用 OpenAI-compatible `POST /chat/completions`、现有模型场景与权限。
 - 能力发展按 `Understanding` / `AdviceOutput` / `AdvicePatch` 等当前 [Pydantic 契约](../../backend/app/development_types.py) 处理；不使用旧培训长表单作为必填输入。
-- 统一理解、建议生成和连接测试统一使用 `json_object` 并提供完整 schema 提示，结果仍经严格程序校验；不默认其他供应商支持 `json_schema`。温度、top_p、输出额度与超时读取所选配置，结构化单次调用仍受 180 秒墙钟上限保护。`deepseek-v4-flash` 既有关闭思考参数保留。
+- 统一理解、建议生成和连接测试统一使用 `json_object` 并提供完整 schema 提示，结果仍经严格程序校验；不默认其他供应商支持 `json_schema`。温度、top_p 和输出额度读取所选模型配置，单次墙钟上限与仅超时重试读取后台统一策略（默认 300 秒、首次外再重试 3 次）。官方 DeepSeek Flash（`deepseek-v4-flash` / `deepseek-flash`）显式开启思考；其他供应商保留自身默认，不发送未经验证的开关。匹配初选、详细推荐及摘要不再使用 2048/8192/512 隐含输出上限，而按保存的输出额度和完整消息（含 schema）估算后的剩余上下文取较小值；字符预算和结构校验保留。思考内容不作为用户正文或业务结果。
 - 项目机会抽取允许常见字段形态与包装差异，缺失记未知；这不允许能力发展编造资源 ID、URL、忽略权限或未经来源确认的强结论。
 - explain/discuss 和 revise 使用当前任务上下文，前者不新建版本，后者成功产生新版本，失败保留旧结果。
 

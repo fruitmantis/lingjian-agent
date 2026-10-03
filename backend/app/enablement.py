@@ -18,8 +18,7 @@ TABLES = {
 }
 
 
-class StrictModel(BaseModel):
-    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+from backend.agent_runtime.strict import StrictModel
 
 
 class ResourceMetadata(StrictModel):

@@ -1,0 +1,5 @@
+# Merge into the EXISTING shared Caddy configuration only after coordination.
+# Do not run a second Caddy and do not replace the existing IP site block.
+http://banfei-agentarts.test:80 {
+    reverse_proxy 127.0.0.1:3001
+}

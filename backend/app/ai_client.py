@@ -3,7 +3,7 @@
 import json
 import httpx
 from contextvars import ContextVar
-from urllib.parse import urlsplit
+from backend.agent_runtime.provider_options import provider_request_options
 from .model_resolver import ModelConfigurationError, ResolvedModelConfig, resolve_model_config
 from .model_timeout_settings import get_settings
 
@@ -18,11 +18,6 @@ def reset_retry_count() -> None:
     _LAST_RETRY_COUNT.set(0)
 
 
-def provider_request_options(base_url: str, model: str) -> dict:
-    # Verified current provider mode: return business content, not a reasoning-only budget.
-    if urlsplit(base_url).hostname == "api.deepseek.com" and model == "deepseek-v4-flash":
-        return {"thinking": {"type": "disabled"}}
-    return {}
 
 
 def completion_payload(config: ResolvedModelConfig, messages: list[dict], schema: dict | None = None) -> dict:
