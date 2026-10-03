@@ -43,7 +43,7 @@ def seed_defaults(connection):
     connection.execute("""INSERT INTO model_configs
         (id,name,provider,base_url,api_key_source,api_key_env_name,model_name,temperature,top_p,max_tokens,enabled,is_default,created_at,updated_at)
         VALUES (?,?,'OpenAI Compatible',?,'env','LLM_API_KEY',?,0.3,1.0,131072,1,1,?,?)""",
-        (str(uuid.uuid4()),'当前默认模型配置',os.getenv('LLM_BASE_URL','https://api.openai.com/v1'),os.getenv('LLM_MODEL','gpt-4o'),now,now))
+        (str(uuid.uuid4()),'当前默认模型配置',os.getenv('LLM_BASE_URL','https://api.deepseek.com'),os.getenv('LLM_MODEL','deepseek-flash'),now,now))
     for key,name in [('partner_profile','伙伴画像生成'),('partner_match','智能匹配'),('demand_profile','需求画像分析'),('tag_suggestion','AI 标签建议'),('recommendation_summary','推荐说明生成'),('partner_development','伙伴能力发展'),('default','系统默认')]:
         connection.execute("INSERT INTO model_usage_configs(scene_key,scene_name,model_config_id,description,updated_at) VALUES (?,?,NULL,'',?)",(key,name,now))
     from .resource_categories import initialize

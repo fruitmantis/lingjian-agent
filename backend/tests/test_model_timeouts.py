@@ -42,7 +42,12 @@ def invoke(kind):
 
 
 def set_policy(seconds=300, retries=3):
-    config.save(config.TimeoutSettings(timeoutSeconds=seconds, timeoutRetries=retries))
+    from backend.app import agent_settings
+    policy=config.TimeoutSettings(timeoutSeconds=seconds,timeoutRetries=retries).model_dump()
+    current=agent_settings.read()
+    for agent_id,value in current['agents'].items():
+        agent_settings.save(agent_id,agent_settings.AgentSettings(**{**value,**policy}))
+    agent_settings.save('processing',agent_settings.ModelSettings(**{**current['processing'],**policy}))
 
 
 def test_default_and_custom_saved_policy():

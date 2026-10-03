@@ -22,46 +22,26 @@ def recover_stale_tasks(
     *, record_id: str | None = None, owner_user_id: str | None = None,
     stale_after_seconds: int | None = None, startup: bool = False,
 ) -> int:
-    """Make interrupted in-flight tasks retryable without a background queue."""
-    if stale_after_seconds is None:
-        from .model_timeout_settings import get_settings
-        policy = get_settings()
-        matching_budget = max(900, policy.match_run_budget())
-        enriching_budget = max(900, policy.run_budget())
-    else:
-        matching_budget = enriching_budget = max(stale_after_seconds, 1)
-    current = datetime.now(timezone.utc)
-    matching_cutoff = (current - timedelta(seconds=matching_budget)).isoformat()
-    enriching_cutoff = (current - timedelta(seconds=enriching_budget)).isoformat()
-    conditions = ["((task_status = 'matching' AND updated_at < ?) OR (task_status = 'enriching' AND updated_at < ?))"]
-    params: list[object] = [matching_cutoff, enriching_cutoff]
-    if startup:
-        conditions = ["task_status IN ('matching','enriching')"]
-        params = []
-    if record_id:
-        conditions.append("id = ?")
-        params.append(record_id)
-    if owner_user_id:
-        conditions.append("owner_user_id = ?")
-        params.append(owner_user_id)
-    now = datetime.now(timezone.utc).isoformat()
+    """Recover only expired runs, using their accepted execution timeout snapshot."""
+    from .model_timeout_settings import get_settings
+    from . import match_understanding, task_progress
+    from .error_diagnostics import record_error
+    current=datetime.now(timezone.utc);stamp=current.isoformat();recovered=0
     with get_db() as conn:
-        cursor = conn.execute(
-            f"""UPDATE match_records
-                    SET task_status = 'failed', last_error_stage = 'interrupted', last_error_details = NULL, updated_at = ?
-                  WHERE {' AND '.join(conditions)} RETURNING id""",
-            [now, *params],
-        )
-        rows = cursor.fetchall()
-        from .error_diagnostics import record_error
+        conn.lock_writer()
+        rows=conn.execute("SELECT id,task_status,updated_at FROM match_records WHERE task_status IN ('matching','enriching') AND (? IS NULL OR id=?) AND (? IS NULL OR owner_user_id=?)",(record_id,record_id,owner_user_id,owner_user_id)).fetchall()
         for row in rows:
-            from . import match_understanding, task_progress
-            snapshot = match_understanding.load(conn, row['id'])
+            snapshot=match_understanding.load(conn,row['id']) or {}
+            policy=get_settings(conn,agent_id='partner_match',execution=snapshot.get('agent_execution'))
+            budget=max(stale_after_seconds,1) if stale_after_seconds is not None else max(900,policy.match_run_budget() if row['task_status']=='matching' else policy.run_budget())
+            if not startup and (current-datetime.fromisoformat(row['updated_at'])).total_seconds()<budget:continue
+            conn.execute("UPDATE match_records SET task_status='failed',last_error_stage='interrupted',last_error_details=NULL,updated_at=? WHERE id=?",(stamp,row['id']))
             if snapshot:
-                task_progress.finish(snapshot.get('progress'), failed=True, finished_at=now)
-                match_understanding.save(conn, row['id'], snapshot)
-            record_error(RuntimeError('Service restart interrupted unfinished matching' if startup else 'Unfinished matching exceeded the recovery deadline'), 'interrupted', task_id=row['id'])
-        return len(rows)
+                task_progress.finish(snapshot.get('progress'),failed=True,finished_at=stamp)
+                match_understanding.save(conn,row['id'],snapshot)
+            record_error(RuntimeError('Service restart interrupted unfinished matching' if startup else 'Unfinished matching exceeded the recovery deadline'),'interrupted',task_id=row['id'])
+            recovered+=1
+    return recovered
 
 
 def initialize_storage() -> None:

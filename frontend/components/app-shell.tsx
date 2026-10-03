@@ -33,7 +33,7 @@ const adminNav: { group: string; items: NavItem[] }[] = [
   ] },
   { group: "系统管理", items: [
     { label: "用户管理", href: "/admin/users", icon: "user" },
-    { label: "模型配置", href: "/admin/models", icon: "grid" },
+    { label: "智能体管理", href: "/admin/models", icon: "grid" },
     { label: "系统状态", href: "/admin/system", icon: "settings" },
     { label: "问题反馈", href: "/admin/feedback", icon: "file" },
   ] },

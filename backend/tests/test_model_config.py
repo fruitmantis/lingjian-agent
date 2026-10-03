@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import httpx
 import pytest
 
-from backend.app import ai_client, model_resolver
+from backend.app import ai_client, model_resolver, agent_settings
 from backend.app.database import get_db
 from backend.app.routers import model_config, match, profile
 from .conftest import auth_headers, make_partner, make_task, make_user, recommendation
@@ -31,13 +31,17 @@ def add_model(name="model-a", **kwargs):
     # Tests that need routing explicitly configure a system default in their fixture.
     with get_db() as conn:
         first = conn.execute('SELECT count(*) FROM model_configs').fetchone()[0] == 1
-    if first: model_config.set_default(model_id)
+    if first:
+        for scene in ('partner_match','partner_development','default'):bind(scene,model_id)
     return model_id
 
 
 def bind(scene, model_id):
     with get_db() as conn:
-        conn.execute("UPDATE model_usage_configs SET model_config_id = ? WHERE scene_key = ?", (model_id, scene))
+        settings=agent_settings.read(conn)
+        if scene in agent_settings.AGENT_IDS:settings['agents'][scene]['modelConfigId']=model_id
+        else:settings['processing']['modelConfigId']=model_id
+        conn.execute('UPDATE app_metadata SET value=? WHERE key=?',(json.dumps(settings),agent_settings.KEY))
 
 
 @pytest.mark.parametrize("enabled", [True, False])
@@ -62,27 +66,17 @@ def test_delete_model_requires_admin_and_removes_unused_config(client, enabled):
         assert "synthetic-delete-secret" not in audit["summary"]
 
 
-def test_delete_model_clears_preferences_and_requires_explicit_default(client):
-    headers = auth_headers(make_user("delete_bound_admin", role="admin"))
-    model_id = add_model()
-    replacement = add_model("replacement")
-    model_config.set_default(model_id)
-    bind("partner_match", model_id)
-    bind("default", model_id)
-    bind("partner_development", model_id)
-    path = f"/admin/model-configs/{model_id}"
-    assert client.delete(path, headers=headers).status_code == 204
-    with pytest.raises(model_resolver.ModelConfigurationError, match="场景首选或系统默认"):
-        model_resolver.resolve_model_config("partner_match")
-    model_config.set_default(replacement)
-    assert model_resolver.resolve_model_config("partner_match").model == "replacement"
+def test_delete_model_requires_explicit_agent_replacement(client):
+    headers=auth_headers(make_user('delete_bound_admin',role='admin'))
+    model_id=add_model();replacement=add_model('replacement')
+    assert client.delete(f'/admin/model-configs/{model_id}',headers=headers).status_code==204
+    with pytest.raises(model_resolver.ModelConfigurationError):model_resolver.resolve_model_config('partner_match')
+    bind('partner_match',replacement)
+    assert model_resolver.resolve_model_config('partner_match').model=='replacement'
     from backend.app import development_model
-    assert development_model.configuration()["id"] == replacement
-    assert all(u["modelConfigId"] is None for u in client.get("/admin/model-configs/usage", headers=headers).json())
-    assert client.put("/admin/model-configs/usage/partner_match", headers=headers, json={"modelConfigId": model_id}).status_code == 400
-    assert client.delete(f"/admin/model-configs/{replacement}", headers=headers).status_code == 204
-    with pytest.raises(model_resolver.ModelConfigurationError, match="没有启用"):
-        development_model.configuration()
+    with pytest.raises(model_resolver.ModelConfigurationError):development_model.configuration()
+    assert client.get('/admin/model-configs/usage',headers=headers).status_code==410
+    assert client.patch(f'/admin/model-configs/{replacement}/default',headers=headers).status_code==410
 
 
 @pytest.mark.parametrize("run_status,fail_audit", [("running", False), ("ready", False), ("ready", True)])
@@ -128,36 +122,25 @@ def test_delete_model_preserves_run_history(client_no_raise, monkeypatch, run_st
             assert audit is None
 
 
-def test_unbound_priority_is_preserved():
-    with pytest.raises(model_resolver.ModelConfigurationError, match="没有启用"):
-        model_resolver.resolve_model_config("partner_match")
-    first = add_model("first")
-    default = add_model("default")
-    explicit = add_model("explicit")
-    assert model_resolver.resolve_model_config("partner_match").model == "first"
-    model_config.set_default(default)
-    assert model_resolver.resolve_model_config("partner_match").model == "default"
-    bind("default", first)
-    assert model_resolver.resolve_model_config("partner_match").model == "first"
-    bind("partner_match", explicit)
-    assert model_resolver.resolve_model_config("partner_match").model == "explicit"
-    bind("partner_match", None)
-    bind("default", None)
-    model_config.toggle_enable(default, False)
-    with pytest.raises(model_resolver.ModelConfigurationError, match="场景首选或系统默认"):
-        model_resolver.resolve_model_config("partner_match")
+def test_fixed_agent_binding_has_no_default_override():
+    with pytest.raises(model_resolver.ModelConfigurationError):model_resolver.resolve_model_config('partner_match')
+    first=add_model('first');processing=add_model('processing');explicit=add_model('explicit')
+    bind('default',processing)
+    assert model_resolver.resolve_model_config('partner_match').model=='first'
+    bind('partner_match',explicit)
+    assert model_resolver.resolve_model_config('partner_match').model=='explicit'
+    bind('partner_match',None)
+    with pytest.raises(model_resolver.ModelConfigurationError):model_resolver.resolve_model_config('partner_match')
+    assert model_resolver.resolve_model_config().model=='processing'
 
 
 @pytest.mark.parametrize("scene", ["partner_match", "partner_development", "default"])
 @pytest.mark.parametrize("missing", [False, True])
-def test_unavailable_preference_routes_to_enabled_model(scene, missing):
-    model_id = add_model()
-    model_config.toggle_enable(model_id, False)
-    model_config.set_default(add_model("available-fallback"))
-    bind(scene, "missing-id" if missing else model_id)
-    assert model_resolver.resolve_model_config(scene).model == "available-fallback"
-    from backend.app import development_model
-    assert development_model.configuration()["model_name"] == "available-fallback"
+def test_unavailable_binding_does_not_fall_back(scene,missing):
+    model_id=add_model();add_model('unrelated-available')
+    model_config.toggle_enable(model_id,False)
+    bind(scene,'missing-id' if missing else model_id)
+    with pytest.raises(model_resolver.ModelConfigurationError):model_resolver.resolve_model_config(scene)
 
 
 def test_database_failure_does_not_select_environment_model(monkeypatch):
@@ -219,17 +202,15 @@ def test_rejects_invalid_numeric_parameters(client, method, field, value):
 
 
 def test_binding_api_validates_enabled_target_and_allows_unbind(client):
-    admin = make_user("binding_admin", role="admin")
-    user = make_user("binding_user")
-    model_id = add_model()
-    path = "/admin/model-configs/usage/partner_match"
-    assert client.put(path, headers=auth_headers(user), json={"modelConfigId": model_id}).status_code == 403
-    assert client.put(path, headers=auth_headers(admin), json={"modelConfigId": "absent"}).status_code == 400
-    assert client.put(path, headers=auth_headers(admin), json={"modelConfigId": model_id}).status_code == 200
-    model_config.toggle_enable(model_id, False)
-    assert client.put(path, headers=auth_headers(admin), json={"modelConfigId": model_id}).status_code == 400
-    response = client.put(path, headers=auth_headers(admin), json={"modelConfigId": None})
-    assert response.status_code == 200 and response.json()["modelConfigId"] is None
+    admin=make_user('binding_admin',role='admin');user=make_user('binding_user');model_id=add_model()
+    path='/admin/agents/partner_match';body=agent_settings.read()['agents']['partner_match']
+    assert client.put(path,headers=auth_headers(user),json=body).status_code==403
+    assert client.put(path,headers=auth_headers(admin),json={**body,'modelConfigId':'absent'}).status_code==422
+    assert client.put(path,headers=auth_headers(admin),json={**body,'modelConfigId':model_id}).status_code==200
+    model_config.toggle_enable(model_id,False)
+    assert client.put(path,headers=auth_headers(admin),json={**body,'modelConfigId':model_id}).status_code==422
+    response=client.put(path,headers=auth_headers(admin),json={**body,'modelConfigId':None})
+    assert response.status_code==200 and response.json()['agents']['partner_match']['modelConfigId'] is None
 
 
 def test_client_honors_configured_timeout_and_sends_zero(monkeypatch):
@@ -296,4 +277,4 @@ def test_no_enabled_model_returns_actionable_error_without_calling_model(client,
     assert response.json()["detail"] == "服务异常，请联系管理员。"
     from backend.app.error_diagnostics import recent_errors
     errors=recent_errors()
-    assert any('没有启用的模型配置' in item['message'] for item in errors)
+    assert any('选择已启用的模型连接' in item['message'] for item in errors)

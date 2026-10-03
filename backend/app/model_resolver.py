@@ -1,13 +1,15 @@
 """Unified model configuration resolver.
 
-Priority: enabled scene preference → enabled default preference → enabled default.
+Each fixed agent and processing has one connection; runs preserve their selected options.
 """
 
 import os
 import hashlib
 import json
+from urllib.parse import urlsplit
 from dataclasses import dataclass
 from .database import get_db, get_readonly_db
+from . import agent_settings
 
 
 @dataclass
@@ -19,6 +21,7 @@ class ResolvedModelConfig:
     top_p: float
     max_tokens: int
     source: str  # "db" / "env" / "default"
+    thinking: bool | None = None
 
 
 class ModelConfigurationError(RuntimeError):
@@ -36,36 +39,27 @@ def _resolve_api_key(row) -> str:
 
 
 def resolve_model_record(scene: str = "default", *, read_only: bool = False, connection=None) -> dict:
-    """Select only a scene preference or an explicit system default for a new run."""
+    """Resolve one agent/processing connection; no scene/default override chain."""
     if connection is None:
         with (get_readonly_db() if read_only else get_db()) as conn:
             return resolve_model_record(scene, connection=conn)
-    rows = connection.execute(
-        "SELECT * FROM model_configs WHERE enabled = 1 ORDER BY is_default DESC, created_at, id"
-    ).fetchall()
-    if not rows:
-        raise ModelConfigurationError("没有启用的模型配置，请管理员新增或启用模型")
-    available = {row["id"]: row for row in rows}
-    selected = next((row for row in rows if row['is_default']), None)
-    for key in dict.fromkeys((scene, "default")):
-        usage = connection.execute("SELECT model_config_id FROM model_usage_configs WHERE scene_key = ?", (key,)).fetchone()
-        if usage and usage[0] in available:
-            selected = available[usage[0]]
-            break
-    if selected is None:
-        raise ModelConfigurationError('请配置启用的场景首选或系统默认模型')
-    config = dict(selected)
-    # Preserve existing per-configuration environment-backed connection fields.
-    config["base_url"] = config["base_url"] or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-    config["model_name"] = config["model_name"] or os.getenv("LLM_MODEL", "gpt-4o")
-    return config
+    agent_id=agent_settings.owner(scene)
+    frozen=agent_settings.current_execution()
+    selected=frozen if frozen and frozen['agentId']==agent_id else agent_settings.execution(connection,agent_id)
+    row=connection.execute('SELECT * FROM model_configs WHERE id=? AND enabled=1',(selected['modelConfigId'],)).fetchone()
+    if row is None:raise ModelConfigurationError('请为该智能体选择已启用的模型连接')
+    return {**dict(row),'_agent_execution':selected}
 
 
 def configuration_stamp(config: dict) -> dict:
     """No credentials are persisted in task snapshots, only a configuration digest."""
     resolved = model_config_from_record(config)
-    digest = hashlib.sha256(json.dumps(vars(resolved), sort_keys=True).encode()).hexdigest()
-    return {'id': config['id'], 'fingerprint': digest}
+    fields=vars(resolved).copy()
+    if fields.get('thinking') is None:fields.pop('thinking',None)
+    digest = hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
+    stamp={'id': config['id'], 'fingerprint': digest}
+    if config.get('_agent_execution'):stamp['agent_execution']=config['_agent_execution']
+    return stamp
 
 
 def pinned_configuration(stamp: dict, connection=None) -> dict:
@@ -76,6 +70,7 @@ def pinned_configuration(stamp: dict, connection=None) -> dict:
     if row is None:
         raise ModelConfigurationError('本次运行的模型已停用或删除，请重试以使用当前配置')
     config = dict(row)
+    if stamp.get('agent_execution'):config['_agent_execution']=stamp['agent_execution']
     if configuration_stamp(config) != stamp:
         raise ModelConfigurationError('本次运行的模型参数已变化，请重试以使用当前配置')
     return config
@@ -89,22 +84,29 @@ def validate_model_retry(config: dict):
     """Do not switch providers or send another request after settings/enablement change."""
     with get_readonly_db() as conn:
         row = conn.execute('SELECT * FROM model_configs WHERE id=?', (config['id'],)).fetchone()
+    current=dict(row) if row else {}
+    if config.get('_agent_execution'):current['_agent_execution']=config['_agent_execution']
     if (row is None or row['enabled'] != config['enabled']
-            or configuration_stamp(dict(row)) != configuration_stamp(config)):
+            or configuration_stamp(current) != configuration_stamp(config)):
         raise ModelConfigurationError('本次运行的模型配置已变化，请重试以使用当前配置')
 
 
 def model_config_from_record(record) -> ResolvedModelConfig:
     """Use the same saved settings for text, structured output and connection tests."""
     row = dict(record)
+    execution=row.get('_agent_execution')
+    model=row.get("model_name") or os.getenv("LLM_MODEL", "deepseek-flash")
+    if execution and urlsplit(row.get('base_url') or '').hostname=='api.deepseek.com' and model=='deepseek-v4-flash':
+        model='deepseek-flash'
     return ResolvedModelConfig(
         api_key=_resolve_api_key(row),
-        base_url=row.get("base_url") or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-        model=row.get("model_name") or os.getenv("LLM_MODEL", "gpt-4o"),
+        base_url=row.get("base_url") or os.getenv("LLM_BASE_URL", "https://api.deepseek.com"),
+        model=model,
         temperature=row["temperature"] if row.get("temperature") is not None else 0.3,
         top_p=row["top_p"] if row.get("top_p") is not None else 1.0,
         max_tokens=row["max_tokens"] if row.get("max_tokens") is not None else 131072,
         source="db",
+        thinking=execution['thinking'] if execution else None,
     )
 
 

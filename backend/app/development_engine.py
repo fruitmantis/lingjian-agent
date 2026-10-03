@@ -11,6 +11,7 @@ from .development_deadlines import run_timeout
 from fastapi import HTTPException
 from . import development_lifecycle as life,development_model as model,enablement as resources
 from .database import get_db
+from . import agent_settings
 from .development_types import DirectionAnalysis,AdviceOutput,Understanding,AdvicePatch,DevelopmentRequest
 
 
@@ -248,7 +249,8 @@ def execute(run_id):
             run=life.claim(run_id)
             if not run:return
             bind_context(task_id=run['plan_id'],request_id=run['submission_id'])
-            _execute_claimed(run_id,run)
+            with agent_settings.execution_scope(json.loads(run['input_snapshot']).get('agent_execution')):
+                _execute_claimed(run_id,run)
         except Exception as error:record_error(error)
 
 

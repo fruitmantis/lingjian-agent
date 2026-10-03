@@ -22,9 +22,10 @@ policy_router = APIRouter(tags=["model-settings"], dependencies=[Depends(require
 
 
 @policy_router.get('/model-timeout-settings')
-def read_timeout_policy(response: Response):
+def read_timeout_policy(response: Response, agent_id: str = "processing"):
+    if agent_id not in ("partner_match","partner_development","processing"):raise HTTPException(422,"智能体不存在")
     response.headers['Cache-Control'] = 'no-store'
-    return model_timeout_settings.describe()
+    return model_timeout_settings.get_settings(agent_id=agent_id).model_dump()
 
 
 _MC_COLS = "id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at"
@@ -94,14 +95,12 @@ class _ConnectionProbe(BaseModel):
 
 @router.get('/timeout-settings')
 def get_timeout_settings(response: Response):
-    response.headers['Cache-Control'] = 'no-store'
-    return model_timeout_settings.describe()
+    raise HTTPException(410,"请在智能体管理中配置模型和请求超时")
 
 
 @router.put('/timeout-settings')
 def save_timeout_settings(payload: TimeoutSettings, response: Response):
-    response.headers['Cache-Control'] = 'no-store'
-    return model_timeout_settings.save(payload)
+    raise HTTPException(410,"请在智能体管理中配置模型和请求超时")
 
 
 def _to_out(r) -> ModelConfigOut:
@@ -209,16 +208,7 @@ def toggle_enable(mc_id: str, enabled: bool = True) -> ModelConfigOut:
 
 @router.patch("/{mc_id}/default", response_model=ModelConfigOut)
 def set_default(mc_id: str) -> ModelConfigOut:
-    now = datetime.now(timezone.utc).isoformat()
-    with get_db() as conn:
-        conn.lock_writer()
-        row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ? AND enabled = 1", (mc_id,)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="配置不存在或已停用，无法设为默认")
-        conn.execute("UPDATE model_configs SET is_default = 0")
-        conn.execute("UPDATE model_configs SET is_default = 1, updated_at = ? WHERE id = ?", (now, mc_id))
-        row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
-    return _to_out(row)
+    raise HTTPException(410,"请在智能体管理中配置模型和请求超时")
 
 
 @router.post("/{mc_id}/test", response_model=TestResult)
@@ -251,46 +241,9 @@ def test_connection(mc_id: str) -> TestResult:
 
 @router.get("/usage", response_model=list[UsageConfigOut])
 def list_usage_configs():
-    with get_db() as conn:
-        rows = conn.execute("""
-            SELECT muc.scene_key, muc.scene_name, muc.model_config_id, muc.description,
-                   mc.name as model_config_name
-            FROM model_usage_configs muc
-            LEFT JOIN model_configs mc ON muc.model_config_id = mc.id
-            ORDER BY muc.scene_key
-        """).fetchall()
-    return [UsageConfigOut(
-        sceneKey=r["scene_key"], sceneName=r["scene_name"],
-        modelConfigId=r["model_config_id"], modelConfigName=r["model_config_name"],
-        description=r["description"]
-    ) for r in rows]
+    raise HTTPException(410,"请在智能体管理中配置模型和请求超时")
 
 
 @router.put("/usage/{scene_key}", response_model=UsageConfigOut)
 def update_usage_config(scene_key: str, payload: UsageConfigUpdate) -> UsageConfigOut:
-    now = datetime.now(timezone.utc).isoformat()
-    with get_db() as conn:
-        conn.lock_writer()
-        row = conn.execute("SELECT * FROM model_usage_configs WHERE scene_key = ?", (scene_key,)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="场景不存在")
-        if payload.modelConfigId is not None:
-            config = conn.execute(
-                "SELECT id FROM model_configs WHERE id = ? AND enabled = 1", (payload.modelConfigId,),
-            ).fetchone()
-            if config is None:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="绑定失败：模型配置不存在或已停用")
-        conn.execute("UPDATE model_usage_configs SET model_config_id = ?, updated_at = ? WHERE scene_key = ?",
-                     (payload.modelConfigId, now, scene_key))
-        row = conn.execute("""
-            SELECT muc.scene_key, muc.scene_name, muc.model_config_id, muc.description,
-                   mc.name as model_config_name
-            FROM model_usage_configs muc
-            LEFT JOIN model_configs mc ON muc.model_config_id = mc.id
-            WHERE muc.scene_key = ?
-        """, (scene_key,)).fetchone()
-    return UsageConfigOut(
-        sceneKey=row["scene_key"], sceneName=row["scene_name"],
-        modelConfigId=row["model_config_id"], modelConfigName=row["model_config_name"],
-        description=row["description"]
-    )
+    raise HTTPException(410,"请在智能体管理中配置模型和请求超时")

@@ -37,6 +37,7 @@ export async function fetchWithTimeout(input: RequestInfo | URL, init: ApiReques
         const url = new URL(raw, typeof location === "undefined" ? "http://localhost" : location.origin);
         url.pathname = (url.pathname.startsWith("/api/") ? "/api" : "") + "/model-timeout-settings";
         url.search = "";
+        url.searchParams.set("agent_id",requestPath(input).startsWith("/agent/")?"partner_match":"processing");
         const policyResponse = await fetch(url, { headers: options.headers, credentials: options.credentials,
           cache: "no-store", signal: AbortSignal.timeout(30_000) });
         if (!policyResponse.ok) {

@@ -49,7 +49,8 @@ def strong_guard(output):
         for value in output:strong_guard(value)
     # Missing capability records/evidence is not a claim of missing capability.
     # Exclude only that local noun phrase, never the rest of the statement.
-    elif isinstance(output,str) and re.search(r'确认.*不具备|确认不足|明确不满足|没有(?:(?!能力)[^，。！？；,.;!?\n]){0,12}能力(?![ \t]*(?:的[ \t]*)?(?:记载|记录|证据))|学完.{0,8}具备|能力已提升',output):
+    # Likewise, exempt only an immediate negated learning claim; later guarantees still match.
+    elif isinstance(output,str) and re.search(r'确认.*不具备|确认不足|明确不满足|没有(?:(?!能力)[^，。！？；,.;!?\n]){0,12}能力(?![ \t]*(?:的[ \t]*)?(?:记载|记录|证据))|学完(?!(?:并)?不(?:代表|等于|意味着)(?:已(?:经)?|就)?具备).{0,8}具备|能力已提升',output):
         raise InvalidOutput('Unsupported capability conclusion')
 
 

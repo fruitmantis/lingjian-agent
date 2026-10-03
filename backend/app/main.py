@@ -28,6 +28,9 @@ def initialize_application() -> None:
     from .identity_keys import cipher
     cipher()
     initialize_storage()
+    from .agent_settings import migrate
+    with get_db() as conn:
+        conn.lock_writer();migrate(conn)
     with get_db() as conn:
         existing = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
         if existing["cnt"] == 0:
@@ -94,6 +97,9 @@ app.include_router(capability_tags.router)
 app.include_router(system.router)
 app.include_router(model_config.router)
 app.include_router(model_config.policy_router)
+from .routers import agents
+app.include_router(agents.router)
+app.include_router(agents.public_router)
 
 app.include_router(enablement.router)
 app.include_router(enablement_workspace.router)

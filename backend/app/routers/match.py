@@ -17,7 +17,7 @@ from backend.business import matching
 from .. import match_understanding as understanding
 from .. import partner_match_context as match_context
 from ..model_resolver import pinned_configuration
-from .. import development_model, task_progress
+from .. import development_model, task_progress, agent_settings
 from ..error_diagnostics import diagnostic_scope, bind_context, record_error
 from ..task_failures import failure, public_failures, PublicTaskError, MatchInputBudgetError
 from ..opportunity_extraction import normalize_opportunity
@@ -727,6 +727,7 @@ def _claim_task_retry(record_id: str, current_status: str, next_status: str, use
         if cursor.rowcount != 1:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="任务状态已变化，请刷新后再试")
         cached = understanding.load(conn, record_id) or {}
+        cached['agent_execution'] = agent_settings.execution(conn,'partner_match',accept=True)
         cached['progress'] = task_progress.new('partner_match', run_id)
         understanding.save(conn, record_id, cached)
 
@@ -804,7 +805,7 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
                    VALUES (?, ?, '[]', ?, ?, ?, 'matching', NULL, ?)""",
                 (record_id, req.requirement, now, user["username"], user["id"], now),
             )
-            understanding.save(conn,record_id,{'progress':task_progress.new('partner_match',run_id,now)})
+            understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True),'progress':task_progress.new('partner_match',run_id,now)})
     except HTTPException:
         raise
     except Exception as error:
@@ -815,7 +816,8 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
 
 
 def _execute_match(record_id: str, requirement: str, created_at: str, run_id: str) -> MatchResponse:
-    with diagnostic_scope(task_id=record_id, stage='partner_match'):
+    with get_db() as conn:snapshot=understanding.load(conn,record_id) or {}
+    with diagnostic_scope(task_id=record_id, stage='partner_match'), agent_settings.execution_scope(snapshot.get('agent_execution')):
         return _execute_match_inner(record_id, requirement, created_at, run_id)
 
 
@@ -832,6 +834,7 @@ def _execute_match_inner(record_id: str, requirement: str, created_at: str, run_
         prepared = understanding.prepare(requirement, cached)
         reusable = prepared is cached and bool(cached.get('outcome')) and cached.get('candidate_stamp') == _candidate_stamp()
         if prepared is not cached:
+            prepared['agent_execution'] = cached.get('agent_execution')
             prepared['progress'] = cached.get('progress')
             prepared['visible_answer'] = cached.get('visible_answer','')
         snapshot = prepared
@@ -894,7 +897,7 @@ def create_task(req: TaskCreateRequest, user: dict = Depends(require_active_user
                 return TaskAccepted(recordId=record_id,runId=saved.get('progress',{}).get('run_id'),taskStatus=existing['task_status'])
             conn.execute("""INSERT INTO match_records(id,requirement,recommendations_json,created_at,created_by,owner_user_id,task_status,updated_at)
                 VALUES (?,?,'[]',?,?,?,'matching',?)""",(record_id,requirement,stamp,user['username'],user['id'],stamp))
-            understanding.save(conn,record_id,{'progress':task_progress.new('partner_match',run_id,stamp)})
+            understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True),'progress':task_progress.new('partner_match',run_id,stamp)})
     except HTTPException:raise
     except Exception as error:
         record_error(error,'submission',task_id=record_id,request_id=record_id)

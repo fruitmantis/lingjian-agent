@@ -1494,3 +1494,10 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .task-progress li[data-status="failed"] .task-progress-dot{background:#a46455;}
 @keyframes task-pulse{50%{opacity:.35;}}
 @media(prefers-reduced-motion:reduce){.task-progress li[data-status="running"] .task-progress-dot{animation:none;}}
+
+/* Fixed agent settings reuse the existing cards, fields and semantic controls. */
+.agent-settings-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;}
+.agent-settings-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0;}
+.agent-settings-fields .agent-description {grid-column:1/-1;}
+.agent-settings-grid h2,.task-mode-tabs button {display:flex;align-items:center;gap:8px;}
+@media(max-width:800px){.agent-settings-grid,.agent-settings-fields {grid-template-columns:1fr;}}

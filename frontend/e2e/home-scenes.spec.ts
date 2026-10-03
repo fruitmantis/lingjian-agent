@@ -22,6 +22,7 @@ async function setup(page:Page,{url='/',rejectFirst=false,hold=false}={}){
  const summary=(id='history-task')=>({id,requirement:id==='history-task'?'已有任务原文':accepted?.text||'',createdAt:stamp,taskStatus:'ready',task_type:id==='history-task'?'partner_match':accepted?.type||'partner_match',archivedAt:null});
  await page.route('**/api/**',async route=>{
   const req=route.request(),url=new URL(req.url()),path=url.pathname.replace(/^\/api/,'');
+  if(path==='/agents')return route.fulfill({json:[]});
   if(req.method()==='POST'&&(path==='/agent/tasks'||path==='/development/plans')){
    const body=req.postDataJSON();posts.push({path,body});if(hold)await gate;
    if(rejectFirst&&posts.length===1)return route.fulfill({status:422,json:{detail:'本次处理失败，请重试。'}});
