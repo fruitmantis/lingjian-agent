@@ -45,7 +45,7 @@ def completion(config,messages,schema):
         payload=completion_payload(selected,messages,schema)
         if config.get('_match_output_tokens'):
             payload['max_tokens'] = min(payload['max_tokens'], config['_match_output_tokens'])
-        policy=get_settings()
+        policy=get_settings(execution=config.get('_agent_execution'))
         limit=policy.timeoutSeconds
         async def send():
             # Wall-clock cancellation also bounds slow/chunked responses that keep resetting read timeouts.

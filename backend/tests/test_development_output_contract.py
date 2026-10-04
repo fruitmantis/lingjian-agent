@@ -101,3 +101,24 @@ def test_absent_capability_evidence_is_not_absent_capability(statement):
 def test_evidence_phrase_does_not_hide_an_actual_strong_claim(statement):
     with pytest.raises(engine.InvalidOutput, match='Unsupported capability conclusion'):
         engine.strong_guard({'partner_assessment': statement})
+
+
+@pytest.mark.parametrize('statement', [
+    '推荐课程与实验不构成能力证明，学完不代表已具备迁移回退与验证的项目能力。',
+    '学完并不意味着已经具备开发能力。',
+    '学完不等于具备项目能力。',
+])
+def test_negated_learning_claim_is_not_a_capability_guarantee(statement):
+    engine.strong_guard({'limitations': [statement]})
+
+
+@pytest.mark.parametrize('statement', [
+    '学完就具备开发能力。',
+    '学完不代表已具备基础能力，但学完课程就具备开发能力。',
+    '学完不代表已具备基础能力，但能力已提升。',
+    '学完不代表已具备基础能力；确认该伙伴不具备开发能力。',
+    '学完不代表不具备开发能力。',
+])
+def test_local_learning_negation_does_not_hide_guarantees_or_other_claims(statement):
+    with pytest.raises(engine.InvalidOutput, match='Unsupported capability conclusion'):
+        engine.strong_guard({'limitations': [statement]})

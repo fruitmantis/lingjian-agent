@@ -209,9 +209,9 @@ def test_budget_counts_schema_and_reserves_output(prepared):
     schema = match_understanding.InitialSelection.model_json_schema()
     with pytest.raises(ValueError, match='字符'):
         context.checked_config(config, [{'role': 'system', 'content': '甲' * 61_000}], schema,
-                               context.INITIAL_CHAR_LIMIT, None)
+                               context.INITIAL_CHAR_LIMIT)
     _, chars, estimate = context.checked_config(config, [{'role': 'system', 'content': '短输入'}], schema,
-                                                context.INITIAL_CHAR_LIMIT, None)
+                                                context.INITIAL_CHAR_LIMIT)
     assert chars > len('短输入') and estimate > 0
 
 

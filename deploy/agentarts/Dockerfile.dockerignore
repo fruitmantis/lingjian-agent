@@ -4,6 +4,8 @@
 !backend/app/
 !backend/app/__init__.py
 !backend/app/business_taxonomy.py
+!backend/business/
+!backend/business/**
 !backend/agent_runtime/
 !backend/agent_runtime/**
 !shared/

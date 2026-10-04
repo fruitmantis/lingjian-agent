@@ -137,17 +137,19 @@ def input_metrics(config: dict, messages: list[dict], schema: dict) -> tuple[int
     return len(packed), _token_estimate(packed)
 
 
-def checked_config(config: dict, messages: list[dict], schema: dict, char_limit: int, output_cap: int | None = None):
+def checked_config(config: dict, messages: list[dict], schema: dict, char_limit: int):
     resolved = model_config_from_record(config)
     chars, estimated_tokens = input_metrics(config, messages, schema)
     host = urlsplit(resolved.base_url).hostname
-    context_ceiling = (DEEPSEEK_CONTEXT_TOKENS if host == 'api.deepseek.com' and
+    from backend.agent_runtime.provider import PROXY_BASE
+    from .runtime_bridge import RUNTIME_INPUT_BUDGET
+    context_ceiling = (RUNTIME_INPUT_BUDGET if resolved.base_url.rstrip('/')==PROXY_BASE else
+                       DEEPSEEK_CONTEXT_TOKENS if host == 'api.deepseek.com' and
                        resolved.model in ('deepseek-v4-flash', 'deepseek-flash') else UNKNOWN_CONTEXT_CEILING)
-    # Thinking and final content share the saved output allowance. Production
-    # stages have no hidden caps; retain an explicitly supplied caller limit.
-    available = context_ceiling - estimated_tokens
-    output_tokens = min(resolved.max_tokens, max(0, available) if output_cap is None else output_cap)
-    if chars > char_limit or output_tokens < 1 or estimated_tokens + output_tokens > context_ceiling:
+    # Thinking and final content share the output allowance. Short business JSON
+    # does not imply short reasoning: use the saved limit within remaining context.
+    output_tokens = min(resolved.max_tokens, context_ceiling - estimated_tokens)
+    if chars > char_limit or output_tokens <= 0:
         raise MatchInputBudgetError(f'模型输入超过本阶段预算（字符 {chars}/{char_limit}，估算输入 Token {estimated_tokens} + 输出预留 {output_tokens}/{context_ceiling}），任务已保留，请调整资料后重试')
     from .runtime_bridge import mode, initial_selection_output_limit, stage_output_limit
     runtime_stage = {'InitialSelection':'initial_selection', 'MatchAnswer':'detailed_review'}.get(schema.get('title'))

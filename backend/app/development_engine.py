@@ -1,6 +1,9 @@
 """Minimal-context diagnosis and candidate-constrained plan assembly."""
 import copy,json,re
-from pydantic import ValidationError
+from backend.business import development
+from backend.business.development import (
+    InvalidOutput, key, guard, parse, request_projection, validate_analysis, strong_guard, advice_context,
+)
 from .error_diagnostics import diagnostic_scope, bind_context, register_secret, record_error
 from threading import Timer
 from contextvars import copy_context
@@ -8,22 +11,14 @@ from .development_deadlines import run_timeout
 from fastapi import HTTPException
 from . import development_lifecycle as life,development_model as model,enablement as resources
 from .database import get_db
+from . import agent_settings
 from .development_types import DirectionAnalysis,AdviceOutput,Understanding,AdvicePatch,DevelopmentRequest
 
-class InvalidOutput(ValueError):pass
-
-def key(ref):return (ref['source_type'],ref['source_id'],ref['source_version'])
 
 def blocked_fragments(conn):
     # These values are used locally as leak sentinels, never sent to any model.
     values=[r[0] for r in conn.execute("SELECT description FROM cases WHERE visible=0")]
     return [v for v in values if v and len(v.strip())>=12]
-
-
-def guard(value,blocked,allow_urls=False):
-    text=json.dumps(value,ensure_ascii=False) if not isinstance(value,str) else value
-    if any(secret in text for secret in blocked) or re.search(r'INTERNAL_SECRET_|Bearer\s|api_key|<think>|</think>|/tasks/|javascript:',text,re.I):raise InvalidOutput('Disallowed content')
-    if not allow_urls and re.search(r'https?://|/tasks/|javascript:',text,re.I):raise InvalidOutput('URL is not a model field')
 
 
 def dependencies(conn,refs):
@@ -56,30 +51,13 @@ def validate_dependencies(conn,payload,deps):
         if focus.get('capability_tag_id') and focus['capability_tag_id'] not in tags:raise InvalidOutput('Invented formal tag')
 
 
-def parse(raw,contract,blocked):
-    guard(raw,blocked)
-    if len(raw)>300000:raise InvalidOutput('Response too large')
-    try:return contract.model_validate_json(raw).model_dump()
-    except ValidationError as error:
-        raise InvalidOutput(json.dumps(error.errors(include_input=False, include_url=False), ensure_ascii=False, default=str)) from error
-
-
 def call(config,stage,payload,contract,blocked):
     for secret in blocked:register_secret(secret)
     guard(payload,blocked)
-    from backend.agent_runtime.prompts import development
-    messages, schema = development(stage, payload, contract)
+    messages,schema=development.request(stage,payload,contract)
     from .runtime_bridge import execute_stage
-    raw = execute_stage('development', stage, payload, config, lambda: model.completion(config, messages, schema))
-    return parse(raw, contract, blocked)
-
-
-
-
-def request_projection(request):
-    return {'target_partner_id':request['target_partner_id'],
-            'development_direction':request.get('development_direction') or request.get('development_goal',''),
-            'known_baseline':request.get('known_baseline','')}
+    raw=execute_stage('development',stage,payload,config,lambda: model.completion(config,messages,schema))
+    return development.validate_stage(stage,payload,parse(raw,contract,blocked))
 
 
 def safe_text(value,blocked,limit=1600):
@@ -165,23 +143,6 @@ def candidates(conn,request,analysis):
     return [d for _,d in sorted(found,key=lambda v:-v[0])[:100]]
 
 
-def validate_analysis(output,request,tags):
-    if output['target_partner_id']!=request['target_partner_id']:raise InvalidOutput('Invented partner')
-    for focus in output['priorities']:
-        if focus['capability_tag_id'] and focus['capability_tag_id'] not in tags:raise InvalidOutput('Invented formal tag')
-    strong_guard(output)
-    return output
-
-
-def strong_guard(output):
-    from backend.agent_runtime.workflows import strong_guard as shared_guard
-    from backend.agent_runtime.diagnostics import StageFailure
-    try:
-        shared_guard(output)
-    except StageFailure as error:
-        raise InvalidOutput('Unsupported capability conclusion') from error
-
-
 def assemble(output,request,analysis,pool,actor):
     if output['target_partner_id']!=request['target_partner_id']:raise InvalidOutput('Invented partner')
     strong_guard(output);output=copy.deepcopy(output);allowed={key(r):r for r in pool}
@@ -202,13 +163,6 @@ def assemble(output,request,analysis,pool,actor):
     output.update(advice_context(request,analysis))
     output.update(assumptions={},partner_goal_allowed=request.get('partner_goal_allowed',False),effective_request={k:v for k,v in request.items() if k not in ('raw_demand','_conversation')})
     return output
-
-
-def advice_context(request,analysis):
-    mapped={f['capability_tag_id']:f for f in analysis.get('priorities',[]) if f.get('capability_tag_id')}
-    diagnoses=[{'capability_tag_id':tag,'target_requirement':f['name'],'target_satisfaction':'needs_assessment','evidence_status':'partial','judgment_source':'model_inference','evidence_refs':[],'pending_verifications':[],'problem_type':'needs_clarification'} for tag,f in mapped.items()]
-    return {'analysis':copy.deepcopy(analysis),'diagnoses':diagnoses,
-            'overview':{**request_projection(request),'development_goal':request.get('development_direction') or request.get('development_goal','')}}
 
 
 def prepare(request,user,*,plan_id=None,base=None,instruction='',cached=None):
@@ -304,7 +258,7 @@ def execute(run_id):
             if not run:return
             bind_context(task_id=run['plan_id'],request_id=run['submission_id'])
             from .runtime_bridge import run_scope
-            with run_scope('development',run['plan_id'],run_id):
+            with agent_settings.execution_scope(json.loads(run['input_snapshot']).get('agent_execution')), run_scope('development',run['plan_id'],run_id):
                 _execute_claimed(run_id,run)
         except Exception as error:record_error(error)
 

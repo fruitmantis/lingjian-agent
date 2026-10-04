@@ -1,4 +1,2 @@
-from pydantic import BaseModel, ConfigDict
-
-class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+"""Compatibility import; business contracts live in backend.business."""
+from backend.business.common import *  # noqa: F401,F403

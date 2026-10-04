@@ -1,9 +1,9 @@
+from urllib.parse import urlsplit
 """OpenAI-compatible LLM client using httpx."""
 
 import json
 import httpx
 from contextvars import ContextVar
-from backend.agent_runtime.provider_options import provider_request_options
 from .model_resolver import ModelConfigurationError, ResolvedModelConfig, resolve_model_config
 from .model_timeout_settings import get_settings
 
@@ -18,13 +18,19 @@ def reset_retry_count() -> None:
     _LAST_RETRY_COUNT.set(0)
 
 
+def provider_request_options(base_url: str, model: str, thinking: bool | None = None) -> dict:
+    # DeepSeek Flash's documented raw HTTP option. Keep other providers' defaults:
+    # e.g. GLM-5.3 is thinking-only and does not need this provider-specific field.
+    if urlsplit(base_url).hostname == "api.deepseek.com" and model in ("deepseek-v4-flash", "deepseek-flash"):
+        return {"thinking": {"type": "disabled" if thinking is False else "enabled"}}
+    return {}
 
 
 def completion_payload(config: ResolvedModelConfig, messages: list[dict], schema: dict | None = None) -> dict:
     payload = {
         "model": config.model, "messages": messages,
         "temperature": config.temperature, "top_p": config.top_p, "max_tokens": config.max_tokens,
-        **provider_request_options(config.base_url, config.model),
+        **provider_request_options(config.base_url, config.model, config.thinking),
     }
     if schema is not None:
         # JSON mode is portable; field/permission validation remains in the application.
@@ -129,7 +135,7 @@ def chat_completion(messages: list[dict], scene: str = "default") -> str:
         headers = {"Authorization": f"Bearer {cfg.api_key}", "Content-Type": "application/json"}
         payload = completion_payload(cfg, messages)
         # Freeze both values for this call and its retries; the next call reads saved settings.
-        policy = get_settings()
+        policy = get_settings(agent_id=scene if scene in ("partner_match","partner_development") else "processing")
 
         def send():
             with httpx.Client(timeout=policy.timeoutSeconds) as client:

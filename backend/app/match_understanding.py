@@ -1,9 +1,10 @@
 """One facts extraction shared by matching and its existing derivative records."""
 import json
 from time import perf_counter
-from typing import Literal
-from pydantic import Field, StrictBool
-from .enablement import StrictModel
+from backend.business import matching
+from backend.business.matching_types import (
+    ProjectFacts, TagSuggestion, MatchUnderstanding, Candidate, MatchAnswer, InitialCandidate, InitialSelection,
+)
 from .database import get_db
 from .business_taxonomy import taxonomy_prompt
 from .model_resolver import resolve_model_record, configuration_stamp
@@ -15,9 +16,6 @@ from .error_diagnostics import bind_context
 from .task_failures import PublicTaskError
 from .scope_gate import MESSAGES
 from fastapi import HTTPException
-
-
-from backend.agent_runtime.match_types import ProjectFacts, TagSuggestion, MatchUnderstanding, Candidate, MatchAnswer, InitialCandidate, InitialSelection
 
 
 def load(conn, task_id):
@@ -40,8 +38,7 @@ def prepare(requirement, cached=None):
         return cached
     bind_context(stage='understanding')
     try:
-        from backend.agent_runtime.prompts import matching
-        messages=matching("understanding", {"requirement":requirement,"standard_tags":tags})[0]
+        messages=matching.understanding_messages(requirement,tags,taxonomy_prompt())
         schema=MatchUnderstanding.model_json_schema()
         chars,tokens=match_context.input_metrics(config,messages,schema)
         prepared=round((perf_counter()-start)*1000)
@@ -56,8 +53,7 @@ def prepare(requirement, cached=None):
         result=MatchUnderstanding.model_validate_json(raw).model_dump()
         if not result['in_scope']:
             return {'stamp':stamp,'model':model,'understanding':result,'scope_message':MESSAGES['partner_match']}
-        if not set(result['facts']['capabilityTags'])<=set(tags):raise ValueError('Invented formal capability tag')
-        if any(not t['evidenceText'] or t['evidenceText'] not in requirement for t in result['tag_suggestions']):raise ValueError('Tag suggestion lacks source evidence')
+        matching.validate_understanding(result,requirement,tags)
         return {'stamp':stamp,'model':model,'understanding':result}
     except HTTPException:raise
     except Exception as error:raise PublicTaskError(error) from error

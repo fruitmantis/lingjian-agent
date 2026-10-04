@@ -3,29 +3,36 @@ import asyncio,json,os,logging
 from urllib.parse import urlsplit
 import httpx
 from .workflows import validate_budget
-from .provider_options import provider_request_options
 from .contracts import model_route
 from .diagnostics import StageFailure, ModelOutput, FINISH_REASONS
 
-async def completion(request,progress):
-    name=os.environ.get('BANFEI_RUNTIME_MODEL_NAME','')
-    endpoint=os.environ.get('BANFEI_RUNTIME_MODEL_URL','').rstrip('/')
-    secret=os.environ.get('BANFEI_RUNTIME_MODEL_KEY','')
-    parsed=urlsplit(endpoint)
+PROXY_BASE='https://banfei-model-proxy-defaultgw-gzswgzdcgz.cn-southwest-2.huaweicloud-agentarts.com/inference/v1'
+
+def endpoint():
+    value=os.environ.get('BANFEI_RUNTIME_MODEL_URL',PROXY_BASE).rstrip('/')
+    parsed=urlsplit(value)
     local=os.environ.get('BANFEI_RUNTIME_LOCAL_TEST')=='1' and parsed.scheme=='http' and parsed.hostname=='127.0.0.1'
-    if request.model.provider_route != model_route(endpoint,name) or not name or name!=request.model.name or not secret or (parsed.scheme!='https' and not local) or parsed.username or parsed.password or parsed.query or parsed.fragment:
+    if (value!=PROXY_BASE and not local) or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise StageFailure('model_configuration_invalid')
+    return value
+
+async def completion(request,progress):
+    base=endpoint()
+    name=request.model.name
+    secret=os.environ.get('BANFEI_MODEL_PROXY_API_KEY','').strip()
+    if request.model.provider_route!=model_route(base,name) or not secret or any(c.isspace() for c in secret):
         raise StageFailure('model_configuration_invalid')
     options=request.model
     messages=validate_budget(request,int(os.environ.get('BANFEI_RUNTIME_CONTEXT_TOKENS','262144')))
     payload={'model':name,'messages':messages,'response_format':{'type':'json_object'},
-             'temperature':options.temperature,'top_p':options.top_p,'max_tokens':options.max_tokens}
-    payload.update(provider_request_options(endpoint,name))
+             'temperature':options.temperature,'top_p':options.top_p,'max_completion_tokens':options.max_tokens,
+             'chat_template_kwargs':{'thinking':options.thinking}}
     # One authorization, one provider attempt. Only VM can authorize a retry.
     progress(1)
     logging.getLogger("uvicorn.error").info("RUNTIME_MODEL_ATTEMPT operation=%s stage=%s",request.operation_id,request.stage)
     async with asyncio.timeout(options.timeout_seconds):
         async with httpx.AsyncClient(timeout=options.timeout_seconds,follow_redirects=False,trust_env=False) as client:
-            async with client.stream('POST',endpoint+'/chat/completions',headers={'Authorization':'Bearer '+secret},json=payload) as response:
+            async with client.stream('POST',base+'/chat/completions',headers={'Authorization':'Bearer '+secret},json=payload) as response:
                 response.raise_for_status();parts=[];size=0
                 async for part in response.aiter_bytes():
                     size+=len(part)

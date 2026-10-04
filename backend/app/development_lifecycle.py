@@ -10,7 +10,7 @@ from . import enablement_catalog
 from .development_deadlines import run_timeout
 from .development_types import DevelopmentRequest,Revise
 from .error_diagnostics import record_error, bind_context
-from . import task_progress
+from . import task_progress, agent_settings
 
 
 def now():return datetime.now(timezone.utc).isoformat()
@@ -66,7 +66,7 @@ def duplicate(conn,user,submission_id,request_hash):
 def insert_run(conn,plan_id,user,submission_id,base,payload,run_type,request_hash):
     ensure_account_active(conn,user['id'])
     run_id=uid();stamp=now()
-    payload={**payload,'progress':task_progress.new('development_plan',run_id,stamp)}
+    payload={**payload,'agent_execution':agent_settings.execution(conn,'partner_development',accept=True),'progress':task_progress.new('development_plan',run_id,stamp)}
     bind_context(task_id=plan_id, run_id=run_id, request_id=submission_id, stage='submission')
     conn.execute('''INSERT INTO development_runs(id,plan_id,owner_user_id,run_type,submission_id,request_hash,based_on_version_id,status,input_snapshot,created_at)
                     VALUES (?,?,?,?,?,?,?,'pending',?,?)''',(run_id,plan_id,user['id'],run_type,submission_id,request_hash,base,dump(payload),stamp))
@@ -204,7 +204,8 @@ def claim(run_id):
 
 def expired(run):
     started = datetime.fromisoformat(run['started_at'] or run['created_at'])
-    return (datetime.now(timezone.utc) - started).total_seconds() >= run_timeout()
+    execution=json.loads(run['input_snapshot']).get('agent_execution')
+    return (datetime.now(timezone.utc) - started).total_seconds() >= run_timeout(execution)
 
 
 def ensure_execution(run_id, token):
@@ -282,9 +283,9 @@ def recover(startup=False,owner_user_id=None,plan_id=None):
                   WHERE r.id=development_plans.active_run_id AND r.plan_id=development_plans.id
                     AND r.status IN ('failed','partial','interrupted','ready'))""",
                      (owner_user_id,owner_user_id,plan_id,plan_id))
-        threshold=(datetime.now(timezone.utc)-timedelta(seconds=run_timeout())).isoformat()
-        rows=conn.execute("SELECT * FROM development_runs WHERE status IN ('pending','running') AND (?=1 OR COALESCE(started_at,created_at)<?) AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(int(startup),threshold,owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
+        rows=conn.execute("SELECT * FROM development_runs WHERE status IN ('pending','running') AND (? IS NULL OR owner_user_id=?) AND (? IS NULL OR plan_id=?)",(owner_user_id,owner_user_id,plan_id,plan_id)).fetchall()
         for row in rows:
+            if not startup and not expired(row):continue
             from .runtime_bridge import interrupt_operations
             interrupt_operations(conn,row['id'])
             finish_progress(conn,row,failed=True)

@@ -15,6 +15,7 @@ test('model deletion supports cancel, success and server errors', async ({page})
     const path = url.pathname.replace(/^\/api/, '');
     if (path === '/health') return route.fulfill({json:{status:'ok'}});
     if (path === '/auth/me') return route.fulfill({json: {id:'admin',role:'admin',status:'active',must_change_password:false}});
+    if (path === '/admin/agents') { const options={modelConfigId:'unused',thinking:true,timeoutSeconds:300,timeoutRetries:3}; return route.fulfill({json:{agents:{partner_match:{...options,name:'伙伴匹配',description:'',icon:'users',enabled:true},partner_development:{...options,name:'伙伴发展',description:'',icon:'trend',enabled:true}},processing:options}}); }
     if (path === '/admin/model-configs') return route.fulfill({json: configs.filter(c => !deleted.includes(c.id))});
     if (path === '/admin/model-configs/timeout-settings') return route.fulfill({json:{timeoutSeconds:300,timeoutRetries:3}});
     if (path === '/admin/model-configs/usage') return route.fulfill({json: []});
@@ -33,7 +34,7 @@ test('model deletion supports cancel, success and server errors', async ({page})
   await expect(unused).toBeVisible();
   expect(deleted).toEqual([]);
   page.once('dialog', async dialog => {
-    expect(dialog.message()).toContain('请确认仍有可用的场景首选或系统默认');
+    expect(dialog.message()).toContain('请先更换其模型选择');
     await dialog.accept();
   });
   await unused.getByRole('button', {name:'删除',exact:true}).click();

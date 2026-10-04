@@ -1,5 +1,53 @@
 # AgentArts ARM 隔离部署
 
+## 阶段三 v2 更新（2026-10-04，替代下方旧 v1 操作指引）
+
+两个正式 Runtime 已由用户各自执行握手通过，protocol=banfei-runtime-v2，workflow
+分别为 match/development，provider_endpoint 均为
+7800aeda488c5317424e42954f4ba0912e28983bb79a320f0692f802ceb8060c。
+matching 原先 401 的根因未得到证实；新增原因码是诊断能力，不等于修复根因。
+matching 新镜像 tag 尚未提供，不能依据握手回推镜像 digest。
+
+本次复用已有 banfei-agentarts 账号、PG 55432、前端 3001、后端 8001 和独立 Caddy HTTP 80。
+主干服务保持停止，不迁移或覆盖 main。旧版已部署，阶段三需要更新源码及前端构建；
+使用新 release 目录保留旧 current 目标作为代码回退点，不重新复制伙伴、用户、上传或初始化数据库。
+后台元数据的阶段三迁移会归档旧场景绑定；保留历史任务，失败不覆盖已有结果。
+
+新版本部署后，用户在 ARM 自己的 SSH 交互终端运行：
+
+    sudo python3 -B /opt/banfei-agentarts/current/deploy/agentarts/arm/configure_runtime_v2.py
+
+按顺序隐藏输入匹配平台 Key、匹配应用 shared key、发展平台 Key、发展应用 shared key，
+平台 Key 均为原始值，不含 Bearer。工具只更新既有 /etc/banfei-agentarts/backend.env 的四个
+分智能体凭据和 BANFEI_RUNTIME_EXTERNAL_DATA_APPROVED=0，保留其他配置；不自动备份密钥、
+不重启服务、不写数据库，默认不联网。可显式加 --verify，在保存后各发一次 v2 握手 GET；
+握手失败会明确说明配置已保存，不能误认为事务未发生。
+默认权限检查及四次隐藏输入均成功后才原子替换；无法隐藏输入时拒绝，不作明文降级。
+
+部署窗口同时通过后端 systemd 的 UnsetEnvironment=BANFEI_RUNTIME_EXTERNAL_DATA_APPROVED
+阻止旧环境中的授权值被继承；需获后续具体资料范围批准后再移除此部署闸门并设置环境授权。
+用户录入密钥后仅在无在途任务时重启隔离后端，以加载新值。不能运行下方旧 v1
+configure_runtime.py、configure_private.py 或旧 preflight.py --phase configured；
+旧流程会检查 v1/直连地址或要求外发开关=1。
+
+后台通过正常管理员登录设置（凭据不进入网页）：
+
+- 新建不含 Key 的模型元数据连接：
+  https://banfei-model-proxy-defaultgw-gzswgzdcgz.cn-southwest-2.huaweicloud-agentarts.com/inference/v1
+  模型名称 deepseek-v4.1-flash；保留确认过的模型参数，不调用连接测试。
+- 伙伴匹配选择 Runtime，URL：
+  https://defaultgw-gzswgzdcgz.cn-southwest-2.huaweicloud-agentarts.com/runtimes/banfei-matching/invocations?endpoint=Latest
+- 能力发展选择 Runtime，URL：
+  https://defaultgw-gzswgzdcgz.cn-southwest-2.huaweicloud-agentarts.com/runtimes/banfei-development/invocations?endpoint=Latest
+- 两者选择上述元数据连接；thinking、超时、重试在对应智能体表单保存，基础处理保持 local。
+  未取得具体业务资料外发批准前，不创建业务测试任务、不更新画像或触发模型处理。
+
+最小先决条件：独立服务/目录/PG 已存在、原 main 应用停机、无在途任务、现有管理员可正常登录；
+四个云 Key 由用户持有。若这些条件不满足，先处理具体阻塞，不重置账号或数据库。
+仅回退 current 不能自动撤销已提交的数据库元数据变更；回退前须核对迁移与旧版兼容性，
+不得为回退覆盖真实业务数据。
+
+
 2026-10-02 UTC 已部署基础入口、独立前端、独立 PostgreSQL 和目录副本。当时业务 API 因私有配置缺失明确关闭。该段为历史准备记录；当前部署及验证结论见 [脱敏归档](../../../docs/validation/AGENTARTS_RELEASE_20261003.md)，原始现场证据本地保留。
 
 ## 实际部署

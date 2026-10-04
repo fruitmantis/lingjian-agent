@@ -1,19 +1,19 @@
 """Global policy CRUD: isolated storage, no provider calls or private file writes."""
 from concurrent.futures import ThreadPoolExecutor
 import pytest
-from backend.app import model_timeout_settings as settings
+from backend.app import model_timeout_settings as settings, agent_settings
 from backend.app.database import get_db
 from backend.tests.conftest import auth_headers, make_user
 
-PATH = '/admin/model-configs/timeout-settings'
+PATH = '/admin/agents/processing'
 
 
 @pytest.mark.parametrize('method', ['get', 'put'])
 def test_configuration_is_admin_only(client, method):
     kwargs = {'json': {'timeoutSeconds':600, 'timeoutRetries':1}} if method == 'put' else {}
-    assert getattr(client, method)(PATH, **kwargs).status_code == 401
+    assert getattr(client, method)('/admin/agents' if method=='get' else PATH, **kwargs).status_code == 401
     user = make_user('policy-user')
-    assert getattr(client, method)(PATH, headers=auth_headers(user), **kwargs).status_code == 403
+    assert getattr(client, method)('/admin/agents' if method=='get' else PATH, headers=auth_headers(user), **kwargs).status_code == 403
     assert settings.describe() == {'timeoutSeconds':300, 'timeoutRetries':3}
 
 
@@ -21,18 +21,19 @@ def test_policy_save_is_immediate_and_persistent(client, monkeypatch):
     admin = make_user('policy-admin', role='admin'); headers = auth_headers(admin)
     with get_db() as conn:
         conn.execute("INSERT INTO app_metadata VALUES ('unrelated-config','keep')")
-    initial = client.get(PATH, headers=headers)
+    initial = client.get('/model-timeout-settings', headers=headers)
     assert initial.status_code == 200 and initial.headers['cache-control'] == 'no-store'
     assert initial.json() == {'timeoutSeconds':300, 'timeoutRetries':3}
-    result = client.put(PATH, headers=headers, json={'timeoutSeconds':420, 'timeoutRetries':0})
+    result = client.put(PATH, headers=headers, json={**agent_settings.read()['processing'],'timeoutSeconds':420, 'timeoutRetries':0})
     assert result.status_code == 200 and result.headers['cache-control'] == 'no-store'
-    assert result.json() == settings.describe() == {'timeoutSeconds':420, 'timeoutRetries':0}
-    assert client.get(PATH, headers=headers).json() == result.json()
+    assert result.json()['processing']==agent_settings.read()['processing']
+    assert settings.describe()=={'timeoutSeconds':420, 'timeoutRetries':0}
+    assert client.get('/admin/agents', headers=headers).json() == result.json()
     with get_db() as conn:
-        assert settings.get_settings(conn).model_dump() == result.json()
+        assert settings.get_settings(conn).model_dump() == {'timeoutSeconds':420,'timeoutRetries':0}
         assert conn.execute("SELECT value FROM app_metadata WHERE key='unrelated-config'").fetchone()[0] == 'keep'
     monkeypatch.setenv('MODEL_TIMEOUT_SECONDS', '1'); monkeypatch.setenv('MODEL_TIMEOUT_RETRIES', '0')
-    assert settings.describe() == result.json()
+    assert settings.describe() == {'timeoutSeconds':420,'timeoutRetries':0}
 
 
 def test_nonsecret_policy_read_requires_authentication_and_has_no_user_write(client):
@@ -63,7 +64,7 @@ def test_write_failure_preserves_policy(client, monkeypatch):
         with get_db() as conn:
             yield conn
             raise RuntimeError('Synthetic commit failure')
-    monkeypatch.setattr(settings, 'get_db', failed_commit)
+    monkeypatch.setattr(agent_settings, 'get_db', failed_commit)
     result = client.put(PATH, headers=auth_headers(admin), json={'timeoutSeconds':420, 'timeoutRetries':1})
     assert result.status_code == 500
     assert result.json()['detail'] == '服务异常，请联系管理员。'

@@ -12,7 +12,7 @@ from .database import get_db
 from .model_resolver import configuration_stamp,pinned_configuration,model_config_from_record
 from .model_timeout_settings import get_settings
 from .auth import ensure_account_active
-from . import error_diagnostics
+from . import error_diagnostics,agent_settings
 
 # Read wire limits from the deployed protocol definitions; do not duplicate caps.
 RUNTIME_INPUT_BUDGET = StageRequest.model_json_schema()['properties']['input_token_budget']['maximum']
@@ -51,10 +51,16 @@ def run_scope(workflow,task_id,run_id):
     try:yield
     finally:_RUN.reset(token)
 
+def execution_for(workflow):
+    agent_id={'match':'partner_match','development':'partner_development'}[workflow]
+    selected=agent_settings.current_execution()
+    if selected:
+        if selected['agentId']!=agent_id:raise ValueError('Execution agent mismatch')
+        return selected
+    with get_db() as conn:return agent_settings.execution(conn,agent_id)
+
 def mode(workflow):
-    selected=os.environ.get('BANFEI_'+workflow.upper()+'_EXECUTOR','local')
-    if selected not in ('local','runtime'):raise ValueError('Invalid AI executor mode')
-    return selected
+    return execution_for(workflow)['executor']
 
 def authorize(conn,context):
     workflow,task_id,run_id=context
@@ -90,8 +96,8 @@ def save(conn,key,value):
 
 def client_for():return httpx.Client(timeout=15,follow_redirects=False,trust_env=False)
 
-def endpoint():
-    return validate_endpoint(os.environ.get('BANFEI_RUNTIME_URL', ''),
+def endpoint(workflow):
+    return validate_endpoint(execution_for(workflow).get('runtimeUrl') or '',
         local_test=os.environ.get('BANFEI_RUNTIME_LOCAL_TEST') == '1',
         external_approved=os.environ.get('BANFEI_RUNTIME_EXTERNAL_DATA_APPROVED') == '1')
 
@@ -100,8 +106,8 @@ def execute_stage(workflow,stage,data,config,local_call):
     if mode(workflow)=='local':return local_call()
     context=_RUN.get()
     if not context or context[0]!=workflow:raise ValueError('Runtime stage requires a persisted business run')
-    base,is_local=endpoint();secret=os.environ.get('BANFEI_RUNTIME_SHARED_KEY','')
-    auth=os.environ.get('BANFEI_AGENTARTS_BEARER','')
+    base,is_local=endpoint(workflow);secret=os.environ.get('BANFEI_'+workflow.upper()+'_RUNTIME_SHARED_KEY',os.environ.get('BANFEI_RUNTIME_SHARED_KEY',''))
+    auth=os.environ.get('BANFEI_'+workflow.upper()+'_AGENTARTS_BEARER',os.environ.get('BANFEI_AGENTARTS_BEARER',''))
     if len(secret)<32 or (not is_local and not auth):raise ValueError('Runtime server-side credentials not configured')
     error_diagnostics.register_secret(secret);error_diagnostics.register_secret(auth)
     preflight=config.get('_runtime_preflight',lambda: True)
@@ -131,7 +137,8 @@ def execute_stage(workflow,stage,data,config,local_call):
             if session['incarnation'] is None:
                 response=client.get(operation_url(base, 'runtime-info'),headers=headers);response.raise_for_status();info=response.json()
                 if info.get('protocol')!=PROTOCOL:raise ValueError('Runtime protocol mismatch')
-                if info.get('provider_route')!=model_route(selected.base_url,selected.model):raise ValueError('Runtime provider/model route does not match selected configuration')
+                if info.get('workflow')!=workflow:raise ValueError('Runtime workflow mismatch')
+                if info.get('provider_endpoint')!=digest(selected.base_url.rstrip('/')):raise ValueError('Runtime proxy endpoint does not match selected configuration')
                 session['incarnation']=str(uuid.UUID(info['incarnation']))
                 with get_db() as conn:
                     conn.lock_writer();authorize(conn,context)
@@ -141,7 +148,7 @@ def execute_stage(workflow,stage,data,config,local_call):
             packet=StageRequest(task_id=context[1],run_id=context[2],session_id=session['session_id'],incarnation=session['incarnation'],
                 operation_id=uuid.uuid5(uuid.UUID(context[2]),stage),workflow=workflow,stage=stage,snapshot=digest(data),
                 model_fingerprint=stamp['fingerprint'],input_token_budget=RUNTIME_INPUT_BUDGET,data=data,sources=source_manifest(data),
-                model=ModelOptions(provider_route=model_route(selected.base_url,selected.model),name=selected.model,temperature=selected.temperature,top_p=selected.top_p,
+                model=ModelOptions(provider_route=model_route(selected.base_url,selected.model),name=selected.model,thinking=selected.thinking,temperature=selected.temperature,top_p=selected.top_p,
                   max_tokens=stage_output_limit(workflow,stage,data,min(selected.max_tokens,config.get('_match_output_tokens',RUNTIME_OUTPUT_BUDGET))),
                   timeout_seconds=policy.timeoutSeconds,timeout_retries=policy.timeoutRetries))
             validate_budget(packet)

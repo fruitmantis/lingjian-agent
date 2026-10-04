@@ -12,18 +12,24 @@ from backend.app.routers import match
 from .test_development_lifecycle import prepared,plan
 from .test_unified_flow import unified,generated
 from .test_partner_match_stages import answer
+from .test_agent_settings import configure
+from .test_agentarts_stage3 import cloud_model
+from backend.app import agent_settings
 from .support.legacy_development import legacy_confirmed
 
 @pytest.fixture
 def transport(monkeypatch,prepared):
     from backend.app.model_resolver import resolve_model_record,model_config_from_record
     selected=model_config_from_record(resolve_model_record("partner_development"))
-    monkeypatch.setenv("BANFEI_RUNTIME_MODEL_URL",selected.base_url)
+    cloud=cloud_model()
+    monkeypatch.setenv("BANFEI_RUNTIME_MODEL_URL",provider.PROXY_BASE)
     monkeypatch.setenv("BANFEI_RUNTIME_MODEL_NAME",selected.model)
-    monkeypatch.setenv("BANFEI_RUNTIME_MODEL_KEY","synthetic-provider-key")
+    monkeypatch.setenv("BANFEI_MODEL_PROXY_API_KEY","synthetic-provider-key")
     for key,value in {'BANFEI_MATCH_EXECUTOR':'runtime','BANFEI_DEVELOPMENT_EXECUTOR':'runtime',
       'BANFEI_RUNTIME_URL':'http://127.0.0.1:19081','BANFEI_RUNTIME_LOCAL_TEST':'1',
       'BANFEI_RUNTIME_SHARED_KEY':'synthetic-runtime-key-01234567890123456789','BANFEI_RUNTIME_POLL_SECONDS':'0.001'}.items():monkeypatch.setenv(key,value)
+    for agent_id,workflow in [('partner_match','match'),('partner_development','development')]:
+        configure(agent_id,modelConfigId=cloud,executor='runtime',runtimeUrl='http://127.0.0.1:19081/'+workflow)
     apps={};state={'packets':[],'posts':0,'calls':[],'fault':None,'complete':None,'retry_posts':[]}
     async def complete(packet,progress):
         state['calls'].append(packet.stage);progress(1)
@@ -37,15 +43,15 @@ def transport(monkeypatch,prepared):
         if packet.stage=='initial_selection':return '{"candidates":[{"partnerId":"partner-1","verificationFocus":"迁移能力与交付边界"}]}'
         return answer()
     monkeypatch.setattr(provider,'completion',complete)
-    def client(session):
-        if session not in apps:apps[session]=TestClient(server.create_app()).__enter__()
+    def client(session,workflow):
+        if session not in apps:apps[session]=TestClient(server.create_app(workflow)).__enter__()
         return apps[session]
     class Adapter:
         def __enter__(self):return self
         def __exit__(self,*args):pass
         def request(self,method,url,headers,**kwargs):
-            session=headers['X-Hw-Agentarts-Session-Id'];path=url.removeprefix('http://127.0.0.1:19081')
-            response=client(session).request(method,path,headers=headers,**kwargs)
+            session=headers['X-Hw-Agentarts-Session-Id'];suffix=url.removeprefix('http://127.0.0.1:19081/');workflow,path=suffix.split('/',1);path='/'+path
+            response=client(session,workflow).request(method,path,headers=headers,**kwargs)
             packet=kwargs.get('json')
             if packet and path.endswith('/retry'):
                 state['retry_posts'].append(copy.deepcopy(packet))
@@ -57,7 +63,7 @@ def transport(monkeypatch,prepared):
                 fault=state['fault']
                 if fault=='drop_ack':state['fault']=None;raise httpx.ReadError('synthetic lost acknowledgement')
                 if fault=='runtime_restart':
-                    apps[session].__exit__(None,None,None);apps[session]=TestClient(server.create_app()).__enter__();raise httpx.ReadError('synthetic Runtime restart')
+                    apps[session].__exit__(None,None,None);apps[session]=TestClient(server.create_app(workflow)).__enter__();raise httpx.ReadError('synthetic Runtime restart')
                 if fault=='vm_restart':
                     if packet['workflow']=='development':life.recover(startup=True)
                     else:
@@ -142,7 +148,7 @@ def packet(incarnation):
     return StageRequest(task_id=uuid.uuid4(),run_id=uuid.uuid4(),session_id=uuid.uuid4(),operation_id=uuid.uuid4(),
       incarnation=incarnation,workflow='match',stage='understanding',snapshot=digest(data),sources=source_manifest(data),
       model_fingerprint='a'*64,input_token_budget=16000,data=data,
-      model=ModelOptions(provider_route=model_route('https://example.test/v1','synthetic'),name='synthetic',temperature=.3,top_p=1,max_tokens=1000,timeout_seconds=1,timeout_retries=0))
+      model=ModelOptions(thinking=True,provider_route=model_route('https://example.test/v1','synthetic'),name='synthetic',temperature=.3,top_p=1,max_tokens=1000,timeout_seconds=1,timeout_retries=0))
 
 
 def test_runtime_protocol_auth_dedup_session_restart_and_budget(monkeypatch):
@@ -173,14 +179,12 @@ def test_runtime_is_database_free_and_mode_is_fail_closed(monkeypatch):
     env={k:v for k,v in os.environ.items() if k not in ('DATABASE_URL','BANFEI_TEST_DATABASE_URL','JWT_SECRET_KEY','BANFEI_IDENTITY_ENCRYPTION_KEY')}
     check=subprocess.run([sys.executable,'-B','-c',"import sys; import backend.agent_runtime.server; assert 'backend.app.database' not in sys.modules"],env=env,capture_output=True,text=True)
     assert check.returncode==0,check.stderr
-    monkeypatch.setenv('BANFEI_MATCH_EXECUTOR','typo')
-    with pytest.raises(ValueError):bridge.mode('match')
-    monkeypatch.setenv('BANFEI_RUNTIME_URL','https://example.com/runtime');monkeypatch.delenv('BANFEI_RUNTIME_EXTERNAL_DATA_APPROVED',raising=False)
-    with pytest.raises(ValueError):bridge.endpoint()
+    with pytest.raises(ValueError):agent_settings.AgentSettings.model_validate({**agent_settings.read()['agents']['partner_match'],'executor':'typo'})
+    with pytest.raises(ValueError):bridge.endpoint('match')
 
 
 @pytest.fixture
-def wire_runtime(monkeypatch,tmp_path):
+def wire_runtime(monkeypatch,tmp_path,request):
     """Actual child Runtime + actual loopback model HTTP, no ASGI transport substitution."""
     import os,socket,subprocess,sys,threading,time
     from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
@@ -210,9 +214,12 @@ def wire_runtime(monkeypatch,tmp_path):
         conn.execute('UPDATE model_configs SET base_url=? WHERE id=?',('http://127.0.0.1:'+str(model.server_port),selected['id']))
     env={k:v for k,v in os.environ.items() if k in ('PATH','LANG','LC_ALL','PYTHONPATH')}
     env.update(PYTHONDONTWRITEBYTECODE='1',BANFEI_RUNTIME_SHARED_KEY=key,BANFEI_RUNTIME_LOCAL_TEST='1',
-      BANFEI_RUNTIME_MODEL_URL='http://127.0.0.1:'+str(model.server_port),BANFEI_RUNTIME_MODEL_NAME=selected['model_name'],BANFEI_RUNTIME_MODEL_KEY='synthetic-model-only')
+      BANFEI_RUNTIME_MODEL_URL='http://127.0.0.1:'+str(model.server_port),BANFEI_RUNTIME_MODEL_NAME=selected['model_name'],BANFEI_MODEL_PROXY_API_KEY='synthetic-model-only')
+    workflow=getattr(request.node,'callspec',None)
+    workflow=workflow.params.get('workflow','match') if workflow else ('development' if 'vm_process' in request.node.name else 'match')
+    entry='backend.agent_runtime.'+('matching_server' if workflow=='match' else 'development_server')+':app'
     log=(tmp_path/'runtime-process.log').open('w')
-    child=subprocess.Popen([sys.executable,'-B','-m','uvicorn','backend.agent_runtime.server:app','--host','127.0.0.1','--port',str(port),'--workers','1','--no-access-log'],env=env,stdout=log,stderr=log)
+    child=subprocess.Popen([sys.executable,'-B','-m','uvicorn',entry,'--host','127.0.0.1','--port',str(port),'--workers','1','--no-access-log'],env=env,stdout=log,stderr=log)
     try:
         for attempt in range(100):
             if child.poll() is not None:raise AssertionError('Runtime child exited')
@@ -223,10 +230,15 @@ def wire_runtime(monkeypatch,tmp_path):
         else:raise AssertionError('Runtime startup timed out')
         for k,v in {'BANFEI_RUNTIME_URL':f'http://127.0.0.1:{port}','BANFEI_RUNTIME_SHARED_KEY':key,
           'BANFEI_RUNTIME_LOCAL_TEST':'1','BANFEI_RUNTIME_POLL_SECONDS':'.01','BANFEI_MATCH_EXECUTOR':'runtime','BANFEI_DEVELOPMENT_EXECUTOR':'runtime'}.items():monkeypatch.setenv(k,v)
+        # Synthetic loopback fixture config only; production API forbids non-proxy cloud connections.
+        with get_db() as conn:
+            values=agent_settings.migrate(conn)
+            for value in values['agents'].values():value.update(executor='runtime',runtimeUrl=f'http://127.0.0.1:{port}')
+            conn.execute('UPDATE app_metadata SET value=? WHERE key=?',(json.dumps(values),agent_settings.KEY))
         def restart():
             nonlocal child
             child.kill();child.wait(timeout=5)
-            child=subprocess.Popen([sys.executable,'-B','-m','uvicorn','backend.agent_runtime.server:app','--host','127.0.0.1','--port',str(port),'--workers','1','--no-access-log'],env=env,stdout=log,stderr=log)
+            child=subprocess.Popen([sys.executable,'-B','-m','uvicorn',entry,'--host','127.0.0.1','--port',str(port),'--workers','1','--no-access-log'],env=env,stdout=log,stderr=log)
             for _ in range(100):
                 try:
                     if httpx.get(f'http://127.0.0.1:{port}/ping',trust_env=False).status_code==200:return
@@ -336,11 +348,11 @@ def test_actual_vm_process_kill_preserves_pg_and_rejects_late_result(prepared,wi
 
 def test_runtime_health_requires_model_configuration(monkeypatch):
     monkeypatch.setenv('BANFEI_RUNTIME_SHARED_KEY','health-key-012345678901234567890123456789')
-    monkeypatch.delenv('BANFEI_RUNTIME_MODEL_KEY',raising=False)
+    monkeypatch.delenv('BANFEI_MODEL_PROXY_API_KEY',raising=False)
     with TestClient(server.create_app()) as client:
         assert client.get('/ping').status_code==503
-        monkeypatch.setenv('BANFEI_RUNTIME_MODEL_KEY','synthetic')
-        monkeypatch.setenv('BANFEI_RUNTIME_MODEL_URL','https://example.com/v1')
+        monkeypatch.setenv('BANFEI_MODEL_PROXY_API_KEY','synthetic')
+        monkeypatch.setenv('BANFEI_RUNTIME_MODEL_URL',provider.PROXY_BASE)
         monkeypatch.setenv('BANFEI_RUNTIME_MODEL_NAME','synthetic')
         assert client.get('/ping').json()['status']=='Healthy'
 
@@ -360,12 +372,12 @@ def test_matching_stages_use_saved_limits_and_remaining_context(prepared,transpo
     selected=initial['model']['max_tokens']
     assert 0<selected<=saved_limit
     if saved_limit==512:assert selected==512
-    else:assert 2048<selected<=context.UNKNOWN_CONTEXT_CEILING
+    else:assert 2048<selected<=bridge.RUNTIME_INPUT_BUDGET
     assert packets['understanding']['model']['max_tokens']==saved_limit
     detail_output=packets['detailed_review']['model']['max_tokens']
     assert 0<detail_output<=saved_limit
     if saved_limit==512:assert detail_output==512
-    else:assert 8192<detail_output<=context.UNKNOWN_CONTEXT_CEILING
+    else:assert 8192<detail_output<=bridge.RUNTIME_INPUT_BUDGET
     for p in packets.values():
         assert p['model']['temperature']==initial['model']['temperature']
         assert p['model']['top_p']==initial['model']['top_p']
@@ -379,8 +391,8 @@ def test_initial_runtime_full_request_budget_preserves_qa_input(prepared,transpo
     from backend.app import partner_match_context as context
     for index in range(2,13):make_partner('partner-'+str(index),'合成伙伴')
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET base_url='https://api.deepseek.com',model_name='deepseek-flash',max_tokens=131072 WHERE enabled=1")
-    monkeypatch.setenv('BANFEI_RUNTIME_MODEL_URL','https://api.deepseek.com')
+        conn.execute("UPDATE model_configs SET base_url='https://banfei-model-proxy-defaultgw-gzswgzdcgz.cn-southwest-2.huaweicloud-agentarts.com/inference/v1',model_name='deepseek-v4.1-flash',max_tokens=131072 WHERE enabled=1")
+    monkeypatch.setenv('BANFEI_RUNTIME_MODEL_URL',provider.PROXY_BASE)
     monkeypatch.setenv('BANFEI_RUNTIME_MODEL_NAME','deepseek-flash')
     compact=[{'partnerId':'partner-'+str(i),'name':'合成伙伴','capabilities':'合成能力',
         'industries':'制造','regions':'广东','summary':'','intro':'甲'*3600,
@@ -441,8 +453,8 @@ def test_runtime_budget_is_rechecked_inside_existing_input_compaction(prepared,t
 @pytest.mark.parametrize('saved_limit',[131072,131073,384000])
 def test_large_saved_output_limit_respects_all_stage_wire_protocol(prepared,transport,monkeypatch,saved_limit):
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET base_url='https://api.deepseek.com',model_name='deepseek-flash',max_tokens=? WHERE enabled=1",(saved_limit,))
-    monkeypatch.setenv('BANFEI_RUNTIME_MODEL_URL','https://api.deepseek.com')
+        conn.execute("UPDATE model_configs SET base_url='https://banfei-model-proxy-defaultgw-gzswgzdcgz.cn-southwest-2.huaweicloud-agentarts.com/inference/v1',model_name='deepseek-v4.1-flash',max_tokens=? WHERE enabled=1",(saved_limit,))
+    monkeypatch.setenv('BANFEI_RUNTIME_MODEL_URL',provider.PROXY_BASE)
     monkeypatch.setenv('BANFEI_RUNTIME_MODEL_NAME','deepseek-flash')
     result=match.match_partners(match.MatchRequest(requirement='合成数据库迁移需求'),prepared[0])
     assert result.taskStatus=='ready'

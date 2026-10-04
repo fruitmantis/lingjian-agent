@@ -148,10 +148,12 @@ def test_revocation_during_model_call_prevents_save(scenario,monkeypatch):
     ('https://new-provider.invalid/v1','new-model'),
 ])
 def test_shared_model_routing_and_external_provider_transport(prepared,monkeypatch,host,name):
-    with get_db() as conn:conn.execute('UPDATE model_configs SET is_default=0');conn.execute('UPDATE model_usage_configs SET model_config_id=NULL')
-    with pytest.raises(ModelConfigurationError,match='场景首选或系统默认'):model.configuration()
-    with get_db() as conn:
-        row=conn.execute('SELECT id FROM model_configs LIMIT 1').fetchone();conn.execute("UPDATE model_usage_configs SET model_config_id=? WHERE scene_key='partner_development'",(row[0],))
+    from backend.app import agent_settings
+    current=agent_settings.read()['agents']['partner_development']
+    agent_settings.save('partner_development',agent_settings.AgentSettings(**{**current,'modelConfigId':None}))
+    with pytest.raises(ModelConfigurationError,match='请选择|选择已启用'):model.configuration()
+    with get_db() as conn:row=conn.execute('SELECT id FROM model_configs LIMIT 1').fetchone()
+    agent_settings.save('partner_development',agent_settings.AgentSettings(**{**current,'modelConfigId':row[0]}))
     chosen=model.configuration();assert chosen['id']==row[0]
     chosen.update(base_url=host,model_name=name,api_key='synthetic-transport-key',temperature=0,top_p=.85,max_tokens=131072)
     import httpx

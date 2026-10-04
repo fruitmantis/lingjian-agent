@@ -1,2 +1,28 @@
-"""Compatibility exports for the shared, database-free business contracts."""
-from backend.agent_runtime.development_types import *  # noqa: F401,F403
+"""Compatibility imports for existing request/API and task consumers."""
+from backend.business.development_types import (
+    RawInput, StrictModel,
+    Target,
+    DevelopmentRequest,
+    Submit,
+    Revise,
+    Ref,
+    Diagnosis,
+    ResourceItem,
+    Item,
+    Stage,
+    RequestAdjustment,
+    DiagnosisOutput,
+    PlanOutput,
+    Edit,
+    VersionAction,
+    Focus,
+    DirectionAnalysis,
+    AdviceStage,
+    AdviceOutput,
+    Conversation,
+    ConversationOutput,
+    Understanding,
+    ItemChange,
+    AnswerChange,
+    AdvicePatch,
+)

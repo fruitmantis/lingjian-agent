@@ -1,4 +1,5 @@
 "use client";
+import {AgentBadge} from "./agent-settings";
 import {TaskRequest,TaskResult,TaskArrivalReadError} from "./task-transition";
 import {TaskProgress,type TaskProgressData} from "./task-progress";
 import {AdvisorAnswer} from "./advisor-answer";
@@ -167,7 +168,7 @@ function TaskDetail({id}:{id:string}) {
 
   return (
     <main className="page match-detail">
-      <div className="page-heading-row"><div><h1>任务详情</h1><span className="enablement-badge">{task.task_type === "development_plan" ? "能力发展" : "资源匹配"}</span><p className="lead">创建于 {new Date(task.createdAt).toLocaleString("zh-CN")} · 创建人 {task.createdBy || "历史数据"}</p></div><Link href={returnHref} className="secondary-btn">返回任务列表</Link></div>
+      <div className="page-heading-row"><div><h1>任务详情</h1><AgentBadge id={task.task_type === "development_plan" ? "partner_development" : "partner_match"}/><p className="lead">创建于 {new Date(task.createdAt).toLocaleString("zh-CN")} · 创建人 {task.createdBy || "历史数据"}</p></div><Link href={returnHref} className="secondary-btn">返回任务列表</Link></div>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重新加载</button></div>}
       {(task.task_type || "partner_match") === "partner_match" ? <>
       {(task.taskStatus === "partial" || task.taskStatus === "failed") ? <FailureNotice details={task.failureDetails} stages={task.lastErrorStage} partial={task.recommendations.length>0} title={task.recommendations.length>0?"部分完成 · 伙伴推荐可用":"本次匹配未完成"} impact={task.recommendations.length>0?"已保存的伙伴推荐可继续查看。重试将补充未完成的步骤。":"项目需求已保留，可重新执行。"}><button onClick={()=>void retryTask()} disabled={retrying||!!task.archivedAt}>{retrying?"重试中…":"重试"}</button></FailureNotice> : task.taskStatus!=="ready" && <div className="notice-warning task-status-notice"><strong>{taskStatusText[task.taskStatus]}</strong></div>}

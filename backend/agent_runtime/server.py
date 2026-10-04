@@ -13,7 +13,7 @@ from .diagnostics import StageFailure, ModelOutput, diagnose, diagnostic
 
 def now():return datetime.now(timezone.utc).isoformat()
 
-def create_app():
+def create_app(workflow=None):
     incarnation=str(uuid.uuid4());jobs={};pending=set();handles={};binding=None
     @asynccontextmanager
     async def lifespan(app):
@@ -27,20 +27,32 @@ def create_app():
     async def secure(request,call_next):
         if request.url.path!='/ping':
             secret=os.environ.get('BANFEI_RUNTIME_SHARED_KEY','')
-            if len(secret)<32 or not hmac.compare_digest(request.headers.get('X-Banfei-Runtime-Key',''),secret):return JSONResponse({'detail':'Unauthorized'},status_code=401)
+            supplied=request.headers.get('X-Banfei-Runtime-Key')
+            # Fixed diagnostics only: never return credential values, hashes, lengths or headers.
+            reason=None
+            if not secret:reason='runtime_shared_key_unconfigured'
+            elif len(secret)<32:reason='runtime_shared_key_too_short'
+            elif supplied is None:reason='runtime_key_header_missing'
+            else:
+                try:matches=hmac.compare_digest(supplied,secret)
+                except TypeError:matches=False
+                if not matches:reason='runtime_key_mismatch'
+            if reason:return JSONResponse({'detail':'Unauthorized','reason_code':reason},status_code=401)
             try:uuid.UUID(request.headers.get('X-Hw-Agentarts-Session-Id',''))
             except ValueError:return JSONResponse({'detail':'Session required'},status_code=400)
         return await call_next(request)
 
     @app.get('/ping')
     def ping():
-        if len(os.environ.get('BANFEI_RUNTIME_SHARED_KEY',''))<32 or not all(os.environ.get(k) for k in ('BANFEI_RUNTIME_MODEL_URL','BANFEI_RUNTIME_MODEL_NAME','BANFEI_RUNTIME_MODEL_KEY')):
+        if len(os.environ.get('BANFEI_RUNTIME_SHARED_KEY',''))<32 or not all(os.environ.get(k) for k in ('BANFEI_MODEL_PROXY_API_KEY',)):
             return JSONResponse({'status':'Unhealthy'},status_code=503)
+        try:provider.endpoint()
+        except StageFailure:return JSONResponse({'status':'Unhealthy'},status_code=503)
         return {'status':'HealthyBusy' if pending else 'Healthy'}
 
     @app.get('/runtime-info')
     def info():return {'protocol':PROTOCOL,'incarnation':incarnation,
-        'provider_route':model_route(os.environ.get('BANFEI_RUNTIME_MODEL_URL',''),os.environ.get('BANFEI_RUNTIME_MODEL_NAME',''))}
+        'workflow':workflow,'provider_endpoint':digest(provider.endpoint())}
 
     def view(job):return {k:v for k,v in job.items() if k!='request_hash' and not k.startswith('_')}
 
@@ -87,6 +99,7 @@ def create_app():
             if len(body)>1048576:raise HTTPException(413,'Package too large')
         try:packet=StageRequest.model_validate_json(body)
         except (ValidationError,ValueError):raise HTTPException(422,'Invalid task package') from None
+        if workflow is not None and packet.workflow!=workflow:raise HTTPException(422,'Wrong Runtime workflow')
         if str(packet.incarnation)!=incarnation:raise HTTPException(409,'Runtime restarted; explicit VM retry required')
         if str(packet.session_id)!=request.headers['X-Hw-Agentarts-Session-Id']:raise HTTPException(409,'Session mismatch')
         identity=(str(packet.task_id),str(packet.run_id),str(packet.session_id))

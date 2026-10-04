@@ -19,12 +19,15 @@ app=FastAPI(lifespan=lifespan)
 def health():return {'status':'ok','test_only':True}
 @app.api_route('/{path:path}',methods=['GET','POST','DELETE'])
 async def proxy(path:str,request:Request):
+    workflow,separator,path=path.partition('/')
+    if not separator or workflow not in ('match','development'):raise HTTPException(404,'Unknown test Runtime')
     session=request.headers.get('X-Hw-Agentarts-Session-Id','')
     try:uuid.UUID(session)
     except ValueError:raise HTTPException(400,'Invalid session')
-    if session not in sessions:
+    identity=(workflow,session)
+    if identity not in sessions:
         if len(sessions)>=100:raise HTTPException(429,'Test session limit')
-        sessions[session]=create_app()
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=sessions[session]),base_url='http://runtime.test') as client:
+        sessions[identity]=create_app(workflow)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=sessions[identity]),base_url='http://runtime.test') as client:
         result=await client.request(request.method,'/'+path,headers=request.headers,content=await request.body())
     return Response(result.content,status_code=result.status_code,media_type='application/json')

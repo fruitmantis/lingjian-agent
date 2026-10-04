@@ -1,4 +1,5 @@
 "use client";
+import {useAgent} from "./agent-settings";
 import {ClassificationNotice} from "@/components/business-taxonomy";
 
 
@@ -63,6 +64,7 @@ function ReadError({message,retry}:{message:string;retry:()=>void}) {
 
 /** Shared new-task mode; all context still comes from the authorized backend API. */
 export function DevelopmentEntry(draft:DevelopmentDraftProps) {
+  const agent=useAgent("partner_development");
   const search=useSearchParams();
   const contextParams=new URLSearchParams();
   for(const key of ["partner_id","task_id","case_id","case_version"]) {const value=search.get(key);if(value)contextParams.set(key,value);}
@@ -71,7 +73,7 @@ export function DevelopmentEntry(draft:DevelopmentDraftProps) {
   function selectPartner(id:string){const next=new URLSearchParams(search);next.set("mode","development");if(id)next.set("partner_id",id);else next.delete("partner_id");if(id!==(search.get("partner_id")||"")||!id){for(const key of ["task_id","case_id","case_version"])next.delete(key);}window.history.replaceState(null,"",`/?${next}`);}
   const partner=context.data?.partner,project=context.data?.project,shared=context.data?.shared_case;
   return <div className="development-entry">
-    <p className="assistant-subtitle">说说当前情况和希望发展的方向</p>
+    <p className="assistant-subtitle">{agent.description}</p>{!agent.enabled&&<p className="notice-neutral" role="status">该智能体已停用，历史任务仍可查看。</p>}
     <div className="development-composer"><div className={`development-context-row${project||shared?" has-source":""}`} >
     <section className="card development-partner"><div className="enablement-field"><span>关联已有伙伴资料（可选）</span><PartnerSelect label="关联已有伙伴资料（可选）" placeholder="不关联已有伙伴资料" partners={partners.data||[]} value={search.get("partner_id")||""} onChange={selectPartner}/></div>{partners.error&&<ReadError message={partners.error} retry={partners.retry}/>}
     {(search.get("task_id")||search.get("case_id"))&&<p className="muted">已关联来源资料；更换或清除关联会移除来源，保留输入。</p>}

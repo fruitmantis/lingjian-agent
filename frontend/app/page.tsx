@@ -1,4 +1,5 @@
 "use client";
+import {useAgent} from "@/components/agent-settings";
 import { copyText } from "../lib/copy-text";
 import {failureMessage} from "@/components/task-failure";
 
@@ -81,6 +82,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
   active:boolean;requirement:string;setRequirement:(value:string)=>void;
   inputRef:RefObject<HTMLTextAreaElement|null>;onBusyChange:(busy:boolean)=>void;
 }) {
+  const agent=useAgent("partner_match");
   const searchParams = useSearchParams();
   const router = useRouter();
   const { submit, openCreatedTask, pending } = useTaskNavigation();
@@ -197,7 +199,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
   return (
     <div hidden={!active} role="tabpanel" id="match-panel" aria-labelledby="match-tab">
       <section className="assistant-hero">
-        <p className="assistant-subtitle">告诉伴飞你的项目需要什么样的伙伴</p>
+        <p className="assistant-subtitle">{agent.description}</p>{!agent.enabled&&<p className="notice-neutral" role="status">该智能体已停用，历史任务仍可查看。</p>}
 
         <form onSubmit={handleMatch} className="assistant-composer" data-task-composer>
           <label htmlFor="requirement" className="sr-only">输入项目需求</label>
@@ -214,7 +216,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
           />
           <div className="assistant-composer-footer">
             <span className="assistant-counter">{requirement.length}/2000</span>
-            <button type="submit" disabled={loading || sameDraftPending || !requirement.trim()} className="assistant-submit" aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
+            <button type="submit" disabled={!agent.enabled || loading || sameDraftPending || !requirement.trim()} className="assistant-submit" aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
               {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={18} />}<span>{loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}</span>
             </button>
           </div>
@@ -349,6 +351,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
 }
 
 export default function HomePage() {
+  const matchAgent=useAgent("partner_match"),developmentAgent=useAgent("partner_development");
   const search=useSearchParams();
   const development=search.get("mode")==="development";
   const [drafts,setDrafts]=useState({match:"",development:""});
@@ -392,8 +395,8 @@ export default function HomePage() {
   return <div className={`page assistant-page unified-task-page${development?" development-task-page":""}`}>
     <header className="unified-task-heading"><div className="assistant-title"><h1>开启新任务</h1></div>
       <nav className="enablement-tabs task-mode-tabs" role="tablist" aria-label="任务模式">
-        <button type="button" id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" onClick={()=>selectMode("match")} className={!development?"active":""}>伙伴匹配</button>
-        <button type="button" id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" onClick={()=>selectMode("development")} className={development?"active":""}>伙伴发展</button>
+        <button type="button" id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" onClick={()=>selectMode("match")} className={!development?"active":""}><UiIcon name={matchAgent.icon} size={18}/>{matchAgent.name}</button>
+        <button type="button" id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" onClick={()=>selectMode("development")} className={development?"active":""}><UiIcon name={developmentAgent.icon} size={18}/>{developmentAgent.name}</button>
       </nav>
     </header>
     <ProjectMatchTask active={!development} requirement={drafts.match} setRequirement={changeMatch} inputRef={matchInput} onBusyChange={matchBusy}/>

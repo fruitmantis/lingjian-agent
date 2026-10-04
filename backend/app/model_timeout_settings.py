@@ -1,4 +1,4 @@
-"""One persisted model timeout policy, managed by administrators."""
+"""Execution-local timeout policies for fixed agents and independent processing."""
 from pydantic import BaseModel, ConfigDict, Field
 from .database import get_db, get_readonly_db
 
@@ -23,12 +23,14 @@ class TimeoutSettings(BaseModel):
         return max(900, 3 * self.call_budget() + 90)
 
 
-def get_settings(connection=None) -> TimeoutSettings:
-    if connection is None:
-        with get_readonly_db() as conn:
-            return get_settings(conn)
-    row = connection.execute('SELECT value FROM app_metadata WHERE key=?', (KEY,)).fetchone()
-    return TimeoutSettings.model_validate_json(row[0]) if row else TimeoutSettings()
+def get_settings(connection=None, *, agent_id=None, execution=None) -> TimeoutSettings:
+    from . import agent_settings
+    selected=execution or agent_settings.current_execution()
+    if selected is None or (agent_id and selected['agentId']!=agent_id):
+        if connection is None:
+            with get_readonly_db() as conn:return get_settings(conn,agent_id=agent_id,execution=execution)
+        selected=agent_settings.execution(connection,agent_id or 'processing')
+    return TimeoutSettings(timeoutSeconds=float(selected['timeoutSeconds']),timeoutRetries=selected['timeoutRetries'])
 
 
 def describe():
@@ -36,7 +38,11 @@ def describe():
 
 
 def save(settings: TimeoutSettings):
+    """Compatibility helper for processing only; no global policy remains effective."""
+    from . import agent_settings
+    import json
     with get_db() as conn:
-        conn.execute('INSERT INTO app_metadata (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
-                     (KEY, settings.model_dump_json()))
+        conn.lock_writer();current=agent_settings.migrate(conn)
+        current['processing'].update(settings.model_dump())
+        conn.execute('UPDATE app_metadata SET value=? WHERE key=?',(json.dumps(current,ensure_ascii=False),agent_settings.KEY))
     return settings.model_dump()

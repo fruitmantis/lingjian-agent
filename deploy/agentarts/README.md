@@ -1,76 +1,139 @@
-# AgentArts 双业务改造：本地阶段
+# AgentArts 阶段三：共享核心与两个固定 Runtime
 
-> 当前部署与验证结论见 [脱敏归档](../../docs/validation/AGENTARTS_RELEASE_20261003.md)。下文的未构建/未推送等叙述属于注明日期的历史过程，不代表当前状态。
+本轮将 main 的阶段一、二（0fda85c）同步到既有 agentarts 工作区（HEAD 仍为 9adf33a）。
+主干目录、Git refs、运行服务与真实数据库未改动；修改尚未提交或推送。
+旧阶段结论见 ../../docs/validation/AGENTARTS_RELEASE_20261003.md，不能作为本轮云端部署证据。
 
-状态：独立 `agentarts` worktree，基线 `576926a`。用户本轮明确授权此工作树及 WSL 构建环境，覆盖根 AGENTS.md 的日常 main-only 限制。main 与 HTTP80 原服务不变。未提交、推送、上传镜像、创建云资源或正式切换。
+## 执行边界
 
-## 边界与开关
+- backend/business 是本地与 Runtime 的提示词、严格类型及业务校验来源。
+  agent_runtime 仅保留协议、传输、运行状态、部署入口与兼容导入，不复制业务提示词/类型。
+- VM 保留身份、权限、材料预选、先落库、幂等、任务/Run/Version/current、PG 与最终事务保存。
+  Runtime 不连接数据库，不获取真实资料目录或 VM 凭据。
+- 管理后台两个固定智能体分别选择 local / runtime 与 runtimeUrl，受理时连同模型 ID、thinking、
+  timeoutSeconds、timeoutRetries 存入已有执行快照。修改设置只影响新 Run；失败不自动改走本地。
+  基础处理固定 local。旧 BANFEI_MATCH_EXECUTOR / BANFEI_DEVELOPMENT_EXECUTOR / BANFEI_RUNTIME_URL 不再决定新 Run。
+- 部署两份镜像：Dockerfile target matching 只接受 match；target development 只接受 development。
+  错工作流在调用模型前拒绝。协议升级为 banfei-runtime-v2，旧 v1 Runtime 不兼容，不能直接切换旧目标。
+- 原有 lost-ACK GET 对账、单次 POST、VM 授权超时重试、30 秒 lease、来源/权限/CAS 检查与重启中断恢复保留。
+  已受理运行保持目标地址；握手校验工作流和模型代理地址，每次调用复核所选模型路由。
 
-- VM 保留 Caddy/Next、业务 API、登录权限、伙伴/资源查询、资料解析、PostgreSQL 与文件、任务/Run/Version、最终校验与事务保存。
-- `backend/agent_runtime` 是两业务共用的正式托管代码，不复制 PoC 仓。提示词、严格契约、模型请求和阶段输出校验只有一份；原本地模式复用这些提示词。匹配为理解→初选→详评，发展为理解→按需生成/局部修改。VM 在阶段间按权限准备材料，托管端不连接 PG、不回连 VM。
-- `BANFEI_MATCH_EXECUTOR=local|runtime`、`BANFEI_DEVELOPMENT_EXECUTOR=local|runtime` 独立控制，默认 `local`。失败不会暗中改走另一路重复调用。运行中的已发请求不因改开关自动迁移；回退应等待结束或标记中断后，显式重试新 Run。
-- 匹配 local/Runtime 路径均让全部启用伙伴参与初选，不按字面关键词截断候选；超预算沿用完整语义压缩，仍不足则明确失败并保留任务，详评最多12家；发展沿用授权资源的关键词/标签候选。完整否定/限制段落一起选取，超过预算明确失败，不静默截断正文。托管包带来源 ID、版本/快照、有限资料提示；完整提示词、schema 与输出预留一起校验预算，使用保守 UTF-8 字节上界而非声称精确 token 计费。
+## 云端模型连接
 
-## 协议与保护
+VM 模型配置新增一条不含 Key 的元数据连接，使用已验证代理 base URL：
 
-- VM 先落业务任务/Run/用户原文；现有线程池仅负责发起和轮询。`app_metadata` 记录 `runtime_session:<run_id>` 与 `runtime_stage:<run_id>:<stage>`，无 schema 迁移。
-- taskID、runID、随机平台 sessionID 分离；阶段 operationID 固定为 runID+阶段的 UUID5。所有结果校验协议、任务、Run、Session、操作、进程 incarnation、输入快照和模型指纹。
-- Runtime 每次只调用一次供应商，超时后进入 `awaiting_retry`，不会自行重试。VM 重新核对账号、任务/current、来源权限及模型配置后，为指定前次尝试授权下一次；每份授权只发一次 POST，确认丢失仅 GET 对账。Runtime 按 incarnation、session 与尝试号拒绝乱序并去重授权。超时秒数和重试次数完整保留管理后台配置（含4001秒/5次），没有3600秒/3次隐式上限。非超时错误不重试。
-- 首次提交只 POST 一次；确认丢失后 GET 查询同一操作，最多3次短暂传输重试。不存在/换实例/终态失败必须显式新 Run，不盲重发可能已计费的请求。Runtime 同操作不同包409，跨会话查询404，单进程绑定一个业务 Run。
-- Runtime 短暂内存仅存本会话操作，VM 的 PG 是业务持久事实。Runtime 重启生成新 incarnation，拒绝旧操作重放；VM 启动回收将未结束 Run 与阶段记录标记中断，不自动续算。VM 每次轮询复核用户、Run/current、模型与资料权限；撤权/中断尝试取消 Runtime，30秒未收到 VM 轮询则取消孤立模型工作。VM 每次授权前的复核是撤权边界：尚未授权的重试停止；已授权且在传输中的执行与已发出的供应商请求不能保证追回/退费，但其晚到结果不能推进版本。
-- 来源预选快照在发包前和返回时复核；事务保存继续沿用 existing CAS、引用权限与版本校验。解释型追问不增 Version，成功修改才推进 current；confirmed 只保留历史，不恢复确认/采纳入口。
-- VM 用规范化端点（去末尾斜杠）+模型名生成非秘密路由摘要，与握手返回的实际部署摘要比较；Runtime 在每次供应商调用前再次从真实部署环境核对摘要。不同端点上的同名模型会拒绝，路由摘要不包含凭据；完整配置 fingerprint 仍用于 VM 重检固定配置，不能冒充 Runtime 的凭据验证。Runtime 只用部署环境提供的固定模型地址/名称/密钥，包中不含模型 Key、PG 连接或后台私密资料。运行进度写回 VM，浏览器仅轮询 VM。
+    https://banfei-model-proxy-defaultgw-gzswgzdcgz.cn-southwest-2.huaweicloud-agentarts.com/inference/v1
 
-## 本地复现
+模型名如 deepseek-v4.1-flash；实际使用管理员所选连接的名称、temperature、top_p。
+Runtime 仅允许该代理地址（隔离测试显式允许 loopback），禁止改为 api.deepseek.com 直连。
+Runtime HTTP JSON 显式发送 chat_template_kwargs.thinking=true/false。
+输出额度使用 max_completion_tokens（包含推理与最终答复）；不同时发送 max_tokens。
+沿用现有 Runtime 262144 输入/总上下文保守字节预算、131072 wire 输出上限及剩余预算检查，
+后台不改写原额度，界面明确这些 Runtime 约束。供应商实际模型容量另需真实云端验证。
+本地基础处理仍使用已有本地连接和已有供应商参数适配。
 
-复用主项目 `.venv` 的已安装依赖，不向其安装包。测试先在进程中加载现有私有 `BANFEI_TEST_DATABASE_URL`（不要打印），仅接受专用本机 PG 和随机 `validation_*` schema。
+每份 Runtime 的云端私有环境：
+- BANFEI_RUNTIME_SHARED_KEY：VM 与该 Runtime 的应用校验值，至少 32 字符。
+- BANFEI_MODEL_PROXY_API_KEY：原始模型代理 Key，Runtime 自动构造 Authorization: Bearer；勿包含 Bearer 前缀。
+- BANFEI_RUNTIME_MODEL_URL 可省略（默认上述代理），其他外部地址拒绝。
+模型 Key 不进入 VM 的任务包、模型元数据、镜像、日志。VM 的云端连接不提供本地测试按钮。
 
-```bash
-cd /home/yuan/project/lingjian-agent-agentarts
-PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" \
-  /home/yuan/project/lingjian-agent-enablement/.venv/bin/python -B -m pytest \
-  -q -p no:cacheprovider backend/tests/test_agentarts_runtime.py
-```
+VM 私有环境分别配置：
+- BANFEI_MATCH_RUNTIME_SHARED_KEY / BANFEI_MATCH_AGENTARTS_BEARER
+- BANFEI_DEVELOPMENT_RUNTIME_SHARED_KEY / BANFEI_DEVELOPMENT_AGENTARTS_BEARER
+兼容旧单组 BANFEI_RUNTIME_SHARED_KEY / BANFEI_AGENTARTS_BEARER 作为部署值回退，不回退执行目标。
+HTTPS 外发仍须 BANFEI_RUNTIME_EXTERNAL_DATA_APPROVED=1；设置此值不能代替用户对具体真实材料的批准。
+本轮未设置真实凭据、未外发真实资料、未调用付费模型。
 
-浏览器：`scripts/validate_agentarts_browser.py` 要求 `BANFEI_EXISTING_NODE_MODULES` 和 `BANFEI_EXISTING_CADDY` 指向已有只读依赖。脚本在 `/tmp` 建源码副本，只在副本调整原测试固定端口，使用19080/19180/19280/19300/19800回环及独立 Caddy XDG。测试网关只是本地每会话实例模拟，不声称已验证平台路由。
+## 一条命令构建并推送
 
-有限真实模型：`scripts/validate_agentarts_real_model.py --execute --runtime-environment <现有私有环境文件>`；从现用配置只读取得已批准 DeepSeek 的模型设置，使用合成夹具，最多5次请求、零超时重试。真实 Key 仅注入本地临时 Runtime 子进程，不写入任务包/测试库/镜像/日志；不要无目的重复执行。
+由用户在 WSL 普通用户终端启动：
 
-## 镜像与下一步
+    bash /home/yuan/project/lingjian-agent-agentarts/deploy/agentarts/build-arm64-local.sh
 
-- `Dockerfile` 仅复制 Runtime 与两份纯 Python 公共模块、标准分类字典，不包含 VM、数据库驱动、Office、上传文件或环境配置。镜像非 root、8080、单 worker；`Dockerfile.dockerignore` 使用白名单。基础镜像按 digest 固定，16项依赖精确版本及官方 PyPI wheel 哈希锁定；ARM64 wheel 下载已核验。
-- 用户批准官方 Docker apt 源、Engine/CLI/containerd/Buildx 安装与本地 Unix socket 服务。本轮已由用户在本机完成；`install-docker-wsl.sh` 保留为安装记录，不重跑。脚本不加入 docker 组、不设免密 sudo、不开放远程 TCP，不注册 binfmt。
-- Docker Engine 29.8.2 / Buildx 0.37.1 已安装，服务active；当前用户无Docker socket权限且sudo仍需交互。镜像尚未构建、运行或扫描。ARM64 binfmt/模拟器的系统级变更仍需具体说明后批准，不能因基础镜像已有ARM清单就声称本机已能构建ARM镜像。
-- 后续已具备构建能力时，从仓根用 `docker buildx build --platform linux/arm64 -f deploy/agentarts/Dockerfile -t banfei-runtime:local --load .`；本说明不自动执行 sudo、特权注册或上传。
-- 云端拟用 HTTPS PREFIX_MATCH 的 `/runtimes/<name>/invocations` 根地址；实现了服务器端 Bearer 与 `X-Hw-Agentarts-Session-Id`，IAM签名尚未实现/测试。另有 `X-Banfei-Runtime-Key` 用于应用层校验，其平台转发需实测。正式凭据、SWR区域/仓库、运行时名称和镜像上传需先确定目的地并获授权。
-- `BANFEI_RUNTIME_URL`、`BANFEI_AGENTARTS_BEARER`、`BANFEI_RUNTIME_SHARED_KEY` 只在 VM 服务端；Runtime 使用 `BANFEI_RUNTIME_MODEL_URL/NAME/KEY` 与同一共享校验密钥。HTTPS 外发默认关闭，另需显式 `BANFEI_RUNTIME_EXTERNAL_DATA_APPROVED=1`。这不是用户授权的替代：真实伙伴资料外发范围必须先确认。
-- 尚待验证：真实 AgentArts 网关/会话路由、认证和header转发、15分钟空闲/24小时生命周期、云端网络与计费、ARM64容器、正式两业务平台端到端与用户确认后的切换/回退。
+先构建两个固定 target，逐个检查 ARM64、单 Docker V2 manifest、非 root UID 10001、
+各自固化入口及无网络容器冒烟；全部通过才对本次随机唯一标签逐个 tag 和 SWR push。
+默认目的地 swr.cn-southwest-2.myhuaweicloud.com/banfei/banfei-runtime。
+打印各自完整 tag、push 实际返回 digest 与不可变引用。任一构建/检查失败不推送；
+推送失败停止，不重试或撤销已成功上传的其他镜像。
 
-历史原始验收证据由操作者本地保留；脱敏最终结论见 `docs/validation/AGENTARTS_RELEASE_20261003.md`。
+默认固定 sudo 前当前用户的 $HOME/.config/banfei/docker；当前为 /home/yuan/.config/banfei/docker。
+所有 Docker 操作显式传同一 --config。旧 SWR_AUTH_DIR / DOCKER_CONFIG 不覆盖该默认；
+换目录使用 --docker-config /absolute/directory。用户已手动确认长期登录成功；
+脚本不读取认证文件内容，不自动 login/logout，不清理登录目录，也不保存密码。
+--build-only 保留构建和检查，完全跳过 registry。
+PoC 的 scripts/build_model_proxy_runtime.sh 复用本仓 image-publish.sh，共用发布保护，不复制框架。
 
-### 待批准的本机 ARM64 操作
+正式构建保留原已审阅的临时 ARM64 QEMU/binfmt 注册与精确清理记录流程，sudo 由用户确认；
+不安装 Docker、不加入 docker 组、不开放 TCP、不持久注册、不清理旧本地/SWR 镜像。
+本轮助手仅修改源码与运行 shell/mock 检查，未实际构建、注册、推送或修改云资源。
 
-`build-arm64-local.sh` 是供用户本机交互 sudo 的可审阅脚本，尚未执行。使用 Ubuntu noble 官方包（apt 索引 SHA256 `5bb397f66063efa349f6fd5cb3b68cd96f29edd0994e4ba5115cf0859a716bf0`）内已校验的 QEMU，只注册临时 ARM64 binfmt 项；特权操作前把精确注册名/路径同步到 `cleanup-state.txt` 并立即打印。正常清理先注销并核对条目确实消失，才删除本脚本 root 临时解释器；注销失败则保留解释器并报告残留，不假称成功。不安装其他架构注册、不改 docker 组/sudoers/TCP、不使用特权容器。SIGKILL/WSL 异常终止可能阻止 trap 清理，需读取持久记录按准确注册名及路径复核；不确定目录归属时保留，不清理其他条目。
+## 正式 v2 无模型握手
 
-批准后用户在 WSL 运行 `bash /home/yuan/project/lingjian-agent-agentarts/deploy/agentarts/build-arm64-local.sh`。脚本以 sudo 构建固定基础镜像/哈希依赖的 ARM64 本地镜像，再以非 root、无网络、只读根文件系统运行健康/认证/非法包冒烟；零模型调用，无 PG 或真实资料挂载。保留本地镜像和 `/tmp/banfei-arm64-image-*` 证据，不上传镜像。
+用户在本机 WSL 交互终端运行一条命令（仅 Python 标准库，不需要 sudo）：
 
+    python3 -B /home/yuan/project/lingjian-agent-agentarts/deploy/agentarts/verify_runtime_v2.py
 
-### SWR 清单兼容修复（2026-10-02，待用户重构建）
+按中文提示选择伙伴匹配/能力发展，粘贴控制台完整 Runtime 调用 URL，并隐藏输入
+原始平台 Runtime API Key 和对应 BANFEI_RUNTIME_SHARED_KEY。平台 Key 不含 Bearer 前缀。
+可加 --workflow match 或 --workflow development 跳过工作流选择；两个 Runtime 分别执行。
+密钥不通过参数、环境或文件传递，不回显、不落盘；没有安全隐藏输入能力时直接停止。
 
-用户推送 `swr.cn-southwest-2.myhuaweicloud.com/banfei/banfei-runtime:agentarts-local-20261002145622` 在层上传后收到 `Invalid image, fail to parse 'manifest.json'`。既有 `/tmp/banfei-arm64-image-HXSqlp/image-inspect.json` 明确记录顶层 `application/vnd.oci.image.index.v1+json`；`build.log` 同时记录 attestation manifest 与 manifest list 导出。这是已证实的镜像格式事实；未登录读取远端仓库或服务端日志，最终修复成功仍须新格式推送结果确认。
+脚本复用 VM URL 校验，仅接受官方 HTTPS AgentArts 调用根路径及可选 endpoint 参数；
+自动生成 UUID Session，在查询参数之前追加 /runtime-info，一次 GET，20 秒超时，
+不跟随任何重定向、不使用环境代理、不自动重试。校验 banfei-runtime-v2、所选工作流、
+incarnation UUID 和既定模型代理 URL 摘要。失败保留 HTTP 状态、请求 ID 和脱敏返回片段。
+退出码 0 表示握手通过，1 表示失败；不调用模型，不建立业务任务，不读写后端环境配置。
+握手不能证明模型代理 Key 有效或模型调用成功。旧 arm/configure_runtime.py --verify
+仍是 v1 检查，不用于本流程；此工具也不是后端密钥录入工具。
 
-[华为云官方同报错 FAQ](https://support.huaweicloud.com/swr_faq/swr_faq_0006.html)说明基础版 SWR 不支持 OCI 镜像，并给出 `--provenance=false`。按 [Docker image exporter 文档](https://docs.docker.com/build/exporters/image-registry/)显式使用 `oci-mediatypes=false`、`push=false`、`store=true`；[默认 Docker driver](https://docs.docker.com/build/builders/drivers/docker/)会加载到本机 image store。
+离线测试（模拟响应、禁止真实网络，不需要数据库）：
 
-现有 `build-arm64-local.sh` 改为单 `linux/arm64`、`--provenance=false --sbom=false --output type=image,oci-mediatypes=false,push=false,store=true`，固定已有 default builder；不增加 builder、守护进程、端口、权限或云操作。构建后必须在 inspect 中观察到单 Docker V2 manifest（`application/vnd.docker.distribution.manifest.v2+json`）和 ARM64 才继续原无网络冒烟；不是期望格式则明确失败，不自动上传。日志新增 `format-check.log`，新 tag 前缀为 `banfei-runtime:agentarts-swr-`。未改 Dockerfile、业务代码、基础镜像或依赖。
+    python3 -B scripts/test_verify_runtime_v2.py
 
-用户仍只需本机运行原命令并自行确认 sudo：
+## 401 安全诊断镜像
 
-```bash
-bash /home/yuan/project/lingjian-agent-agentarts/deploy/agentarts/build-arm64-local.sh
-```
+服务端仍以原 X-Banfei-Runtime-Key 完整匹配鉴权，所有共享密钥失败均为 HTTP 401，
+保留 detail=Unauthorized，仅追加固定 reason_code；不记录或返回密钥、摘要、具体长度或完整请求头：
 
-这会按此前已授权范围临时注册 ARM64 binfmt、构建及冒烟并清理。助手未再次执行特权操作，未读取 Docker 认证文件或 `/tmp/banfei-swr-auth.*`，未代用登录凭据。重构建后先检查 format-check/smoke/cleanup，再由用户将新 tag 推送到原已指定仓库；旧 tag 不变，不把既有层 Pushed 视为整个镜像发布成功。
+- runtime_shared_key_unconfigured：服务端共享密钥未配置或为空。
+- runtime_shared_key_too_short：服务端共享密钥未达到最小长度。
+- runtime_key_header_missing：容器未收到 X-Banfei-Runtime-Key。
+- runtime_key_mismatch：收到该头，但未通过完整匹配（空头也属于此类）。
 
-选用 `type=image` 而不是 `--load`：已核 [Buildx v0.37.1 源码](https://github.com/docker/buildx/blob/v0.37.1/build/opt.go#L450-L504)，无文件输出的 docker exporter 在 OCI importer 可用时可能改为 OCI；显式 image exporter 在已有 Docker driver 下进入 moby exporter，并保留 `oci-mediatypes=false` 属性。无需新建 builder 或改变 daemon 存储。参数路径有官方资料/源码依据；本轮仅离线验证，实际新镜像格式仍由构建后的严格检查判定。
+既有握手 CLI 会显示这些原因码，不必更换输入方式。原镜像没有原因码；
+只有构建新镜像、将 banfei-matching 更新为该新镜像并使相应版本生效后才会生效。
+仅构建和推送 matching（用户执行，沿用已批准的临时 binfmt、检查与精确清理流程）：
 
-离线验证证据：`/tmp/banfei-swr-format-4gxoohs4`。现存 OCI index 被拒绝，合成 Docker V2 ARM64 接受，amd64/manifest list/缺 Descriptor 均拒绝，共5项通过；bash语法检查通过。未执行新构建或上传。
+    bash /home/yuan/project/lingjian-agent-agentarts/deploy/agentarts/build-arm64-local.sh --target matching
+
+控制台选择本次输出 PUSHED_IMAGE，保留原鉴权/环境/前缀路由，保存新版本并确认 Latest 指向它，
+然后才再次运行 verify_runtime_v2.py --workflow match。无需重建 development 或改协议。
+不传 --target 仍构建两个 Runtime；--build-only 和 --docker-config 行为保持不变。
+本轮只修改源码并执行离线验证，未构建、推送、调用 Runtime 或修改云端。
+
+离线安全诊断测试（ASGI 内存请求、合成密钥、模拟 CLI 响应，禁止网络/模型）：
+
+    /home/yuan/project/lingjian-agent-enablement/.venv/bin/python -B scripts/test_runtime_auth_diagnostics.py
+
+## 验证与下一步
+
+专用本机 PostgreSQL + 随机 validation_* schema；真实模型网络被阻断。
+定向测试见 backend/tests/test_agentarts_stage3.py、test_agentarts_runtime.py、test_agentarts_qa_fixes.py。
+scripts/validate_agentarts_browser.py 使用 /tmp 源码副本和原隔离高位回环端口；不会覆盖主干服务。
+该脚本可传指定 e2e 文件，默认覆盖智能体配置、两模式入口和无关联伙伴的发展流程。
+旧 scripts/validate_agentarts_real_model.py 已停用，不能从 VM 抄取模型 Key 做直连验收。
+
+标准 WSL HTTP 80 已在用户批准的受控窗口完成补验：AgentArts 源码副本、独立 PG 测试 schema，
+Windows Edge 正常合成管理员登录、真实配置 API 保存/刷新通过，随后恢复 main。主干配置摘要未变，
+实际 IP 健康 200，测试 schema 已清理。断线恢复过程与证据见 docs/validation/AGENTARTS_STAGE3_20261004.md。
+恢复后的受保护主干配置未登录查看；该独立浏览器只核对了正常登录入口。
+ARM、SWR 与真实两个云端 Runtime 的部署/模型调用不在本轮执行范围。
+
+## 云资源清理清单（未执行）
+
+候选：banfei-model-probe-test。需先由云控制台核对它的专属 workload identity/API Key 与其他引用；
+未查明实际关联名称，不能把建议名称当作已创建资源。提交确认后再删除具体对象。
+保留：banfei-model-proxy、huawei-maas-banfei、huawei-maas-key、defaultgw、
+AgentArtsGatewayAgency 的共享 Agency/CSMS 策略及 banfei-runtime-test（直到真实切换完成）。
+本轮未访问/删除云资源，没有扩大到本地或 SWR 镜像清理。

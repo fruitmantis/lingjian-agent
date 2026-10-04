@@ -1,11 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Run ONLY after separate approval for transient ARM64 binfmt + sudo Docker build.
-# User authenticates sudo locally. No groups, sudoers, TCP, persistent binfmt or cloud push.
+# User starts this command and authenticates sudo locally.
+# Builds, checks, tags and pushes once. --build-only skips registry access.
+# Requires the separately approved transient ARM64 binfmt setup below.
 [[ $(id -u) != 0 ]] || { echo 'Run as the normal WSL user.'; exit 1; }
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)
 [[ "$repo_root" == /home/yuan/project/lingjian-agent-agentarts ]] || { echo 'Unexpected worktree'; exit 1; }
 cd -- "$repo_root"
+source "$repo_root/deploy/agentarts/image-publish.sh"
+# Optional single Runtime build; preserve the existing shared publishing options.
+runtime_targets=(matching development)
+publish_args=()
+while (( $# )); do
+  case "$1" in
+    --target)
+      [[ $# -ge 2 ]] || { echo 'Missing --target matching|development' >&2; exit 2; }
+      case "$2" in
+        matching|development) runtime_targets=("$2"); shift 2 ;;
+        *) echo '--target must be matching or development' >&2; exit 2 ;;
+      esac ;;
+    *) publish_args+=("$1"); shift ;;
+  esac
+done
+image_options "${publish_args[@]}"
+printf 'Runtime targets: %s\n' "${runtime_targets[*]}"
 qemu_source="$repo_root/.isolation/build-tools/qemu-extracted/usr/bin/qemu-aarch64-static"
 qemu_config="$repo_root/.isolation/build-tools/qemu-extracted/usr/lib/binfmt.d/qemu-aarch64.conf"
 expected_sha=e4f8d99e9ff69c3cefffab71cee358ce2af1ecba1282d04c3eeb44ef76f5a71e
@@ -62,7 +80,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 sudo -v
-sudo docker version > "$evidence/docker-version.txt"
+image_docker version > "$evidence/docker-version.txt"
 [[ "$root_temp" =~ ^/var/tmp/banfei-arm64\.[a-f0-9-]+$ ]] || exit 1
 record_state directory_creation_requested
 sudo mkdir -m 0700 -- "$root_temp"
@@ -78,21 +96,27 @@ printf '%s\n' "$registration" | sudo tee /proc/sys/fs/binfmt_misc/register >/dev
 [[ -e "$entry_path" ]] || { echo 'Registration not visible'; exit 1; }
 record_state registered
 cat "/proc/sys/fs/binfmt_misc/$registration_name" > "$evidence/binfmt.txt"
-image_tag="banfei-runtime:agentarts-swr-$(date -u +%Y%m%d%H%M%S)"
-printf '%s\n' "$image_tag" > "$evidence/image-tag.txt"
+image_tags=()
+for runtime_target in "${runtime_targets[@]}"; do
+image_evidence="$evidence/$runtime_target"
+mkdir -- "$image_evidence"
+image_new_tag "agentarts-$runtime_target"
+printf '%s\n' "$image_tag" > "$image_evidence/image-tag.txt"
 # SWR Basic compatibility: one ARM64 Docker V2 manifest, no OCI attestation index.
 # The existing default Docker driver loads type=image into its local image store.
-sudo docker buildx build --builder default --platform linux/arm64 --progress plain \
+image_docker buildx build --builder default --platform linux/arm64 --progress plain \
   --provenance=false --sbom=false \
   --output type=image,oci-mediatypes=false,push=false,store=true \
-  -f deploy/agentarts/Dockerfile -t "$image_tag" . 2>&1 | tee "$evidence/build.log"
-sudo docker image inspect "$image_tag" > "$evidence/image-inspect.json"
-python3 - "$evidence/image-inspect.json" <<'PY_FORMAT' | tee "$evidence/format-check.log"
+  --target "$runtime_target" -f deploy/agentarts/Dockerfile -t "$image_tag" . 2>&1 | tee "$image_evidence/build.log"
+image_docker image inspect "$image_tag" > "$image_evidence/image-inspect.json"
+python3 - "$image_evidence/image-inspect.json" "$runtime_target" <<'PY_FORMAT' | tee "$image_evidence/format-check.log"
 import json, sys
 from pathlib import Path
 images=json.loads(Path(sys.argv[1]).read_text())
 if len(images)!=1:raise SystemExit('FORMAT FAILED: expected exactly one inspected image')
 image=images[0]
+expected='backend.agent_runtime.'+('matching_server' if sys.argv[2]=='matching' else 'development_server')+':app'
+if expected not in image.get('Config',{}).get('Cmd',[]):raise SystemExit('Wrong dedicated Runtime entrypoint')
 media_type=image.get('Descriptor',{}).get('mediaType')
 if media_type!='application/vnd.docker.distribution.manifest.v2+json':
     raise SystemExit('FORMAT FAILED: expected single Docker V2 manifest, observed '+str(media_type)+'; do not push')
@@ -102,16 +126,17 @@ print(json.dumps({'status':'passed','mediaType':media_type,'platform':'linux/arm
     'image_id':image['Id'],'tags':image.get('RepoTags',[])}))
 PY_FORMAT
 # No network, published port, host data mount, real credential or valid model job.
-sudo docker run --platform linux/arm64 --rm -i --network none --read-only --cap-drop ALL \
-  --security-opt no-new-privileges --entrypoint python "$image_tag" -B - \
-  <<'PY' 2>&1 | tee "$evidence/smoke.log"
+image_docker run --platform linux/arm64 --rm -i --network none --read-only --cap-drop ALL \
+  --security-opt no-new-privileges -e BANFEI_SMOKE_TARGET="$runtime_target" --entrypoint python "$image_tag" -B - \
+  <<'PY' 2>&1 | tee "$image_evidence/smoke.log"
 import json, os, platform, sys, threading, time, urllib.error, urllib.request, uuid
 assert platform.machine() == 'aarch64', platform.machine()
 assert os.getuid() == 10001, os.getuid()
 os.environ.update(BANFEI_RUNTIME_SHARED_KEY='synthetic-local-smoke-key-00000000000000',
- BANFEI_RUNTIME_MODEL_URL='https://example.invalid/v1',
- BANFEI_RUNTIME_MODEL_NAME='synthetic-no-call', BANFEI_RUNTIME_MODEL_KEY='synthetic-no-call')
-from backend.agent_runtime.server import app
+ BANFEI_MODEL_PROXY_API_KEY='synthetic-no-call')
+import importlib
+module='matching_server' if os.environ['BANFEI_SMOKE_TARGET']=='matching' else 'development_server'
+app=importlib.import_module('backend.agent_runtime.'+module).app
 assert 'backend.app.database' not in sys.modules
 import uvicorn
 server=uvicorn.Server(uvicorn.Config(app,host='127.0.0.1',port=8080,access_log=False,log_level='warning'))
@@ -126,10 +151,12 @@ def call(path, headers=None, body=None):
   with urllib.request.urlopen(request,timeout=5) as response: return response.status,response.read().decode()
  except urllib.error.HTTPError as error: return error.code,error.read().decode()
 assert call('/ping')[0] == 200
-assert call('/runtime-info')[0] == 401
+status,body=call('/runtime-info')
+assert status==401 and json.loads(body)=={'detail':'Unauthorized','reason_code':'runtime_key_header_missing'},(status,body)
 headers={'X-Banfei-Runtime-Key':os.environ['BANFEI_RUNTIME_SHARED_KEY'],
  'X-Hw-Agentarts-Session-Id':str(uuid.uuid4()),'Content-Type':'application/json'}
 status,body=call('/runtime-info',headers); assert status==200,(status,body)
+assert json.loads(body)['workflow']==('match' if module=='matching_server' else 'development')
 assert call('/jobs',headers,b'{}')[0] == 422
 server.should_exit=True; thread.join(timeout=5)
 assert not thread.is_alive()
@@ -138,3 +165,11 @@ print(json.dumps({'architecture':platform.machine(),'uid':os.getuid(),
  'database_imported':False,'model_requests':0,'network':'none'}))
 PY
 printf '\nARM64 build and isolated smoke PASSED: %s\n' "$image_tag"
+
+image_verify
+image_tags+=("$image_tag")
+done
+for image_tag in "${image_tags[@]}"; do
+  target="$repository:${image_tag#*:}"
+  image_publish
+done

@@ -1,6 +1,6 @@
 "use client";
 import { adminApiFetch } from "./auth-provider";
-import { ModelTimeoutSettings } from "./model-timeout-settings";
+import { AgentManagement } from "./agent-settings";
 
 import { useState, useEffect } from "react";
 import { responseError } from "../lib/api-request";
@@ -490,9 +490,10 @@ export function SystemStatusTab() {
 
 
 // ============ Model Config Tab ============
+const modelProxyBase="https://banfei-model-proxy-defaultgw-gzswgzdcgz.cn-southwest-2.huaweicloud-agentarts.com/inference/v1";
+const isProxyModel=(url?:string|null)=>(url||"").replace(/\/+$/,"")===modelProxyBase;
 export function ModelConfigTab() {
   const [configs, setConfigs] = useState<any[]>([]);
-  const [usages, setUsages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -507,25 +508,22 @@ export function ModelConfigTab() {
   async function loadData() {
     setLoading(true); setError(null);
     try {
-      const [r1, r2] = await Promise.all([
-        fetch(`${apiBaseUrl}/admin/model-configs`, { cache: "no-store" }),
-        fetch(`${apiBaseUrl}/admin/model-configs/usage`, { cache: "no-store" })
-      ]);
-      if (!r1.ok || !r2.ok) throw new Error("模型配置加载失败");
-      setConfigs(await r1.json()); setUsages(await r2.json());
+      const response = await fetch(`${apiBaseUrl}/admin/model-configs`, { cache: "no-store" });
+      if (!response.ok) throw new Error("模型配置加载失败");
+      setConfigs(await response.json());
     } catch (e) { setError(e instanceof Error ? e.message : "模型配置加载失败"); } finally { setLoading(false); }
   }
   useEffect(() => { loadData(); }, []);
 
   function startEdit(c: any) { setEditingId(c.id); setIsNew(false); setEName(c.name); setEProvider(c.provider||""); setEUrl(c.baseUrl||""); setEKey(""); setEModel(c.modelName||""); setETemp(c.temperature); setEMaxTokens(c.maxTokens); }
-  function startNew() { setIsNew(true); setEditingId(null); setEName(""); setEProvider("OpenAI Compatible"); setEUrl(""); setEKey(""); setEModel(""); setETemp(0.3); setEMaxTokens(131072); }
+  function startNew() { setIsNew(true); setEditingId(null); setEName(""); setEProvider("OpenAI Compatible"); setEUrl("https://api.deepseek.com"); setEKey(""); setEModel("deepseek-flash"); setETemp(0.3); setEMaxTokens(131072); }
   function cancelEdit() { setEditingId(null); setIsNew(false); }
 
   async function saveEdit(id: string | null) {
     if (saving) return;
     setSaving(true); setError(null);
     try {
-      const body = JSON.stringify({ name: eName, provider: eProvider, baseUrl: eUrl || undefined, apiKey: eKey || undefined, modelName: eModel || undefined, temperature: eTemp, maxTokens: eMaxTokens });
+      const body = JSON.stringify({ name: eName, provider: eProvider, baseUrl: eUrl || undefined, apiKey: isProxyModel(eUrl) ? undefined : eKey || undefined, modelName: eModel || undefined, temperature: eTemp, maxTokens: eMaxTokens });
       const url = id ? `${apiBaseUrl}/admin/model-configs/${id}` : `${apiBaseUrl}/admin/model-configs`;
       const method = id ? "PUT" : "POST";
       const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body });
@@ -537,12 +535,9 @@ export function ModelConfigTab() {
   async function toggleEnable(c: any) {
     await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/${c.id}/enable?enabled=${!c.enabled}`, { method: "PATCH" }));
   }
-  async function setDefault(c: any) {
-    await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/${c.id}/default`, { method: "PATCH" }));
-  }
   async function deleteConfig(c: any) {
     if (saving || testing === c.id) return;
-    const routing = "请确认仍有可用的场景首选或系统默认。当前运行尚未发出的模型调用将停止，已有结果保留。";
+    const routing = "引用该连接的智能体将无法发起模型调用，请先更换其模型选择。已有结果保留。";
     if (!window.confirm(`确定删除模型配置“${c.name}”？删除后无法恢复，任务和历史结果保留。${routing}`)) return;
     await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/${c.id}`, { method: "DELETE" }));
   }
@@ -554,9 +549,6 @@ export function ModelConfigTab() {
       const d = await r.json();
       setTestResult(d.success ? `连接成功（${d.latencyMs}ms）` : `失败: ${d.message}`);
     } catch (e) { setTestResult(e instanceof Error ? e.message : "测试失败"); } finally { setTesting(null); }
-  }
-  async function updateUsage(scene: string, configId: string) {
-    await saveConfigAction(() => fetch(`${apiBaseUrl}/admin/model-configs/usage/${scene}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ modelConfigId: configId || null }) }));
   }
 
   async function saveConfigAction(action: () => Promise<Response>) {
@@ -579,13 +571,13 @@ export function ModelConfigTab() {
 
   return (
     <div>
-      <ModelTimeoutSettings />
       {error && <div className="inline-error-actions"><p className="error-text" role="alert">{error}</p><button onClick={loadData} className="secondary-btn">重试</button></div>}
       <section className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
           <h2>模型配置</h2>
           <button onClick={startNew} disabled={saving || Boolean(editingId) || isNew} style={{ opacity: Boolean(editingId) || isNew ? 0.5 : 1 }}>新增配置</button>
         </div>
+        <p className="muted">代理连接只保存地址、模型和参数，密钥在 Runtime 配置。云端最大输出按思考与最终答复的总预算发送，并受 Runtime 上下文额度约束。</p>
         {testResult && <p style={{ fontSize: "13px", color: "var(--brand)", marginTop: "8px" }}>{testResult}</p>}
         {configs.length === 0 && !isNew ? <p className="placeholder-text" style={{ marginTop: "12px" }}>暂无模型配置。</p> : (
           <div className="table-wrap"><table className="data-table" style={{ marginTop: "12px" }}>
@@ -607,31 +599,31 @@ export function ModelConfigTab() {
                   <td ><input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} placeholder="模型名称" style={inp} /></td>
                   <td ><input type="number" min={1} step={1} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /></td>
                   <td ><input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /></td>
-                  <td ><input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="输入新Key" style={inp} /></td>
+                  <td >{isProxyModel(eUrl)?<span className="muted">凭据由 Runtime 管理</span>:<input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="输入新Key" style={inp} />}</td>
                   <td ></td>
                   <td style={{ whiteSpace: "nowrap" }}><div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(null)} className="table-save" aria-label="保存">✓</button><button disabled={saving} onClick={cancelEdit} className="table-cancel" aria-label="取消">✕</button></div></td>
                 </tr>
               )}
               {configs.map((c) => {
                 const ic = editingId === c.id;
+                const cloud=isProxyModel(ic?eUrl:c.baseUrl);
                 return (
                   <tr key={c.id} style={{ borderBottom: "1px solid var(--line)", background: ic ? "var(--bg-hover)" : undefined }}>
-                    <td style={{ whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}{c.isDefault ? <span className="tag-red" style={{ marginLeft: "6px" }}>默认</span> : null}</span>}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>{ic ? <input type="text" value={eName} onChange={(e) => setEName(e.target.value)} style={inp} /> : <span>{c.name}</span>}</td>
                     <td >{ic ? <input type="text" value={eProvider} onChange={(e) => setEProvider(e.target.value)} style={inp} /> : c.provider}</td>
                     <td >{ic ? <input type="text" value={eModel} onChange={(e) => setEModel(e.target.value)} style={inp} /> : c.modelName}</td>
                     <td style={{ whiteSpace: "nowrap" }}>{ic ? <input type="number" min={1} step={1} value={eMaxTokens} onChange={(e) => setEMaxTokens(Number(e.target.value))} style={{ ...inp, width: "96px" }} /> : c.maxTokens.toLocaleString()}</td>
                     <td style={{ color: "var(--muted)" }}>{ic ? <input type="text" value={eUrl} onChange={(e) => setEUrl(e.target.value)} placeholder="https://xxx/v1" style={inp} /> : (c.baseUrl ? c.baseUrl.replace(/https?:\/\//, "").split("/")[0] : "-")}</td>
-                    <td >{ic ? <input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="留空保留原Key" style={inp} /> : <span style={{ fontSize: "12px", color: c.apiKeyConfigured ? "var(--success)" : "var(--danger)" }}>{c.apiKeyConfigured ? "已配置" : "未配置"}</span>}</td>
-                    <td ><span className="ui-status-badge" style={{ background: !c.enabled ? "#fef2f2" : !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}` }}>{!c.enabled ? "停用" : !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>
+                    <td >{cloud ? <span className="muted">凭据由 Runtime 管理</span> : ic ? <input type="password" value={eKey} onChange={(e) => setEKey(e.target.value)} placeholder="留空保留原Key" style={inp} /> : <span style={{ fontSize: "12px", color: c.apiKeyConfigured ? "var(--success)" : "var(--danger)" }}>{c.apiKeyConfigured ? "已配置" : "未配置"}</span>}</td>
+                    <td ><span className="ui-status-badge" style={{ background: !c.enabled ? "#fef2f2" : !cloud && !c.apiKeyConfigured ? "#fffbeb" : "#f0fdf4", color: !c.enabled ? "var(--danger)" : !cloud && !c.apiKeyConfigured ? "#e8a317" : "var(--success)", border: `1px solid ${c.enabled ? "#bbf7d0" : "#fecaca"}` }}>{!c.enabled ? "停用" : !cloud && !c.apiKeyConfigured ? "配置不完整" : "启用"}</span></td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       {ic ? (
                         <div style={{ display: "flex", gap: "6px" }}><button disabled={saving} onClick={() => saveEdit(c.id)} className="table-save" aria-label="保存">✓</button><button disabled={saving} onClick={cancelEdit} className="table-cancel" aria-label="取消">✕</button></div>
                       ) : (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                           <button onClick={() => startEdit(c)} className="secondary-btn" >编辑</button>
-                          <button onClick={() => testConn(c)} disabled={testing === c.id} className="secondary-btn" >{testing === c.id ? "测试中" : "测试"}</button>
+                          <button onClick={() => testConn(c)} disabled={testing === c.id || cloud} title={cloud?"通过所属智能体的云端任务验证连接":undefined} className="secondary-btn" >{testing === c.id ? "测试中" : "测试"}</button>
                           <button disabled={saving} onClick={() => toggleEnable(c)} className="secondary-btn" >{c.enabled ? "停用" : "启用"}</button>
-                          {!c.isDefault && c.enabled && <button disabled={saving} onClick={() => setDefault(c)} className="secondary-btn" >设默认</button>}
                           <button disabled={saving || testing === c.id || Boolean(editingId) || isNew} onClick={() => deleteConfig(c)} className="secondary-btn danger-outline">删除</button>
                         </div>
                       )}
@@ -643,24 +635,7 @@ export function ModelConfigTab() {
           </table></div>
         )}
       </section>
-
-      <section className="card">
-        <h2>业务场景模型配置</h2>
-        <p className="placeholder-text">场景配置只指定首选模型。未设置、已删除或停用时，依次使用系统默认场景或启用的默认模型；均不可用时提示配置错误。一次运行固定选型，配置停用或删除后尚未发出的调用停止，已有结果保留。</p>
-        <div style={{ marginTop: "12px" }}>
-          {usages.map((u) => (
-            <div key={u.sceneKey} className="ui-model-binding">
-              <div><span style={{ fontSize: "14px", fontWeight: 400 }}>{u.sceneName}</span><span style={{ fontSize: "12px", color: "var(--muted)", marginLeft: "8px" }}>{u.modelConfigName || "自动选择模型"}</span></div>
-              {u.sceneKey === "recommendation_summary" && <span className="placeholder-text">当前暂无独立调用，推荐理由随伙伴匹配生成。</span>}
-              <select aria-label={`${u.sceneName}模型`} disabled={saving} value={u.modelConfigId || ""} onChange={(e) => updateUsage(u.sceneKey, e.target.value)} >
-                <option value="">自动选择模型</option>
-                {u.modelConfigId && !configs.some(c => c.id === u.modelConfigId && c.enabled) && <option value={u.modelConfigId} disabled>{u.modelConfigName || "原首选模型"}（不可用，新运行使用系统默认）</option>}
-                {configs.filter(c => c.enabled).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-          ))}
-        </div>
-      </section>
+      <AgentManagement models={configs} />
     </div>
   );
 }

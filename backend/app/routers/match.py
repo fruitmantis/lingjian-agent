@@ -13,10 +13,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import field_validator, BaseModel, Field
 
+from backend.business import matching
 from .. import match_understanding as understanding
 from .. import partner_match_context as match_context
 from ..model_resolver import pinned_configuration
-from .. import development_model, task_progress
+from .. import development_model, task_progress, agent_settings
 from ..error_diagnostics import diagnostic_scope, bind_context, record_error
 from ..task_failures import failure, public_failures, PublicTaskError, MatchInputBudgetError
 from ..opportunity_extraction import normalize_opportunity
@@ -520,7 +521,6 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
         snapshot['outcome'] = {'answer': '当前没有可用伙伴，暂不能给出推荐。', 'supplyStatus': 'gap',
                                'gapAnalysis': '当前没有启用的伙伴资料。', 'recommendations': []}
         return []
-    from backend.agent_runtime.prompts import matching
     from ..runtime_bridge import execute_stage
     initial_stamp = fingerprint({'candidate': candidate_stamp, 'compact': compact,
                                  'understanding': snapshot['stamp'], 'model': snapshot['model'],
@@ -529,13 +529,13 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
     if saved and saved.get('input_stamp') == initial_stamp:
         selected = saved['candidates']
     else:
-        messages = matching("initial_selection", {"facts": snapshot["understanding"]["facts"], "partners": compact})[0]
+        messages = matching.initial_messages(snapshot['understanding']['facts'], compact)
         try:
             schema = understanding.InitialSelection.model_json_schema()
             try:
                 config, chars, tokens = match_context.checked_config(
                     pinned_configuration(snapshot['model']), messages, schema,
-                    match_context.INITIAL_CHAR_LIMIT, None)
+                    match_context.INITIAL_CHAR_LIMIT)
             except MatchInputBudgetError:
                 # Shrink duplicate/less relevant text, never omit a partner.
                 compact_input = [{**item,
@@ -547,7 +547,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
                 try:
                     config, chars, tokens = match_context.checked_config(
                         pinned_configuration(snapshot['model']), messages, schema,
-                        match_context.INITIAL_CHAR_LIMIT, None)
+                        match_context.INITIAL_CHAR_LIMIT)
                 except MatchInputBudgetError:
                     compact_input = [{**item, 'intro': '；'.join(match_context.select_passages(
                         item['intro'], requirement, 180))} for item in compact_input]
@@ -557,7 +557,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
                                                          'partners': compact_input}, ensure_ascii=False, separators=(',', ':'))
                     config, chars, tokens = match_context.checked_config(
                         pinned_configuration(snapshot['model']), messages, schema,
-                        match_context.INITIAL_CHAR_LIMIT, None)
+                        match_context.INITIAL_CHAR_LIMIT)
             prepared = round((perf_counter() - start) * 1000)
             call_start = perf_counter()
             reset_retry_count()
@@ -566,11 +566,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
             finally:
                 match_context.log_stage('initial_selection', len(compact), chars, tokens, prepared,
                                         round((perf_counter() - call_start) * 1000), last_retry_count())
-            selected = understanding.InitialSelection.model_validate_json(raw).model_dump()['candidates']
-            available = {p['partnerId'] for p in compact}
-            ids = [item['partnerId'] for item in selected]
-            if len(ids) != len(set(ids)) or any(pid not in available for pid in ids):
-                raise ValueError('Initial selection contains duplicate or unavailable partner IDs')
+            selected = matching.parse_initial(raw, compact)
             with get_db() as conn:
                 conn.lock_writer()
                 if _candidate_stamp(conn) != candidate_stamp:
@@ -608,7 +604,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
     detail_start = perf_counter()
     try:
         content, rows = detail_context(match_context.DETAIL_PARTNER_TARGET - 700, 3)
-        detail_messages = matching("detailed_review", json.loads(content))[0]
+        detail_messages = matching.detail_messages(content)
         schema = understanding.MatchAnswer.model_json_schema()
         try:
             config, chars, tokens = match_context.checked_config(
@@ -732,6 +728,7 @@ def _claim_task_retry(record_id: str, current_status: str, next_status: str, use
         if cursor.rowcount != 1:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="任务状态已变化，请刷新后再试")
         cached = understanding.load(conn, record_id) or {}
+        cached['agent_execution'] = agent_settings.execution(conn,'partner_match',accept=True)
         cached['progress'] = task_progress.new('partner_match', run_id)
         understanding.save(conn, record_id, cached)
 
@@ -809,7 +806,7 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
                    VALUES (?, ?, '[]', ?, ?, ?, 'matching', NULL, ?)""",
                 (record_id, req.requirement, now, user["username"], user["id"], now),
             )
-            understanding.save(conn,record_id,{'progress':task_progress.new('partner_match',run_id,now)})
+            understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True),'progress':task_progress.new('partner_match',run_id,now)})
     except HTTPException:
         raise
     except Exception as error:
@@ -821,7 +818,8 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
 
 def _execute_match(record_id: str, requirement: str, created_at: str, run_id: str) -> MatchResponse:
     from ..runtime_bridge import run_scope
-    with diagnostic_scope(task_id=record_id, stage='partner_match'), run_scope('match', record_id, run_id):
+    with get_db() as conn:snapshot=understanding.load(conn,record_id) or {}
+    with diagnostic_scope(task_id=record_id, stage='partner_match'), agent_settings.execution_scope(snapshot.get('agent_execution')), run_scope('match',record_id,run_id):
         return _execute_match_inner(record_id, requirement, created_at, run_id)
 
 
@@ -838,6 +836,7 @@ def _execute_match_inner(record_id: str, requirement: str, created_at: str, run_
         prepared = understanding.prepare(requirement, cached)
         reusable = prepared is cached and bool(cached.get('outcome')) and cached.get('candidate_stamp') == _candidate_stamp()
         if prepared is not cached:
+            prepared['agent_execution'] = cached.get('agent_execution')
             prepared['progress'] = cached.get('progress')
             prepared['visible_answer'] = cached.get('visible_answer','')
         snapshot = prepared
@@ -900,7 +899,7 @@ def create_task(req: TaskCreateRequest, user: dict = Depends(require_active_user
                 return TaskAccepted(recordId=record_id,runId=saved.get('progress',{}).get('run_id'),taskStatus=existing['task_status'])
             conn.execute("""INSERT INTO match_records(id,requirement,recommendations_json,created_at,created_by,owner_user_id,task_status,updated_at)
                 VALUES (?,?,'[]',?,?,?,'matching',?)""",(record_id,requirement,stamp,user['username'],user['id'],stamp))
-            understanding.save(conn,record_id,{'progress':task_progress.new('partner_match',run_id,stamp)})
+            understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True),'progress':task_progress.new('partner_match',run_id,stamp)})
     except HTTPException:raise
     except Exception as error:
         record_error(error,'submission',task_id=record_id,request_id=record_id)

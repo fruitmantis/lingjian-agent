@@ -14,6 +14,7 @@ async function fixture(page:Page,kind:Kind,options:{reject?:boolean,slow?:boolea
  const summary=(id:string,body:any,isDev:boolean)=>({id,requirement:isDev?body.request.development_direction:body.requirement,createdAt:stamp,taskStatus:'ready',task_type:isDev?'development_plan':'partner_match',archivedAt:null});
  await page.route('**/api/**',async route=>{
   const req=route.request(),url=new URL(req.url()),path=url.pathname.replace(/^\/api/,'');
+  if(path==='/agents')return route.fulfill({json:[]});
   if(req.method()==='POST'&&(path==='/agent/tasks'||path==='/development/plans')) {
    const body=req.postDataJSON(),dev=path==='/development/plans',id=dev?'audit-development-'+posts.length:body.requestId;
    posts.push({path,body,id});if(options.slow)await ack.promise;

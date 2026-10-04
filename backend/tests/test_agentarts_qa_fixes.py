@@ -11,10 +11,22 @@ from backend.app.routers import match
 from .test_agentarts_runtime import transport,packet
 from .test_development_lifecycle import prepared,plan
 from .test_partner_match_stages import answer
+from .test_agent_settings import configure
+from backend.app import agent_settings
 from .conftest import make_partner
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 REAL_COMPLETION=provider.completion
+
+def set_executor(workflow,executor):
+    with get_db() as conn:
+        values=agent_settings.migrate(conn)
+        values['agents']['partner_'+workflow if workflow=='match' else 'partner_development']['executor']=executor
+        conn.execute('UPDATE app_metadata SET value=? WHERE key=?',(json.dumps(values),agent_settings.KEY))
+
+def set_timeout(seconds,retries):
+    for agent in agent_settings.AGENT_IDS:configure(agent,timeoutSeconds=seconds,timeoutRetries=retries)
+
 
 @pytest.fixture
 def provider_transport(transport,monkeypatch):
@@ -63,7 +75,7 @@ def run_workflow(workflow,prepared,success=True,submission='qa-fix-submission'):
 @pytest.mark.parametrize('workflow',['match','development'])
 @pytest.mark.parametrize('change',['model_disabled','source_revoked','owner_disabled'])
 def test_timeout_needs_fresh_vm_authorization(prepared,provider_transport,workflow,change):
-    model_timeout_settings.save(model_timeout_settings.TimeoutSettings(timeoutSeconds=4001.,timeoutRetries=5))
+    set_timeout(4001.,5)
     async def timeout_and_revoke(request,payload):
         with get_db() as conn:
             if change=='model_disabled':conn.execute('UPDATE model_configs SET enabled=0')
@@ -79,7 +91,7 @@ def test_timeout_needs_fresh_vm_authorization(prepared,provider_transport,workfl
 
 @pytest.mark.parametrize('workflow',['match','development'])
 def test_all_configured_retries_are_vm_authorized(prepared,provider_transport,workflow):
-    model_timeout_settings.save(model_timeout_settings.TimeoutSettings(timeoutSeconds=4001.,timeoutRetries=5))
+    set_timeout(4001.,5)
     async def timeout(request,payload):raise httpx.ReadTimeout('synthetic timeout',request=request)
     provider_transport['network_hook']=timeout
     run_workflow(workflow,prepared,success=False)
@@ -115,9 +127,9 @@ def test_local_runtime_same_input_output(prepared,transport,monkeypatch,workflow
         if schema['title']=='InitialSelection':return '{"candidates":[{"partnerId":"partner-1","verificationFocus":"数据库迁移"}]}'
         return answer()
     monkeypatch.setattr(development_model,'completion',complete);transport['complete']=complete
-    monkeypatch.setenv('BANFEI_'+workflow.upper()+'_EXECUTOR','local')
+    set_executor(workflow,'local')
     first=run_workflow(workflow,prepared,submission='compare-local')
-    which='runtime';monkeypatch.setenv('BANFEI_'+workflow.upper()+'_EXECUTOR','runtime')
+    which='runtime';set_executor(workflow,'runtime')
     second=run_workflow(workflow,prepared,submission='compare-runtime')
     assert seen['local']==seen['runtime']
     if workflow=='match':assert first.recommendations==second.recommendations
@@ -144,7 +156,7 @@ def test_all_61_candidates_and_synonym_partner_match_local_input(prepared,transp
         return answer('zz-semantic','企业知识检索伙伴')
     monkeypatch.setattr(development_model,'completion',complete);transport['complete']=complete
     for executor in ['local','runtime']:
-        which=executor;monkeypatch.setenv('BANFEI_MATCH_EXECUTOR',executor)
+        which=executor;set_executor('match',executor)
         result=match.match_partners(match.MatchRequest(requirement='寻找RAG交付伙伴'),prepared[0])
         assert result.recommendations[0].partnerId=='zz-semantic'
     assert seen['local']==seen['runtime']
@@ -154,7 +166,7 @@ def test_provider_checks_actual_endpoint_even_after_handshake(monkeypatch):
     p=packet(uuid.uuid4())
     monkeypatch.setenv('BANFEI_RUNTIME_MODEL_NAME','synthetic')
     monkeypatch.setenv('BANFEI_RUNTIME_MODEL_URL','https://other-provider.invalid/v1')
-    monkeypatch.setenv('BANFEI_RUNTIME_MODEL_KEY','synthetic-only')
+    monkeypatch.setenv('BANFEI_MODEL_PROXY_API_KEY','synthetic-only')
     def forbidden(*args,**kwargs):raise AssertionError('Must reject before provider client')
     monkeypatch.setattr(httpx,'AsyncClient',forbidden)
     from backend.agent_runtime.diagnostics import StageFailure
@@ -224,7 +236,7 @@ def test_budget_failure_does_not_drop_candidates(prepared,transport,monkeypatch,
         return '{"in_scope":true,"facts":{"technicalNeeds":"知识库"}}'
     monkeypatch.setattr(development_model,'completion',understanding)
     transport['complete']=understanding
-    monkeypatch.setenv('BANFEI_MATCH_EXECUTOR',executor)
+    set_executor('match',executor)
     with pytest.raises(HTTPException):match.match_partners(match.MatchRequest(requirement='知识库交付'),prepared[0])
     assert observed and all(len(ids)==61 for ids in observed)
     assert all(ids==observed[0] for ids in observed)

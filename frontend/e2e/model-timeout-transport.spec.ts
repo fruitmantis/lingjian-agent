@@ -18,7 +18,7 @@ test('asynchronous task creation sends directly and only lost acknowledgement is
     expect(submissionIsUncertain(failure)).toBe(true);
     expect(calls).toEqual(['http://app.test/api/agent/tasks']);
     calls.length=0;
-    globalThis.fetch = async input => {const url=String(input);calls.push(url);if(url.endsWith('/model-timeout-settings'))return Response.json({timeoutSeconds:300,timeoutRetries:3});throw new TypeError('synthetic lost response');};
+    globalThis.fetch = async input => {const url=String(input);calls.push(url);if(new URL(url).pathname.endsWith('/model-timeout-settings'))return Response.json({timeoutSeconds:300,timeoutRetries:3});throw new TypeError('synthetic lost response');};
     try { await fetchWithTimeout('http://app.test/api/agent/tasks',{method:'POST',body:'{}'}); } catch(error) { failure=error; }
     expect(submissionIsUncertain(failure)).toBe(true);
     expect(calls).toEqual(['http://app.test/api/agent/tasks']);
@@ -34,14 +34,14 @@ test('model request reads current saved policy every time and never retries busi
     globalThis.fetch = async (input, init) => {
       const url = String(input); calls.push(url);
       expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer synthetic-user');
-      return Response.json(url.endsWith('/model-timeout-settings') ? policy : {ok:true});
+      return Response.json(new URL(url).pathname.endsWith('/model-timeout-settings') ? policy : {ok:true});
     };
     const options = {method:'POST',headers:{Authorization:'Bearer synthetic-user'},body:'{"same":"input"}'};
     await fetchWithTimeout('http://app.test/api/admin/model-configs/id/test', options);
     policy = { timeoutSeconds:420, timeoutRetries:0 };
     await fetchWithTimeout('http://app.test/api/admin/model-configs/id/test', options);
     expect(budgets).toEqual([30_000,1_230_000,30_000,450_000]);
-    expect(calls).toEqual(Array(2).fill(['http://app.test/api/model-timeout-settings','http://app.test/api/admin/model-configs/id/test']).flat());
+    expect(calls).toEqual(Array(2).fill(['http://app.test/api/model-timeout-settings?agent_id=processing','http://app.test/api/admin/model-configs/id/test']).flat());
     globalThis.fetch = async () => new Response(null, {status:401});
     const rejected = await fetchWithTimeout('http://app.test/api/partners/id/profile', options);
     expect(rejected.status).toBe(401);

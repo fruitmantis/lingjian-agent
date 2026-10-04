@@ -2,10 +2,10 @@
 import hashlib,json
 from typing import Literal
 from uuid import UUID
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, StrictBool
 from .strict import StrictModel
 
-PROTOCOL = 'banfei-runtime-v1'
+PROTOCOL = 'banfei-runtime-v2'
 STAGES = {'match': {'understanding','initial_selection','detailed_review'},
           'development': {'analyze','plan','patch'}}
 
@@ -25,6 +25,7 @@ class RetryAuthorization(StrictModel):
 
 class ModelOptions(StrictModel):
     provider_route: str = Field(pattern=r'^[a-f0-9]{64}$')
+    thinking: StrictBool
     name: str = Field(min_length=1,max_length=200)
     temperature: float = Field(ge=0,le=2,allow_inf_nan=False)
     top_p: float = Field(gt=0,le=1,allow_inf_nan=False)
@@ -56,7 +57,7 @@ def source_manifest(data):
     return list(result.values())
 
 class StageRequest(StrictModel):
-    protocol: Literal['banfei-runtime-v1'] = PROTOCOL
+    protocol: Literal['banfei-runtime-v2'] = PROTOCOL
     task_id: UUID
     run_id: UUID
     session_id: UUID

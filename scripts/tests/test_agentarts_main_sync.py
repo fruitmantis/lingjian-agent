@@ -15,7 +15,7 @@ from backend.agent_runtime.contracts import StageRequest, ModelOptions, model_ro
 from backend.agent_runtime.development_types import Understanding
 from backend.agent_runtime.diagnostics import StageFailure
 from backend.agent_runtime.prompts import development
-from backend.agent_runtime.provider_options import provider_request_options
+from backend.app.ai_client import provider_request_options
 from backend.app import ai_client, runtime_bridge as bridge, development_engine as engine
 
 
@@ -36,15 +36,14 @@ def packet(stage, data, output):
         operation_id=uuid.uuid4(),incarnation=uuid.uuid4(),workflow=workflow,stage=stage,
         data=data,sources=source_manifest(data),snapshot=digest(data),model_fingerprint='a'*64,
         input_token_budget=bridge.RUNTIME_INPUT_BUDGET,model=ModelOptions(
-            provider_route=model_route('https://api.deepseek.com','deepseek-flash'),
-            name='deepseek-flash',temperature=.3,top_p=1.,max_tokens=output,
+            provider_route=model_route(provider.PROXY_BASE,'deepseek-v4.1-flash'),
+            name='deepseek-v4.1-flash',thinking=True,temperature=.3,top_p=1.,max_tokens=output,
             timeout_seconds=300.,timeout_retries=3))
 
 
 class MainSyncTests(unittest.TestCase):
     def test_provider_option_is_shared_and_does_not_disable_other_models(self):
         self.assertIs(ai_client.provider_request_options,provider_request_options)
-        self.assertIs(provider.provider_request_options,provider_request_options)
         for name in ('deepseek-flash','deepseek-v4-flash'):
             self.assertEqual(provider_request_options('https://api.deepseek.com/v1',name),{'thinking':{'type':'enabled'}})
             self.assertEqual(provider_request_options('https://api.deepseek.com.evil.test',name),{})
@@ -119,14 +118,14 @@ class MainSyncTests(unittest.TestCase):
                 return httpx.Response(200,json={'choices':[{'finish_reason':finish,'message':{
                     'reasoning_content':'合成思考'*15000,'content':raw}}]})
             def client(**kwargs):return original(transport=httpx.MockTransport(respond),**kwargs)
-            env={'BANFEI_RUNTIME_MODEL_URL':'https://api.deepseek.com','BANFEI_RUNTIME_MODEL_NAME':'deepseek-flash',
-                 'BANFEI_RUNTIME_MODEL_KEY':'synthetic-only','BANFEI_RUNTIME_CONTEXT_TOKENS':'262144'}
+            env={'BANFEI_RUNTIME_MODEL_URL':provider.PROXY_BASE,'BANFEI_RUNTIME_MODEL_NAME':'deepseek-flash',
+                 'BANFEI_MODEL_PROXY_API_KEY':'synthetic-only','BANFEI_RUNTIME_CONTEXT_TOKENS':'262144'}
             with patch.dict(os.environ,env),patch.object(provider.httpx,'AsyncClient',client):
                 if finish=='stop':self.assertEqual(asyncio.run(provider.completion(wire,lambda _:None)),raw)
                 else:
                     with self.assertRaises(StageFailure):asyncio.run(provider.completion(wire,lambda _:None))
             self.assertEqual(len(calls),1)
-            self.assertEqual(calls[0]['thinking'],{'type':'enabled'})
-            self.assertEqual(calls[0]['max_tokens'],131072)
+            self.assertEqual(calls[0]['chat_template_kwargs'],{'thinking':True})
+            self.assertEqual(calls[0]['max_completion_tokens'],131072)
 
 if __name__=='__main__':unittest.main()
