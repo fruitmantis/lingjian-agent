@@ -24,6 +24,8 @@ class PartnerOut(ClassificationOutput):
     ai_profile: str | None
     status: Literal["active", "disabled"] = "active"
     profile_needs_update: bool = False
+    profile_status: str = "missing"
+    profile_sources: list[dict] | None = None
     created_at: str
     updated_at: str | None = None
 

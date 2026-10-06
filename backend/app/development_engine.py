@@ -82,7 +82,7 @@ def profile_context(conn,request):
     blocked=blocked_fragments(conn);row=dict(row)
     row["industries"]=canonical(row.get("industries"),"industry")
     row["service_areas"]=canonical(row.get("service_areas"),"region")
-    profile={k:safe_text(row.get(k),blocked) for k in ('intro','capabilities','industries','service_areas','ai_profile')}
+    profile={k:safe_text(row.get(k),blocked) for k in ('capabilities','industries','service_areas','ai_profile')}
     profile['region_groups']=region_groups(profile['service_areas'])
     profile['profile_updated_at']=row.get('updated_at')
     # No health score is treated as a real service level.

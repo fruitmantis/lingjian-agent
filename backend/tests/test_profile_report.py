@@ -1,122 +1,205 @@
-"""Ten-chapter profile regression on disposable storage; no business data/model calls."""
+"""Source-driven profile contracts on random PostgreSQL schemas and synthetic documents."""
 import json
 from pathlib import Path
 import pytest
-from backend.app import profile_report as report,material_files,doc_extractor
+from backend.app import profile_sources as sources, profile_report, material_files
 from backend.app.database import get_db
-from backend.app.routers import profile
-from .conftest import auth_headers,make_partner,make_user
-from .support.profile_report_fixture import document,patch_all
-
+from backend.app.partner_match_context import recall_candidates,detailed_candidate
+from .conftest import make_partner,make_user,auth_headers
+from .support.profile_report_fixture import document
 
 @pytest.fixture
 def setup(client,monkeypatch,tmp_path):
-    from backend.app import partner_match_context
-    admin=make_user('report-admin',role='admin');reader=make_user('report-reader');partner=make_partner()
-    summaries=[]
-    def summary(pid):
-        with get_db() as conn:summaries.append(conn.execute('SELECT ai_profile FROM partners WHERE id=?',(pid,)).fetchone()[0])
-        return True
-    monkeypatch.setattr(partner_match_context,'generate_summary',summary)
-    monkeypatch.setattr(profile,'chat_completion',lambda *a,**k:'{}')
+    pid=make_partner()['id']
+    admin=auth_headers(make_user('source-admin',role='admin'))
+    user=auth_headers(make_user('source-reader'))
+    calls=[]
+    monkeypatch.setattr(sources,'resolve_model_record',lambda _: {})
+    def complete(config,messages,schema):
+        data=json.loads(messages[-1]['content']);calls.append(data)
+        assert 'current_report' not in data and 'intro' not in data
+        return json.dumps({'sections':[{'chapter':5,'quotes':[data['material']]}]},ensure_ascii=False)
+    monkeypatch.setattr(sources.development_model,'completion',complete)
     def preview(path):
         target=tmp_path/(path.stem+'.pdf');target.write_bytes(b'%PDF-synthetic');return str(target)
     monkeypatch.setattr(material_files,'office_preview',preview)
-    def no_call(*a,**k):raise AssertionError('Unexpected model request')
-    monkeypatch.setattr(profile.development_model,'completion',no_call)
-    return client,auth_headers(admin),auth_headers(reader),partner['id'],summaries
+    return client,admin,user,pid,calls
 
-
-def row(pid):
-    with get_db() as conn:return dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
-
-
-def upload(setup,data,initialize=True):
-    client,admin,_,pid,_=setup
-    response=client.post(f'/partners/{pid}/documents',headers=admin,files={'file':('report.docx',data)},data={'initialize_profile':str(initialize).lower()})
+def upload(setup,name,text,initialize=False):
+    c,a,_,pid,_=setup
+    data=text if isinstance(text,bytes) else text.encode()
+    response=c.post(f'/partners/{pid}/documents',headers=a,files={'file':(name,data)},
+                    data={'initialize_profile':str(initialize).lower()})
     assert response.status_code==201,response.text
-    with get_db() as conn:return dict(conn.execute('SELECT * FROM partner_documents WHERE id=?',(response.json()['id'],)).fetchone())
+    return response.json()['id']
 
+def profile(setup,admin=False):
+    c,a,u,pid,_=setup
+    return c.get(f'/partners/{pid}',headers=a if admin else u).json()
 
-@pytest.mark.parametrize('empty_cases',[False,True])
-def test_import_all_chapters_tables_toc_and_admin_only(setup,empty_cases):
-    data=document(toc=True,empty_cases=empty_cases);file=upload(setup,data);client,admin,user,pid,summaries=setup
-    assert file['processing_status']=='ready',file['processing_error']
-    saved=row(pid)['ai_profile'];parsed=report.parse(saved)
-    assert len(parsed.chapters)==10 and saved.count('## 1. 公司概况')==1 and '目录' not in saved
-    assert saved.count('| 字段 | 事实 |')==3 and '本公司 \\| 未核验<br>现有资料未提供' in saved
-    assert '来源日期：2026-09-24；集团口径，企业自述，待核实' in saved
-    assert Path(file['file_path']).read_bytes()==data
-    assert file['extracted_text']==doc_extractor.extract_text(file['file_path'],'docx')
-    assert summaries==[saved]
-    assert client.get(f'/partners/{pid}',headers=user).json()['ai_profile'] is None
-    assert client.get(f'/partners/{pid}/documents/{file["id"]}/file',headers=user).status_code==403
-    assert client.get(f'/partners/{pid}/documents/{file["id"]}/file',headers=admin).content==data
+def test_word_initialization_tables_qualifiers_and_user_ten_chapters(setup):
+    upload(setup,'initial.docx',document(toc=True),True)
+    p=profile(setup)
+    assert len(profile_report.parse(p['ai_profile']).chapters)==10
+    assert '目录' not in p['ai_profile'] and p['ai_profile'].count('| 字段 | 事实 |')==3
+    assert '集团口径，企业自述' in p['ai_profile']
+    assert p['profile_status']=='ready' and setup[4]==[]
+    assert 'initial.docx' not in json.dumps(p,ensure_ascii=False)
+    assert 'initial.docx' in profile(setup,True)['ai_profile']
 
+def test_no_word_never_uses_old_ai_intro_or_summary_and_keeps_tags(setup):
+    _,_,_,pid,calls=setup
+    with get_db() as conn:
+        conn.execute('UPDATE partners SET ai_profile=?,intro=? WHERE id=?',('OBSOLETE_PROFILE_CAPABILITY','OBSOLETE_INTRO_CAPABILITY',pid))
+        conn.execute('INSERT INTO app_metadata(key,value) VALUES (?,?)',('partner_match_summary:'+pid,'{"text":"OBSOLETE_SUMMARY_CAPABILITY"}'))
+        before=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
+        sources.initialize_cached(conn,pid)
+        after=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
+        for field in ('intro','capabilities','industries','service_areas'):assert before[field]==after[field]
+        assert recall_candidates(conn,'OBSOLETE_PROFILE_CAPABILITY',{})==[]
+        assert recall_candidates(conn,'OBSOLETE_INTRO_CAPABILITY',{})==[]
+        assert recall_candidates(conn,'OBSOLETE_SUMMARY_CAPABILITY',{})==[]
+    assert 'OBSOLETE_' not in json.dumps(profile(setup),ensure_ascii=False)
+    assert profile(setup)['profile_status']=='missing' and calls==[]
 
-def test_new_case_updates_only_case_chapter(setup,monkeypatch):
-    upload(setup,document());client,admin,_,pid,summaries=setup;old=row(pid)['ai_profile'];old_parts=report.parse(old)
-    response=client.post('/cases',headers=admin,json={'partner_id':pid,'title':'新制造案例','description':'本公司2026年9月实施，企业自述未外部核验','category_id':'technical-1'})
+def test_material_updates_only_related_chapter_and_hidden_still_recalls(setup):
+    upload(setup,'initial.docx',document(),True)
+    before=profile_report.parse(profile(setup)['ai_profile']).chapters
+    upload(setup,'HIDDEN_SOURCE_NAME.txt','具备QuasarFalcon冷链回退能力；但不支持跨境交付。')
+    after=profile_report.parse(profile(setup)['ai_profile']).chapters
+    assert all(before[i]==after[i] for i in range(10) if i!=4)
+    assert 'QuasarFalcon' in after[4] and '不支持跨境' in after[4]
+    assert 'HIDDEN_SOURCE_NAME' not in json.dumps(profile(setup),ensure_ascii=False)
+    with get_db() as conn:
+        assert recall_candidates(conn,'QuasarFalcon冷链回退',{})[0]['partnerId']==setup[3]
+        context=detailed_candidate(conn,setup[3],'QuasarFalcon','QuasarFalcon')[1]
+        assert 'QuasarFalcon' in json.dumps(context,ensure_ascii=False)
+        assert 'HIDDEN_SOURCE_NAME' not in json.dumps(context,ensure_ascii=False)
+
+def test_delete_unique_and_shared_fact_no_resurrection(setup):
+    c,a,_,pid,_=setup
+    first=upload(setup,'first.txt','具备DualSourceQuasar能力。')
+    second=upload(setup,'second.txt','具备DualSourceQuasar能力。')
+    unique=upload(setup,'unique.txt','具备UniqueQuasar能力。')
+    assert c.delete(f'/partners/{pid}/documents/{unique}',headers=a).status_code==204
+    assert 'UniqueQuasar' not in profile(setup)['ai_profile']
+    assert c.delete(f'/partners/{pid}/documents/{first}',headers=a).status_code==204
+    assert 'DualSourceQuasar' in profile(setup)['ai_profile']
+    assert c.delete(f'/partners/{pid}/documents/{second}',headers=a).status_code==204
+    assert 'DualSourceQuasar' not in profile(setup)['ai_profile']
+    assert c.post(f'/partners/{pid}/profile',headers=a).status_code==200
+    assert 'Quasar' not in profile(setup)['ai_profile']
+
+@pytest.mark.parametrize('action',['replace','delete'])
+def test_late_old_contribution_cannot_overwrite_new_source(setup,monkeypatch,action):
+    c,a,_,pid,_=setup
+    fid=upload(setup,'late.txt','OriginalOldQuasar。')
+    with get_db() as conn:
+        source=next(s for s in sources.sources(conn,pid) if s['id']==fid)
+        sources.put(conn,source,'failed',error='retry synthetic')
+    def late(config,messages,schema):
+        with get_db() as conn:
+            if action=='delete':conn.execute('DELETE FROM partner_documents WHERE id=?',(fid,))
+            else:conn.execute('UPDATE partner_documents SET extracted_text=?,file_path=? WHERE id=?',('NewReplacementQuasar。','synthetic-new-version',fid))
+            material_files.changed(conn,pid)
+        return json.dumps({'sections':[{'chapter':5,'quotes':['OriginalOldQuasar。']}]})
+    monkeypatch.setattr(sources.development_model,'completion',late)
+    sources.process_partner(pid)
+    assert 'OriginalOldQuasar' not in profile(setup)['ai_profile']
+    with get_db() as conn:
+        assert recall_candidates(conn,'OriginalOldQuasar',{})==[]
+
+def test_replace_same_id_withdraws_previous_contribution(setup):
+    c,a,_,pid,_=setup
+    fid=upload(setup,'old.txt','OldOnlyQuasar。')
+    response=c.put(f'/partners/{pid}/documents/{fid}',headers=a,files={'file':('new.txt','NewOnlyQuasar。'.encode())})
+    assert response.status_code==200 and response.json()['id']==fid
+    p=profile(setup)
+    assert 'OldOnlyQuasar' not in p['ai_profile'] and 'NewOnlyQuasar' in p['ai_profile']
+
+def test_failure_withdraws_old_fact_and_retry_preserves_valid_sources(setup,monkeypatch):
+    c,a,_,pid,_=setup
+    upload(setup,'initial.docx',document(),True)
+    fid=upload(setup,'valid.txt','OldFailedQuasar。')
+    def fail(*args):raise TimeoutError('synthetic contribution timeout')
+    monkeypatch.setattr(sources.development_model,'completion',fail)
+    assert c.put(f'/partners/{pid}/documents/{fid}',headers=a,files={'file':('new.txt','UnprocessedQuasar。'.encode())}).status_code==200
+    p=profile(setup)
+    assert p['profile_status']=='failed'
+    assert 'OldFailedQuasar' not in p['ai_profile'] and 'UnprocessedQuasar' not in p['ai_profile']
+    assert '第1章原有完整说明' in p['ai_profile']
+    assert c.post(f'/partners/{pid}/profile',headers=a).status_code==502
+    assert any(r['state']=='failed' for r in profile(setup,True)['profile_sources'])
+
+def test_hidden_identity_inside_baseline_and_matching_output_is_redacted(setup):
+    c,a,_,pid,_=setup
+    upload(setup,'initial.docx',document(extra='秘密资料卡 https://hidden.invalid/inside'),True)
+    response=c.post('/cases',headers=a,json={'partner_id':pid,'title':'秘密资料卡','description':'具有隐藏案例的ColdRareQuasar业务能力。','category_id':'technical-1'})
     assert response.status_code==201
-    assert row(pid)['ai_profile']==old and row(pid)['materials_revision']!=row(pid)['profile_materials_revision']
-    assert len(summaries)==1
-    def complete(config,messages,schema):
-        data=json.loads(messages[-1]['content']);assert data['current_report']==old and '新制造案例' in data['materials']
-        return json.dumps({'sections':[{'chapter':6,'content':'| 时间 | 项目 | 口径 |\n| --- | --- | --- |\n| 2026年9月 | 新制造案例 | 本公司；企业自述，待核实 |'}]},ensure_ascii=False)
-    monkeypatch.setattr(profile.development_model,'completion',complete)
-    response=client.post(f'/partners/{pid}/profile',headers=admin);assert response.status_code==200,response.text
-    after=report.parse(row(pid)['ai_profile'])
-    assert all(after.chapters[i]==old_parts.chapters[i] for i in range(10) if i!=5)
-    assert after.prefix==old_parts.prefix and '新制造案例' in after.chapters[5]
-    assert row(pid)['materials_revision']==row(pid)['profile_materials_revision'] and len(summaries)==2
+    text=json.dumps(profile(setup),ensure_ascii=False)
+    assert '秘密资料卡' not in text and 'https://hidden.invalid' not in text
+    assert 'ColdRareQuasar' in text
+    cid=response.json()['id']
+    assert c.get(f'/cases/{cid}',headers=setup[2]).status_code==404
+    assert c.patch(f'/cases/{cid}/visibility',headers=a,json={'visible':True}).status_code==200
+    assert 'ColdRareQuasar' in profile(setup)['ai_profile']
+
+def test_rare_tail_capability_beats_more_than_twelve_distractors(setup):
+    c,a,_,pid,_=setup
+    upload(setup,'rare.txt','普通业务。'*1400+'\n具备RareTailQuasar能力；但不支持境外交付。')
+    for i in range(18):
+        other=make_partner('distractor-'+str(i),'常规干扰伙伴'+str(i))
+        with get_db() as conn:
+            conn.execute('UPDATE partners SET capabilities=? WHERE id=?',('AI,数据治理,普通业务',other['id']))
+    with get_db() as conn:
+        hits=recall_candidates(conn,'需要RareTailQuasar能力，普通AI业务',{'technicalNeeds':'RareTailQuasar'})
+        assert hits[0]['partnerId']==pid and len(hits)<=12
+        detail=detailed_candidate(conn,pid,'RareTailQuasar','RareTailQuasar')[1]
+        packed=json.dumps(detail,ensure_ascii=False)
+        assert 'RareTailQuasar' in packed and '不支持境外交付' in packed
 
 
-def test_no_profile_generates_all_ten_chapters(setup,monkeypatch):
-    client,admin,_,pid,summaries=setup
-    def complete(c,m,s):
-        data=json.loads(m[-1]['content']);assert data['mode']=='create' and len(report.parse(data['current_report']).chapters)==10
-        return patch_all()
-    monkeypatch.setattr(profile.development_model,'completion',complete)
-    response=client.post(f'/partners/{pid}/profile',headers=admin);assert response.status_code==200,response.text
-    assert len(report.parse(row(pid)['ai_profile']).chapters)==10 and len(summaries)==1
+def test_quote_retains_adjacent_negative_and_subject_qualifier():
+    text='集团口径，企业自述。\n具备Quasar能力。\n但不支持跨境交付。'
+    value=sources.complete_quote(text,'具备Quasar能力。')
+    assert '集团口径' in value and '不支持跨境' in value
+
+def test_additive_migration_and_rollback_preserve_legacy_and_sources(setup):
+    from backend.app.profile_source_schema import migrate,rollback
+    pid=setup[3]
+    with get_db() as conn:
+        # This table/schema belongs to this test invocation only.
+        conn.execute('DROP TABLE partner_profile_sources')
+        conn.execute("UPDATE app_metadata SET value='19' WHERE key='schema_version'")
+        conn.execute('UPDATE partners SET ai_profile=?,intro=? WHERE id=?',('legacy-output','legacy-intro',pid))
+        before=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
+        assert migrate(conn)['schema_version']==20
+        sources.initialize_cached(conn,pid)
+        assert conn.execute('SELECT intro FROM partners WHERE id=?',(pid,)).fetchone()[0]=='legacy-intro'
+        assert rollback(conn)['schema_version']==19
+        after=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
+        for field in ('ai_profile','intro','capabilities','industries','service_areas'):assert before[field]==after[field]
+        assert migrate(conn)['schema_version']==20
+        assert conn.execute("SELECT count(*) FROM app_metadata WHERE key=? ",('profile_source_legacy:'+pid,)).fetchone()[0]==1
 
 
-def test_summary_is_restored_from_original_only_on_manual_update(setup,monkeypatch):
-    upload(setup,document());client,admin,_,pid,_=setup;full=row(pid)['ai_profile']
-    with get_db() as conn:conn.execute('UPDATE partners SET ai_profile=? WHERE id=?',('旧的能力摘要',pid))
-    assert row(pid)['ai_profile']=='旧的能力摘要'
-    def complete(c,m,s):assert json.loads(m[-1]['content'])['current_report']==full;return '{"sections":[]}'
-    monkeypatch.setattr(profile.development_model,'completion',complete)
-    assert client.post(f'/partners/{pid}/profile',headers=admin).status_code==200
-    assert row(pid)['ai_profile']==full
+def test_hidden_case_title_equal_to_capability_does_not_erase_business_fact(setup):
+    c,a,_,pid,_=setup
+    response=c.post('/cases',headers=a,json={'partner_id':pid,'title':'稀有冷链回退',
+        'description':'具备稀有冷链回退能力；但不支持境外交付。','category_id':'technical-1'})
+    assert response.status_code==201
+    with get_db() as conn:
+        context=detailed_candidate(conn,pid,'稀有冷链回退','稀有冷链回退')[1]
+        assert '具备稀有冷链回退能力' in json.dumps(context,ensure_ascii=False)
+    assert '具备稀有冷链回退能力' in profile(setup)['ai_profile']
+    assert '案例：稀有冷链回退' not in sources.redact_sources('案例：稀有冷链回退',['稀有冷链回退'])
+    assert sources.redact_sources('依据稀有冷链回退能力进行判断',['稀有冷链回退'])=='依据稀有冷链回退能力进行判断'
 
-
-@pytest.mark.parametrize('fault',['malformed','duplicate','missing_table','wrong_id','timeout','concurrent'])
-def test_invalid_or_failed_update_preserves_complete_profile(setup,monkeypatch,fault):
-    upload(setup,document());client,admin,_,pid,summaries=setup;before=row(pid)
-    def complete(c,m,s):
-        if fault=='timeout':raise TimeoutError('synthetic timeout')
-        if fault=='concurrent':
-            with get_db() as conn:conn.execute('UPDATE partners SET materials_revision=materials_revision+1 WHERE id=?',(pid,))
-            return '{"sections":[]}'
-        return {'malformed':'not json','duplicate':'{"sections":[{"chapter":8,"content":"a"},{"chapter":8,"content":"b"}]}','missing_table':'{"sections":[{"chapter":6,"content":"摘要替代了案例表"}]}','wrong_id':'{"sections":[{"chapter":11,"content":"bad"}]}'}[fault]
-    monkeypatch.setattr(profile.development_model,'completion',complete)
-    response=client.post(f'/partners/{pid}/profile',headers=admin)
-    assert response.status_code==(409 if fault=='concurrent' else 502),response.text
-    after=row(pid);assert after['ai_profile']==before['ai_profile'] and after['profile_updated_at']==before['profile_updated_at'] and len(summaries)==1
-
-
-def test_unrecognized_word_and_unrecoverable_summary_preserve_old(setup):
-    upload(setup,document());client,admin,_,pid,summaries=setup;old=row(pid)['ai_profile']
-    failed=upload(setup,document(invalid=True))
-    assert failed['processing_status']=='failed' and failed['extracted_text'] and Path(failed['file_path']).exists()
-    assert row(pid)['ai_profile']==old and len(summaries)==1
-    with pytest.raises(report.ReportError):report.baseline('旧纯文本摘要',[])
-
-
-def test_budget_includes_current_report_and_all_materials(setup,monkeypatch):
-    upload(setup,document(extra='完整底稿'*300));client,admin,_,pid,summaries=setup;before=row(pid)
-    monkeypatch.setenv('BANFEI_PROFILE_INPUT_MAX_CHARS','1000')
-    response=client.post(f'/partners/{pid}/profile',headers=admin)
-    assert response.status_code==422 and '输入上限' in response.json()['detail']
-    assert row(pid)==before and len(summaries)==1
+def test_original_chapter_ten_disclaimer_dates_survive_public_projection(setup):
+    c,a,_,pid,_=setup
+    upload(setup,'baseline.docx',document(),True)
+    text=profile(setup)['ai_profile']
+    chapter=profile_report.parse(text).chapters[9]
+    assert '第10章原有完整说明' in chapter
+    assert '来源日期2026-09-24，集团口径，企业自述' in chapter
+    assert 'baseline.docx' not in chapter

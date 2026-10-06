@@ -7,9 +7,10 @@ import { use, useEffect, useState } from "react";
 import { apiFetch } from "../../../components/auth-provider";
 
 import { PartnerSharedCases } from "@/components/enablement-workspace";
+import { PartnerProfileReport } from "@/components/partner-profile-report";
 import { PartnerTagList } from "@/components/partner-tag-list";
 
-type Partner = { classification_pending?: Record<string,string[]>; id: string; name: string; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; created_at: string };
+type Partner = { classification_pending?: Record<string,string[]>; id: string; name: string; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; profile_status: string; created_at: string };
 export default function PartnerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [partner, setPartner] = useState<Partner | null>(null);
@@ -21,9 +22,9 @@ export default function PartnerDetailPage({ params }: { params: Promise<{ id: st
   if (!partner) return <main className="page"><p>伙伴信息加载中...</p></main>;
   return (
     <main className="page partner-profile-page">
-      <div className="page-heading-row"><div><p className="eyebrow">Partner Detail</p><h1>{partner.name}</h1><p className="lead">{partner.intro || "暂无伙伴简介"}</p></div><div className="enablement-actions"><Link href={`/?mode=development&partner_id=${encodeURIComponent(id)}`} className="secondary-btn">制定发展建议</Link><Link href="/partners" className="secondary-btn">返回伙伴洞察</Link></div></div>
+      <div className="page-heading-row"><div><p className="eyebrow">Partner Detail</p><h1>{partner.name}</h1></div><div className="enablement-actions"><Link href={`/?mode=development&partner_id=${encodeURIComponent(id)}`} className="secondary-btn">制定发展建议</Link><Link href="/partners" className="secondary-btn">返回伙伴洞察</Link></div></div>
       <section className="card"><h2>能力概览</h2><ClassificationNotice pending={partner.classification_pending}/><div className="detail-grid"><div><span>正式能力标签</span><PartnerTagList value={partner.capabilities} label="正式能力标签" emptyText="未完善" /></div><div><span>行业经验</span><PartnerTagList value={partner.industries} label="行业经验" emptyText="未完善" /></div><div><span>服务区域</span><PartnerTagList value={partner.service_areas} label="服务区域" emptyText="未完善" /></div><div><span>收录时间</span><strong>{new Date(partner.created_at).toLocaleDateString("zh-CN")}</strong></div></div></section>
-      <PartnerSharedCases partnerId={id}/><div className="notice-neutral">伙伴原始资料由平台管理员统一维护，普通用户侧仅展示经过整理的正式信息。</div>
+      <section className="card"><h2>伙伴画像</h2>{partner.profile_status!=="ready"&&<p role="status" className="notice-neutral">{partner.profile_status==="missing"?"暂无原始画像资料；缺失章节标为未提供。":partner.profile_status==="failed"?"部分资料处理失败，当前仅展示有效来源；请联系管理员重试。":partner.profile_status==="pending"?"资料待管理员处理，当前仅展示已处理的有效来源。":"资料处理中，当前仅展示已处理的有效来源。"}</p>}{partner.ai_profile&&<PartnerProfileReport text={partner.ai_profile}/>}</section><PartnerSharedCases partnerId={id}/><div className="notice-neutral">伙伴原始资料由平台管理员统一维护，普通用户侧仅展示经过整理的正式信息。</div>
     </main>
   );
 }

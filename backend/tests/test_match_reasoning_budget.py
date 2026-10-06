@@ -13,7 +13,7 @@ def config(**overrides):
             "model_name": "deepseek-v4-flash", "max_tokens": 384000, **overrides}
 
 
-@pytest.mark.parametrize("char_limit", [context.INITIAL_CHAR_LIMIT, context.DETAIL_CHAR_LIMIT, context.SUMMARY_CHAR_LIMIT])
+@pytest.mark.parametrize("char_limit", [context.DETAIL_CHAR_LIMIT])
 def test_all_match_stages_reserve_saved_thinking_allowance(char_limit):
     original = config()
     messages = [{"role": "user", "content": "合成需求"}]

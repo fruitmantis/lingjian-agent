@@ -1,85 +1,14 @@
-import json
-
+"""Profile updates do not mutate administrator-maintained tags."""
 import pytest
-
 from backend.app.database import get_db
-from backend.app.routers import profile
+from .test_profile_report import setup,upload,profile
 
-from .conftest import auth_headers, make_partner, make_user
-from .support.profile_report_fixture import patch_all
-from backend.app import profile_report, partner_match_context
-
-
-@pytest.fixture(autouse=True)
-def no_summary_model(monkeypatch):
-    monkeypatch.setattr(partner_match_context, "generate_summary", lambda *_: True)
-
-
-def partner_row(partner_id):
+@pytest.mark.parametrize('empty_dictionary',[False,True])
+def test_source_processing_preserves_formal_tags(setup,empty_dictionary):
+    pid=setup[3]
     with get_db() as conn:
-        return dict(conn.execute("SELECT * FROM partners WHERE id = ?", (partner_id,)).fetchone())
-
-
-def mock_profile_calls(monkeypatch, structured, narrative="合成画像正文"):
-    def respond(result):
-        if isinstance(result, Exception):
-            raise result
-        return result
-    monkeypatch.setattr(profile, "chat_completion", lambda *a, **k: respond(structured))
-    monkeypatch.setattr(profile.development_model, "completion", lambda *a, **k: patch_all(respond(narrative)))
-
-
-@pytest.mark.parametrize("structured", [
-    RuntimeError("synthetic extraction failure"), "not json", "[]", "{}",
-    '{"capabilities":null,"service_areas":" ","industries":[]}',
-    '{"capabilities":"不在正式字典中的能力"}',
-])
-def test_profile_preserves_existing_fields_when_extraction_is_unusable(client, monkeypatch, structured):
-    admin = make_user("profile_admin", role="admin")
-    partner = make_partner()
-    before = partner_row(partner["id"])
-    mock_profile_calls(monkeypatch, structured)
-    response = client.post(f"/partners/{partner['id']}/profile", headers=auth_headers(admin))
-    assert response.status_code == 200
-    after = partner_row(partner["id"])
-    assert after["ai_profile"] == profile_report.merge(profile_report.empty_report(), patch_all("合成画像正文"), new=True)
-    for field in ("capabilities", "service_areas", "industries"):
-        assert after[field] == before[field]
-    assert after["updated_at"] != before["updated_at"]
-
-
-def test_profile_updates_only_valid_supplied_fields(client, monkeypatch):
-    admin = make_user("profile_valid_admin", role="admin")
-    partner = make_partner()
-    before = partner_row(partner["id"])
-    mock_profile_calls(monkeypatch, json.dumps({
-        "capabilities": "数据库，不在正式字典中的能力,数据库", "service_areas": " 江苏 ",
-    }))
-    response = client.post(f"/partners/{partner['id']}/profile", headers=auth_headers(admin))
-    assert response.status_code == 200
-    after = partner_row(partner["id"])
-    assert after["capabilities"] == "数据库"
-    assert after["service_areas"] == "江苏"
-    assert after["industries"] == before["industries"]
-
-
-def test_profile_preserves_capabilities_when_no_formal_tags_are_enabled(client, monkeypatch):
-    admin = make_user("profile_empty_dictionary", role="admin")
-    partner = make_partner()
-    before = partner_row(partner["id"])
+        if empty_dictionary:conn.execute('UPDATE capability_tags SET enabled=0')
+        before=dict(conn.execute('SELECT capabilities,service_areas,industries FROM partners WHERE id=?',(pid,)).fetchone())
+    upload(setup,'tag-source.txt','数据库相关能力，服务江苏制造客户。')
     with get_db() as conn:
-        conn.execute("UPDATE capability_tags SET enabled = 0")
-    mock_profile_calls(monkeypatch, '{"capabilities":"数据库"}')
-    assert client.post(f"/partners/{partner['id']}/profile", headers=auth_headers(admin)).status_code == 200
-    assert partner_row(partner["id"])["capabilities"] == before["capabilities"]
-
-
-@pytest.mark.parametrize("structured", ['{"capabilities":"数据库"}', RuntimeError("synthetic extraction failure")])
-def test_profile_does_not_write_if_narrative_fails(client, monkeypatch, structured):
-    admin = make_user("profile_failure_admin", role="admin")
-    partner = make_partner()
-    before = partner_row(partner["id"])
-    mock_profile_calls(monkeypatch, structured, RuntimeError("synthetic narrative failure"))
-    response = client.post(f"/partners/{partner['id']}/profile", headers=auth_headers(admin))
-    assert response.status_code == 502
-    assert partner_row(partner["id"]) == before
+        assert dict(conn.execute('SELECT capabilities,service_areas,industries FROM partners WHERE id=?',(pid,)).fetchone())==before

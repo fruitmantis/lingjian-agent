@@ -10,7 +10,7 @@ import { standardValues } from "../../components/business-taxonomy";
 
 type PartnerCard = {
   id: string; name: string; capabilities: string | null; service_areas: string | null;
-  industries: string | null; ai_profile: string | null; case_count: number; deliverable_count: number;
+  industries: string | null; ai_profile: string | null; profile_status: string; case_count: number; deliverable_count: number;
 };
 
 export default function PartnersPage() {
@@ -53,7 +53,7 @@ export default function PartnersPage() {
       </section>}
       {loading ? <section className="card"><p>加载中...</p></section> : error ? <section className="card"><p className="error-text">{error}</p></section> : (
         filtered.length ? <section className="partner-insight-grid">{filtered.map(partner => <article className="card partner-insight-card" key={partner.id}>
-          <div className="partner-card-heading"><div><span className="partner-avatar">{partner.name.slice(0, 1)}</span><h2>{partner.name}</h2></div><span className={`profile-state ${partner.ai_profile ? "ready" : ""}`}>{partner.ai_profile ? "画像已完善" : "画像待完善"}</span></div>
+          <div className="partner-card-heading"><div><span className="partner-avatar">{partner.name.slice(0, 1)}</span><h2>{partner.name}</h2></div><span className={`profile-state ${partner.profile_status === "ready" ? "ready" : ""}`}>{partner.profile_status === "ready" ? "画像已完善" : "画像待完善"}</span></div>
           <div className="partner-field"><span>能力标签</span><PartnerTagList value={partner.capabilities} label="能力标签" emptyText="暂无正式能力标签" compact /></div>
           <div className="partner-field"><span>行业</span><PartnerTagList value={partner.industries} label="行业" emptyText="暂无行业信息" compact /></div>
           <div className="partner-field"><span>区域</span><PartnerTagList value={partner.service_areas} label="区域" emptyText="暂无区域信息" compact /></div>

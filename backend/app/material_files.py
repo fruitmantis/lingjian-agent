@@ -24,6 +24,8 @@ def now(): return datetime.now(timezone.utc).isoformat()
 
 def changed(conn, partner_id):
     conn.execute('UPDATE partners SET materials_revision=materials_revision+1 WHERE id=?',(partner_id,))
+    from .profile_sources import sync
+    sync(conn,partner_id)
 
 def public_file(row, admin=True):
     result={k:row[k] for k in ('id','filename','file_type','processing_status','processed_at','created_at')}
@@ -134,7 +136,6 @@ def process(scope,file_id,import_profile=False):
             if not row: return
             row=dict(row)
             partner_id=row[parent] if scope=='document' else conn.execute('SELECT partner_id FROM cases WHERE id=?',(row[parent],)).fetchone()[0]
-            baseline=dict(conn.execute('SELECT materials_revision,profile_updated_at FROM partners WHERE id=?',(partner_id,)).fetchone())
         text=None; error=None; preview_error=None; preview=row['preview_path']
         try: text=extract_text(row['file_path'],row['file_type'])
         except Exception as exc:
@@ -149,12 +150,10 @@ def process(scope,file_id,import_profile=False):
                 preview_error=redact(f'{type(exc).__name__}: {exc}')
                 record_error(exc,stage='document_preview',request_id=file_id)
         state='failed' if error else ('ready' if text and text.strip() else 'empty')
-        profile_imported=False
-        report_text=None
         if import_profile and state=='ready':
             try:
                 from .profile_report import from_docx
-                report_text=from_docx(row['file_path']).text
+                from_docx(row['file_path'])
             except Exception as exc:
                 from .error_diagnostics import redact,record_error
                 error=redact(f'{type(exc).__name__}: {exc}')
@@ -163,25 +162,21 @@ def process(scope,file_id,import_profile=False):
         try:
             with get_db() as conn:
                 conn.lock_writer()
-                exists=conn.execute(f'SELECT id FROM {table} WHERE id=?',(file_id,)).fetchone()
-                if not exists:
+                exists=conn.execute(f'SELECT file_path FROM {table} WHERE id=?',(file_id,)).fetchone()
+                if not exists or exists['file_path']!=row['file_path']:
                     if preview: Path(preview).unlink(missing_ok=True)
                     return
                 conn.execute(f'UPDATE {table} SET extracted_text=?,processing_status=?,processing_error=?,preview_path=?,preview_error=?,processed_at=? WHERE id=?',(text,state,error,preview,preview_error,now(),file_id))
-                if import_profile and state=='ready':
-                    current=dict(conn.execute('SELECT materials_revision,profile_updated_at FROM partners WHERE id=?',(partner_id,)).fetchone())
-                    if current==baseline:
-                        conn.execute('UPDATE partners SET ai_profile=?,profile_materials_revision=materials_revision,profile_updated_at=?,updated_at=? WHERE id=?',(report_text,now(),now(),partner_id))
-                        profile_imported=True
-                    else:
-                        conn.execute(f'UPDATE {table} SET processing_error=? WHERE id=?',('资料或画像已变化，未覆盖当前画像，请重新导入。',file_id))
+                from .profile_sources import sync
+                sync(conn,partner_id)
         except Exception as exc:
             from .error_diagnostics import record_error
             record_error(exc,stage='document_result_persistence',request_id=file_id)
-            profile_imported=False
-    if profile_imported:
-        from .partner_match_context import generate_summary
-        generate_summary(partner_id)
+        from .profile_sources import process_partner
+    try: process_partner(partner_id)
+    except Exception:
+        # Contribution errors persist separately; native text/preview remain usable.
+        logger.warning('Source contribution failed for material %s',file_id)
 
 def retry(scope,parent_id,file_id,tasks):
     table,_=TABLES[scope]
@@ -235,5 +230,6 @@ def remove(scope,parent_id,file_id,partner_id):
 
 def recover_processing():
     with get_db() as conn:
+        conn.execute("UPDATE partner_profile_sources SET state='failed',error='处理被中断，请重试。' WHERE state='processing'")
         for table,_ in TABLES.values():
             conn.execute(f"UPDATE {table} SET processing_status='failed',processing_error='处理被中断，请点击重试。' WHERE processing_status='processing'")

@@ -232,35 +232,24 @@ def test_client_honors_configured_timeout_and_sends_zero(monkeypatch):
 
 def test_separate_admin_maintenance_calls_use_their_scenes(monkeypatch):
     make_partner()
-    owner = make_user("scene_user")
-    task_id = make_task(owner, "scene validation")
-    recs = [match.PartnerRecommendation(**recommendation())]
-    calls = []
-    responses = iter(['{}', '{}', '[]', '{}', '[]', '[%s]' % json.dumps(recommendation())])
-    def complete(messages, **kwargs):
-        calls.append((kwargs.get("scene"), kwargs.get("timeout")))
+    owner=make_user("scene_user")
+    task_id=make_task(owner,"scene validation")
+    recs=[match.PartnerRecommendation(**recommendation())]
+    calls=[]
+    responses=iter(['{}','[]','{}','[]'])
+    def complete(messages,**kwargs):
+        calls.append((kwargs.get("scene"),kwargs.get("timeout")))
         return next(responses)
-    monkeypatch.setattr(profile, "chat_completion", complete)
-    monkeypatch.setattr(match, "chat_completion", complete)
-    monkeypatch.setattr(ai_client, "chat_completion", complete)
-    from .support.profile_report_fixture import patch_all
-    from backend.app import partner_match_context
-    def resolve(scene):
-        calls.append((scene, None))
-        return {'id': 'synthetic-profile-model'}
-    monkeypatch.setattr(profile, "resolve_model_record", resolve)
-    monkeypatch.setattr(profile.development_model, "completion", lambda *a: patch_all())
-    monkeypatch.setattr(partner_match_context, "generate_summary", lambda *a: True)
+    monkeypatch.setattr(match,"chat_completion",complete)
+    monkeypatch.setattr(ai_client,"chat_completion",complete)
+    # No materials: no speculative profile generation or independent summary call.
     profile.generate_profile("partner-1")
-    match._generate_demand_profile(task_id, "需求", recs, datetime.now(timezone.utc).isoformat())
-    assert match._generate_tag_suggestions("需求", task_id)
-    assert match._extract_project_opportunity("需求", task_id, recs)
+    match._generate_demand_profile(task_id,"需求",recs,datetime.now(timezone.utc).isoformat())
+    assert match._generate_tag_suggestions("需求",task_id)
+    assert match._extract_project_opportunity("需求",task_id,recs)
     from backend.app.routers.capability_tags import scan_suggestions
     scan_suggestions()
-    assert calls == [
-        ("partner_profile", None), ("partner_profile", None), ("demand_profile", None),
-        ("tag_suggestion", None), ("demand_profile", None), ("tag_suggestion", None),
-    ]
+    assert calls==[("demand_profile",None),("tag_suggestion",None),("demand_profile",None),("tag_suggestion",None)]
 
 
 @pytest.mark.parametrize("scene,path", [
@@ -272,6 +261,8 @@ def test_no_enabled_model_returns_actionable_error_without_calling_model(client,
     admin = make_user("unavailable_admin", role="admin")
     make_task(admin, "scan input")
     bind(scene, "missing-config")
+    if scene=="partner_profile":
+        client.post('/partners/partner-1/documents',headers=auth_headers(admin),files={'file':('synthetic.txt',b'synthetic business capability')})
     response = client.post(path, headers=auth_headers(admin), json={"requirement": "寻找测试伙伴"})
     assert response.status_code == 503
     assert response.json()["detail"] == "服务异常，请联系管理员。"

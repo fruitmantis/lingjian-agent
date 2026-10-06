@@ -22,7 +22,7 @@ def list_cases_by_partner(partner_id: str,user=Depends(require_active_user)):
         return [dict(r) for r in conn.execute('SELECT * FROM cases WHERE partner_id=?'+('' if user['role']=='admin' else ' AND visible=1')+' ORDER BY created_at DESC',(partner_id,))]
 
 @router.post('',response_model=CaseOut,status_code=201)
-def create_case(payload: CaseCreate,actor=Depends(require_admin)):
+def create_case(payload: CaseCreate,background_tasks: BackgroundTasks,actor=Depends(require_admin)):
     check_category(payload.category_id)
     cid=str(uuid.uuid4());stamp=files.now()
     with get_db() as conn:
@@ -31,6 +31,8 @@ def create_case(payload: CaseCreate,actor=Depends(require_admin)):
         conn.execute('INSERT INTO cases (id,partner_id,title,description,category_id,visible,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)',(cid,payload.partner_id,payload.title,payload.description,payload.category_id,int(payload.visible),stamp,stamp))
         files.changed(conn,payload.partner_id)
         record_audit(conn,'case_created',actor_user_id=actor['id'],summary={'case_id':cid,'visible':payload.visible})
+        from ..profile_sources import process_partner
+        background_tasks.add_task(_process_profile,payload.partner_id)
         return visible_case(conn,cid,True)
 
 @router.get('/{case_id}',response_model=CaseOut)
@@ -38,7 +40,7 @@ def get_case(case_id: str,user=Depends(require_active_user)):
     with get_db() as conn: return visible_case(conn,case_id,user['role']=='admin')
 
 @router.put('/{case_id}',response_model=CaseOut)
-def edit_case(case_id: str,payload: CaseCreate,actor=Depends(require_admin)):
+def edit_case(case_id: str,payload: CaseCreate,background_tasks: BackgroundTasks,actor=Depends(require_admin)):
     check_category(payload.category_id)
     with get_db() as conn:
         conn.lock_writer();old=visible_case(conn,case_id,True)
@@ -46,6 +48,7 @@ def edit_case(case_id: str,payload: CaseCreate,actor=Depends(require_admin)):
         conn.execute('UPDATE cases SET partner_id=?,title=?,description=?,category_id=?,visible=?,updated_at=? WHERE id=?',(payload.partner_id,payload.title,payload.description,payload.category_id,int(payload.visible),files.now(),case_id))
         for pid in {old['partner_id'],payload.partner_id}: files.changed(conn,pid)
         record_audit(conn,'case_updated',actor_user_id=actor['id'],summary={'case_id':case_id,'visible':payload.visible})
+        for pid in {old['partner_id'],payload.partner_id}: background_tasks.add_task(_process_profile,pid)
         return visible_case(conn,case_id,True)
 
 class Visibility(BaseModel): visible: bool
@@ -106,3 +109,9 @@ def delete_case(case_id: str,actor=Depends(require_admin)):
 async def replace_deliverable(case_id: str,file_id: str,background_tasks: BackgroundTasks,file: UploadFile=File(...),actor=Depends(require_admin)):
     with get_db() as conn: visible_case(conn,case_id,True)
     return await files.replace('attachment',case_id,file_id,file,background_tasks)
+
+
+def _process_profile(pid):
+    from ..profile_sources import process_partner
+    try: process_partner(pid)
+    except Exception: pass  # Source state/error is persisted; no successful-profile claim.

@@ -6,7 +6,10 @@ from backend.app.routers import partner_materials
 from .conftest import auth_headers,make_partner,make_user
 
 @pytest.fixture
-def access(client):
+def access(client,monkeypatch):
+    from backend.app import profile_sources
+    monkeypatch.setattr(profile_sources,'resolve_model_record',lambda _: {})
+    monkeypatch.setattr(profile_sources.development_model,'completion',lambda *_:'{"sections":[]}')
     return auth_headers(make_user('catalogue-admin',role='admin')), auth_headers(make_user('catalogue-user')), make_partner()['id']
 
 def add_case(client,admin,pid,title='资料条目',category='technical-1'):
@@ -85,7 +88,7 @@ def test_classification_guards_and_transaction(client,access,monkeypatch,blocked
 
 
 @pytest.mark.parametrize('kind',['case','document'])
-def test_file_replacement_keeps_id_validates_first_and_does_not_change_profile(client,access,kind):
+def test_file_replacement_keeps_id_validates_first_and_withdraws_legacy_profile(client,access,kind):
     admin,user,pid=access
     if kind=='case':
         cid=add_case(client,admin,pid);endpoint=f'/cases/{cid}/deliverables'
@@ -102,4 +105,4 @@ def test_file_replacement_keeps_id_validates_first_and_does_not_change_profile(c
     assert client.get(url+'/file',headers=admin).content==b'new text'
     assert client.get(url+'/preview',headers=admin).text=='new text'
     assert len(client.get(endpoint,headers=admin).json())==1
-    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(pid,)).fetchone()[0]=='existing profile'
+    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(pid,)).fetchone()[0]!='existing profile'

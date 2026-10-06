@@ -4,75 +4,23 @@ import json
 import logging
 import math
 import re
-from datetime import datetime, timezone
-from time import perf_counter
 from urllib.parse import urlsplit
 
-from pydantic import Field
 
-from . import development_model
 from .ai_client import completion_payload, last_retry_count, reset_retry_count
-from .database import get_db
 from .development_engine import terms
-from .development_lifecycle import fingerprint
 from .business_taxonomy import project_partner
-from .enablement import StrictModel
-from .error_diagnostics import record_error
 from .model_resolver import model_config_from_record, resolve_model_record
 from .task_failures import MatchInputBudgetError
 
 
-SUMMARY_PREFIX = 'partner_match_summary:'
-INITIAL_CHAR_LIMIT = 60_000
 DETAIL_CHAR_LIMIT = 25_000
-SUMMARY_CHAR_LIMIT = 25_000
 DETAIL_PARTNER_TARGET = 1_500
 # DeepSeek's published Flash context is 1,048,576 tokens. Other providers are
 # held to a deliberately smaller local ceiling until their capacity is known.
 DEEPSEEK_CONTEXT_TOKENS = 1_048_576
 UNKNOWN_CONTEXT_CEILING = 32_768
 _LOG = logging.getLogger('uvicorn.error')
-
-
-class MatchingSummary(StrictModel):
-    text: str = Field(min_length=1, max_length=240)
-
-
-def _source_stamp(partner: dict, cases: list[dict], deliverables: list[dict]) -> str:
-    """Use maintained revisions; no all-partner full-text reads on initial selection."""
-    fields = ('id', 'name', 'intro', 'capabilities', 'industries', 'service_areas',
-              'materials_revision', 'profile_materials_revision', 'profile_updated_at', 'updated_at')
-    return fingerprint({
-        'partner': {key: partner.get(key) for key in fields},
-        'cases': [{key: row.get(key) for key in ('id', 'title', 'updated_at', 'visible')} for row in cases],
-        'deliverables': [{key: row.get(key) for key in ('id', 'filename', 'processed_at')} for row in deliverables],
-    })
-
-
-def sources(conn, partner_id: str, *, full_profile: bool = False):
-    cols = ('*' if full_profile else 'id,name,intro,capabilities,industries,service_areas,materials_revision,profile_materials_revision,profile_updated_at,updated_at')
-    row = conn.execute(f'SELECT {cols} FROM partners WHERE id=?', (partner_id,)).fetchone()
-    if row is None:
-        return None
-    partner = dict(row)
-    cases = [dict(r) for r in conn.execute(
-        'SELECT id,title,updated_at,visible' + (',description' if full_profile else '') +
-        ' FROM cases WHERE partner_id=? AND visible=1 ORDER BY id', (partner_id,))]
-    deliverables = [dict(r) for r in conn.execute(
-        'SELECT d.id,d.filename,d.processed_at FROM deliverables d JOIN cases c ON c.id=d.case_id '
-        'WHERE c.partner_id=? AND c.visible=1 ORDER BY d.id', (partner_id,))]
-    return partner, cases, deliverables, _source_stamp(partner, cases, deliverables)
-
-
-def current_summary(conn, partner_id: str, stamp: str) -> str | None:
-    row = conn.execute('SELECT value FROM app_metadata WHERE key=?', (SUMMARY_PREFIX + partner_id,)).fetchone()
-    if not row:
-        return None
-    try:
-        value = json.loads(row[0])
-    except (TypeError, ValueError):
-        return None
-    return value.get('text') if value.get('source_fingerprint') == stamp and isinstance(value.get('text'), str) else None
 
 
 def _passages(value: str, max_chunk: int = 900) -> list[str]:
@@ -161,28 +109,33 @@ def log_stage(stage: str, partner_count: int, chars: int, estimated_tokens: int,
     }, separators=(',', ':')))
 
 
-def compact_candidates(conn) -> list[dict]:
-    """Every active partner enters AI initial selection, even without labels or summary."""
-    ids = [row['id'] for row in conn.execute("SELECT id FROM partners WHERE status='active' ORDER BY id")]
-    result = []
-    for partner_id in ids:
-        data = sources(conn, partner_id)
-        if data is None:
-            continue
-        partner, cases, deliverables, stamp = data
-        projected = project_partner(partner)
-        summary = current_summary(conn, partner_id, stamp)
-        intro = (partner.get('intro') or '').strip() if not summary else ''
-        result.append({
-            'partnerId': partner_id, 'name': partner['name'],
-            'capabilities': projected.get('capabilities') or '',
-            'industries': projected.get('industries') or '',
-            'regions': projected.get('service_areas') or '',
-            'summary': summary or '', 'intro': intro,
-            'evidenceState': '摘要有效' if summary else '资料有限，待核实',
-            'visibleCaseCount': len(cases), 'visibleDeliverableCount': len(deliverables),
-        })
-    return result
+def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12) -> list[dict]:
+    """PG searches full current contribution text and tags before any candidate model call."""
+    query_terms=sorted(terms(requirement+' '+json.dumps(facts,ensure_ascii=False))-
+                       terms('未知 现有资料 伙伴 推荐 项目 需要 希望 请帮'))
+    if not query_terms:
+        return []
+    # Query term incidence in PG; rare capability terms outweigh common tag overlaps.
+    # A source fingerprint is refreshed transactionally on writes; pending sources are excluded.
+    corpus="""WITH corpus AS (
+        SELECT p.id,p.name,p.capabilities,p.industries,p.service_areas,
+        lower(concat_ws(' ',p.name,p.capabilities,p.industries,p.service_areas,
+          (SELECT string_agg(s.sections_json,' ') FROM partner_profile_sources s
+           WHERE s.partner_id=p.id AND s.state='ready' AND
+           (s.source_kind!='word' OR s.source_id=(SELECT d.id FROM partner_documents d
+             JOIN partner_profile_sources w ON w.partner_id=d.partner_id AND w.source_id=d.id AND w.source_kind='word' AND w.state='ready'
+             WHERE d.partner_id=p.id AND d.doc_category='profile_import'
+             ORDER BY d.created_at DESC,d.id DESC LIMIT 1))))) AS body
+        FROM partners p WHERE p.status='active'
+    ), terms AS (SELECT value AS token FROM jsonb_array_elements_text(CAST(? AS jsonb))),
+    hits AS (SELECT c.id,t.token FROM corpus c CROSS JOIN terms t WHERE strpos(c.body,t.token)>0),
+    weights AS (SELECT token,count(*) AS frequency FROM hits GROUP BY token),
+    ranked AS (SELECT h.id,sum((1+ln(1+(SELECT count(*) FROM corpus)::float/w.frequency))*least(length(h.token),12)) AS score
+        FROM hits h JOIN weights w USING(token) GROUP BY h.id)
+    SELECT c.id,c.name,r.score FROM corpus c JOIN ranked r ON r.id=c.id
+    ORDER BY r.score DESC,c.id LIMIT ?"""
+    rows=conn.execute(corpus,(json.dumps(query_terms,ensure_ascii=False),limit))
+    return [{'partnerId':r['id'],'verificationFocus':requirement[:150]} for r in rows]
 
 
 def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
@@ -194,7 +147,6 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
     cases = [dict(r) for r in conn.execute(
         'SELECT id,partner_id,title,description,created_at FROM cases '
         'WHERE partner_id=? AND visible=1 ORDER BY id', (partner_id,))]
-    hidden = conn.execute('SELECT COUNT(*) FROM cases WHERE partner_id=? AND visible=0', (partner_id,)).fetchone()[0]
     query = requirement + ' ' + focus
     query_terms = terms(query)
     def relevance(case):
@@ -211,14 +163,11 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
             (case['title'], case['id']))]
         files.sort(key=lambda item: (-sum(min(len(term), 6) for term in query_terms & terms(item['filename'])), item['id']))
         evidence_deliverables += files[:3]
-    # A profile can reflect hidden cases, even if the case visibility changed later.
-    # Do not send it in that situation; visible cases remain usable independently.
-    profile = partner.get('ai_profile') if not hidden and partner.get('materials_revision') == partner.get('profile_materials_revision') else ''
+    from .profile_sources import assembled
+    profile = assembled(conn,partner_id,analysis=True)
     passages = select_passages(profile or '', query, profile_budget)
     context = {
         'partnerId': partner_id, 'name': partner['name'],
-        'intro': ((partner.get('intro') or '').strip() if len((partner.get('intro') or '').strip()) <= 900
-                  else '；'.join(select_passages(partner.get('intro') or '', query, 300))),
         'capabilities': partner.get('capabilities') or '',
         'industries': partner.get('industries') or '',
         'regions': partner.get('service_areas') or '',
@@ -231,67 +180,3 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
         'evidenceState': '资料有限' if not passages and not evidence_cases else '可核实',
     }
     return partner, context, selected_cases, evidence_deliverables
-
-
-def generate_summary(partner_id: str) -> bool:
-    """Independent best-effort call after a successfully committed profile update."""
-    try:
-        return _generate_summary(partner_id)
-    except Exception as error:
-        record_error(error, stage='match_summary')
-        return False
-
-
-def _generate_summary(partner_id: str) -> bool:
-    start = perf_counter()
-    with get_db() as conn:
-        data = sources(conn, partner_id, full_profile=True)
-    if data is None:
-        return False
-    partner, cases, deliverables, source_stamp = data
-    with get_db() as conn:
-        hidden_cases = conn.execute('SELECT COUNT(*) FROM cases WHERE partner_id=? AND visible=0', (partner_id,)).fetchone()[0]
-    profile = (partner.get('ai_profile') or '') if not hidden_cases else ''
-    passages = select_passages(profile, '', 18_000)
-    if profile and not passages:
-        record_error(ValueError('Profile has no complete passage within matching summary budget'), stage='match_summary')
-        return False
-    context = {
-        'name': partner['name'], 'intro': partner.get('intro'),
-        'capabilities': partner.get('capabilities'), 'industries': partner.get('industries'),
-        'regions': partner.get('service_areas'),
-        'profile_passages': passages,
-        'visible_cases': [{'id': c['id'], 'title': c['title'],
-                           'description': '；'.join(select_passages(c.get('description') or '', '', 250))} for c in cases],
-        'deliverables': [d['filename'] for d in deliverables],
-    }
-    if not any((profile, partner.get('intro'), partner.get('capabilities'), cases, deliverables)):
-        return False
-    messages = [
-        {'role': 'system', 'content': '仅根据给定资料写约200字的伙伴匹配摘要，突出真实能力、代表性经验和必要限制。不得从标签缺失推断无能力，不得编造。不复述资料开头；综合全文各处证据。资料不足要明确说资料有限。只返回指定JSON。'},
-        {'role': 'user', 'content': json.dumps(context, ensure_ascii=False, separators=(',', ':'))},
-    ]
-    config = resolve_model_record('partner_profile')
-    try:
-        budgeted, chars, estimated = checked_config(config, messages, MatchingSummary.model_json_schema(), SUMMARY_CHAR_LIMIT)
-        prepared = round((perf_counter() - start) * 1000)
-        call_start = perf_counter()
-        reset_retry_count()
-        try:
-            raw = development_model.completion(budgeted, messages, MatchingSummary.model_json_schema())
-        finally:
-            log_stage('match_summary', 1, chars, estimated, prepared,
-                      round((perf_counter() - call_start) * 1000), last_retry_count())
-        text = MatchingSummary.model_validate_json(raw).text.strip()
-        with get_db() as conn:
-            conn.lock_writer()
-            latest = sources(conn, partner_id)
-            if latest is None or latest[3] != source_stamp:
-                raise ValueError('Partner summary source changed before persistence')
-            conn.execute('INSERT INTO app_metadata(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
-                         (SUMMARY_PREFIX + partner_id, json.dumps({'text': text, 'source_fingerprint': source_stamp,
-                         'generated_at': datetime.now(timezone.utc).isoformat()}, ensure_ascii=False)))
-        return True
-    except Exception as error:
-        record_error(error, stage='match_summary')
-        return False

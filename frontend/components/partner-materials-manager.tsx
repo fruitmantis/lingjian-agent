@@ -51,7 +51,7 @@ export function PartnerMaterialsManager(){
   const current=data.partners.find(p=>p.id===partnerId);
   const groups=[...contract.categories.map(g=>({id:g.id,name:g.name,ids:g.children.map(c=>c.id) as string[]})),{id:'unclassified',name:'待分类资料',ids:[] as string[]}];
   return <main className="page">
-    <div className="page-heading-row"><div><p className="eyebrow">Partner Materials</p><h1>伙伴资料</h1><p className="lead">集中维护伙伴案例与资料，展示和画像更新由你决定。</p></div><button onClick={()=>setCreating(true)}>新增资料</button></div>
+    <div className="page-heading-row"><div><p className="eyebrow">Partner Materials</p><h1>伙伴资料</h1><p className="lead">集中维护伙伴案例与资料，处理后自动更新画像；展示开关仅控制来源可见性。</p></div><button onClick={()=>setCreating(true)}>新增资料</button></div>
     {partnerId&&<div className={styles.context}><strong>当前伙伴：{current?.name||'加载中…'}</strong><div className={styles.contextActions}><Link href={`/admin/partners/${encodeURIComponent(partnerId)}`} className={`secondary-btn ${styles.contextAction}`}><UiIcon name="send" size={16} className={styles.backIcon}/><span>返回伙伴详情</span></Link><button className={`secondary-btn ${styles.contextAction}`} onClick={()=>filter({partner_id:null})}><UiIcon name="apps" size={16}/><span>查看全部伙伴资料</span></button></div></div>}
     <form className={styles.filters} onSubmit={e=>{e.preventDefault();filter({q:q.trim()});}}>
       <PartnerSelect caption="所属伙伴" label="筛选伙伴" partners={data.partners} value={partnerId} placeholder="全部伙伴" onChange={value=>filter({partner_id:value})}/>
@@ -59,7 +59,7 @@ export function PartnerMaterialsManager(){
       <label>二级分类<select aria-label="筛选二级分类" value={category} disabled={!group||group==='unclassified'} onChange={e=>filter({category_id:e.target.value})}><option value="">全部</option>{contract.categories.find(g=>g.id===group)?.children.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       <label className={styles.search}>名称搜索<div><input aria-label="资料名称" value={q} maxLength={200} placeholder="搜索资料名称" onChange={e=>setQ(e.target.value)}/><button className="secondary-btn" type="submit">搜索</button></div></label>
     </form>
-    {notice&&<div role="status" className={styles.notice}><span>资料已保存，{notice.name}的画像待更新。</span><div className="table-actions"><Link href={`/admin/partners/${encodeURIComponent(notice.id)}#profile`} className="secondary-btn">前往更新画像</Link><button className="secondary-btn" onClick={()=>setNotice(null)}>暂不更新</button></div></div>}
+    {notice&&<div role="status" className={styles.notice}><span>资料已保存，{notice.name}的画像按有效来源更新；附件处理结果请在详情中查看。</span><div className="table-actions"><Link href={`/admin/partners/${encodeURIComponent(notice.id)}#profile`} className="secondary-btn">查看画像和处理状态</Link><button className="secondary-btn" onClick={()=>setNotice(null)}>关闭提示</button></div></div>}
     {error&&<div className="inline-error-actions"><p role="alert" className="error-text">{error}</p><button className="secondary-btn" onClick={refresh}>重试</button></div>}
     {loading&&<p className="muted" role="status">正在加载资料…</p>}
     {!error&&groups.map(g=>{const entries=data.items.filter(e=>g.id==='unclassified'?!e.category_id:g.ids.includes(e.category_id||''));if(!entries.length)return null;return <section key={g.id} className={styles.group} aria-label={g.name}><div className={styles.groupHeading}><h2>{g.name}</h2><span/></div><div className={styles.grid}>{entries.map(entry=><article key={entry.kind+entry.id} className={`ui-catalog-card ${styles.card}`} data-material-id={entry.id}>

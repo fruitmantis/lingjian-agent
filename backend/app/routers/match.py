@@ -354,7 +354,16 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="记录不存在")
     recs = json.loads(row["recommendations_json"])
-    return MatchRecordDetail(progress=(snapshot or {}).get("progress"),understanding=(snapshot or {}).get("understanding",{}).get("facts") if (snapshot or {}).get("understanding",{}).get("in_scope") else None,scopeMessage=(snapshot or {}).get("scope_message"),answer=(snapshot or {}).get("visible_answer",""),id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=_demand_profile_dict(demand_profile), opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
+    answer=(snapshot or {}).get("visible_answer","")
+    if user["role"]!="admin":
+        from ..profile_sources import redact_sources,hidden_labels,sources
+        labels=[]
+        with get_db() as conn:
+            for rec in recs:
+                labels.extend(hidden_labels(sources(conn,rec["partnerId"])))
+        answer=redact_sources(answer,labels)
+        recs=[{k:redact_sources(v,labels) if k in ("recommendationReason","riskNotes","evidenceCases","evidenceDeliverables") and isinstance(v,str) else v for k,v in rec.items()} for rec in recs]
+    return MatchRecordDetail(progress=(snapshot or {}).get("progress"),understanding=(snapshot or {}).get("understanding",{}).get("facts") if (snapshot or {}).get("understanding",{}).get("in_scope") else None,scopeMessage=(snapshot or {}).get("scope_message"),answer=answer,id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=_demand_profile_dict(demand_profile), opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
 
 
 def _model_value(item: dict, field: str):
@@ -450,8 +459,7 @@ def _validated_recommendations(items: list, partners: list[dict], cases: dict, d
             gaps.append("缺少可核实的支撑案例")
         if not deliverable_rows:
             gaps.append("缺少可核实的支撑交付物")
-        if not case_rows and not deliverable_rows:
-            reason = "仅依据现有伙伴资料进行初步匹配，案例与交付能力仍需进一步核实。"
+
         risk = _model_value(item, "riskNotes")
         risk = risk.strip() if isinstance(risk, str) else ""
         if not risk or risk in {"无", "无风险", "暂无", "暂无风险", "未发现风险"}:
@@ -468,6 +476,32 @@ def _validated_recommendations(items: list, partners: list[dict], cases: dict, d
     for rec in sorted(valid, key=lambda rec: float(rec.matchScore), reverse=True):
         selected.setdefault(rec.partnerId, rec)
     return list(selected.values())[:MAX_RECOMMENDATIONS]
+
+
+def _validated_outcome(recs, output, rejected, rows):
+    """One public result assembled from validated cards; raw model prose cannot disagree."""
+    from ..profile_sources import redact_sources,hidden_labels,sources
+    labels=[]
+    with get_db() as conn:
+        for row in rows: labels.extend(hidden_labels(sources(conn,row[0]['id'])))
+        available_names={r.partnerName for r in recs}
+        # Discard foreign partner references in accepted items too.
+        labels.extend(r['name'] for r in conn.execute('SELECT name FROM partners') if r['name'] not in available_names)
+    for rec in recs:
+        rec.recommendationReason=redact_sources(rec.recommendationReason,labels)
+        rec.riskNotes=redact_sources(rec.riskNotes,labels)
+    if not recs:
+        return {'answer':'现有资料未能支持可核实的推荐。','supplyStatus':'unknown',
+                'gapAnalysis':'缺少有效推荐，不能据此认定所有伙伴缺乏能力。','recommendations':[]}
+    # Review supply judgement is usable only when its complete recommendation set survived.
+    supply=output['supplyStatus'] if not rejected else 'partial'
+    if supply=='gap': supply='partial'
+    gap=('部分模型推荐未通过身份或证据校验；需按有效推荐核实供给覆盖。' if rejected
+         else '供给覆盖依据以下有效推荐及其待核实事项判断。')
+    answer='\n\n'.join(f"{r.partnerName}（匹配分 {r.matchScore}）：{r.recommendationReason}\n需核实：{r.riskNotes}" for r in recs)
+    answer+='\n\n'+gap
+    return {'answer':answer,'supplyStatus':supply,'gapAnalysis':gap,
+            'recommendations':[r.model_dump() for r in recs]}
 
 
 def _context_excerpt(value: str | None, limit: int) -> str:
@@ -507,82 +541,14 @@ def _match_stage(record_id, snapshot, key, state):
 
 
 def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerRecommendation]:
-    """Understanding is already saved; initial selection and detailed review are separate calls."""
+    """Understanding is saved before local PG recall and candidate model review."""
     _match_stage(snapshot['_task_id'], snapshot, 'initial_selection', 'running')
-    start = perf_counter()
     with get_db() as conn:
         conn.begin_read()
         candidate_stamp = _candidate_stamp(conn)
-        compact = match_context.compact_candidates(conn)
-        policy_stamp = get_settings(conn).model_dump()
+        selected = match_context.recall_candidates(conn,requirement,snapshot['understanding']['facts'])
     snapshot['candidate_stamp'] = candidate_stamp
-    if not compact:
-        _match_stage(snapshot['_task_id'], snapshot, 'initial_selection', 'completed')
-        snapshot['outcome'] = {'answer': '当前没有可用伙伴，暂不能给出推荐。', 'supplyStatus': 'gap',
-                               'gapAnalysis': '当前没有启用的伙伴资料。', 'recommendations': []}
-        return []
-    initial_stamp = fingerprint({'candidate': candidate_stamp, 'compact': compact,
-                                 'understanding': snapshot['stamp'], 'model': snapshot['model'],
-                                 'timeout_policy': policy_stamp})
-    saved = snapshot.get('initial_selection')
-    if saved and saved.get('input_stamp') == initial_stamp:
-        selected = saved['candidates']
-    else:
-        messages = matching.initial_messages(snapshot['understanding']['facts'], compact)
-        try:
-            schema = understanding.InitialSelection.model_json_schema()
-            try:
-                config, chars, tokens = match_context.checked_config(
-                    pinned_configuration(snapshot['model']), messages, schema,
-                    match_context.INITIAL_CHAR_LIMIT)
-            except MatchInputBudgetError:
-                # Shrink duplicate/less relevant text, never omit a partner.
-                compact_input = [{**item,
-                                  'summary': ('；'.join(match_context.select_passages(
-                                      item['summary'], requirement, 130)) or item['summary'])}
-                                 for item in compact]
-                messages[1]['content'] = json.dumps({'facts': snapshot['understanding']['facts'],
-                                                     'partners': compact_input}, ensure_ascii=False, separators=(',', ':'))
-                try:
-                    config, chars, tokens = match_context.checked_config(
-                        pinned_configuration(snapshot['model']), messages, schema,
-                        match_context.INITIAL_CHAR_LIMIT)
-                except MatchInputBudgetError:
-                    compact_input = [{**item, 'intro': '；'.join(match_context.select_passages(
-                        item['intro'], requirement, 180))} for item in compact_input]
-                    if any(original['intro'] and not reduced['intro'] for original, reduced in zip(compact, compact_input)):
-                        raise MatchInputBudgetError('伙伴简介无法在完整语义下压缩至输入预算，任务已保留')
-                    messages[1]['content'] = json.dumps({'facts': snapshot['understanding']['facts'],
-                                                         'partners': compact_input}, ensure_ascii=False, separators=(',', ':'))
-                    config, chars, tokens = match_context.checked_config(
-                        pinned_configuration(snapshot['model']), messages, schema,
-                        match_context.INITIAL_CHAR_LIMIT)
-            prepared = round((perf_counter() - start) * 1000)
-            call_start = perf_counter()
-            reset_retry_count()
-            try:
-                raw = development_model.completion({**config, '_match_request': True}, messages, schema)
-            finally:
-                match_context.log_stage('initial_selection', len(compact), chars, tokens, prepared,
-                                        round((perf_counter() - call_start) * 1000), last_retry_count())
-            selected = matching.parse_initial(raw, compact)
-            with get_db() as conn:
-                conn.lock_writer()
-                if _candidate_stamp(conn) != candidate_stamp:
-                    raise ValueError('Candidate data or visibility changed during initial selection')
-                task = conn.execute('SELECT task_status FROM match_records WHERE id=?', (snapshot['_task_id'],)).fetchone()
-                current=understanding.load(conn,snapshot['_task_id']) or {}
-                if not task or task['task_status'] != 'matching' or (snapshot.get('progress') and current.get('progress',{}).get('run_id') != snapshot['progress']['run_id']):
-                    raise ValueError('Task state changed before initial selection persistence')
-                snapshot['initial_selection'] = {'input_stamp': initial_stamp, 'candidates': selected}
-                understanding.save(conn, snapshot['_task_id'], snapshot)
-                conn.execute('UPDATE match_records SET updated_at=? WHERE id=?',
-                             (datetime.now(timezone.utc).isoformat(), snapshot['_task_id']))
-        except ModelConfigurationError as exc:
-            raise PublicTaskError(exc, 503) from None
-        except Exception as exc:
-            raise PublicTaskError(exc) from None
-
+    snapshot['initial_selection'] = {'input_stamp':candidate_stamp,'candidates':selected,'method':'postgres_keywords'}
     _match_stage(snapshot['_task_id'], snapshot, 'initial_selection', 'completed')
     if not selected:
         snapshot['outcome'] = {'answer': '根据现有资料，暂未找到可核实的合适伙伴；建议补充关键交付要求后重试。',
@@ -633,11 +599,12 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
         deliverables = {row[0]['id']: row[3] for row in rows}
         rejections: list[str] = []
         recs = _validated_recommendations(output['recommendations'], partners, cases, deliverables, rejections)
+        evidence_filtered=any(set(item['evidenceCases'])-{c['id'] for c in cases.get(item['partnerId'],[])} or set(item['evidenceDeliverables'])-{d['id'] for d in deliverables.get(item['partnerId'],[])} for item in output['recommendations'])
         if output['recommendations'] and not recs:
             raise ValueError('所有推荐均未通过校验：' + '；'.join(rejections[:10]))
         if output['supplyStatus'] == 'sufficient' and not recs:
             raise ValueError('No verified recommendation supports sufficient supply')
-        snapshot['outcome'] = output
+        snapshot['outcome'] = _validated_outcome(recs, output, bool(rejections) or evidence_filtered, rows)
         return recs
     except ModelConfigurationError as exc:
         raise PublicTaskError(exc, 503) from None
@@ -648,10 +615,10 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
 def _candidate_stamp(connection=None):
     with (nullcontext(connection) if connection is not None else get_db()) as conn:
         return fingerprint({
-            'partners': [dict(r) for r in conn.execute('SELECT id,status,name,intro,capabilities,industries,service_areas,materials_revision,profile_materials_revision,profile_updated_at,updated_at FROM partners ORDER BY id')],
+            'partners': [dict(r) for r in conn.execute('SELECT id,status,name,capabilities,industries,service_areas,materials_revision,profile_materials_revision,profile_updated_at,updated_at FROM partners ORDER BY id')],
             'cases': [dict(r) for r in conn.execute('SELECT id,partner_id,title,visible,updated_at FROM cases ORDER BY id')],
             'deliverables': [dict(r) for r in conn.execute('SELECT id,case_id,filename,processed_at FROM deliverables ORDER BY id')],
-            'summaries': [dict(r) for r in conn.execute("SELECT key,value FROM app_metadata WHERE key ILIKE 'partner_match_summary:%' ORDER BY key")],
+            'contributions': [dict(r) for r in conn.execute('SELECT partner_id,source_kind,source_id,source_fingerprint,state,sections_json FROM partner_profile_sources ORDER BY partner_id,source_kind,source_id')],
         })
 
 

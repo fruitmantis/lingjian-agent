@@ -372,6 +372,21 @@ partners = Table('partners', metadata,
 )
 
 
+
+partner_profile_sources = Table('partner_profile_sources', metadata,
+    Column('partner_id', Text, nullable=False, primary_key=True),
+    Column('source_kind', Text, nullable=False, primary_key=True),
+    Column('source_id', Text, nullable=False, primary_key=True),
+    Column('source_fingerprint', Text, nullable=False),
+    Column('state', Text, nullable=False),
+    Column('sections_json', Text, nullable=False, server_default=text("'[]'")),
+    Column('error', Text, nullable=True),
+    Column('updated_at', Text, nullable=False),
+    CheckConstraint("source_kind IN ('word','document','case','attachment')", name='ck_profile_source_kind'),
+    CheckConstraint("state IN ('pending','processing','ready','failed','empty')", name='ck_profile_source_state'),
+    ForeignKeyConstraint(['partner_id'], ['partners.id'], ondelete='CASCADE'),
+)
+
 project_opportunities = Table('project_opportunities', metadata,
     Column('id', Text, primary_key=True, nullable=False),
     Column('match_record_id', Text, primary_key=False, nullable=True),

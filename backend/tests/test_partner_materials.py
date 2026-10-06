@@ -7,14 +7,15 @@ from PyPDF2 import PdfWriter
 from docx import Document
 from pptx import Presentation
 from backend.app.database import get_db
-from backend.app import material_files,doc_extractor,profile_report,partner_match_context
+from backend.app import material_files,doc_extractor,profile_report,profile_sources
 from .conftest import auth_headers,make_partner,make_user
 from .test_files import docx_bytes,pptx_bytes
 from .support.profile_report_fixture import document,patch_all
 
 @pytest.fixture
 def access(client,monkeypatch):
-    monkeypatch.setattr(partner_match_context,"generate_summary",lambda *_:True)
+    monkeypatch.setattr(profile_sources,'resolve_model_record',lambda _: {})
+    monkeypatch.setattr(profile_sources.development_model,'completion',lambda *_: '{"sections":[]}')
     admin=auth_headers(make_user('material-admin',role='admin'))
     ordinary=auth_headers(make_user('material-reader'))
     partner=make_partner()
@@ -92,19 +93,19 @@ def test_safe_preview_has_no_active_or_remote_content(client,access):
 
 def test_direct_docx_profile_adoption_and_failure_preserve_old(client,access,monkeypatch):
     from backend.app.routers import profile
-    monkeypatch.setattr(profile,'chat_completion',lambda *_a,**_k:pytest.fail('Import must not call AI'))
+    monkeypatch.setattr(profile_sources.development_model,'completion',lambda *_a,**_k:pytest.fail('Import must not call AI'))
     text='原样采用的完整画像'*12000
     assert len(text)>100000  # Direct DOCX adoption does not use the AI input budget.
     row=upload(client,access,'profile.docx',document(extra=text),True)
     expected=profile_report.from_docx(row['file_path']).text
     assert text in expected and text in row['extracted_text']
-    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]==expected
+    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0] .startswith(expected)
     monkeypatch.setattr(material_files,'extract_text',lambda *_:(_ for _ in ()).throw(ValueError('synthetic extraction failure')))
     failed=upload(client,access,'fail.docx',docx_bytes('new content'),True)
     assert failed['processing_status']=='failed' and Path(failed['file_path']).exists()
     assert 'synthetic extraction failure' in failed['processing_error']
-    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]==expected
-    assert client.get(f'/partners/{access[2]}',headers=access[1]).json()['ai_profile'] is None
+    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0] .startswith(expected)
+    assert client.get(f'/partners/{access[2]}',headers=access[1]).json()['ai_profile'] is not None
     assert '原样采用' not in client.get('/enablement/context',params={'partner_id':access[2]},headers=access[1]).text
 
 def test_preview_failure_retains_text_and_retry_preserves_profile(client,access,monkeypatch):
@@ -113,66 +114,15 @@ def test_preview_failure_retains_text_and_retry_preserves_profile(client,access,
     assert row['processing_status']=='ready' and row['extracted_text']=='retained text'
     assert 'synthetic converter failure' in row['preview_error']
 
-def test_manual_profile_full_input_budget_and_failed_generation(client,access,monkeypatch):
-    from backend.app.routers import profile
-    text='完整资料'*2000+'END_OF_FILE';upload(client,access,'full.txt',text.encode())
-    messages=[]
-    def complete(msg,**kwargs):
-        messages.append(msg)
-        return '{}'
-    monkeypatch.setattr(profile,'chat_completion',complete)
-    def chapters(_config,msg,_schema):
-        messages.append(msg);return patch_all('新的伙伴画像')
-    monkeypatch.setattr(profile.development_model,'completion',chapters)
-    response=client.post(f'/partners/{access[2]}/profile',headers=access[0])
-    assert response.status_code==200,response.text
-    assert all(text in m[1]['content'] for m in messages)
-    with get_db() as conn:
-        p=dict(conn.execute('SELECT * FROM partners WHERE id=?',(access[2],)).fetchone());assert p['materials_revision']==p['profile_materials_revision']
-    monkeypatch.setenv('BANFEI_PROFILE_INPUT_MAX_CHARS','1000');messages.clear()
-    response=client.post(f'/partners/{access[2]}/profile',headers=access[0]);assert response.status_code==422 and not messages
-    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]==p['ai_profile']
-    monkeypatch.delenv('BANFEI_PROFILE_INPUT_MAX_CHARS',raising=False)
-    monkeypatch.setattr(profile.development_model,'completion',lambda *_a,**_k:(_ for _ in ()).throw(RuntimeError('synthetic model failure')))
-    assert client.post(f'/partners/{access[2]}/profile',headers=access[0]).status_code==502
-    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]==p['ai_profile']
-
-
-@pytest.mark.parametrize('context_chars',[100000,100001])
-def test_default_profile_budget_boundary_keeps_full_input_and_old_profile(client,access,monkeypatch,context_chars):
-    from backend.app.routers import profile
-    monkeypatch.delenv('BANFEI_PROFILE_INPUT_MAX_CHARS',raising=False)
-    source='首尾';row=upload(client,access,'boundary.txt',source.encode())
-    messages=[]
-    def complete(msg,**kwargs):
-        messages.append(msg)
-        return '{}'
-    monkeypatch.setattr(profile,'chat_completion',complete)
-    def chapters(_config,msg,_schema):
-        messages.append(msg);return patch_all('合成边界画像')
-    monkeypatch.setattr(profile.development_model,'completion',chapters)
-    endpoint=f'/partners/{access[2]}/profile'
-    assert client.post(endpoint,headers=access[0]).status_code==200
-    # Measure an update context, including the saved report.
-    messages.clear()
-    assert client.post(endpoint,headers=access[0]).status_code==200
-    overhead=len(messages[0][1]['content'])-len(source)
-    source='首'+'字'*(context_chars-overhead-2)+'尾'
-    with get_db() as conn:
-        conn.execute('UPDATE partner_documents SET extracted_text=? WHERE id=?',(source,row['id']))
-        before=dict(conn.execute('SELECT * FROM partners WHERE id=?',(access[2],)).fetchone())
-    messages.clear()
-    response=client.post(endpoint,headers=access[0])
-    if context_chars==100000:
-        assert response.status_code==200,response.text
-        assert len(messages)==2
-        assert all(len(m[1]['content'])==context_chars and source in m[1]['content'] for m in messages)
-    else:
-        assert response.status_code==422
-        assert '共 100001 字' in response.json()['detail'] and '上限 100000 字' in response.json()['detail']
-        assert not messages
-        with get_db() as conn:
-            assert dict(conn.execute('SELECT * FROM partners WHERE id=?',(access[2],)).fetchone())==before
+def test_source_budget_keeps_complete_cache_and_truthful_failure(client,access,monkeypatch):
+    text='完整资料'*2000+'END_OF_FILE'
+    monkeypatch.setenv('BANFEI_PROFILE_INPUT_MAX_CHARS','1000')
+    row=upload(client,access,'full.txt',text.encode())
+    assert row['extracted_text']==text and row['processing_status']=='ready'
+    p=client.get(f'/partners/{access[2]}',headers=access[0]).json()
+    assert p['profile_status']=='failed'
+    assert any('输入上限' in (s['error'] or '') for s in p['profile_sources'])
+    assert 'END_OF_FILE' not in p['ai_profile']
 
 def test_case_visibility_files_categories_and_live_reference(client,access):
     admin,user,pid=access
@@ -234,7 +184,7 @@ def test_pdf_existing_text_layer_is_extracted_without_ocr(client,access):
 
 
 @pytest.mark.parametrize('newer_profile',[False,True])
-def test_failed_initial_profile_can_retry_without_overwriting_newer_profile(client,access,monkeypatch,newer_profile):
+def test_failed_initial_source_retries_without_using_synthesized_output(client,access,monkeypatch,newer_profile):
     original=material_files.extract_text
     monkeypatch.setattr(material_files,'extract_text',lambda *_:(_ for _ in ()).throw(ValueError('temporary parser failure')))
     row=upload(client,access,'retry.docx',document(),True)
@@ -247,4 +197,5 @@ def test_failed_initial_profile_can_retry_without_overwriting_newer_profile(clie
     r=client.post(f'/partners/{access[2]}/documents/{row["id"]}/retry',headers=access[0]);assert r.status_code==200
     with get_db() as conn:
         assert conn.execute('SELECT processing_status FROM partner_documents WHERE id=?',(row['id'],)).fetchone()[0]=='ready'
-        assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]==('更新后的画像' if newer_profile else expected)
+        saved=conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]
+        assert saved.startswith(expected) and '更新后的画像' not in saved

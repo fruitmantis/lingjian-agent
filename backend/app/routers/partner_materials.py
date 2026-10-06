@@ -86,6 +86,13 @@ def classify_document(document_id: str, payload: CaseCreate, actor=Depends(requi
         columns=('id','filename','file_path','file_type','created_at','extracted_text','processing_status','processing_error','preview_path','preview_error','processed_at')
         conn.execute('INSERT INTO deliverables (case_id,'+','.join(columns)+') VALUES ('+','.join('?' for _ in range(len(columns)+1))+')',
                      (document_id,*(row[c] for c in columns)))
+        contribution=conn.execute("SELECT * FROM partner_profile_sources WHERE partner_id=? AND source_kind='document' AND source_id=?",(old['partner_id'],document_id)).fetchone()
         for pid in {old['partner_id'],payload.partner_id}: files.changed(conn,pid)
+        if contribution and contribution['state']=='ready':
+            from ..profile_sources import sources,put,rebuild
+            import json
+            source=next(s for s in sources(conn,payload.partner_id) if s['kind']=='attachment' and s['id']==document_id)
+            put(conn,source,'ready',json.loads(contribution['sections_json']))
+            rebuild(conn,payload.partner_id)
         record_audit(conn,'partner_document_classified',actor_user_id=actor['id'],summary={'document_id':document_id,'case_id':document_id})
         return visible_case(conn,document_id,True)
