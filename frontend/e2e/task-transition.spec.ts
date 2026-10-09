@@ -32,6 +32,7 @@ async function setup(page:Page,kind:Kind,{reject=false,slowDetail=false}={}){
    const ready=history||phase===2;
    return route.fulfill({json:{plan:{id:history?'history-task':id,current_version_id:ready?'version-1':null,status:'active',active_run_id:ready?null:'synthetic-run'},presentation:{state:ready?'available':'generating',current_available:ready,latest_run_status:ready?'ready':'running',latest_run_type:'generate'},partner_name:'合成伙伴',request:{raw_demand:history?'已有历史任务的原文':draft},progress:history?null:progress(),analysis:phase&&!history?{interpretation:'已保存的发展方向分析',priorities:[],basis_limitations:[]}:null,payload:ready?payload:null,hidden:false,notice:null,versions:ready?[{id:'version-1',version_no:1}]:[],conversation:[],runs:[{id:'synthetic-run',submission_id:'synthetic-submission',run_type:'generate',status:ready?'ready':'running',created_at:stamp}]}});
   }
+  if(path==='/agents')return route.fulfill({json:[]});
   const json=path==='/auth/me'?user:path==='/health'?{status:'ok'}:path==='/partners'?[{id:'partner-1',name:'合成伙伴'}]:path==='/enablement/context'?{partner:{id:'partner-1',name:'合成伙伴'},project:null,shared_case:null,evidence:[]}:path==='/agent/tasks'?{items:[...(accepted?[summary()]:[]),summary(true)],total:accepted?2:1,page:1,pageSize:10,totalPages:1}:null;
   if(json===null){errors.push(req.method()+' '+path);return route.fulfill({status:404,json:{detail:'未定义的合成接口'}});}
   return route.fulfill({json});

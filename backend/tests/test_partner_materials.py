@@ -97,8 +97,10 @@ def test_direct_docx_profile_adoption_and_failure_preserve_old(client,access,mon
     text='原样采用的完整画像'*12000
     assert len(text)>100000  # Direct DOCX adoption does not use the AI input budget.
     row=upload(client,access,'profile.docx',document(extra=text),True)
-    expected=profile_report.from_docx(row['file_path']).text
+    original_report=profile_report.from_docx(row['file_path'])
+    expected=original_report.prefix+''.join(original_report.chapters[:9])
     assert text in expected and text in row['extracted_text']
+    assert '第10章原有完整说明' in original_report.chapters[9]
     with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0] .startswith(expected)
     monkeypatch.setattr(material_files,'extract_text',lambda *_:(_ for _ in ()).throw(ValueError('synthetic extraction failure')))
     failed=upload(client,access,'fail.docx',docx_bytes('new content'),True)
@@ -188,7 +190,8 @@ def test_failed_initial_source_retries_without_using_synthesized_output(client,a
     original=material_files.extract_text
     monkeypatch.setattr(material_files,'extract_text',lambda *_:(_ for _ in ()).throw(ValueError('temporary parser failure')))
     row=upload(client,access,'retry.docx',document(),True)
-    expected=profile_report.from_docx(row['file_path']).text
+    original_report=profile_report.from_docx(row['file_path'])
+    expected=original_report.prefix+''.join(original_report.chapters[:9])
     assert row['processing_status']=='failed'
     if newer_profile:
         with get_db() as conn:
@@ -199,3 +202,4 @@ def test_failed_initial_source_retries_without_using_synthesized_output(client,a
         assert conn.execute('SELECT processing_status FROM partner_documents WHERE id=?',(row['id'],)).fetchone()[0]=='ready'
         saved=conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0]
         assert saved.startswith(expected) and '更新后的画像' not in saved
+        assert '## 10. 数据来源' in saved and '免责声明' not in saved

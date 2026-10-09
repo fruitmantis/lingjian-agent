@@ -129,3 +129,15 @@ test('proxy waits past old 30 second idle cap and cancels upstream on client abo
     server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve()));
   }
 });
+
+test('source profile failure explains retained data while unknown server errors stay masked', async () => {
+  const known = await responseError(Response.json({detail:'来源贡献处理失败，请查看资料状态并重试。'},{status:502}));
+  expect(known.status).toBe(502);
+  expect(known.message).toBe('资料画像处理失败，原文件和已有有效画像已保留。请查看来源处理状态。');
+  const unknown = await responseError(Response.json({detail:'synthetic private model payload secret-value'},{status:502}));
+  expect(unknown.message).toBe('服务异常，请联系管理员。');
+  expect(unknown.message).not.toContain('secret-value');
+  const processing = await responseError(Response.json({detail:'本次处理失败，请重试。',failureCode:'timeout'},{status:502}));
+  expect(processing.message).toBe('本次处理失败，请重试。');
+  expect(processing.failureCode).toBe('timeout');
+});

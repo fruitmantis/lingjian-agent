@@ -75,8 +75,11 @@ export function submissionIsUncertain(error: unknown): boolean {
 export async function responseError(response: Response, fallback = "本次处理失败，请重试。"): Promise<ApiResponseError> {
   const data = await response.json().catch(() => ({}));
   const detail = typeof data?.detail === "string" ? data.detail : null;
+  const safeServerMessage = detail === "来源贡献处理失败，请查看资料状态并重试。"
+    ? "资料画像处理失败，原文件和已有有效画像已保留。请查看来源处理状态。"
+    : detail === "本次处理失败，请重试。" ? detail : null;
   const message = response.status >= 500
-    ? (detail === "本次处理失败，请重试。" ? detail : "服务异常，请联系管理员。")
+    ? safeServerMessage || "服务异常，请联系管理员。"
     : response.status === 401 ? "登录已过期，请重新登录。"
     : detail || (response.status === 422 ? "输入参数无效，请检查数值范围和必填项" : fallback);
   return new ApiResponseError(message, response.status, typeof data?.submissionAccepted === "boolean" ? data.submissionAccepted : undefined, typeof data?.failureCode === "string" ? data.failureCode : undefined);

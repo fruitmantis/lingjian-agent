@@ -23,6 +23,7 @@ for (const kind of ['match','development'] as const) {
     writes.push(req.postDataJSON());accepted=true;if(kind==='match')id=req.postDataJSON().requestId;
     return route.fulfill({status:202,json:kind==='match'?{recordId:id,runId:'progress-run',taskStatus:'matching'}:{plan_id:id,run_id:'progress-run',task_type:'development_plan'}});
    }
+   if(path==='/agents')return route.fulfill({json:[]});
    const json=path==='/auth/me'?user:path==='/health'?{status:'ok'}:path==='/partners'?[{id:'partner-1',name:'合成伙伴'}]:path==='/enablement/context'?{partner:{id:'partner-1',name:'合成伙伴',intro:'合成资料'},project:null,shared_case:null,evidence:[]}:path==='/agent/tasks'?{items:accepted?[summary()]:[],total:accepted?1:0,page:1,pageSize:20,totalPages:1}:path===`/agent/tasks/${id}`?kind==='match'?matchDetail():summary():path===`/development/plans/${id}`?developmentDetail():null;
    if(json===null){errors.push(req.method()+' '+path);return route.fulfill({status:404,json:{detail:'Unlisted synthetic endpoint'}});}
    return route.fulfill({json});
@@ -40,12 +41,24 @@ for (const kind of ['match','development'] as const) {
   expect(kind==='match'?writes[0].requirement:writes[0].request.development_direction).toBe(original);
   await expect(page.getByTestId('task-progress').locator('[data-stage="understanding"]')).toHaveAttribute('data-status','running');
   await expect(page.getByTestId('task-elapsed')).toContainText('本次已用时间');
+  const history=page.getByTestId('task-progress').locator('details'),toggle=history.locator('summary');
+  await expect(history).not.toHaveAttribute('open','');
+  await expect(page.locator('.task-progress-current')).toHaveText('进行中：'+labels[0]);
+  await toggle.focus();await page.keyboard.press('Enter');await expect(history).toHaveAttribute('open','');
+  await expect(history.locator('[data-stage="understanding"]')).toBeVisible();
+
   await page.reload();
   await expect(input).toHaveText(original);
+  await expect(history).not.toHaveAttribute('open','');
+  await history.locator('summary').click();
+  await history.evaluate(el=>{(window as any).phase2History=el;});
   phase=1;
   await expect(page.getByTestId(kind==='match'?'task-understanding':'development-analysis')).toBeVisible({timeout:12_000});
   await expect(page.getByTestId('task-progress').locator('[data-stage="understanding"]')).toContainText('已完成 · 9 秒');
   if(kind==='development')await expect(page.getByTestId('advisor-main-answer')).toHaveCount(0);
+  await expect(history).toHaveAttribute('open','');
+  expect(await history.evaluate(el=>(window as any).phase2History===el)).toBe(true);
+
   await page.reload();
   await expect(page.getByTestId(kind==='match'?'task-understanding':'development-analysis')).toBeVisible();
   phase=2;

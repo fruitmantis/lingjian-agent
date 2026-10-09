@@ -129,7 +129,7 @@ def test_recommendations_visible_during_enrichment_and_retained_on_failure(clien
     def complete(config, messages, schema):
         if schema['title'] == 'MatchUnderstanding': return '{"in_scope":true,"facts":{"technicalNeeds":"数据库迁移"}}'
         if schema['title'] == 'InitialSelection': return '{"candidates":[{"partnerId":"partner-1","verificationFocus":"数据库迁移经验"}]}'
-        return json.dumps({'answer':'已根据现有资料推荐伙伴。', 'recommendations':[{**recommendation(), 'evidenceCases':[], 'evidenceDeliverables':[]}], 'supplyStatus':'partial','gapAnalysis':'交付能力待核实'})
+        return json.dumps({ 'recommendations':[{**recommendation(), 'evidenceCases':[], 'evidenceDeliverables':[]}], 'supplyStatus':'partial','gapAnalysis':'交付能力待核实'})
     observed = []
     def fail_after_save(record_id, *args, **kwargs):
         current = match.get_match_record(record_id, unified[0][0])

@@ -146,3 +146,32 @@ for(const kind of ['clear','replace'] as const)test(`changing linked partner ${k
  expect(f.posts[0].body.request).toMatchObject({target_partner_id:kind==='clear'?null:'partner-2',source_task_id:null,source_case_id:null,source_case_version:null});
  expect(f.errors).toEqual([]);
 });
+
+for(const width of [1366,1920,390])test('phase2 visual: compact composer and retained optional source at '+width,async({page},info)=>{
+ await page.setViewportSize({width,height:width===1920?1080:844});
+ const f=await setup(page);
+ const composer=await page.locator('.assistant-composer').boundingBox();
+ expect(composer!.height).toBeGreaterThanOrEqual(150);expect(composer!.height).toBeLessThanOrEqual(220);
+ const last=await starter(page,'为项目补能力').boundingBox();expect(last!.y+last!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+ await starter(page,'AI项目找伙伴').click();await expect(page.locator('#requirement')).toHaveValue(scenes[0].text);
+ expect((await page.getByRole('button',{name:'开始',exact:true}).boundingBox())!.y).toBeLessThan(page.viewportSize()!.height);
+ await page.screenshot({path:info.outputPath('phase2-home-'+width+'.png'),fullPage:true});
+ await page.goto('/?mode=development&partner_id=partner-1&task_id=source-task');
+ const source=page.getByTestId('source-context'),disclosure=source.locator('details'),toggle=source.locator('summary');
+ await expect(toggle).toContainText('来源上下文');await expect(disclosure).not.toHaveAttribute('open','');
+ await expect(source.getByText('这是原匹配提示，尚未确认能力短板，也未转化为培训需求。',{exact:true})).toBeVisible();
+ await expect(source.getByRole('link',{name:'返回来源项目任务'})).toBeHidden();
+ const draft='独立视觉验收：自述基础和目标必须保留。\n'+ '长原文不可截断。'.repeat(120);
+ await direction(page).fill(draft);
+ await direction(page).evaluate(el=>{(window as any).phase2Input=el;});
+ await toggle.focus();await page.keyboard.press('Enter');await expect(disclosure).toHaveAttribute('open','');
+ await expect(source.getByRole('link',{name:'返回来源项目任务'})).toBeVisible();
+ await toggle.click();await expect(disclosure).not.toHaveAttribute('open','');
+ await expect(direction(page)).toHaveValue(draft);
+ expect(await direction(page).evaluate(el=>(window as any).phase2Input===el)).toBe(true);
+ await expect(page.getByRole('combobox',{name:'关联已有伙伴资料（可选）'})).toHaveAttribute('data-partner-id','partner-1');
+ expect(new URL(page.url()).searchParams.get('task_id')).toBe('source-task');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath('phase2-development-'+width+'.png'),fullPage:true});
+ expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
+});

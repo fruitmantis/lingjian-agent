@@ -2,7 +2,7 @@
 import json
 import uuid
 from fastapi import HTTPException
-from . import enablement as service
+from . import enablement as service, profile_sources
 from .business_taxonomy import project_partner
 from .database import get_db
 
@@ -118,7 +118,8 @@ def context(user,partner_id=None,task_id=None,case_id=None,case_version=None):
         if partner_id:
             partner=conn.execute("SELECT id,name,intro,capabilities,industries,service_areas,ai_profile FROM partners WHERE id=? AND status='active'",(partner_id,)).fetchone()
             if not partner: raise HTTPException(404,'伙伴不存在或当前不可用')
-            result['partner']=project_partner(dict(partner))
+            projected=profile_sources.view(conn,partner,user['role']=='admin')
+            result['partner']=project_partner({**dict(partner),'intro':projected['intro']})
             if user['role']!='admin': result['partner']['ai_profile']=None
             # Internal evidence references only: no upload paths, extracted content or shared-case fallback.
             result['evidence']=[{'source_type':'internal_case','source_id':r['id'],'title':r['title']} for r in conn.execute('SELECT id,title FROM cases WHERE partner_id=? AND visible=1',(partner_id,))]

@@ -75,10 +75,11 @@ test("failed refresh preserves existing development advice",async({page})=>{
 
 test("empty match is a normal outcome",async({page})=>{
  await fixture(page);
- await page.route("**/agent/tasks/empty-fixture",route=>route.fulfill({json:{...summary,id:"empty-fixture",taskStatus:"ready",failureDetails:[],recommendations:[],demandProfile:null,opportunity:null}}));
+ await page.route("**/agent/tasks/empty-fixture",route=>route.fulfill({json:{...summary,id:"empty-fixture",taskStatus:"ready",failureDetails:[],recommendations:[],answer:"合成验收：本次已分析资料暂无足够相关依据，未知项需核实。",demandProfile:null,opportunity:null}}));
  await page.goto("/tasks/empty-fixture");
- await expect(page.getByText("没有匹配项，可调整需求后重新匹配。")).toBeVisible();
+ await expect(page.getByText("本次暂无正式推荐，请参考上方分析说明。",{exact:true})).toBeVisible();
  await expect(page.getByRole("region",{name:"任务未完成说明"})).toHaveCount(0);
+ await expect(page.getByText("合成验收：本次已分析资料暂无足够相关依据，未知项需核实。",{exact:true})).toBeVisible();
 });
 
 for(const outcome of ["disconnect","commit-error"])test(`uncertain ${outcome} uses simple wording and keeps original pending task`,async({page})=>{
@@ -172,7 +173,7 @@ test("failed development task clears old pending marker and retries same plan on
  expect(posts).toBe(1);
 });
 
-test("admin task errors tab expands and copies redacted details",async({page,context})=>{
+for(const copyMode of ["native","manual"] as const)test("admin task errors tab expands and copies redacted details, "+copyMode,async({page},info)=>{
  const admin={...user,id:"fixture-admin",role:"admin"};
  await page.addInitScript(({admin})=>{localStorage.setItem("banfei:admin:token","isolated-admin");localStorage.setItem("banfei:admin:user",JSON.stringify(admin));},{admin});
  const latest={id:"error-latest",time:"2026-09-25T01:02:00Z",request_id:"req-2",task_id:"task-2",run_id:null,stage:"partner_match",exception_type:"ValueError",message:"推荐第 1 项 matchScore 无法解析为数字 <script>alert(1)</script>",model:"test-model",http_status:200,response_excerpt:'{"api_key":"[REDACTED]","matchScore":"92分"}',traceback:"File match.py: parse\nValueError: invalid matchScore"};
@@ -186,7 +187,11 @@ test("admin task errors tab expands and copies redacted details",async({page,con
   if(path==="/admin/system/status")return route.fulfill({json:{overallStatus:"unknown",checkedAt:stamp,summary:{normalCount:0,warningCount:0,errorCount:0,unknownCount:0,abnormalModules:[]},services:[],database:[],llm:[],businessCapabilities:[],recentErrors:[]}});
   return route.fulfill({status:404,json:{detail:"Fixture route not defined"}});
  });
- await context.grantPermissions(["clipboard-read","clipboard-write"]);
+ // Ordinary HTTP fallback; no clipboard permissions or browser security flags.
+ await page.addInitScript(mode=>{
+  Object.defineProperty(navigator,"clipboard",{value:undefined,configurable:true});
+  if(mode==="manual")Object.defineProperty(document,"execCommand",{value:()=>false,configurable:true});
+ },copyMode);
  await page.goto("/admin/system");
  await expect(page.getByRole("heading",{name:"系统状态",exact:true})).toBeVisible();
  await expect(page.getByRole("region",{name:"最近错误",exact:true})).toContainText(latest.message);
@@ -206,8 +211,25 @@ test("admin task errors tab expands and copies redacted details",async({page,con
  const detail=entries.first().getByLabel("错误完整详情");
  await expect(detail).toContainText("task-2");await expect(detail).toContainText("test-model");await expect(detail).toContainText("HTTP 状态码：200");await expect(detail).toContainText("[REDACTED]");
  await entries.first().getByRole("button",{name:"复制错误详情"}).click();
- await expect(panel.getByRole("status")).toContainText("已复制错误详情");
- expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe(await detail.textContent());
+ const expected=await detail.textContent();
+ if(copyMode==="native"){
+  await expect(panel.getByRole("status")).toContainText("已复制错误详情");
+  // Paste the actual copied synthetic content; do not replace the copy command or fabricate clipboard data.
+  await page.evaluate(()=>{
+   const target=document.createElement("textarea");target.id="isolated-copy-receiver";
+   target.setAttribute("aria-label","隔离复制接收区");document.body.appendChild(target);
+  });
+  const receiver=page.getByLabel("隔离复制接收区",{exact:true});await receiver.focus();
+  await page.keyboard.press("Control+V");await expect(receiver).toHaveValue(expected!);
+  await page.screenshot({path:info.outputPath("http-copy-native-paste.png"),fullPage:true});
+  await receiver.evaluate(element=>element.remove());
+ }else{
+  await expect(panel.getByRole("status")).toHaveText("复制失败，详情已选中，请按 Ctrl+C 手动复制。");
+  await expect(panel.getByRole("status")).not.toContainText("已复制");
+  expect(await page.evaluate(()=>window.getSelection()?.toString())).toBe(expected);
+  await expect(detail).toBeFocused();
+  await page.screenshot({path:info.outputPath("http-copy-manual-feedback.png"),fullPage:true});
+ }
  await entries.nth(1).locator("summary").click();await expect(entries.nth(1)).toContainText("请求 req-1");
  for(const width of [1366,390]){await page.setViewportSize({width,height:900});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();if(process.env.TASK_FAILURE_SCREENSHOTS)await page.screenshot({path:`${process.env.TASK_FAILURE_SCREENSHOTS}/admin-errors-${width}.png`,fullPage:true});}
  await page.getByRole("button",{name:"进行中",exact:true}).click();
@@ -299,4 +321,100 @@ test("lost create response queries submission and never claims the demand was sa
  await page.getByRole("button",{name:"刷新查看",exact:true}).click();
  await expect(page).toHaveURL(/tasks\/plan-fixture/);
  expect(posts).toBe(1);
+});
+
+
+for(const role of ['user','admin'] as const)test('phase1 F02: opportunity labels name and focus all four fields for '+role,async({page})=>{
+  const account={id:'label-'+role,username:'label-fixture',display_name:'合成标签验收',role,status:'active',must_change_password:false};
+  await page.addInitScript(account=>{
+    localStorage.setItem('banfei:'+account.role+':token','isolated-label-fixture');
+    localStorage.setItem('banfei:'+account.role+':user',JSON.stringify(account));
+  },account);
+  const record={id:'label-fixture',requirement:'合成标签关联验证',task_type:'partner_match',taskStatus:'ready',createdAt:'2026-10-07T00:00:00Z',
+    createdBy:account.username,archivedAt:null,recommendations:[],demandProfile:null,answer:'已保存的合成结果',
+    opportunity:{id:'label-opportunity',customerName:'',projectName:'',projectStage:'',businessNeeds:'',industry:'',region:'',completenessScore:0,followUpQuestions:'[]'}};
+  await page.route('**/*',async route=>{
+    const request=route.request(),url=new URL(request.url());
+    if(!url.pathname.startsWith('/api/')&&url.port!=='8000')return route.continue();
+    expect(request.method()).toBe('GET');
+    const path=url.pathname.startsWith('/api/')?url.pathname.slice(4):url.pathname;
+    if(path!=='/auth/me'&&path!=='/health'&&!path.endsWith('/tasks/label-fixture')&&path!=='/agent/tasks')
+      return route.fulfill({status:404,json:{detail:'Unexpected isolated fixture request'}});
+    const json=path==='/auth/me'?account:path==='/health'?{status:'ok'}:
+      path.endsWith('/tasks/label-fixture')?record:{items:[record],total:1,page:1,pageSize:20,totalPages:1};
+    await route.fulfill({json});
+  });
+  await page.goto(role==='admin'?'/admin/tasks/label-fixture':'/tasks/label-fixture');
+  await expect(page.getByRole('heading',{name:'项目机会',exact:true})).toBeVisible();
+  const ids:string[]=[];
+  for(const label of ['客户名称','项目名称','项目阶段','业务需求']){
+    const field=page.getByRole('textbox',{name:label,exact:true});await expect(field).toHaveCount(1);
+    const id=await field.getAttribute('id');expect(id).toBeTruthy();ids.push(id!);
+    const visibleLabel=page.locator('label').filter({hasText:label});
+    await expect(visibleLabel).toHaveAttribute('for',id!);
+    await visibleLabel.click();
+    await expect(field).toBeFocused();
+  }
+  expect(new Set(ids).size).toBe(4);
+});
+
+test('phase2 F03: incomplete zero recommendations preserve the analysis warning',async({page},info)=>{
+ await fixture(page);
+ await page.route('**/api/agent/tasks/incomplete-fixture',route=>route.fulfill({json:{
+  ...summary,id:'incomplete-fixture',taskStatus:'ready',recommendations:[],demandProfile:null,opportunity:null,
+  answer:'本次暂无正式推荐。\n\n本次分析不完整，不能据此认定没有合适伙伴。'
+ }}));
+ await page.goto('/tasks/incomplete-fixture');
+ await expect(page.getByText('本次分析不完整，不能据此认定没有合适伙伴。',{exact:false})).toBeVisible();
+ await expect(page.getByText('本次暂无正式推荐，请参考上方分析说明。',{exact:true})).toBeVisible();
+ await expect(page.getByText('没有匹配项，可调整需求后重新匹配。',{exact:true})).toHaveCount(0);
+ await page.screenshot({path:info.outputPath('phase2-F03.png'),fullPage:true});
+});
+
+for(const width of [1366,390])test('phase3 M01: development menu Escape, Tab exit, outside click and action focus at '+width,async({page},info)=>{
+ await page.setViewportSize({width,height:844});
+ const writes=await fixture(page),errors:string[]=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/api/agents',route=>route.fulfill({json:[]}));
+ await page.goto('/tasks/plan-fixture');
+ const menu=page.locator('.advisor-more'),toggle=menu.locator('summary');
+ await expect(toggle).toBeVisible();await toggle.focus();await page.keyboard.press('Enter');
+ await page.keyboard.press('Tab');await expect(menu.getByRole('button',{name:'历史版本',exact:true})).toBeFocused();
+ await page.keyboard.press('Escape');await expect(menu).not.toHaveAttribute('open','');await expect(toggle).toBeFocused();
+ await toggle.click();await expect(menu).toHaveAttribute('open','');
+ for(let i=0;i<5;i++)await page.keyboard.press('Tab');
+ await expect(menu).not.toHaveAttribute('open','');
+ expect(await menu.evaluate(el=>el.contains(document.activeElement))).toBe(false);
+ await toggle.click();await menu.getByRole('button',{name:'历史版本',exact:true}).focus();
+ const message=page.getByRole('textbox',{name:'消息',exact:true});await message.click();
+ await expect(menu).not.toHaveAttribute('open','');await expect(message).toBeFocused();
+ await toggle.click();await menu.getByRole('button',{name:'历史版本',exact:true}).click();
+ await expect(menu).not.toHaveAttribute('open','');await expect(toggle).toBeFocused();
+ await expect(page.getByTestId('version-history')).toBeVisible();
+ await expect(page.getByTestId('advisor-status')).toHaveText('建议可用');
+ await expect(page.getByTestId('advisor-run-notice')).toContainText('本次调整失败，请重试。');
+ await page.screenshot({path:info.outputPath('phase3-menu-'+width+'.png'),fullPage:true});
+ expect(writes).toHaveLength(0);expect(errors).toEqual([]);
+});
+
+for(const motion of ['no-preference','reduce'] as const)test('phase3 motion: development panel and prompt honor '+motion,async({page})=>{
+ await page.emulateMedia({reducedMotion:motion});const writes=await fixture(page);
+ await page.route('**/api/agents',route=>route.fulfill({json:[]}));
+ await page.addInitScript(()=>{
+  (window as any).scrollChecks=[];
+  const original=Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView=function(options){(window as any).scrollChecks.push(options);original.call(this,options);};
+ });
+ await page.goto('/tasks/plan-fixture');
+ const menu=page.locator('.advisor-more'),toggle=menu.locator('summary');await toggle.click();
+ if(motion==='reduce')await expect(menu.locator('.advisor-menu')).toHaveCSS('animation-name','none');
+ else expect(await menu.locator('.advisor-menu').evaluate(el=>getComputedStyle(el).animationDuration)).toBe('0.12s');
+ await menu.getByRole('button',{name:'历史版本',exact:true}).click();
+ await expect(page.getByTestId('version-history')).toBeVisible();
+ if(motion==='reduce')await expect(page.getByTestId('version-history')).toHaveCSS('animation-name','none');
+ await page.getByRole('button',{name:'为什么优先推荐这个方向？',exact:true}).click();
+ await expect(page.getByRole('textbox',{name:'消息',exact:true})).toHaveValue('为什么优先推荐这个方向？');
+ const scrolls=await page.evaluate(()=>(window as any).scrollChecks);
+ expect(scrolls.filter((s:any)=>s.block==='start'||s.block==='center').map((s:any)=>s.behavior)).toEqual([motion==='reduce'?'auto':'smooth',motion==='reduce'?'auto':'smooth']);
+ expect(writes).toHaveLength(0);
 });

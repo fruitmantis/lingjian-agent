@@ -18,7 +18,7 @@ def install(monkeypatch, answer=None, facts=None):
             return json.dumps({'candidates':[{'partnerId':p['partnerId'],'verificationFocus':'核实需求相关能力和限制'} for p in data['partners'][:12]]})
         assert title=='MatchAnswer',title
         value=answer(messages) if callable(answer) else answer
-        return json.dumps({'answer':'依据合成资料给出建议','supplyStatus':'partial','gapAnalysis':'需进一步核实','recommendations':value or []},ensure_ascii=False)
+        return json.dumps({'supplyStatus':'partial','gapAnalysis':'需进一步核实','recommendations':value or []},ensure_ascii=False)
     monkeypatch.setattr(development_model,'completion',complete)
     return calls
 

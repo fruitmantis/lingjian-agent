@@ -1,5 +1,6 @@
 """Cases and attachments share one visibility rule; all writes require an administrator."""
 import uuid
+import json
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from ..auth import require_active_user, require_admin, record_audit
@@ -31,8 +32,6 @@ def create_case(payload: CaseCreate,background_tasks: BackgroundTasks,actor=Depe
         conn.execute('INSERT INTO cases (id,partner_id,title,description,category_id,visible,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)',(cid,payload.partner_id,payload.title,payload.description,payload.category_id,int(payload.visible),stamp,stamp))
         files.changed(conn,payload.partner_id)
         record_audit(conn,'case_created',actor_user_id=actor['id'],summary={'case_id':cid,'visible':payload.visible})
-        from ..profile_sources import process_partner
-        background_tasks.add_task(_process_profile,payload.partner_id)
         return visible_case(conn,cid,True)
 
 @router.get('/{case_id}',response_model=CaseOut)
@@ -45,10 +44,21 @@ def edit_case(case_id: str,payload: CaseCreate,background_tasks: BackgroundTasks
     with get_db() as conn:
         conn.lock_writer();old=visible_case(conn,case_id,True)
         if not conn.execute('SELECT id FROM partners WHERE id=?',(payload.partner_id,)).fetchone(): raise HTTPException(404,'伙伴不存在')
+        from ..profile_sources import source,stamp,put,rebuild
+        retained=[]
+        if old['partner_id']!=payload.partner_id:
+            for row in conn.execute("SELECT * FROM partner_profile_sources WHERE partner_id=? AND source_kind='attachment' AND source_id IN (SELECT id FROM deliverables WHERE case_id=?)",
+                                    (old['partner_id'],case_id)):
+                current=source(conn,old['partner_id'],'attachment',row['source_id'])
+                if current and row['state']=='ready' and row['source_fingerprint']==stamp(current):
+                    retained.append(dict(row))
         conn.execute('UPDATE cases SET partner_id=?,title=?,description=?,category_id=?,visible=?,updated_at=? WHERE id=?',(payload.partner_id,payload.title,payload.description,payload.category_id,int(payload.visible),files.now(),case_id))
         for pid in {old['partner_id'],payload.partner_id}: files.changed(conn,pid)
         record_audit(conn,'case_updated',actor_user_id=actor['id'],summary={'case_id':case_id,'visible':payload.visible})
-        for pid in {old['partner_id'],payload.partner_id}: background_tasks.add_task(_process_profile,pid)
+        for row in retained:
+            current=source(conn,payload.partner_id,'attachment',row['source_id'])
+            put(conn,current,'ready',json.loads(row['sections_json']),row['error'])
+        if retained:rebuild(conn,payload.partner_id)
         return visible_case(conn,case_id,True)
 
 class Visibility(BaseModel): visible: bool
@@ -111,7 +121,7 @@ async def replace_deliverable(case_id: str,file_id: str,background_tasks: Backgr
     return await files.replace('attachment',case_id,file_id,file,background_tasks)
 
 
-def _process_profile(pid):
-    from ..profile_sources import process_partner
-    try: process_partner(pid)
+def _process_profile(pid,kind,source_id,fingerprint):
+    from ..profile_sources import process_source
+    try: process_source(pid,kind,source_id,fingerprint)
     except Exception: pass  # Source state/error is persisted; no successful-profile claim.

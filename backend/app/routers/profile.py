@@ -1,4 +1,4 @@
-"""AI profile generation and partner profile listing router."""
+"""Single-partner manual chapter composition; batches only refresh local state."""
 
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ class ProfileOut(BaseModel):
     partner_id: str
     ai_profile: str
     profile_status: str = "ready"
+    profile_needs_update: bool = False
 
 @router.post("/{partner_id}/profile", response_model=ProfileOut, dependencies=[Depends(require_admin)])
 def generate_profile(partner_id: str) -> ProfileOut:
@@ -21,13 +22,13 @@ def generate_profile(partner_id: str) -> ProfileOut:
             raise HTTPException(404,'伙伴不存在')
     try:
         result=process_partner(partner_id)
-        return ProfileOut(partner_id=partner_id, ai_profile=result['ai_profile'], profile_status=result['profile_status'])
+        return ProfileOut(partner_id=partner_id, ai_profile=result['ai_profile'], profile_status=result['profile_status'], profile_needs_update=result['profile_needs_update'])
     except ModelConfigurationError as exc:
         from ..error_diagnostics import record_error
         record_error(exc,stage='partner_profile')
         raise HTTPException(503,model_error_message(exc)) from None
     except Exception as exc:
-        raise HTTPException(502,'来源贡献处理失败，请查看资料状态并重试。') from None
+        raise HTTPException(502,'画像合并失败，请刷新后重试。') from None
 
 
 
@@ -47,7 +48,7 @@ class BatchProfileResponse(BaseModel):
 
 @router.post("/batch-profile", response_model=BatchProfileResponse, dependencies=[Depends(require_admin)])
 def batch_generate_profiles() -> BatchProfileResponse:
-    """Generate AI profiles for all partners sequentially."""
+    """Refresh local state only; batch operations never dispatch composition or retries."""
     with get_db() as conn:
         partner_ids = conn.execute("SELECT id, name FROM partners WHERE status = 'active' ORDER BY created_at ASC").fetchall()
 
@@ -55,13 +56,15 @@ def batch_generate_profiles() -> BatchProfileResponse:
     success_count = 0
     for p in partner_ids:
         try:
-            generate_profile(p["id"])
+            from ..profile_sources import sync
+            with get_db() as conn:
+                conn.lock_writer();sync(conn,p["id"])
             results.append(BatchProfileResult(partner_id=p["id"], partner_name=p["name"], success=True))
             success_count += 1
         except Exception:
             results.append(BatchProfileResult(
                 partner_id=p["id"], partner_name=p["name"], success=False,
-                error="画像生成失败，请在伙伴详情中重试或检查模型配置",
+                error="画像合并失败，请在伙伴详情中重试",
             ))
 
     return BatchProfileResponse(

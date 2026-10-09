@@ -9,11 +9,13 @@ export function TaskProgress({value,taskId=""}:{value?:TaskProgressData|null;tas
  useEffect(()=>{setNow(Date.now());if(!value||value.finished_at)return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[value?.run_id,value?.finished_at]);
  if(!value)return null;
  const end=value.finished_at?Date.parse(value.finished_at):now;
+ const running=value.stages.find(stage=>stage.status==="running"),failed=value.stages.find(stage=>stage.status==="failed");
+ const summary=running?"进行中："+running.label:failed?"未完成："+failed.label:value.finished_at?"本次执行已结束":"等待处理";
  return <TaskResult id={taskId} progress className="task-progress" testId="task-progress" ariaLabel="任务执行进度">
-  <div className="task-progress-heading"><h2>执行进度</h2><span data-testid="task-elapsed">本次已用时间：{elapsed(value.started_at,end)}</span></div>
-  <ol>{value.stages.map(stage=><li key={stage.key} data-stage={stage.key} data-status={stage.status}>
+  <div className="task-progress-heading"><div><h2>执行进度</h2><p className="task-progress-current" role="status">{summary}</p></div><span data-testid="task-elapsed">本次已用时间：{elapsed(value.started_at,end)}</span></div>
+  <details className="task-progress-details"><summary>查看阶段记录</summary><ol>{value.stages.map(stage=><li key={stage.key} data-stage={stage.key} data-status={stage.status}>
    <span className="task-progress-dot" aria-hidden="true"/><span>{stage.label}</span>
    <small>{stage.status==="running"?`进行中 · ${elapsed(stage.started_at!,now)}`:stage.status==="completed"?`已完成${stage.started_at&&stage.finished_at?` · ${elapsed(stage.started_at,Date.parse(stage.finished_at))}`:""}`:stage.status==="failed"?`未完成${stage.started_at&&stage.finished_at?` · ${elapsed(stage.started_at,Date.parse(stage.finished_at))}`:""}`:stage.status==="skipped"?"本次未执行":"等待处理"}</small>
-  </li>)}</ol>
+  </li>)}</ol></details>
  </TaskResult>;
 }

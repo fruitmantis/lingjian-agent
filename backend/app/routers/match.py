@@ -73,7 +73,7 @@ class PartnerRecommendation(BaseModel):
     @field_validator("matchedIndustries", "matchedRegions", mode="before")
     @classmethod
     def standard_match_labels(cls, value, info):
-        return canonical(value,"industry" if info.field_name=="matchedIndustries" else "region") or "未核实"
+        return canonical(value,"industry" if info.field_name=="matchedIndustries" else "region") or ""
 
     matchedIndustries: str
     matchedRegions: str
@@ -438,8 +438,8 @@ def _validated_recommendations(items: list, partners: list[dict], cases: dict, d
         if not isinstance(reason, str) or not reason.strip():
             rejected.append(f'推荐第 {index + 1} 项 recommendationReason 为空或不是文本')
             continue
+        reason = reason.strip()
         pid = partner["id"]
-        gaps = []
         matched = {}
         for field, column in (("matchedCapabilities", "capabilities"), ("matchedIndustries", "industries"), ("matchedRegions", "service_areas")):
             proposed = _reference_tokens(_model_value(item, field))
@@ -450,26 +450,23 @@ def _validated_recommendations(items: list, partners: list[dict], cases: dict, d
             else:
                 available = set(_reference_tokens(partner.get(column)))
             verified = list(dict.fromkeys(token for token in proposed if token in available))
-            matched[field] = ", ".join(verified) or "未核实"
-            if not verified or any(token not in available for token in proposed):
-                gaps.append("部分匹配标签未能在伙伴资料中核实")
+            matched[field] = ", ".join(verified)
         case_rows = _verified_references(_model_value(item, "evidenceCases"), cases.get(pid, []), "title")
         deliverable_rows = _verified_references(_model_value(item, "evidenceDeliverables"), deliverables.get(pid, []), "filename")
-        if not case_rows:
-            gaps.append("缺少可核实的支撑案例")
-        if not deliverable_rows:
-            gaps.append("缺少可核实的支撑交付物")
+        if (not _references_valid(_model_value(item, "evidenceCases"), cases.get(pid, []), "title", pid)
+                or not _references_valid(_model_value(item, "evidenceDeliverables"), deliverables.get(pid, []), "filename", pid,
+                                         owned_cases=cases.get(pid, []))):
+            rejected.append(f'推荐第 {index + 1} 项含未发送或不属于本伙伴的案例/交付物引用')
+            continue
 
         risk = _model_value(item, "riskNotes")
         risk = risk.strip() if isinstance(risk, str) else ""
-        if not risk or risk in {"无", "无风险", "暂无", "暂无风险", "未发现风险"}:
-            risk = "交付排期与实际承接能力仍需核实"
         valid.append(PartnerRecommendation(
             partnerId=pid, partnerName=partner["name"], matchScore=f"{score:g}",
             **matched, recommendationReason=reason.strip(),
-            evidenceCases="；".join(row["title"] for row in case_rows) or "未提供可核实的支撑案例",
-            evidenceDeliverables="；".join(f"{row['filename']}（案例：{row['case_title']}）" for row in deliverable_rows) or "未提供可核实的支撑交付物",
-            riskNotes="；".join(dict.fromkeys([risk, *gaps])),
+            evidenceCases="；".join(row["title"] for row in case_rows),
+            evidenceDeliverables="；".join(f"{row['filename']}（案例：{row['case_title']}）" for row in deliverable_rows),
+            riskNotes=risk,
         ))
     # Rank validated candidates, deduplicate by stable ID, and enforce the public limit.
     selected: dict[str, PartnerRecommendation] = {}
@@ -478,29 +475,137 @@ def _validated_recommendations(items: list, partners: list[dict], cases: dict, d
     return list(selected.values())[:MAX_RECOMMENDATIONS]
 
 
-def _validated_outcome(recs, output, rejected, rows):
-    """One public result assembled from validated cards; raw model prose cannot disagree."""
+def _references_valid(value, rows, label_field, partner_id, *, owned_cases=None):
+    tokens = _reference_tokens(value)
+    allowed = []
+    for row in rows:
+        if owned_cases is None:
+            if row.get('partner_id') != partner_id:
+                continue
+        elif row.get('case_id') not in {c['id'] for c in owned_cases if c.get('partner_id') == partner_id}:
+            continue
+        allowed.append(row)
+    # Exact legacy labels remain supported; every supplied reference must resolve.
+    if isinstance(value, str) and any(value.strip() in (r['id'],r.get(label_field)) for r in allowed):
+        tokens = [value.strip()]
+    return all(len(_verified_references([token],allowed,label_field)) == 1 for token in tokens)
+
+
+def _original_profile_quote(text, quote):
+    """Recover one literal range; only CR/LF may differ in the model quote."""
+    if quote in text:
+        return quote
+    from ..profile_sources import _linebreak_view
+    view,positions = _linebreak_view(text)
+    needle,_ = _linebreak_view(quote)
+    if not needle:
+        return None
+    originals,offset = set(),0
+    while (hit := view.find(needle,offset)) >= 0:
+        # No real character can be skipped. The result is a slice of this passage,
+        # not a concatenation of fragments or a normalization of stored material.
+        a,b = positions[hit],positions[hit+len(needle)-1]+1
+        originals.add(text[a:b])
+        if len(originals) > 1:
+            return None  # Distinct native layouts do not pick an arbitrary range.
+        offset = hit+1
+    return next(iter(originals),None)
+
+
+def _source_assessment(item, row, requirement="", facts=None):
+    """Return the model's category after legal checks, with no semantic veto."""
+    if not row:
+        return None
+    partner,context,cases,deliverables = row
+    pid = partner['id']
+    source_map = context.get('_sourceMap')
+    passages = {p['source']:p['text'] for p in context.get('profilePassages',[])
+                if source_map is not None or p.get('source','').startswith(f'partner:{pid}:profile:')}
+    original_quotes = []
+    for ref in item.get('profileEvidence',[]):
+        source,quote = ref.get('source'),ref.get('quote')
+        text = passages.get(source)
+        if not text or not isinstance(quote,str) or len(quote.strip()) < 2:
+            return None
+        if source_map is not None:
+            entry = source_map.get(source)
+            if not entry or entry.get('partnerId') != pid or entry.get('text') != text:
+                return None
+        original = _original_profile_quote(text,quote)
+        if original is None:
+            return None
+        original_quotes.append((ref,original))
+    if not _references_valid(item.get('evidenceCases',[]),cases,'title',pid):
+        return None
+    if not _references_valid(item.get('evidenceDeliverables',[]),deliverables,'filename',pid,owned_cases=cases):
+        return None
+    kind = item.get('evidenceType','current_capability')
+    if kind not in ('current_capability','delivered_project','planning_only','unrelated'):
+        return None
+    for ref,original in original_quotes:
+        ref['quote'] = original  # Keep the validated evidence in untouched source form.
+    return kind
+
+
+def _same_generated_card(item, rec):
+    if not isinstance(item,dict) or not isinstance(item.get('recommendationReason'),str):
+        return False
+    identity = item.get('partnerId') == rec.partnerId or (
+        not item.get('partnerId') and item.get('partnerName') == rec.partnerName)
+    try:
+        return identity and item['recommendationReason'].strip() == rec.recommendationReason and float(item.get('matchScore')) == float(rec.matchScore)
+    except (TypeError,ValueError,OverflowError):
+        return False
+
+
+def _validated_outcome(recs, output, rejected, rows, *, requirement="", facts=None, catalog_incomplete=False):
+    """Publish only legally referenced cards; professional judgments stay model-owned."""
     from ..profile_sources import redact_sources,hidden_labels,sources
-    labels=[]
-    with get_db() as conn:
-        for row in rows: labels.extend(hidden_labels(sources(conn,row[0]['id'])))
-        available_names={r.partnerName for r in recs}
-        # Discard foreign partner references in accepted items too.
-        labels.extend(r['name'] for r in conn.execute('SELECT name FROM partners') if r['name'] not in available_names)
+    current_rows = {r[0]['id']:r for r in rows}
+    raw_items = {i.get('partnerId'):i for i in output.get('recommendations',[]) if isinstance(i,dict)}
+    accepted,plans = [],[]
+    unsupported = False
     for rec in recs:
-        rec.recommendationReason=redact_sources(rec.recommendationReason,labels)
-        rec.riskNotes=redact_sources(rec.riskNotes,labels)
-    if not recs:
-        return {'answer':'现有资料未能支持可核实的推荐。','supplyStatus':'unknown',
-                'gapAnalysis':'缺少有效推荐，不能据此认定所有伙伴缺乏能力。','recommendations':[]}
-    # Review supply judgement is usable only when its complete recommendation set survived.
-    supply=output['supplyStatus'] if not rejected else 'partial'
-    if supply=='gap': supply='partial'
-    gap=('部分模型推荐未通过身份或证据校验；需按有效推荐核实供给覆盖。' if rejected
-         else '供给覆盖依据以下有效推荐及其待核实事项判断。')
-    answer='\n\n'.join(f"{r.partnerName}（匹配分 {r.matchScore}）：{r.recommendationReason}\n需核实：{r.riskNotes}" for r in recs)
-    answer+='\n\n'+gap
-    return {'answer':answer,'supplyStatus':supply,'gapAnalysis':gap,
+        items = [i for i in output.get('recommendations',[]) if _same_generated_card(i,rec)]
+        item = items[0] if items else raw_items.get(rec.partnerId,{})
+        kind = _source_assessment(item,current_rows.get(rec.partnerId))
+        if kind is None:
+            unsupported = True
+        elif kind == 'planning_only':
+            plans.append(rec.partnerName)
+        elif kind != 'unrelated':
+            accepted.append(rec)
+    recs[:] = accepted
+    # Unused failed sources/catalogue state are not omissions of actual inputs.
+    incomplete = bool(rejected or unsupported or any(
+        not row[1].get('inputCoverage',{}).get('complete',True) for row in rows))
+    labels = []
+    with get_db() as conn:
+        for row in rows:
+            labels.extend(hidden_labels(sources(conn,row[0]['id'])))
+        allowed_names = {r.partnerName for r in recs} | set(plans)
+        labels.extend(r['name'] for r in conn.execute('SELECT name FROM partners') if r['name'] not in allowed_names)
+    for rec in recs:
+        rec.recommendationReason = redact_sources(rec.recommendationReason,labels)
+        rec.riskNotes = redact_sources(rec.riskNotes,labels)
+    gap = redact_sources(output.get('gapAnalysis') or '',labels)
+    if rejected or unsupported:
+        gap = ''  # A summary tied to rejected evidence is not published.
+    unpublished_names = {i.get('partnerName') for i in output.get('recommendations',[])
+                         if isinstance(i,dict) and isinstance(i.get('partnerName'),str)
+                         and i['partnerName'] and i['partnerName'] not in allowed_names}
+    for name in sorted(unpublished_names,key=len,reverse=True):
+        gap = gap.replace(name,'[未通过校验的伙伴]')
+    if recs:
+        answer = gap  # Overall division/remaining needs; reasons live once in cards.
+    else:
+        answer = '本次暂无正式推荐。'
+        if plans:
+            answer += ' 未来规划线索：' + '、'.join(plans) + '。'
+        if gap:
+            answer += '\n\n' + gap
+    supply = output.get('supplyStatus','unknown') if recs else 'unknown'
+    return {'answer':answer,'supplyStatus':supply,'gapAnalysis':gap,'analysisComplete':not incomplete,
             'recommendations':[r.model_dump() for r in recs]}
 
 
@@ -540,49 +645,55 @@ def _match_stage(record_id, snapshot, key, state):
         conn.execute('UPDATE match_records SET updated_at=? WHERE id=?', (task_progress.now(), record_id))
 
 
+def _detail_content(requirement, snapshot, rows):
+    # Keep one complete demand; use only demand facts, not follow-ups or tag proposals.
+    fact_fields = ('customerName','projectName','industry','region','projectStage',
+                   'businessNeeds','technicalNeeds','deliveryNeeds','qualificationRequirements',
+                   'caseRequirements','onsiteRequirement','timelineRequirement',
+                   'cloudPlatformPreference','deliveryTypeTags')
+    extracted = snapshot['understanding']['facts']
+    facts = {key:extracted[key] for key in fact_fields
+             if key in extracted and extracted[key] != requirement}
+    return json.dumps({'requirement':requirement,'facts':facts,
+                       'candidates':[match_context.provider_context(row[1]) for row in rows]},
+                      ensure_ascii=False,separators=(',',':'))
+
+
 def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerRecommendation]:
     """Understanding is saved before local PG recall and candidate model review."""
     _match_stage(snapshot['_task_id'], snapshot, 'initial_selection', 'running')
     with get_db() as conn:
         conn.begin_read()
         candidate_stamp = _candidate_stamp(conn)
-        selected = match_context.recall_candidates(conn,requirement,snapshot['understanding']['facts'])
+        recall_info = {}
+        selected = match_context.recall_candidates(conn,requirement,snapshot['understanding']['facts'],diagnostics=recall_info)
     snapshot['candidate_stamp'] = candidate_stamp
-    snapshot['initial_selection'] = {'input_stamp':candidate_stamp,'candidates':selected,'method':'postgres_keywords'}
+    snapshot['initial_selection'] = {'input_stamp':candidate_stamp,'candidates':selected,'method':'postgres_keywords','recall':recall_info}
+    match_context.log_match_metadata('RECALL',task_id=snapshot['_task_id'],input_version=candidate_stamp,**recall_info)
     _match_stage(snapshot['_task_id'], snapshot, 'initial_selection', 'completed')
     if not selected:
-        snapshot['outcome'] = {'answer': '根据现有资料，暂未找到可核实的合适伙伴；建议补充关键交付要求后重试。',
-                               'supplyStatus': 'unknown', 'gapAnalysis': '初选未找到足够依据，不能据此认定所有伙伴缺乏能力。',
-                               'recommendations': []}
+        snapshot['outcome'] = _validated_outcome([],{},False,[],requirement=requirement,facts=snapshot['understanding']['facts'])
         return []
 
     _match_stage(snapshot['_task_id'], snapshot, 'detailed_review', 'running')
 
-    def detail_context(profile_budget: int, case_count: int):
+    detail_start = perf_counter()
+    try:
         with get_db() as conn:
             conn.begin_read()
             rows = [match_context.detailed_candidate(conn, item['partnerId'], item['verificationFocus'],
-                                                       requirement, profile_budget, case_count) for item in selected]
-        return (json.dumps({'facts': snapshot['understanding']['facts'], 'candidates': [row[1] for row in rows]},
-                           ensure_ascii=False, separators=(',', ':')), rows)
-
-    detail_start = perf_counter()
-    try:
-        content, rows = detail_context(match_context.DETAIL_PARTNER_TARGET - 700, 3)
-        detail_messages = matching.detail_messages(content)
+                    requirement, recall_terms=item.get('recallTerms',[]),
+                    facts=snapshot['understanding']['facts'], hits=item['hits']) for item in selected]
         schema = understanding.MatchAnswer.model_json_schema()
         try:
-            config, chars, tokens = match_context.checked_config(
-                pinned_configuration(snapshot['model']), detail_messages, schema,
-                match_context.DETAIL_CHAR_LIMIT)
-        except MatchInputBudgetError:
-            # Dedupe is already applied; reduce lower-ranked passages/cases for every
-            # selected partner rather than dropping the tail of the candidate list.
-            content, rows = detail_context(500, 2)
-            detail_messages[1]['content'] = content
-            config, chars, tokens = match_context.checked_config(
-                pinned_configuration(snapshot['model']), detail_messages, schema,
-                match_context.DETAIL_CHAR_LIMIT)
+            config, chars, tokens = match_context.assemble_details(
+                rows, pinned_configuration(snapshot['model']),
+                lambda current_rows:_detail_content(requirement,snapshot,current_rows), schema)
+        finally:
+            snapshot['detail_input_coverage']={r[0]['id']:r[1]['inputCoverage'] for r in rows}
+            snapshot['detail_source_map']={r[0]['id']:r[1]['_sourceMap'] for r in rows}
+        detail_messages = matching.detail_messages(_detail_content(requirement,snapshot,rows))
+        _match_stage(snapshot['_task_id'],snapshot,'detailed_review','running')
         prepared = round((perf_counter() - detail_start) * 1000)
         call_start = perf_counter()
         reset_retry_count()
@@ -598,13 +709,23 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
         cases = {row[0]['id']: row[2] for row in rows}
         deliverables = {row[0]['id']: row[3] for row in rows}
         rejections: list[str] = []
-        recs = _validated_recommendations(output['recommendations'], partners, cases, deliverables, rejections)
-        evidence_filtered=any(set(item['evidenceCases'])-{c['id'] for c in cases.get(item['partnerId'],[])} or set(item['evidenceDeliverables'])-{d['id'] for d in deliverables.get(item['partnerId'],[])} for item in output['recommendations'])
+        by_id = {r[0]['id']:r for r in rows}
+        legal_items = []
+        for item in output['recommendations']:
+            if _source_assessment(item,by_id.get(item['partnerId'])) is None:
+                rejections.append('推荐含不属于实际已发送来源范围的引用')
+            else:
+                legal_items.append(item)
+        recs = _validated_recommendations(legal_items,partners,cases,deliverables,rejections)
+        evidence_filtered = bool(rejections)
         if output['recommendations'] and not recs:
             raise ValueError('所有推荐均未通过校验：' + '；'.join(rejections[:10]))
-        if output['supplyStatus'] == 'sufficient' and not recs:
-            raise ValueError('No verified recommendation supports sufficient supply')
-        snapshot['outcome'] = _validated_outcome(recs, output, bool(rejections) or evidence_filtered, rows)
+        snapshot['outcome'] = _validated_outcome(recs, output, bool(rejections) or evidence_filtered, rows,requirement=requirement,facts=snapshot['understanding']['facts'])
+        match_context.log_match_metadata('REVIEW',task_id=snapshot['_task_id'],input_version=candidate_stamp,
+                                        rules_version=matching.MATCHING_RULES_VERSION,
+                                        raw_recommendation_count=len(output['recommendations']),
+                                        valid_recommendation_count=len(recs),rejection_count=len(rejections),
+                                        evidence_references_filtered=evidence_filtered)
         return recs
     except ModelConfigurationError as exc:
         raise PublicTaskError(exc, 503) from None
@@ -613,8 +734,11 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
 
 
 def _candidate_stamp(connection=None):
+    from ..profile_sources import sources, stamp
     with (nullcontext(connection) if connection is not None else get_db()) as conn:
         return fingerprint({
+            'matching_rules': matching.MATCHING_RULES_VERSION,
+            'source_versions': [(p['id'],s['kind'],s['id'],stamp(s)) for p in conn.execute('SELECT id FROM partners ORDER BY id') for s in sources(conn,p['id'])],
             'partners': [dict(r) for r in conn.execute('SELECT id,status,name,capabilities,industries,service_areas,materials_revision,profile_materials_revision,profile_updated_at,updated_at FROM partners ORDER BY id')],
             'cases': [dict(r) for r in conn.execute('SELECT id,partner_id,title,visible,updated_at FROM cases ORDER BY id')],
             'deliverables': [dict(r) for r in conn.execute('SELECT id,case_id,filename,processed_at FROM deliverables ORDER BY id')],

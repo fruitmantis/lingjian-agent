@@ -167,13 +167,20 @@ def process(scope,file_id,import_profile=False):
                     if preview: Path(preview).unlink(missing_ok=True)
                     return
                 conn.execute(f'UPDATE {table} SET extracted_text=?,processing_status=?,processing_error=?,preview_path=?,preview_error=?,processed_at=? WHERE id=?',(text,state,error,preview,preview_error,now(),file_id))
-                from .profile_sources import sync
+                from .profile_sources import sync,source,stamp
                 sync(conn,partner_id)
+                source_kind='word' if scope=='document' and row.get('doc_category')=='profile_import' else scope
+                dispatched=source(conn,partner_id,source_kind,file_id)
+                fingerprint=stamp(dispatched) if dispatched else None
         except Exception as exc:
             from .error_diagnostics import record_error
             record_error(exc,stage='document_result_persistence',request_id=file_id)
-        from .profile_sources import process_partner
-    try: process_partner(partner_id)
+            return
+    if fingerprint is not None:process_contribution(partner_id,source_kind,file_id,fingerprint)
+
+def process_contribution(partner_id,kind,file_id,fingerprint):
+    from .profile_sources import process_source
+    try:process_source(partner_id,kind,file_id,fingerprint)
     except Exception:
         # Contribution errors persist separately; native text/preview remain usable.
         logger.warning('Source contribution failed for material %s',file_id)
@@ -184,8 +191,20 @@ def retry(scope,parent_id,file_id,tasks):
         conn.lock_writer();row=get_file(conn,scope,parent_id,file_id)
         if row['processing_status']=='processing': raise HTTPException(409,'文件正在处理中')
         partner_id=parent_id if scope=='document' else conn.execute('SELECT partner_id FROM cases WHERE id=?',(parent_id,)).fetchone()[0]
-        changed(conn,partner_id)
         if not file_type(row['filename']): raise HTTPException(400,CONTRACT['unsupported_message'])
+        from .profile_sources import source,stamp,TABLE
+        source_kind='word' if scope=='document' and row.get('doc_category')=='profile_import' else scope
+        current=source(conn,partner_id,source_kind,file_id)
+        contribution=conn.execute(f'SELECT state,source_fingerprint FROM {TABLE} WHERE partner_id=? AND source_kind=? AND source_id=?',
+                                  (partner_id,source_kind,file_id)).fetchone()
+        if contribution and contribution['state']=='processing' and contribution['source_fingerprint']==stamp(current):
+            raise HTTPException(409,'资料画像正在处理中')
+        if row['processing_status']=='ready' and not row['preview_error']:
+            # An explicit contribution retry reuses this file's committed native cache.
+            fingerprint=stamp(current)
+            tasks.add_task(process_contribution,partner_id,source_kind,file_id,fingerprint)
+            return {'processing_status':'processing'}
+        changed(conn,partner_id)
         conn.execute(f"UPDATE {table} SET processing_status='processing',processing_error=NULL,preview_error=NULL WHERE id=?",(file_id,))
     retry_import=scope=='document' and row.get('doc_category')=='profile_import' and row['processing_status'] in ('failed','empty')
     if retry_import:

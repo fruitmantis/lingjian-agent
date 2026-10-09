@@ -7,3 +7,9 @@
 .contextAction svg{flex-shrink:0}
 .backIcon{transform:rotate(180deg)}
 @media(max-width:700px){.contextActions{width:100%;margin-left:0}.contextActions .contextAction{flex:1}}
+
+@keyframes backdrop-entry{from{opacity:.6}to{opacity:1}}
+@keyframes panel-entry{from{opacity:.6;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.overlay{animation:backdrop-entry 120ms ease-out}
+.panel{animation:panel-entry 120ms ease-out}
+@media(prefers-reduced-motion:reduce){.overlay,.panel{animation:none}}

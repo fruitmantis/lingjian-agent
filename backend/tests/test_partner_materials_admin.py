@@ -71,15 +71,27 @@ def test_classify_preserves_file_id_original_and_cached_text(client,access):
     assert client.put(url,headers=admin,json=payload).status_code==404
 
 
-@pytest.mark.parametrize('blocked',['profile_import','processing','rollback'])
+@pytest.mark.parametrize('blocked',['profile_import','processing','rollback','commit_failure'])
 def test_classification_guards_and_transaction(client,access,monkeypatch,blocked):
     admin,_,pid=access;did=add_document(client,admin,pid)
     with get_db() as conn:
         if blocked=='profile_import':conn.execute("UPDATE partner_documents SET doc_category='profile_import' WHERE id=?",(did,))
         elif blocked=='processing':conn.execute("UPDATE partner_documents SET processing_status='processing' WHERE id=?",(did,))
     if blocked=='rollback':monkeypatch.setattr(partner_materials,'record_audit',lambda *_a,**_k:(_ for _ in ()).throw(RuntimeError('synthetic audit failure')))
+    if blocked=='commit_failure':
+        from contextlib import contextmanager
+        original_get_db=partner_materials.get_db
+        @contextmanager
+        def failed_commit():
+            with original_get_db() as conn:
+                yield conn
+                raise RuntimeError('synthetic commit failure')
+        monkeypatch.setattr(partner_materials,'get_db',failed_commit)
+    callbacks=[]
+    monkeypatch.setattr(partner_materials,'_process_profile',lambda p:callbacks.append(p))
     call=lambda:client.put(f'/admin/partner-materials/documents/{did}/classify',headers=admin,json={'partner_id':pid,'title':'资料','category_id':'delivery-1'})
-    assert call().status_code==(500 if blocked=='rollback' else 409)
+    assert call().status_code==(500 if blocked in ('rollback','commit_failure') else 409)
+    assert callbacks==[]
     with get_db() as conn:
         row=conn.execute('SELECT file_path FROM partner_documents WHERE id=?',(did,)).fetchone()
         assert row and Path(row['file_path']).exists()
@@ -88,14 +100,25 @@ def test_classification_guards_and_transaction(client,access,monkeypatch,blocked
 
 
 @pytest.mark.parametrize('kind',['case','document'])
-def test_file_replacement_keeps_id_validates_first_and_withdraws_legacy_profile(client,access,kind):
+def test_file_replacement_keeps_id_validates_first_and_withdraws_legacy_profile(client,access,monkeypatch,kind):
+    import json
+    from backend.app import profile_sources
+    from .test_profile_report import merge_result
+    def completed(_config,messages,_schema):
+        data=json.loads(messages[-1]['content'])
+        if 'material' not in data:return json.dumps(merge_result(data))
+        return json.dumps({'sections':[{'chapter':5,'summary':data['material'],'quotes':[data['material']]}]})
+    monkeypatch.setattr(profile_sources.development_model,'completion',completed)
     admin,user,pid=access
     if kind=='case':
         cid=add_case(client,admin,pid);endpoint=f'/cases/{cid}/deliverables'
         did=client.post(endpoint,headers=admin,files={'file':('old.txt',b'old text')}).json()['id']
     else:
         did=add_document(client,admin,pid,body=b'old text');endpoint=f'/partners/{pid}/documents'
-    with get_db() as conn: conn.execute('UPDATE partners SET ai_profile=? WHERE id=?',('existing profile',pid))
+    organized=client.post(f'/partners/{pid}/profile',headers=admin)
+    assert organized.status_code==200
+    before_profile=organized.json()['ai_profile']
+    assert 'old text' in before_profile
     url=endpoint+'/'+did
     assert client.put(url,headers=user,files={'file':('new.txt',b'new text')}).status_code==403
     assert client.put(url,headers=admin,files={'file':('fake.pdf',b'invalid PDF')}).status_code==400
@@ -105,4 +128,83 @@ def test_file_replacement_keeps_id_validates_first_and_withdraws_legacy_profile(
     assert client.get(url+'/file',headers=admin).content==b'new text'
     assert client.get(url+'/preview',headers=admin).text=='new text'
     assert len(client.get(endpoint,headers=admin).json())==1
-    with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(pid,)).fetchone()[0]!='existing profile'
+    with get_db() as conn:
+        after_profile=conn.execute('SELECT ai_profile FROM partners WHERE id=?',(pid,)).fetchone()[0]
+        assert after_profile!=before_profile
+        assert 'old text' not in after_profile and profile_sources.CHANGED in after_profile
+
+
+
+def test_pending_classification_processes_committed_cached_source_once(client,access,monkeypatch):
+    import json
+    from backend.app import profile_sources
+    admin,_,pid=access
+    did=add_document(client,admin,pid,body=b'synthetic pending capability')
+    with get_db() as conn:
+        old=dict(conn.execute('SELECT * FROM partner_documents WHERE id=?',(did,)).fetchone())
+        source=next(s for s in profile_sources.sources(conn,pid) if s['id']==did)
+        profile_sources.put(conn,source,'pending')
+    calls=[]
+    def complete(config,messages,schema):
+        material=json.loads(messages[-1]['content'])['material']
+        calls.append(material)
+        # A fresh connection can see the committed conversion before model work.
+        with get_db() as conn:
+            assert not conn.execute('SELECT id FROM partner_documents WHERE id=?',(did,)).fetchone()
+            assert conn.execute('SELECT id FROM cases WHERE id=?',(did,)).fetchone()
+            attachment=dict(conn.execute('SELECT * FROM deliverables WHERE id=?',(did,)).fetchone())
+            assert attachment['file_path']==old['file_path']
+            assert attachment['processed_at']==old['processed_at']
+            assert conn.execute("SELECT state FROM partner_profile_sources WHERE source_kind='attachment' AND source_id=?",(did,)).fetchone()['state']=='processing'
+        # An overlapping callback sees the processing claim, so it sends nothing.
+        profile_sources.process_source(pid,'attachment',did)
+        return json.dumps({'sections':[{'chapter':5,'summary':material,'quotes':[material]}]})
+    monkeypatch.setattr(profile_sources.development_model,'completion',complete)
+    url=f'/admin/partner-materials/documents/{did}/classify'
+    payload={'partner_id':pid,'title':'合成分类资料','category_id':'marketing-3'}
+    response=client.put(url,headers=admin,json=payload)
+    assert response.status_code==200,response.text
+    assert client.put(url,headers=admin,json=payload).status_code==404
+    profile_sources.process_source(pid,'attachment',did)
+    assert calls==['synthetic pending capability']
+    with get_db() as conn:
+        source=conn.execute("SELECT state,sections_json FROM partner_profile_sources WHERE source_kind='attachment' AND source_id=?",(did,)).fetchone()
+        assert source['state']=='ready' and 'synthetic pending capability' in source['sections_json']
+    assert Path(old['file_path']).read_bytes()==b'synthetic pending capability'
+
+
+def test_ready_classification_migrates_valid_contribution_without_callback(client,access,monkeypatch):
+    import json
+    from backend.app import profile_sources
+    admin,_,pid=access
+    did=add_document(client,admin,pid,body=b'validated original capability')
+    sections=[{'chapter':5,'quotes':['validated original capability']}]
+    with get_db() as conn:
+        source=next(s for s in profile_sources.sources(conn,pid) if s['id']==did)
+        profile_sources.put(conn,source,'ready',sections,'synthetic validated partial-source note')
+    callbacks=[]
+    monkeypatch.setattr(partner_materials,'_process_profile',lambda p:callbacks.append(p))
+    response=client.put(f'/admin/partner-materials/documents/{did}/classify',headers=admin,
+                        json={'partner_id':pid,'title':'合成已完成资料','category_id':'marketing-3'})
+    assert response.status_code==200 and callbacks==[]
+    with get_db() as conn:
+        migrated=conn.execute("SELECT state,sections_json,error FROM partner_profile_sources WHERE source_kind='attachment' AND source_id=?",(did,)).fetchone()
+        assert migrated['state']=='ready' and json.loads(migrated['sections_json'])==sections
+        assert migrated['error']=='synthetic validated partial-source note'
+
+
+def test_processing_contribution_cannot_be_moved_and_submitted_twice(client,access,monkeypatch):
+    from backend.app import profile_sources
+    admin,_,pid=access
+    did=add_document(client,admin,pid)
+    with get_db() as conn:
+        source=next(s for s in profile_sources.sources(conn,pid) if s['id']==did)
+        profile_sources.put(conn,source,'processing')
+    callbacks=[]
+    monkeypatch.setattr(partner_materials,'_process_profile',lambda p:callbacks.append(p))
+    response=client.put(f'/admin/partner-materials/documents/{did}/classify',headers=admin,
+                        json={'partner_id':pid,'title':'合成在途资料','category_id':'marketing-3'})
+    assert response.status_code==409 and callbacks==[]
+    with get_db() as conn:
+        assert conn.execute('SELECT id FROM partner_documents WHERE id=?',(did,)).fetchone()
+        assert not conn.execute('SELECT id FROM deliverables WHERE id=?',(did,)).fetchone()

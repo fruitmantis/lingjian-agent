@@ -48,3 +48,45 @@ for (const width of [1366, 1920]) test(`admin partner deletion preserves busines
   expect(await (await request.get(`${API}/cases/by-partner/${used.id}`,{headers})).json()).toHaveLength(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
 });
+
+for(const width of [1366,390])test('phase2 visual: admin list leads and editors cancel without writes at '+width,async({page},info)=>{
+ await page.setViewportSize({width,height:844});
+ const admin={id:'visual-admin',username:'visual-admin',display_name:'合成后台视觉验证',role:'admin',status:'active',must_change_password:false};
+ await page.addInitScript(user=>{localStorage.setItem('banfei:admin:token','synthetic-admin-visual');localStorage.setItem('banfei:admin:user',JSON.stringify(user));},admin);
+ const writes:string[]=[];
+ await page.route('**/api/**',async route=>{
+  const req=route.request(),path=new URL(req.url()).pathname.slice(4);
+  if(req.method()!=='GET'){writes.push(path);return route.fulfill({status:409,json:{detail:'Unexpected isolated write'}});}
+  if(path==='/auth/me')return route.fulfill({json:admin});
+  if(path==='/health')return route.fulfill({json:{status:'ok'}});
+  if(path==='/partners')return route.fulfill({json:Array.from({length:5},(_,i)=>({id:'visual-'+i,name:'合成伙伴 '+i,status:'active',capabilities:'合成能力',industries:'金融',ai_profile:null}))});
+  return route.fulfill({status:404,json:{detail:'Unexpected isolated read'}});
+ });
+ await page.goto('/admin/partners');
+ await expect(page.getByRole('cell',{name:'合成伙伴 0',exact:true})).toBeVisible();
+ expect((await page.locator('.data-table thead').boundingBox())!.y).toBeLessThan(page.viewportSize()!.height-60);
+ const editor=page.locator('.partner-admin-disclosure').filter({has:page.locator('summary').filter({hasText:'新增伙伴'})});
+ const toggle=editor.locator('summary');
+ await expect(editor).not.toHaveAttribute('open','');
+ await toggle.focus();await page.keyboard.press('Enter');
+ const name=editor.getByRole('textbox',{name:'伙伴名称',exact:true});await page.keyboard.press('Tab');await expect(name).toBeFocused();
+ await name.fill('未提交的合成草稿');await page.keyboard.press('Escape');
+ await expect(editor).not.toHaveAttribute('open','');await expect(toggle).toBeFocused();
+ await toggle.click();await expect(name).toHaveValue('未提交的合成草稿');await editor.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(toggle).toBeFocused();
+ const menu=page.locator('.partner-list-menu');await menu.locator('summary').click();
+ const action=menu.getByRole('button',{name:'批量生成画像',exact:true});await expect(action).toBeVisible();await action.focus();await page.keyboard.press('Escape');
+ await expect(menu).not.toHaveAttribute('open','');await expect(menu.locator('summary')).toBeFocused();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(writes).toEqual([]);
+ await page.screenshot({path:info.outputPath('phase2-admin-partners-'+width+'.png'),fullPage:true});
+ let release!:()=>void;const transfer=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/api/partners/template',async route=>{await transfer;await route.fulfill({body:'synthetic download only',contentType:'application/octet-stream'});});
+ const imports=page.locator('.partner-admin-disclosure').filter({has:page.locator('summary').filter({hasText:'Excel 导入导出'})});
+ await imports.locator('summary').click();await imports.getByRole('button',{name:'下载导入模板',exact:true}).click();
+ await expect(page.getByText('正在处理伙伴导入或导出…',{exact:true})).toBeVisible();
+ await imports.locator('summary').focus();await page.keyboard.press('Escape');
+ await expect(imports).not.toHaveAttribute('open','');
+ await expect(page.getByText('正在处理伙伴导入或导出…',{exact:true})).toBeVisible();
+ release();await expect(page.getByText('模板已下载，按表头和使用说明填写后导入。',{exact:true})).toBeVisible();expect(writes).toEqual([]);
+
+});

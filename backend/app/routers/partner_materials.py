@@ -1,11 +1,12 @@
 """One admin catalogue over existing cases and unclassified partner documents."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from ..auth import require_admin, record_audit
 from ..database import get_db
 from ..material_contract import CONTRACT, check_category
 from ..models import CaseCreate, CaseOut
 from ..case_content import visible_case
 from .. import material_files as files
+from .cases import _process_profile
 
 router = APIRouter(prefix='/admin/partner-materials', tags=['partner-materials'], dependencies=[Depends(require_admin)])
 
@@ -68,7 +69,7 @@ def catalogue(partner_id: str | None = None, category_group: str | None = None,
     return {'items':[{**dict(r),'visible':bool(r['visible']),'profile_needs_update':bool(r['profile_needs_update'])} for r in rows], 'total':total,'partners':partners}
 
 @router.put('/documents/{document_id}/classify', response_model=CaseOut)
-def classify_document(document_id: str, payload: CaseCreate, actor=Depends(require_admin)):
+def classify_document(document_id: str, payload: CaseCreate, background_tasks: BackgroundTasks, actor=Depends(require_admin)):
     """Admin explicitly categorizes a legacy file; keep its ID, bytes and cached output."""
     check_category(payload.category_id)
     with get_db() as conn:
@@ -78,6 +79,9 @@ def classify_document(document_id: str, payload: CaseCreate, actor=Depends(requi
         if old['doc_category']=='profile_import': raise HTTPException(409,'画像原件不属于案例资料')
         if old['processing_status']=='processing': raise HTTPException(409,'文件正在处理中，请稍后归类')
         if not conn.execute('SELECT id FROM partners WHERE id=?',(payload.partner_id,)).fetchone(): raise HTTPException(404,'伙伴不存在')
+        contribution=conn.execute("SELECT * FROM partner_profile_sources WHERE partner_id=? AND source_kind='document' AND source_id=?",(old['partner_id'],document_id)).fetchone()
+        if contribution and contribution['state']=='processing':
+            raise HTTPException(409,'资料画像正在处理中，请稍后归类')
         row=conn.execute("DELETE FROM partner_documents WHERE id=? AND processing_status!='processing' RETURNING *",(document_id,)).fetchone()
         if not row: raise HTTPException(409,'资料已变化，请刷新后重试')
         stamp=files.now()
@@ -86,13 +90,22 @@ def classify_document(document_id: str, payload: CaseCreate, actor=Depends(requi
         columns=('id','filename','file_path','file_type','created_at','extracted_text','processing_status','processing_error','preview_path','preview_error','processed_at')
         conn.execute('INSERT INTO deliverables (case_id,'+','.join(columns)+') VALUES ('+','.join('?' for _ in range(len(columns)+1))+')',
                      (document_id,*(row[c] for c in columns)))
-        contribution=conn.execute("SELECT * FROM partner_profile_sources WHERE partner_id=? AND source_kind='document' AND source_id=?",(old['partner_id'],document_id)).fetchone()
         for pid in {old['partner_id'],payload.partner_id}: files.changed(conn,pid)
-        if contribution and contribution['state']=='ready':
-            from ..profile_sources import sources,put,rebuild
+        from ..profile_sources import source as get_source,put,rebuild,stamp as source_stamp
+        original_source={**dict(old),'kind':'document','text':old['extracted_text'] or ''}
+        transferred=(contribution and contribution['state']=='ready'
+                     and contribution['source_fingerprint']==source_stamp(original_source))
+        if transferred:
             import json
-            source=next(s for s in sources(conn,payload.partner_id) if s['kind']=='attachment' and s['id']==document_id)
-            put(conn,source,'ready',json.loads(contribution['sections_json']))
+            source=get_source(conn,payload.partner_id,'attachment',document_id)
+            put(conn,source,'ready',json.loads(contribution['sections_json']),contribution['error'])
             rebuild(conn,payload.partner_id)
+        needs_processing=not transferred and row['processing_status']=='ready'
+        fingerprint=source_stamp(get_source(conn,payload.partner_id,'attachment',document_id))
         record_audit(conn,'partner_document_classified',actor_user_id=actor['id'],summary={'document_id':document_id,'case_id':document_id})
-        return visible_case(conn,document_id,True)
+        result=visible_case(conn,document_id,True)
+    # No callback is registered until the conversion transaction has committed.
+    # Existing processing claims/fingerprints deduplicate overlapping callbacks.
+    if needs_processing:
+        background_tasks.add_task(_process_profile,payload.partner_id,'attachment',document_id,fingerprint)
+    return result

@@ -3,10 +3,21 @@ import {ClassificationFields} from "@/components/business-taxonomy";
 
 
 import Link from "next/link";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { adminApiFetch as apiFetch } from "../../../components/auth-provider";
 
-type Partner = { id: string; name: string; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; status: "active" | "disabled"; created_at: string };
+type Partner = { id: string; name: string; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; status: "active" | "disabled"; created_at: string; profile_needs_update?: boolean; profile_status?: string };
+
+function closeDisclosure(node:HTMLElement|null) {
+  const details=node?.closest("details");
+  if(!details)return;
+  details.removeAttribute("open");details.querySelector<HTMLElement>("summary")?.focus();
+}
+function disclosureKey(event:KeyboardEvent<HTMLElement>) {
+  if(event.key==="Escape"&&!event.defaultPrevented&&event.currentTarget.hasAttribute("open")){
+    event.preventDefault();event.stopPropagation();closeDisclosure(event.currentTarget);
+  }
+}
 
 export default function AdminPartnersPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -97,32 +108,31 @@ export default function AdminPartnersPage() {
     }
   }
   async function batchGenerate() {
-    if (!confirm(`将为 ${partners.filter(item => item.status === "active").length} 家启用伙伴依次生成 AI 画像，可能产生模型调用费用。确定继续？`)) return;
+    if (!confirm(`将为 ${partners.filter(item => item.status === "active").length} 家启用伙伴刷新画像状态；正文需在伙伴详情点击整理画像。确定继续？`)) return;
     setBatchLoading(true); setMessage(null); setError(null);
     try {
       const response = await apiFetch("/partners/batch-profile", {
         method: "POST",
-        modelCalls: 2 * Math.max(1, partners.filter(item => item.status === "active").length),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || "批量生成失败");
-      setMessage(`批量生成完成：成功 ${data.success}，失败 ${data.failed}`); await load();
+      if (!response.ok) throw new Error(data.detail || "批量刷新状态失败");
+      setMessage(`批量刷新状态完成：成功 ${data.success}，失败 ${data.failed}`); await load();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "批量生成失败");
+      setError(reason instanceof Error ? reason.message : "批量刷新状态失败");
     } finally {
       setBatchLoading(false);
     }
   }
   return (
-    <main className="page"><p className="eyebrow">Partner Management</p><h1>伙伴管理</h1><p className="lead">维护伙伴基础信息、资料、案例和 AI 画像。</p>
-      <section className="card"><div className="section-heading-row"><div><h2>Excel 导入导出</h2><p className="muted">包含全部伙伴的基础信息、分类、状态和完整画像，不含案例与附件。</p></div><div className="table-actions">
+    <main className="page admin-partners-page"><p className="eyebrow">Partner Management</p><h1>伙伴管理</h1><p className="lead">维护伙伴基础信息、资料、案例和 AI 画像。</p>
+      <div className="partner-admin-tools"><details className="partner-admin-disclosure" onKeyDown={disclosureKey}><summary>Excel 导入导出</summary><div className="card partner-admin-editor"><div className="section-heading-row"><div><h2>Excel 导入导出</h2><p className="muted">包含全部伙伴的基础信息、分类、状态和完整画像，不含案例与附件。</p></div><div className="table-actions">
         <button className="secondary-btn" disabled={transferBusy || batchLoading} onClick={() => void download()}>导出全部 Excel</button>
         <button className="secondary-btn" disabled={transferBusy || batchLoading} onClick={() => void download(true)}>下载导入模板</button>
         <button disabled={transferBusy || batchLoading} onClick={() => fileInput.current?.click()}>{transferBusy ? '处理中…' : '导入 Excel'}</button>
         <input ref={fileInput} type="file" hidden accept=".xlsx" aria-label="导入伙伴Excel文件" onChange={e => {const file = e.target.files?.[0]; e.target.value = ''; if (file) void upload(file);}}/>
-      </div></div></section>
-      <section className="card"><h2>新增伙伴</h2><form onSubmit={create} className="form-grid"><input value={name} onChange={event => setName(event.target.value)} placeholder="伙伴名称" required maxLength={200} /><ClassificationFields industries={industries} regions={regions} onIndustries={setIndustries} onRegions={setRegions}/><div><button>新增伙伴</button></div></form></section>
-      <section className="card"><div className="section-heading-row"><h2>伙伴列表</h2><div className="table-actions"><span className="result-count">共 {partners.length} 家</span><button onClick={batchGenerate} disabled={batchLoading}>{batchLoading ? "批量生成中..." : "批量生成画像"}</button></div></div>{message && <p className="success-text">{message}</p>}{error && <div className="inline-error-actions"><p className="error-text" role="alert">{error}</p><button className="secondary-btn" onClick={() => void load()}>重试</button></div>}{loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>伙伴名称</th><th>能力标签</th><th>行业经验</th><th>画像状态</th><th>伙伴状态</th><th>操作</th></tr></thead><tbody>{partners.map(partner => <tr key={partner.id}><td>{partner.name}</td><td>{partner.capabilities || "-"}</td><td>{partner.industries || "-"}</td><td>{partner.ai_profile ? "已生成" : "待生成"}</td><td><span className={`status-badge ${partner.status}`}>{partner.status === "active" ? "启用" : "停用"}</span></td><td><div className="table-actions"><Link href={`/admin/partners/${partner.id}`} className="secondary-btn">维护</Link><button className="secondary-btn" onClick={() => toggle(partner)}>{partner.status === "active" ? "停用" : "启用"}</button><button className="secondary-btn danger-outline" disabled={deletingId !== null} onClick={() => remove(partner)}>{deletingId === partner.id ? "删除中..." : "删除"}</button></div></td></tr>)}</tbody></table></div>}</section>
+      </div></div></div></details>
+      <details className="partner-admin-disclosure" onKeyDown={disclosureKey}><summary>新增伙伴</summary><div className="card partner-admin-editor"><h2>新增伙伴</h2><form onSubmit={create} className="form-grid"><label className="enablement-field" htmlFor="new-partner-name">伙伴名称<input id="new-partner-name" value={name} onChange={event => setName(event.target.value)} placeholder="伙伴名称" required maxLength={200} /></label><ClassificationFields industries={industries} regions={regions} onIndustries={setIndustries} onRegions={setRegions}/><div className="table-actions"><button>新增伙伴</button><button type="button" className="secondary-btn" onClick={event=>closeDisclosure(event.currentTarget)}>取消</button></div></form></div></details></div>
+      <section className="card"><div className="section-heading-row"><h2>伙伴列表</h2><div className="table-actions"><span className="result-count">共 {partners.length} 家</span><details className="advisor-more partner-list-menu" onKeyDown={disclosureKey}><summary>更多操作</summary><div className="advisor-menu" onClick={event=>{if((event.target as HTMLElement).closest("button"))closeDisclosure(event.currentTarget);}}><button className="secondary-btn" onClick={batchGenerate} disabled={batchLoading}>{batchLoading ? "批量刷新状态中..." : "批量刷新状态画像"}</button></div></details></div></div>{transferBusy&&<p className="muted" role="status">正在处理伙伴导入或导出…</p>}{batchLoading&&<p className="muted" role="status">正在刷新伙伴画像状态…</p>}{message && <p className="success-text">{message}</p>}{error && <div className="inline-error-actions"><p className="error-text" role="alert">{error}</p><button className="secondary-btn" onClick={() => void load()}>重试</button></div>}{loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>伙伴名称</th><th>能力标签</th><th>行业经验</th><th>画像状态</th><th>伙伴状态</th><th>操作</th></tr></thead><tbody>{partners.map(partner => <tr key={partner.id}><td>{partner.name}</td><td>{partner.capabilities || "-"}</td><td>{partner.industries || "-"}</td><td>{partner.profile_needs_update ? "待整理" : partner.profile_status === "missing" ? "暂无资料" : "已整理"}</td><td><span className={`status-badge ${partner.status}`}>{partner.status === "active" ? "启用" : "停用"}</span></td><td><div className="table-actions"><Link href={`/admin/partners/${partner.id}`} className="secondary-btn">维护</Link><button className="secondary-btn" onClick={() => toggle(partner)}>{partner.status === "active" ? "停用" : "启用"}</button><button className="secondary-btn danger-outline" disabled={deletingId !== null} onClick={() => remove(partner)}>{deletingId === partner.id ? "删除中..." : "删除"}</button></div></td></tr>)}</tbody></table></div>}</section>
     </main>
   );
 }

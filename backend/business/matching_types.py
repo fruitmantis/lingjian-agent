@@ -40,6 +40,11 @@ class MatchUnderstanding(StrictModel):
     tag_suggestions: list[TagSuggestion]=Field(default_factory=list,max_length=20)
 
 
+class ProfileEvidence(StrictModel):
+    source: str = Field(min_length=1, max_length=200)
+    quote: str = Field(min_length=2, max_length=25000)
+
+
 class Candidate(StrictModel):
     partnerId: str
     partnerName: str
@@ -48,16 +53,17 @@ class Candidate(StrictModel):
     matchedIndustries: str
     matchedRegions: str
     recommendationReason: str
+    evidenceType: Literal['current_capability','delivered_project','planning_only','unrelated'] = 'current_capability'
+    profileEvidence: list[ProfileEvidence] = Field(default_factory=list, max_length=5)
     evidenceCases: list[str]=Field(default_factory=list)
     evidenceDeliverables: list[str]=Field(default_factory=list)
     riskNotes: str
 
 
 class MatchAnswer(StrictModel):
-    answer: str=Field(min_length=1,max_length=5000)
     recommendations: list[Candidate]=Field(default_factory=list,max_length=5)
     supplyStatus: Literal['sufficient','partial','gap','unknown']
-    gapAnalysis: str=Field(min_length=1,max_length=2000)
+    gapAnalysis: str=Field(default='',max_length=2000)
 
 
 class InitialCandidate(StrictModel):

@@ -94,7 +94,7 @@ async def completions(payload: dict):
             items=[]
             for p in data['candidates'][:1]:
                 items.append({**json.loads(_content('match'))[0],'partnerId':p['partnerId'],'partnerName':p['name'],'evidenceCases':[],'evidenceDeliverables':[]})
-            content=json.dumps({'answer':'根据现有合成资料，建议优先核实以下伙伴。','recommendations':items,'supplyStatus':'partial' if items else 'unknown','gapAnalysis':'交付排期与承接边界待核实'},ensure_ascii=False)
+            content=json.dumps({'recommendations':items,'supplyStatus':'partial' if items else 'unknown','gapAnalysis':'交付排期与承接边界待核实'},ensure_ascii=False)
         if 'SIDEBAR_SLOW' in json.dumps(messages,ensure_ascii=False) and stage=='understanding':await asyncio.sleep(5)
         return {'choices':[{'message':{'content':content},'finish_reason':'stop'}],'usage':{'completion_tokens':20}}
     if "SIDEBAR_SLOW" in json.dumps(payload.get("messages"), ensure_ascii=False) and stage in {"match", "demand"}:

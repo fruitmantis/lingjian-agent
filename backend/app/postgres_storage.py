@@ -110,6 +110,9 @@ def verify_schema(url):
         if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='20':
             raise RuntimeError('PostgreSQL schema version is not 20; refusing automatic changes')
 
+        if 'profile_chapter_meta' not in {c['name'] for c in inspect(conn).get_columns('partners')}:
+            raise RuntimeError('Profile chapter association column missing; explicit additive migration required')
+
         from .development_partner_schema import verify_optional_partner
         verify_optional_partner(Connection(conn))
 

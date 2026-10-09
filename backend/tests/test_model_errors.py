@@ -2,10 +2,11 @@
 import httpx
 import pytest
 
-from backend.app import ai_client
+from backend.app import ai_client, profile_sources
 from backend.app.database import get_db
 from backend.app.routers import model_config, profile
 from .conftest import auth_headers, make_partner, make_user
+from .test_profile_report import setup, upload, organize, profile as source_profile
 
 
 @pytest.mark.parametrize("data", [
@@ -54,22 +55,47 @@ def test_manual_connection_test_validates_content_and_sanitizes_errors(client, m
         assert text not in response.text
 
 
-def test_profile_failure_preserves_data_without_exposing_exception(client, monkeypatch):
-    make_partner()
-    admin = make_user("profile_error_admin", role="admin")
+def _failed_source_with_valid_profile(setup):
+    """Use existing isolated fixtures; only the selected source needs a retry."""
+    _,_,_,pid,_=setup
+    upload(setup,'valid-error-baseline.txt','RetainedValidSyntheticQuasar。')
+    organize(setup)
+    fid=upload(setup,'selected-error-source.txt','UnprocessedRetrySyntheticQuasar。')
     with get_db() as conn:
-        before = dict(conn.execute("SELECT * FROM partners WHERE id = 'partner-1'").fetchone())
-    def fail(*_args, **_kwargs):
+        current=profile_sources.source(conn,pid,'document',fid)
+        profile_sources.put(conn,current,'failed',error='synthetic explicit retry')
+        profile_sources.rebuild(conn,pid)
+        before=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
+        cached=dict(conn.execute('SELECT * FROM partner_documents WHERE id=?',(fid,)).fetchone())
+    assert 'RetainedValidSyntheticQuasar' in before['ai_profile']
+    assert 'UnprocessedRetrySyntheticQuasar' not in before['ai_profile']
+    return fid,before,cached
+
+
+def test_profile_failure_preserves_data_without_exposing_exception(setup, monkeypatch):
+    client,admin,_,pid,_=setup
+    fid,before,cached=_failed_source_with_valid_profile(setup)
+    calls=[]
+    def fail(_config,messages,_schema):
+        import json
+        calls.append(json.loads(messages[-1]['content'])['material'])
         raise RuntimeError("synthetic-secret raw-model-JSON internal-prompt")
-    monkeypatch.setattr(profile, "chat_completion", fail)
-    monkeypatch.setattr(profile.development_model, "completion", fail)
-    response = client.post("/partners/partner-1/profile", headers=auth_headers(admin))
-    assert response.status_code == 502
-    assert response.json()["detail"] == "服务异常，请联系管理员。"
-    for text in ("synthetic-secret", "raw-model-JSON", "internal-prompt"):
-        assert text not in response.text
+    monkeypatch.setattr(profile_sources.development_model,"completion",fail)
+    response=client.post(f"/partners/{pid}/documents/{fid}/retry",headers=admin)
+    # Retry acknowledges the selected file; the separately persisted state reports failure.
+    assert response.status_code==200
+    assert calls==[cached['extracted_text']]
+    public=source_profile(setup)
+    assert public['profile_status']=='failed' and public.get('profile_sources') is None
+    for text in ("synthetic-secret","raw-model-JSON","internal-prompt"):
+        assert text not in response.text and text not in str(public)
     with get_db() as conn:
-        assert dict(conn.execute("SELECT * FROM partners WHERE id = 'partner-1'").fetchone()) == before
+        contribution=conn.execute("SELECT state,sections_json FROM partner_profile_sources WHERE partner_id=? AND source_kind='document' AND source_id=?",(pid,fid)).fetchone()
+        assert contribution['state']=='failed' and contribution['sections_json']=='[]'
+        after=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
+        assert {k:v for k,v in after.items() if k!='profile_updated_at'}=={
+            k:v for k,v in before.items() if k!='profile_updated_at'}
+        assert dict(conn.execute('SELECT * FROM partner_documents WHERE id=?',(fid,)).fetchone())==cached
 
 
 def test_batch_profile_does_not_copy_nested_exception(client, monkeypatch):
@@ -77,7 +103,7 @@ def test_batch_profile_does_not_copy_nested_exception(client, monkeypatch):
     admin = make_user("batch_error_admin", role="admin")
     def fail(*_args, **_kwargs):
         raise RuntimeError("synthetic-secret raw-model-JSON internal-prompt")
-    monkeypatch.setattr(profile, "generate_profile", fail)
+    monkeypatch.setattr(profile_sources, "sync", fail)
     response = client.post("/partners/batch-profile", headers=auth_headers(admin))
     assert response.status_code == 200
     assert response.json()["failed"] == 1
@@ -98,13 +124,26 @@ def test_inline_reasoning_tags_are_rejected():
 
 
 @pytest.mark.parametrize("narrative", ["", '{"internal":"synthetic-secret"}', '```json\n{"raw":"synthetic-secret"}\n```'])
-def test_profile_does_not_persist_raw_structured_output(client, monkeypatch, narrative):
-    make_partner()
-    admin = make_user("profile_format_admin", role="admin")
-    monkeypatch.setattr(profile, "chat_completion", lambda *_a, **_k: '{}')
-    monkeypatch.setattr(profile.development_model, "completion", lambda *_a, **_k: narrative)
-    response = client.post("/partners/partner-1/profile", headers=auth_headers(admin))
-    assert response.status_code == 502
-    assert "synthetic-secret" not in response.text
+def test_profile_does_not_persist_raw_structured_output(setup, monkeypatch, narrative):
+    client,admin,_,pid,_=setup
+    fid,before,cached=_failed_source_with_valid_profile(setup)
+    calls=[]
+    def malformed(_config,messages,_schema):
+        import json
+        calls.append(json.loads(messages[-1]['content'])['material'])
+        return narrative
+    monkeypatch.setattr(profile_sources.development_model,"completion",malformed)
+    response=client.post(f"/partners/{pid}/documents/{fid}/retry",headers=admin)
+    assert response.status_code==200
+    assert calls==[cached['extracted_text']]
+    public=source_profile(setup)
+    assert public['profile_status']=='failed'
+    assert "synthetic-secret" not in response.text and "synthetic-secret" not in str(public)
     with get_db() as conn:
-        assert conn.execute("SELECT ai_profile FROM partners WHERE id = 'partner-1'").fetchone()[0] is None
+        contribution=conn.execute("SELECT state,sections_json FROM partner_profile_sources WHERE partner_id=? AND source_kind='document' AND source_id=?",(pid,fid)).fetchone()
+        assert contribution['state']=='failed' and contribution['sections_json']=='[]'
+        saved=conn.execute('SELECT ai_profile FROM partners WHERE id=?',(pid,)).fetchone()[0]
+        assert saved==before['ai_profile'] and 'RetainedValidSyntheticQuasar' in saved
+        assert 'UnprocessedRetrySyntheticQuasar' not in saved and 'synthetic-secret' not in saved
+        if narrative:assert narrative not in saved
+        assert dict(conn.execute('SELECT * FROM partner_documents WHERE id=?',(fid,)).fetchone())==cached

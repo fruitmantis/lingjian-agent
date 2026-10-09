@@ -47,7 +47,9 @@ def expire(task_id):
 @pytest.fixture
 def scenario(client, monkeypatch):
     user = make_user('late-write-owner')
-    make_partner()
+    partner=make_partner()
+    with get_db() as conn:
+        conn.execute('UPDATE partners SET capabilities=? WHERE id=?',('AI, 数据库迁移',partner['id']))
     current = {'marker': 'OLD'}
     calls = []
 
@@ -64,7 +66,7 @@ def scenario(client, monkeypatch):
             value = {'candidates': [{'partnerId': 'partner-1', 'verificationFocus': '核实数据库迁移'}]}
         else:
             assert schema['title'] == 'MatchAnswer'
-            value = {'answer': '合成答复_' + marker, 'gapAnalysis': marker, 'supplyStatus': 'partial',
+            value = { 'gapAnalysis': marker, 'supplyStatus': 'partial',
                 'recommendations': [{**recommendation(), 'evidenceCases': [], 'evidenceDeliverables': []}]}
         return json.dumps(value, ensure_ascii=False)
 
@@ -114,7 +116,7 @@ def test_old_enrichment_cannot_write_after_recovery(scenario, monkeypatch, point
 
     monkeypatch.setattr(match, '_require_match_run', guarded)
     monkeypatch.setattr(Connection, 'execute', observed)
-    request = match.TaskCreateRequest(requestId=uuid4(), requirement='合成数据库迁移，验证迟到写入')
+    request = match.TaskCreateRequest(requestId=uuid4(), requirement='需要数据库迁移伙伴，合成数据库迁移，验证迟到写入')
     accepted = match.create_task(request, user)
     try:
         assert entered.wait(8), 'old execution never reached the requested save boundary'
@@ -157,7 +159,7 @@ def test_old_enrichment_cannot_write_after_recovery(scenario, monkeypatch, point
 
 def test_current_run_saves_all_derivatives_and_replay_is_idempotent(scenario):
     user, current, calls = scenario
-    request = match.TaskCreateRequest(requestId=uuid4(), requirement='合成当前执行幂等验证')
+    request = match.TaskCreateRequest(requestId=uuid4(), requirement='需要数据库迁移伙伴，合成当前执行幂等验证')
     accepted = match.create_task(request, user)
     match.executor.shutdown(wait=True)
     first = state(accepted.recordId)
@@ -178,7 +180,7 @@ def test_queued_old_worker_keeps_original_run_identity(scenario, monkeypatch):
     user, current, calls = scenario
     queued = []
     monkeypatch.setattr(match.executor, 'submit', lambda fn, *args: queued.append((fn, args)))
-    accepted = match.create_task(match.TaskCreateRequest(requestId=uuid4(), requirement='合成排队旧执行'), user)
+    accepted = match.create_task(match.TaskCreateRequest(requestId=uuid4(), requirement='需要数据库迁移伙伴，合成排队旧执行'), user)
     expire(accepted.recordId)
     current['marker'] = 'NEW'
     assert match.retry_match_record(accepted.recordId, user).taskStatus == 'ready'
@@ -202,7 +204,7 @@ def test_late_model_error_cannot_fail_completed_retry(scenario, monkeypatch):
         return complete(config, messages, schema)
 
     monkeypatch.setattr(development_model, 'completion', delayed)
-    accepted = match.create_task(match.TaskCreateRequest(requestId=uuid4(), requirement='合成迟到模型错误'), user)
+    accepted = match.create_task(match.TaskCreateRequest(requestId=uuid4(), requirement='需要数据库迁移伙伴，合成迟到模型错误'), user)
     try:
         assert entered.wait(8)
         expire(accepted.recordId)
@@ -222,7 +224,7 @@ def test_retry_claim_rolls_back_state_when_new_run_cannot_be_saved(scenario, mon
     from .postgres_support import install_failure
     user, _, _ = scenario
     monkeypatch.setattr(match.executor, 'submit', lambda *args: None)
-    accepted = match.create_task(match.TaskCreateRequest(requestId=uuid4(), requirement='合成重试原子切换'), user)
+    accepted = match.create_task(match.TaskCreateRequest(requestId=uuid4(), requirement='需要数据库迁移伙伴，合成重试原子切换'), user)
     expire(accepted.recordId)
     before = state(accepted.recordId)
     with get_db() as conn:

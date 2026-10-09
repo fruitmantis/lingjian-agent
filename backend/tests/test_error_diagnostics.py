@@ -27,7 +27,7 @@ def model_reply(monkeypatch, content, status=200):
                 try:
                     values=json.loads(content)
                     values=[{**item,'evidenceCases':[],'evidenceDeliverables':[]} for item in values]
-                    reply=json.dumps({'answer':'合成推荐结果。','recommendations':values,'supplyStatus':'unknown','gapAnalysis':'待核实'})
+                    reply=json.dumps({'recommendations':values,'supplyStatus':'unknown','gapAnalysis':'待核实'})
                 except ValueError:pass
         body={'choices':[{'finish_reason':'stop','message':{'content':reply}}]} if status==200 else {'error':{'message':content}}
         return httpx.Response(status,request=httpx.Request('POST',url),json=body)

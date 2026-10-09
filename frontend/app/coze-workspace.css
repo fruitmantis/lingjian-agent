@@ -44,20 +44,20 @@
 .coze-workspace .page :is(.notice-neutral,.notice-warning,.task-failure-notice) { border-radius:10px; }
 
 /* One centered entry surface for both explicit business modes. */
-.coze-workspace .unified-task-page { max-width:840px; padding-top:clamp(24px,5vh,64px); }
+.coze-workspace .unified-task-page { max-width:840px; padding-top:clamp(16px,3vh,40px); }
 .coze-workspace .unified-task-heading { padding:0; text-align:center; }
 .coze-workspace .unified-task-heading .assistant-title { justify-content:center; }
-.coze-workspace .unified-task-heading h1 { font-size:28px; margin:0 0 24px; }
-.coze-workspace .page .task-mode-tabs { display:flex; width:max-content; max-width:100%; justify-content:center; gap:4px; padding:4px; margin:0 auto 24px; background:var(--bg-hover); border:1px solid var(--border-default); border-radius:12px; }
+.coze-workspace .unified-task-heading h1 { font-size:28px; margin:0 0 16px; }
+.coze-workspace .page .task-mode-tabs { display:flex; width:max-content; max-width:100%; justify-content:center; gap:4px; padding:4px; margin:0 auto 16px; background:var(--bg-hover); border:1px solid var(--border-default); border-radius:12px; }
 .coze-workspace .page .task-mode-tabs :is(a,button) { min-height:38px; padding:8px 24px; border:0; border-radius:8px; font-size:14px; font-weight:400; }
 .coze-workspace .page .task-mode-tabs :is(a,button).active { background:white; color:var(--text-primary); box-shadow:0 1px 4px rgb(0 0 0 / 8%); font-weight:var(--font-weight-body); }
 .coze-workspace .task-mode-tabs :is(a,button).active::before { content:""; width:5px; height:5px; border-radius:50%; background:var(--brand-primary); display:inline-block; margin-right:8px; vertical-align:middle; }
 .coze-workspace .unified-task-page .assistant-hero { padding:0; margin-bottom:24px; }
-.coze-workspace .unified-task-page .assistant-subtitle { text-align:center; font-size:14px; font-weight:400; line-height:1.7; margin:0 0 20px; color:var(--text-secondary); }
-.coze-workspace .page .assistant-composer { margin:0; padding:24px; border:1px solid var(--border-strong); border-radius:20px; box-shadow:0 2px 10px rgb(24 24 32 / 4%); }
+.coze-workspace .unified-task-page .assistant-subtitle { text-align:center; font-size:14px; font-weight:400; line-height:1.7; margin:0 0 14px; color:var(--text-secondary); }
+.coze-workspace .page .assistant-composer { margin:0; padding:18px 20px; border:1px solid var(--border-strong); border-radius:16px; box-shadow:0 2px 10px rgb(24 24 32 / 4%); }
 .coze-workspace .page .assistant-composer:focus-within { border-color:#c4c4c9; box-shadow:0 0 0 3px rgb(24 24 32 / 3%),0 4px 18px rgb(24 24 32 / 4%); }
-.coze-workspace .page .assistant-composer textarea { min-height:150px; padding:4px; border:0; border-radius:0; background:transparent; box-shadow:none; font-size:16px; line-height:26px; }
-.coze-workspace .assistant-composer-footer { border:0; padding-top:16px; flex-direction:row; align-items:center; }
+.coze-workspace .page .assistant-composer textarea { min-height:96px; padding:4px; border:0; border-radius:0; background:transparent; box-shadow:none; font-size:16px; line-height:26px; }
+.coze-workspace .assistant-composer-footer { border:0; padding-top:10px; flex-direction:row; align-items:center; }
 .coze-workspace .assistant-composer-footer .assistant-counter { margin-right:auto; }
 .coze-workspace .assistant-submit { min-width:120px; gap:8px; }
 .coze-workspace .home-scene-disclosure { margin:28px 0 0; border-top:1px solid var(--border-default); }
@@ -70,8 +70,8 @@
 .coze-workspace .page .featured-scene-card { border:var(--border-card-width) solid var(--border-card); padding:20px; min-height:0; box-shadow:none; }
 
 .coze-workspace .development-entry { margin:0; }
-.coze-workspace .development-composer { gap:0; border:1px solid var(--border-strong); border-radius:20px; box-shadow:0 2px 10px rgb(24 24 32 / 4%); overflow:hidden; }
-.coze-workspace .page .development-composer :is(.development-context-row,.development-form) { border:0; border-radius:0; box-shadow:none; padding:20px 24px; margin:0; }
+.coze-workspace .development-composer { gap:0; border:1px solid var(--border-strong); border-radius:16px; box-shadow:0 2px 10px rgb(24 24 32 / 4%); overflow:hidden; }
+.coze-workspace .page .development-composer :is(.development-context-row,.development-form) { border:0; border-radius:0; box-shadow:none; padding:14px 20px; margin:0; }
 .coze-workspace .page .development-composer .development-context-row { background:var(--bg-hover); border-bottom:1px solid var(--border-default); }
 .coze-workspace .page .development-composer :is(.development-partner,.development-source) { border:0; border-radius:0; box-shadow:none; margin:0; }
 .coze-workspace .page .development-partner > .enablement-field { display:flex; flex-direction:row; align-items:center; gap:16px; margin:0; font-size:13px; }
@@ -82,12 +82,12 @@
 .coze-workspace .development-profile-heading { margin-top:16px; }
 .coze-workspace .development-composer .development-source { border-left:1px solid var(--border-default); }
 .coze-workspace .development-form > .enablement-field { font-size:13px; gap:12px; }
-.coze-workspace .page .development-entry .development-form textarea { padding:0; height:140px; min-height:120px; border:0; border-radius:0; box-shadow:none; font-size:16px; line-height:26px; }
+.coze-workspace .page .development-entry .development-form textarea { padding:0; height:104px; min-height:96px; border:0; border-radius:0; box-shadow:none; font-size:16px; line-height:26px; }
 .coze-workspace .page .development-entry .development-form textarea:focus { box-shadow:none; }
 .coze-workspace .development-form-actions { gap:24px; margin-top:8px; padding-top:16px; }
 
 /* Prose leads; current request, resources and diagnostics remain readable. */
-.coze-workspace .page:is(.advisor-detail,.match-detail) { max-width:860px; padding:0 0 40px; border:0; border-radius:0; box-shadow:none; background:transparent; }
+.coze-workspace .page:is(.advisor-detail,.match-detail) { max-width:840px; padding:0 0 40px; border:0; border-radius:0; box-shadow:none; background:transparent; }
 .coze-workspace .advisor-detail > a { font-size:13px; color:var(--text-secondary); }
 .coze-workspace :is(.advisor-heading,.match-detail .page-heading-row) { margin:20px 0 24px; gap:20px; }
 .coze-workspace :is(.advisor-heading,.match-detail) h1 { font-size:24px; }
@@ -97,7 +97,7 @@
 .coze-workspace .page:is(.advisor-detail,.match-detail) > :is(.advisor-direction,.task-request) { padding:16px 20px; border:0; border-radius:12px; background:var(--bg-hover); margin-bottom:8px; }
 .coze-workspace .page :is(.advisor-direction,.task-request) h2 { font-size:13px; color:var(--text-secondary); font-weight:400; margin:0 0 8px; }
 .coze-workspace .page :is(.advisor-direction,.task-request) p { color:var(--text-primary); padding:0; margin:0; font-size:16px; line-height:26px; background:transparent; }
-.coze-workspace .page:is(.advisor-detail,.match-detail) > .task-answer { border:0; padding:24px 0 32px; }
+.coze-workspace .page:is(.advisor-detail,.match-detail) > .task-answer { border:0; padding:24px 20px 32px; }
 .coze-workspace .advisor-answer { font-size:16px; line-height:26px; margin-top:0; }
 .coze-workspace .advisor-answer-label { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:var(--font-weight-body); color:var(--text-primary); margin-bottom:18px; }
 .coze-workspace .advisor-answer-label::before { content:""; width:6px; height:6px; background:var(--brand-primary); border-radius:50%; }
@@ -114,7 +114,7 @@
 .coze-workspace .advisor-resource p { margin:10px 0; font-size:16px; line-height:26px; }
 .coze-workspace .advisor-conditions { grid-template-columns:repeat(2,minmax(0,1fr)); font-size:13px; margin:10px 0 0; }
 .coze-workspace .advisor-chat > .muted { font-size:13px; }
-.coze-workspace .advisor-exchange { padding:24px 0; border:0; }
+.coze-workspace .advisor-exchange { padding:24px 20px; border:0; }
 .coze-workspace .advisor-question { background:var(--bg-hover); padding:16px 20px; margin:0 0 24px; border-radius:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
 .coze-workspace .advisor-composer { margin-top:20px; border:1px solid var(--border-strong); border-radius:20px; padding:16px 20px; box-shadow:var(--shadow-surface); }
 .coze-workspace .advisor-prompts { margin:0 0 16px; gap:6px; }
@@ -193,10 +193,10 @@
 @media (max-width:540px) {
   .coze-workspace .page-content { padding:16px; }
   .coze-workspace .page .assistant-composer { padding:16px; }
-  .coze-workspace .page .assistant-composer textarea { min-height:170px; }
+  .coze-workspace .page .assistant-composer textarea { min-height:104px; }
   .coze-workspace .page .development-composer :is(.development-context-row,.development-form) { padding:16px; }
   .coze-workspace .page .development-partner > .enablement-field { flex-direction:column; align-items:stretch; gap:8px; }
-  .coze-workspace .page .development-entry .development-form textarea { height:170px; }
+  .coze-workspace .page .development-entry .development-form textarea { height:112px; }
   .coze-workspace .page :is(.advisor-heading,.match-detail .page-heading-row) { gap:12px; margin-top:12px; }
   .coze-workspace :is(.advisor-heading,.match-detail) h1 { font-size:22px; }
   .coze-workspace .advisor-resource { padding:16px; }
@@ -231,3 +231,51 @@
 .coze-workspace .home-scene-button:focus-visible { outline:2px solid var(--brand,#C7000B); outline-offset:3px; }
 .coze-workspace .home-template-hint { margin:0 0 10px; color:var(--text-secondary); font-size:13px; line-height:1.6; }
 @media(max-width:640px) { .coze-workspace .home-scene-buttons { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; } }
+
+/* Compact context and truthful progress use the existing native disclosures. */
+.coze-workspace .development-context-row { gap:16px; }
+.coze-workspace .development-partner > .enablement-field > div { flex:1; min-width:0; }
+.coze-workspace .development-source-details > summary { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
+.coze-workspace .development-source-details > summary::before { content:"›"; font-size:18px; line-height:1; }
+.coze-workspace .development-source-details[open] > summary::before { transform:rotate(90deg); }
+.coze-workspace .development-source-details > summary span { margin-left:auto; color:var(--text-secondary); font-size:12px; }
+.coze-workspace .development-source-body { padding-top:12px; }
+.coze-workspace .development-composer .development-source-note { margin:10px 0 0; font-size:12px; line-height:1.6; }
+.coze-workspace .task-progress { padding:16px 20px; margin-bottom:16px; }
+.coze-workspace .task-progress-current { margin:6px 0 0; font-size:13px; color:var(--text-secondary); }
+.coze-workspace .task-progress-details { margin-top:12px; }
+.coze-workspace .task-progress-details > summary { width:fit-content; font-size:13px; color:var(--text-secondary); cursor:pointer; }
+.coze-workspace .task-progress-details ol { margin-top:12px; gap:10px; }
+.coze-workspace .advisor-chat > :is(h2,.muted) { padding-inline:20px; }
+.coze-workspace .advisor-menu { padding:6px; min-width:200px; border:1px solid var(--border-default); background:white; box-shadow:var(--shadow-overlay); }
+.coze-workspace .advisor-menu .secondary-btn { width:100%; min-height:36px; justify-content:flex-start; text-align:left; border:0; border-radius:6px; padding:8px 10px; box-shadow:none; font-size:13px; }
+
+/* The partner list remains first in the initial viewport; editors stay in place. */
+.coze-workspace .partner-admin-tools { display:flex; gap:8px; flex-wrap:wrap; margin:20px 0 16px; }
+.coze-workspace .partner-admin-disclosure { min-width:0; }
+.coze-workspace .partner-admin-disclosure > summary { width:fit-content; min-height:38px; padding:8px 12px; border:1px solid var(--border-default); border-radius:8px; font-size:13px; cursor:pointer; background:white; }
+.coze-workspace .partner-admin-disclosure[open] { flex-basis:100%; }
+.coze-workspace .page .partner-admin-editor { margin:12px 0 0; padding:20px; }
+.coze-workspace .partner-list-menu { position:relative; }
+.coze-workspace .partner-list-menu .advisor-menu { right:0; z-index:20; }
+.coze-workspace .admin-partners-page .table-actions { gap:6px; }
+.coze-workspace .admin-partners-page .table-actions > .secondary-btn { min-height:32px; padding:5px 10px; font-size:13px; }
+@media(max-width:540px) {
+  .coze-workspace .task-progress li { grid-template-columns:10px minmax(0,1fr); }
+  .coze-workspace .task-progress li small { grid-column:2; }
+  .coze-workspace .task-progress-heading > span { font-size:12px; }
+  .coze-workspace .page .partner-admin-editor { padding:16px; }
+}
+
+/* Short entry feedback only; layout and dismissal remain immediate. */
+@keyframes workspace-reveal { from { opacity:.6; } to { opacity:1; } }
+.coze-workspace .advisor-more[open] > .advisor-menu,
+.coze-workspace .development-source-details[open] > .development-source-body,
+.coze-workspace .task-progress-details[open] > ol,
+.coze-workspace .advisor-secondary { animation:workspace-reveal 120ms ease-out; }
+@media (prefers-reduced-motion:reduce) {
+  .coze-workspace .advisor-more[open] > .advisor-menu,
+  .coze-workspace .development-source-details[open] > .development-source-body,
+  .coze-workspace .task-progress-details[open] > ol,
+  .coze-workspace .advisor-secondary { animation:none; }
+}

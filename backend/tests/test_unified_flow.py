@@ -161,22 +161,30 @@ def test_outside_scope_retains_task_and_owner_isolation(unified,monkeypatch):
     with get_db() as conn:assert conn.execute('SELECT count(*) FROM development_plans').fetchone()[0]==2
 
 
-def test_match_three_calls_shared_facts_and_no_rule_fallback(unified,monkeypatch):
+def test_match_two_calls_shared_facts_local_recall_and_no_rule_fallback(unified,monkeypatch):
     calls=[]
     def complete(config,messages,schema):
         calls.append(schema['title'])
         if schema['title']=='MatchUnderstanding':
             return json.dumps({'in_scope':True,'facts':{'customerName':'合成客户','industry':'金融','region':'北京市','technicalNeeds':'数据库迁移'},'tag_suggestions':[]})
-        if schema['title']=='InitialSelection':
-            return json.dumps({'candidates':[{'partnerId':'partner-1','verificationFocus':'数据库迁移经验'}]})
-        return json.dumps({'answer':'当前资料不足以确认完整交付覆盖。','recommendations':[],'supplyStatus':'unknown','gapAnalysis':'资料不足，需要补充交付证据。'})
+        assert schema['title']=='MatchAnswer'
+        data=json.loads(messages[-1]['content'])
+        assert data['requirement']=='合成客户需要数据库迁移伙伴'
+        assert data['facts']['customerName']=='合成客户'
+        assert 'understanding' not in data and data['candidates']
+        return json.dumps({'recommendations':[],'supplyStatus':'unknown','gapAnalysis':'资料不足，需要补充交付证据。'})
     monkeypatch.setattr(model,'completion',complete)
     result=match.match_partners(match.MatchRequest(requirement='合成客户需要数据库迁移伙伴'),unified[0][0])
-    assert calls==['MatchUnderstanding','InitialSelection','MatchAnswer']
+    assert calls==['MatchUnderstanding','MatchAnswer']
+    from backend.app import match_understanding
+    with get_db() as conn:
+        snapshot=match_understanding.load(conn,result.recordId)
+    assert snapshot['initial_selection']['method']=='postgres_keywords'
     detail=match.get_match_record(result.recordId,unified[0][0])
     assert result.taskStatus=='ready' and detail.opportunity['customerName']=='合成客户'
     assert detail.demandProfile['supplyStatus']=='unknown'
-    assert detail.answer=='当前资料不足以确认完整交付覆盖。'
+    assert detail.answer=='本次暂无正式推荐。\n\n资料不足，需要补充交付证据。'
+    assert detail.demandProfile['gapAnalysis']=='资料不足，需要补充交付证据。'
     def broken(*args,**kwargs):raise RuntimeError('synthetic model failure')
     monkeypatch.setattr(match,'chat_completion',broken)
     with pytest.raises(RuntimeError):match._generate_demand_profile(result.recordId,'合成需求',[],life.now())
@@ -194,13 +202,16 @@ def test_match_retry_reuses_successful_facts_after_generation_failure(unified,mo
     def complete(config,messages,schema):
         calls.append(schema['title'])
         if schema['title']=='MatchUnderstanding':return '{"in_scope":true,"facts":{"technicalNeeds":"数据库迁移"}}'
-        if schema['title']=='InitialSelection':return '{"candidates":[{"partnerId":"partner-1","verificationFocus":"数据库迁移经验"}]}'
+        assert schema['title']=='MatchAnswer'
         if calls.count('MatchAnswer')==1:raise TimeoutError('synthetic second-stage failure')
-        return '{"answer":"资料不足，暂无法推荐。","recommendations":[],"supplyStatus":"unknown","gapAnalysis":"待补充交付证据"}'
+        return '{"recommendations":[],"supplyStatus":"unknown","gapAnalysis":"待补充交付证据"}'
     monkeypatch.setattr(model,'completion',complete)
     with pytest.raises(HTTPException):match.match_partners(match.MatchRequest(requirement='需要数据库迁移伙伴'),unified[0][0])
     with get_db() as conn:task=conn.execute('SELECT id FROM match_records').fetchone()[0]
     assert match.get_match_record(task,unified[0][0]).answer==''
     result=match.retry_match_record(task,unified[0][0])
     assert result.taskStatus=='ready'
-    assert calls==['MatchUnderstanding','InitialSelection','MatchAnswer','MatchAnswer']
+    assert calls==['MatchUnderstanding','MatchAnswer','MatchAnswer']
+    detail=match.get_match_record(task,unified[0][0])
+    assert detail.demandProfile['supplyStatus']=='unknown'
+    assert detail.answer=='本次暂无正式推荐。\n\n待补充交付证据'

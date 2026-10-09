@@ -75,7 +75,32 @@ export function PartnerMaterialsManager(){
   </main>;
 }
 function Panel({title,onClose,children}:{title:string;onClose:()=>void;children:React.ReactNode}){
-  return <div className={styles.overlay}><section role="dialog" aria-modal="true" aria-label={title} className={styles.panel}><header><h2>{title}</h2><button className="secondary-btn" onClick={onClose}>关闭</button></header><div className={styles.panelBody}>{children}</div></section></div>;
+  const panel=useRef<HTMLElement>(null),close=useRef(onClose);
+  useEffect(()=>{close.current=onClose;},[onClose]);
+  useEffect(()=>{
+    const node=panel.current;if(!node)return;
+    const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const controls=()=>Array.from(node.querySelectorAll<HTMLElement>('button,a[href],input,select,textarea,[tabindex]'))
+      .filter(element=>element.tabIndex>=0&&!element.matches(':disabled')&&element.getClientRects().length>0&&getComputedStyle(element).visibility!=='hidden');
+    const focusFirst=()=>{(controls()[0]||node).focus();};
+    const otherDialog=(target:EventTarget|null)=>target instanceof Element&&!!target.closest('dialog,[role="dialog"][aria-modal="true"]')&&target.closest('dialog,[role="dialog"][aria-modal="true"]')!==node;
+    const keydown=(event:KeyboardEvent)=>{
+      if(event.defaultPrevented||otherDialog(event.target))return;
+      if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close.current();return;}
+      if(event.key!=='Tab')return;
+      const items=controls(),first=items[0],last=items.at(-1);
+      if(!first){event.preventDefault();node.focus();return;}
+      if(!node.contains(document.activeElement)){event.preventDefault();(event.shiftKey?last:first)?.focus();}
+      else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    };
+    const focusin=(event:FocusEvent)=>{if(!node.contains(event.target as Node)&&!otherDialog(event.target))focusFirst();};
+    document.addEventListener('keydown',keydown);
+    document.addEventListener('focusin',focusin);
+    focusFirst();
+    return()=>{document.removeEventListener('keydown',keydown);document.removeEventListener('focusin',focusin);if(previous?.isConnected)previous.focus();};
+  },[]);
+  return <div className={styles.overlay}><section ref={panel} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={styles.panel}><header><h2>{title}</h2><button type="button" className="secondary-btn" onClick={onClose}>关闭</button></header><div className={styles.panelBody}>{children}</div></section></div>;
 }
 function MaterialDetail({entry,partners,onClose,onChanged,onVisibilityChange,onReplaced}:{entry:Entry;partners:Partner[];onClose:()=>void;onChanged:(e:Entry)=>void;onVisibilityChange:()=>void;onReplaced:(e:Entry)=>void}){
   const [editing,setEditing]=useState(false),[visible,setVisible]=useState(entry.visible),[busy,setBusy]=useState(false),[error,setError]=useState('');

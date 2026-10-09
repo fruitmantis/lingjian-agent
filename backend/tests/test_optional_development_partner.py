@@ -148,11 +148,33 @@ def test_null_retry_keeps_current_baseline_and_idempotency(replay,monkeypatch):
     after=views.detail(pid,user);assert len(after['versions'])==2 and after['request']['known_baseline']==BASE
     assert life.retry(pid,body,user)['replayed']
 
-@pytest.mark.parametrize('fault',[False,True])
-def test_existing_schema_migration_is_atomic_preserves_rows_and_foreign_keys(prepared,fault):
+@pytest.fixture
+def schema18_existing_development(prepared):
+    # History: 727e122 has two non-null partner columns; 0fda85c makes them
+    # nullable (schema 19); 9cbb660 adds only partner_profile_sources (schema 20).
     accepted=life.create(Submit(submission_id='existing-before-upgrade',request=prepared[3]),prepared[0])
     with get_db() as conn:
-        rollback(conn)
+        assert conn.execute('SELECT current_database()').fetchone()[0] in ('banfei_agent_test','banfei_validation')
+        assert conn.execute('SELECT current_schema()').fetchone()[0].startswith('validation_')
+        assert conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0]=='20'
+        assert conn.execute('SELECT count(*) FROM partner_profile_sources').fetchone()[0]==0
+        assert conn.execute("SELECT count(*) FROM app_metadata WHERE key LIKE 'profile_source_legacy:%'").fetchone()[0]==0
+        # Rebuild the historical structure in this invocation's disposable schema.
+        conn.execute('DROP TABLE partner_profile_sources')
+        for table in ('development_plans','development_requests'):
+            conn.execute(f'ALTER TABLE {table} ALTER COLUMN target_partner_id SET NOT NULL')
+        conn.execute("UPDATE app_metadata SET value='18' WHERE key='schema_version'")
+        assert conn.execute("SELECT to_regclass('partner_profile_sources')").fetchone()[0] is None
+        nulls=dict(conn.execute("SELECT table_name,is_nullable FROM information_schema.columns WHERE table_schema=current_schema() AND table_name IN ('development_plans','development_requests') AND column_name='target_partner_id'"))
+        assert nulls=={'development_plans':'NO','development_requests':'NO'}
+        assert conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0]=='18'
+    return accepted
+
+
+@pytest.mark.parametrize('fault',[False,True])
+def test_existing_schema_migration_is_atomic_preserves_rows_and_foreign_keys(prepared,schema18_existing_development,fault):
+    accepted=schema18_existing_development
+    with get_db() as conn:
         before={t:[dict(x) for x in conn.execute(f'SELECT * FROM {t} ORDER BY id')] for t in ('partners','development_plans','development_requests','development_runs')}
     def injected():raise RuntimeError('synthetic migration failure')
     try:

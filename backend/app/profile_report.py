@@ -6,7 +6,7 @@ from pathlib import Path
 CHAPTERS = (
     '公司概况', '公司规模与收入情况', '与头部科技企业（华为/阿里/字节）合作情况',
     '华为认证与资质情况', 'AI技术能力与解决方案', '重点行业案例',
-    '负向事件与合规风险排查', '适合开展合作的领域建议', '合作注意事项', '数据来源与免责声明',
+    '负向事件与合规风险排查', '适合开展合作的领域建议', '合作注意事项', '数据来源',
 )
 MISSING = '现有资料未提供'
 _NUMBERS = dict(zip('一二三四五六七八九', range(1, 10)), 十=10)
@@ -30,6 +30,7 @@ def chapter_number(line):
     title = clean(title)
     accepted = {clean(CHAPTERS[number-1])}
     if number == 4: accepted.add(clean('华为认证与资质核查'))
+    if number == 10: accepted.add(clean('数据来源与免责声明'))  # Read existing Word/legacy headings.
     return number if title in accepted else None
 
 
@@ -74,7 +75,7 @@ def table_markdown(rows):
 def empty_report():
     sections = []
     for number in range(1,11):
-        body = table_markdown([list(_TABLE_HEADERS[number]), [MISSING]*len(_TABLE_HEADERS[number])]) if number in _TABLE_HEADERS else MISSING
+        body = MISSING
         sections.append(heading(number)+'\n\n'+body+'\n\n')
     return Report('',sections)
 
@@ -126,12 +127,3 @@ def validate_body(number, body):
         raise ReportError('章节内容为空或格式不合法，未覆盖原画像。')
     if any(chapter_number(line) or re.match(r'^#{1,2}\s',line) for line in body.splitlines()):
         raise ReportError('章节内容包含其他一级章节，未覆盖原画像。')
-    if number in _TABLE_HEADERS:
-        lines=body.splitlines()
-        markdown=any(
-            re.fullmatch(r'\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*', lines[i])
-            and '|' in lines[i-1] and lines[i-1].strip(' |\t')
-            for i in range(1,len(lines))
-        )
-        native=any('\t' in first and '\t' in second for first,second in zip(lines,lines[1:]))
-        if not (markdown or native): raise ReportError('公司概况、认证资质和行业案例须保留表格，未覆盖原画像。')
