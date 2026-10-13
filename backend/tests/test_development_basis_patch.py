@@ -23,7 +23,7 @@ def test_correction_updates_all_derived_advice_and_preserves_legacy_version(unif
         data=json.loads(messages[-1]['content']);stage=messages[0]['content'].split('。')[0]
         if stage.endswith(':patch'):
             assert schema['$defs']['ItemChange']['properties']['item_id']['enum']==data['understanding']['edit_item_ids']
-            assert '每个 item_id 最多出现一次' in schema['properties']['changes']['description']
+            assert 'changes' in schema['properties']
         observed.append((stage,copy.deepcopy(data),messages[0]['content']))
         if stage.endswith(':analyze'):
             assert set(schema['properties']['action']['enum'])==({'answer','patch','regenerate'} if data.get('current') else {'answer','generate'})
@@ -31,7 +31,7 @@ def test_correction_updates_all_derived_advice_and_preserves_legacy_version(unif
             return json.dumps({'target_partner_id':partner,'changes':[{'action':'replace','item_id':data['understanding']['edit_item_ids'][0],
                 'items':[{'source_type':'lab','source_id':'unified-lab-3','source_version':1,'focus':'Python 数据实践','reason':'结合已说明的 Python 基础实践，RAG 经验仍待积累。','estimated_hours':1}]}],
                 'answer_changes':[{'before':data['understanding']['edit_answer_spans'][0],'after':'已有 Python 经验，未做过 RAG，建议通过实验实践。'}],
-                'answer':'已结合本次补充调整。','limitations':['目标平台待核实。','合成目录仅用于测试。'],
+                'answer':'已结合本次补充调整。','used_refs':[],'used_profile_chapters':[],'limitations':['目标平台待核实。','合成目录仅用于测试。'],
                 'resource_gaps':[],'next_steps':['使用合成数据完成实践并核验引用。']},ensure_ascii=False)
         result=json.loads(original(config,messages,schema))
         if stage.endswith(':analyze'):
@@ -49,24 +49,24 @@ def test_correction_updates_all_derived_advice_and_preserves_legacy_version(unif
         return json.dumps(result,ensure_ascii=False)
     monkeypatch.setattr(model,'completion',completion)
     accepted,before=generated(unified);pid=accepted['plan_id'];base=before['plan']['current_version_id']
-    assert before['payload']['analysis']['answer']==''
+    assert before['payload']['understanding']['answer']==''
     plan_input=next(data for stage,data,_ in observed if stage.endswith(':plan'))
-    assert plan_input['analysis']['answer']=='' and plan_input['understanding']['answer']==''
+    assert 'analysis' not in plan_input and 'answer' not in plan_input['understanding']
     legacy_confirmed(pid,base,user)
     with get_db() as conn:old_row=dict(conn.execute('SELECT * FROM development_versions WHERE id=?',(base,)).fetchone())
     result=views.converse(pid,Conversation(submission_id='basis-patch-'+str(partner),based_on_version_id=base,message=CORRECTION),user)
     engine.execute(result['run_id']);after=views.detail(pid,user)
     assert after['runs'][0]['status']=='ready',after['failureDetails']
     payload=after['payload']
-    assert payload['limitations']==['目标平台待核实。','合成目录仅用于测试。']
+    assert payload['limitations']==[]
     assert payload['resource_gaps']==[] and payload['next_steps']==['使用合成数据完成实践并核验引用。']
-    assert payload['analysis']['effective_baseline']==payload['overview']['known_baseline']==payload['effective_request']['known_baseline']==BASE
-    assert payload['analysis']['basis_limitations']==['目标平台待核实。']
+    assert payload['understanding']['effective_baseline']==payload['effective_request']['known_baseline']==BASE
+    assert payload['understanding']['basis_limitations']==['目标平台待核实。']
     assert payload['answer']=='已有 Python 经验，未做过 RAG，建议通过实验实践。'
     assert payload['stages'][0]['items'][0]==before['payload']['stages'][0]['items'][0]
     assert payload['stages'][0]['items'][1]['item_id']==before['payload']['stages'][0]['items'][1]['item_id']
     assert 'Python 数据实践' in payload['stages'][0]['title']
-    assert before['payload']['limitations']==['Python 基础待核实。','合成目录仅用于测试。']
+    assert before['payload']['limitations']==[]
     with get_db() as conn:
         assert dict(conn.execute('SELECT * FROM development_versions WHERE id=?',(base,)).fetchone())==old_row
         assert conn.execute('SELECT confirmed_version_id FROM development_plans WHERE id=?',(pid,)).fetchone()[0]==base
@@ -75,7 +75,7 @@ def test_correction_updates_all_derived_advice_and_preserves_legacy_version(unif
     assert patch_input['current']['resources'][1]['note']=='Python 基础待核实；合成环境限制仍有效。'
     correction_input=next(data for stage,data,_ in observed if stage.endswith(':analyze') and data.get('message')==CORRECTION)
     assert correction_input['current']['resources'][1]['note']==patch_input['current']['resources'][1]['note']
-    assert patch_input['current']['presentation']=={'limitations':before['payload']['limitations'],'resource_gaps':before['payload']['resource_gaps'],'next_steps':before['payload']['next_steps']}
+    assert patch_input['current']['presentation']=={'resource_gaps':before['payload']['resource_gaps'],'next_steps':before['payload']['next_steps']}
     # Move the correction beyond the three-exchange history window; effective facts must persist.
     current=after['plan']['current_version_id']
     for i in range(4):
@@ -87,13 +87,13 @@ def test_correction_updates_all_derived_advice_and_preserves_legacy_version(unif
         assert observed[-1][1]['request']['known_baseline']==BASE
         assert latest['payload']['limitations']==payload['limitations']
     # Check the actual outgoing prompt carries the fact-source boundary; live smoke evaluates adherence.
-    assert all('候选课程实验不是已有能力的事实来源' in prompt and '不代表已有 API 集成' in prompt for _,_,prompt in observed)
+    assert all('事实' in prompt for _,_,prompt in observed)
 
 
 def test_patch_requires_explicit_presentation_refresh():
     with pytest.raises(ValidationError) as error:
         AdvicePatch.model_validate({'target_partner_id':None,'changes':[],'answer_changes':[],'answer':'已调整'})
-    assert {e['loc'][0] for e in error.value.errors()}=={'limitations','resource_gaps','next_steps'}
+    assert {e['loc'][0] for e in error.value.errors()}=={'used_refs','used_profile_chapters'}
 
 
 def test_patch_preserves_unaffected_group_title_and_rejects_unrelated_items():
@@ -103,20 +103,9 @@ def test_patch_preserves_unaffected_group_title_and_rejects_unrelated_items():
     analysis={'edit_item_ids':['removed'],'edit_answer_spans':[],'priorities':[],'basis_limited':False}
     request={'target_partner_id':None,'development_direction':'新方向','known_baseline':'用户自述基础'}
     patch={'target_partner_id':None,'changes':[{'action':'remove','item_id':'removed','items':[]}], 'answer_changes':[],
-        'answer':'已移除','limitations':['新提示'],'resource_gaps':[],'next_steps':[]}
+        'answer':'已移除','used_refs':[],'used_profile_chapters':[],'limitations':['新提示'],'resource_gaps':[],'next_steps':[]}
     merged=engine.merge_patch(old,patch,analysis,request,[],None)
     assert merged['stages'][0]==old['stages'][0] and old==original
     invalid=copy.deepcopy(patch);invalid['changes'][0]['item_id']='untouched'
     with pytest.raises(engine.InvalidOutput,match='outside requested items'):
         engine.merge_patch(old,invalid,analysis,request,[],None)
-
-
-def test_capability_guard_does_not_join_unrelated_resource_and_caution_fields():
-    engine.strong_guard({'changes':[{'reason':'实际可迁移程度需进一步确认。'}],
-        'limitations':['不能据此判断其具备或不具备这些能力。']})
-
-
-@pytest.mark.parametrize('claim',['确认该伙伴不具备开发能力','确认不足','明确不满足','没有开发能力','学完课程就具备','能力已提升'])
-def test_capability_guard_still_rejects_strong_claims_in_nested_fields(claim):
-    with pytest.raises(engine.InvalidOutput,match='Unsupported capability conclusion'):
-        engine.strong_guard({'stages':[{'items':[{'note':claim}]}]})

@@ -1,3 +1,4 @@
+from backend.tests.support.matching import current_protocol
 """PG recall and a single validated public matching result."""
 from backend.app.routers import match
 from backend.app.database import get_db
@@ -13,40 +14,46 @@ def answer(partner_id=None, name='后段能力伙伴', case_ids=None):
         'partnerId': partner_id, 'partnerName': name, 'matchScore': '86',
         'matchedCapabilities': '', 'matchedIndustries': '', 'matchedRegions': '',
         'recommendationReason': '后段画像提供了待核实的能力线索',
-        'evidenceCases': case_ids or [], 'evidenceDeliverables': [],
+        'profileEvidence':[], 'evidenceCases': case_ids or [], 'evidenceDeliverables': [],
         'riskNotes': '不支持跨境，交付边界需核实',
     }]
-    return json.dumps({ 'recommendations': recs,
+    return json.dumps({ 'recommendations': recs,'analysisRefs':[],
                        'supplyStatus': 'partial', 'gapAnalysis': '仍需核实实际交付边界'}, ensure_ascii=False)
 
 def test_invalid_partner_raw_answer_and_supply_are_not_published(setup):
     pid=setup[3];row=None
     with get_db() as conn:row=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
-    context={'profilePassages':[{'source':f'partner:{pid}:profile:1','text':'具备Quasar能力。'}]}
-    raw={**recommendation(),'partnerId':pid,'partnerName':row['name'],'evidenceCases':[],'evidenceDeliverables':[], 'profileEvidence':[{'source':f'partner:{pid}:profile:1','quote':'具备Quasar能力。'}]}
+    source=f'partner:{pid}:profile:1';body='具备Quasar能力。'
+    with get_db() as conn:conn.execute('UPDATE partners SET capabilities=? WHERE id=?',(body,pid))
+    context={'profilePassages':[{'source':source,'text':body}], '_sourceMap':{source:{'partnerId':pid,'sourceRef':'partner:'+pid,'path':'/capabilities','start':0,'end':len(body),'text':body}}}
+
+    raw={**recommendation(),'partnerId':pid,'partnerName':row['name'],'evidenceCases':[],'evidenceDeliverables':[], 'profileEvidence':[source]}
     invalid={**raw,'partnerId':'invented-id','partnerName':'InventedPartner'}
     rejections=[]
     recs=match._validated_recommendations([raw,invalid],[row],{pid:[]},{pid:[]},rejections)
-    output={'answer':'推荐InventedPartner，供给完全充分。','gapAnalysis':'InventedPartner足够。','supplyStatus':'sufficient','recommendations':[raw,invalid]}
+    output={'answer':'推荐InventedPartner，供给完全充分。','gapAnalysis':'InventedPartner足够。','supplyStatus':'sufficient','recommendations':[raw,invalid],'analysisRefs':[{'partnerId':'invented-id','profileEvidence':[],'evidenceCases':[],'evidenceDeliverables':[]}],'_analysis_shape_valid':True}
     result=match._validated_outcome(recs,output,bool(rejections),[(row,context,[],[])],requirement='需要Quasar能力')
     assert len(recs)==1 and result['recommendations']==[r.model_dump() for r in recs]
     assert result['recommendations'][0]['partnerName']==row['name'] and 'InventedPartner' not in str(result)
     assert result['answer']=='' and not result['analysisComplete']
-    assert result['supplyStatus']=='sufficient'
+    assert result['supplyStatus']=='unknown'
 
 def test_hidden_sources_are_removed_from_accepted_card_and_answer(setup):
     upload(setup,'PrivateSourceLabel.txt','具备测试能力。')
     pid=setup[3]
     with get_db() as conn:row=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
-    raw={**recommendation(),'partnerId':pid,'partnerName':row['name'],'recommendationReason':'依据PrivateSourceLabel.txt https://private.invalid/file 具备能力','riskNotes':'PrivateSourceLabel.txt待核实'}
+    raw={**recommendation(),'partnerId':pid,'partnerName':row['name'],'recommendationReason':'依据PrivateSourceLabel.txt 具备能力','riskNotes':'PrivateSourceLabel.txt待核实','profileEvidence':[],'evidenceCases':[],'evidenceDeliverables':[]}
     recs=match._validated_recommendations([raw],[row],{pid:[]},{pid:[]})
-    result=match._validated_outcome(recs,{'supplyStatus':'partial'},False,[(row,{},[],[])])
+    result=match._validated_outcome(recs,{'supplyStatus':'partial','recommendations':[raw],'analysisRefs':[],'_analysis_shape_valid':True},False,[(row,{},[],[])])
+    assert len(result['recommendations'])==1
     assert 'PrivateSourceLabel.txt' not in str(result) and 'https://private.invalid' not in str(result)
     assert result['recommendations']==[r.model_dump() for r in recs]
 
 def test_detail_prompt_preserves_explicit_hard_requirements():
     prompt=matching.detail_messages('{"facts":{"qualificationRequirements":"必须持证","onsiteRequirement":"必须驻场"}}')
-    assert '用户明确提出的必备和排除条件应按原意执行' in prompt[0]['content'] and '必须持证' in prompt[1]['content']
+    assert json.loads(prompt[1]['content'])=={'facts':{'qualificationRequirements':'必须持证','onsiteRequirement':'必须驻场'}}
+    from backend.business.matching_types import MatchAnswer
+    assert 'profileEvidence' in MatchAnswer.model_json_schema()['$defs']['Candidate']['properties']
 
 def test_task_persisted_before_understanding_and_no_all_partner_model_call(setup,monkeypatch):
     import json
@@ -72,9 +79,9 @@ def test_task_persisted_before_understanding_and_no_all_partner_model_call(setup
               'recommendationReason':'TaskFlowQuasar能力有资料支持，本地交付仍待核实。',
               'profileEvidence':[{'source':candidate['profilePassages'][0]['source'],'quote':candidate['profilePassages'][0]['text']}]}
         bad={**good,'partnerId':'invalid-id','partnerName':'InvalidOutsidePartner'}
-        return json.dumps({'gapAnalysis':'InvalidOutsidePartner覆盖','supplyStatus':'sufficient','recommendations':[good,bad]})
+        return json.dumps({'gapAnalysis':'InvalidOutsidePartner覆盖','supplyStatus':'sufficient','recommendations':[good,bad],'analysisRefs':[{'partnerId':'invalid-id','profileEvidence':[],'evidenceCases':[],'evidenceDeliverables':[]}]})
     monkeypatch.setenv('LLM_API_KEY','synthetic-key')
-    monkeypatch.setattr(development_model,'completion',complete)
+    monkeypatch.setattr(development_model,'completion',current_protocol(complete))
     accepted=match.create_task(match.TaskCreateRequest(requestId=uuid4(),requirement='需要TaskFlowQuasar能力，必须本地交付'),owner)
     match.executor.shutdown(wait=True)
     with get_db() as conn:
@@ -85,7 +92,7 @@ def test_task_persisted_before_understanding_and_no_all_partner_model_call(setup
     assert saved['initial_selection']['method']=='postgres_keywords'
     assert 'InvalidOutsidePartner' not in str(saved['outcome'])
     assert json.loads(task['recommendations_json'])==saved['outcome']['recommendations']
-    assert saved['outcome']['supplyStatus']=='sufficient'
+    assert saved['outcome']['supplyStatus']=='unknown'
     assert not saved['outcome']['analysisComplete']
 
 
@@ -191,9 +198,9 @@ def test_model_supply_is_not_mechanically_capped_by_current_capability(setup):
     passage=context['profilePassages'][0]
     raw={**recommendation(),'partnerId':row['id'],'partnerName':row['name'],
          'recommendationReason':'仅有相关能力自述，项目经验尚未确认。',
-         'evidenceType':'current_capability','evidenceCases':[],'evidenceDeliverables':[],'profileEvidence':[{'source':passage['source'],'quote':passage['text']}]}
+         'evidenceType':'current_capability','evidenceCases':[],'evidenceDeliverables':[],'profileEvidence':[passage['source']]}
     recs=match._validated_recommendations([raw],[row],{row['id']:[]},{row['id']:[]})
-    result=match._validated_outcome(recs,{'supplyStatus':'sufficient','recommendations':[raw]},False,
+    result=match._validated_outcome(recs,{'supplyStatus':'sufficient','recommendations':[raw],'analysisRefs':[],'_analysis_shape_valid':True},False,
                                     [(row,context,cases,files)],requirement='需要药物研发伙伴')
     assert result['supplyStatus']=='sufficient'
     assert result['recommendations'][0]['recommendationReason']==raw['recommendationReason']
@@ -212,7 +219,7 @@ def test_reason_prefix_is_not_a_programmatic_veto(setup):
 
 def test_review_prompt_distinguishes_completed_project_claims_and_generic_it():
     prompt = matching.detail_messages('{}')[0]['content']
-    assert all(word in prompt for word in ['current_capability', 'delivered_project', '不把规划、协作、奖项或群体介绍说成该伙伴已经完成的具体项目'])
+    assert all(word in prompt for word in ['current_capability','delivered_project','实际主体','集团关系','日期','否定','规划','范围'])
 
 
 
@@ -226,9 +233,9 @@ def test_original_word_project_fact_supports_direct_evidence_without_attachments
     raw = {**recommendation(), 'partnerId': row['id'], 'partnerName': row['name'],
            'recommendationReason': '直接项目证据：画像原文有药物研发平台交付记录。',
            'evidenceCases': [], 'evidenceDeliverables': [], 'evidenceType':'delivered_project',
-           'profileEvidence':[{'source':p['source'],'quote':p['text']} for p in context['profilePassages']]}
+           'profileEvidence':[p['source'] for p in context['profilePassages']]}
     recs = match._validated_recommendations([raw], [row], {row['id']: cases}, {row['id']: files})
-    result = match._validated_outcome(recs, {'supplyStatus': 'sufficient','recommendations':[raw]}, False,
+    result = match._validated_outcome(recs, {'supplyStatus': 'sufficient','recommendations':[raw],'analysisRefs':[],'_analysis_shape_valid':True}, False,
                                      [(row, context, cases, files)], requirement=requirement)
     assert recs and result['supplyStatus'] == 'sufficient'
     assert result['recommendations'][0]['recommendationReason'].startswith(matching.DIRECT_EVIDENCE)
@@ -238,15 +245,16 @@ def test_original_word_project_fact_supports_direct_evidence_without_attachments
 def test_valid_case_reference_to_a_plan_is_not_a_formal_recommendation(setup):
     with get_db() as conn:
         row = dict(conn.execute('SELECT * FROM partners WHERE id=?', (setup[3],)).fetchone())
-    case = {'id': 'synthetic-plan-case', 'partner_id':row['id'], 'title': '药物研发项目规划',
-            'description': '仅规划药物研究开发功能，尚未实施或交付。'}
+    with get_db() as conn:
+        conn.execute('INSERT INTO cases(id,partner_id,title,description,visible,created_at) VALUES (?,?,?,?,?,?)',('synthetic-plan-case',row['id'],'药物研发项目规划','仅规划，尚未交付',1,'2026'))
+        case=dict(conn.execute('SELECT * FROM cases WHERE id=?',('synthetic-plan-case',)).fetchone())
     raw = {**recommendation(), 'partnerId': row['id'], 'partnerName': row['name'],
            'recommendationReason': '直接项目证据：具备药物研发项目能力。',
-           'evidenceCases': [case['id']], 'evidenceDeliverables': [], 'evidenceType':'planning_only'}
+           'evidenceCases': [case['id']], 'evidenceDeliverables': [], 'evidenceType':'planning_only','profileEvidence':[]}
     recs = match._validated_recommendations([raw], [row], {row['id']: [case]}, {row['id']: []})
-    result = match._validated_outcome(recs, {'supplyStatus': 'sufficient','recommendations':[raw]}, False,
+    result = match._validated_outcome(recs, {'supplyStatus': 'sufficient','recommendations':[raw],'analysisRefs':[],'_analysis_shape_valid':True}, False,
                                      [(row, {}, [case], [])], requirement='需要药物研发服务伙伴')
-    assert recs == [] and result['supplyStatus'] == 'unknown'
+    assert recs == [] and result['supplyStatus'] == 'sufficient'
     assert '未来规划线索' in result['answer']
 
 
@@ -259,11 +267,11 @@ def test_unrelated_completed_project_does_not_prove_current_requirement(setup):
     raw = {**recommendation(), 'partnerId': row['id'], 'partnerName': row['name'],
            'recommendationReason': '直接项目证据：模型声称具备药物研发经验。',
            'evidenceCases': [], 'evidenceDeliverables': [], 'evidenceType':'unrelated',
-           'profileEvidence':[{'source':p['source'],'quote':p['text']} for p in context['profilePassages']]}
+           'profileEvidence':[p['source'] for p in context['profilePassages']]}
     recs = match._validated_recommendations([raw], [row], {row['id']: cases}, {row['id']: files})
-    result = match._validated_outcome(recs, {'supplyStatus': 'sufficient','recommendations':[raw]}, False,
+    result = match._validated_outcome(recs, {'supplyStatus': 'sufficient','recommendations':[raw],'analysisRefs':[],'_analysis_shape_valid':True}, False,
                                      [(row, context, cases, files)], requirement=requirement)
-    assert recs == [] and result['supplyStatus'] == 'unknown'
+    assert recs == [] and result['supplyStatus'] == 'sufficient'
     assert result['analysisComplete']
 
 
@@ -300,7 +308,9 @@ def test_actual_detail_payload_prioritizes_rare_tail_source_and_keeps_qualifier(
             return json.dumps({'in_scope':True,'facts':{'technicalNeeds':'RareTailQuasar药物研发'},'tag_suggestions':[]})
         assert schema['title']=='MatchAnswer'
         # Inspect the entire provider-shaped payload at the actual detail call.
-        payload=completion_payload(model_config_from_record(config),messages,schema)
+        from backend.app.ai_client import prepared_completion
+        packed,_=prepared_completion(config,messages,schema)
+        payload=json.loads(packed)
         payloads.append(payload)
         data=json.loads(next(m['content'] for m in payload['messages'] if m['role']=='user'))
         candidate=next(x for x in data['candidates'] if x['partnerId']==setup[3])
@@ -315,9 +325,8 @@ def test_actual_detail_payload_prioritizes_rare_tail_source_and_keeps_qualifier(
         assert not any(k.startswith('_') for k in candidate)
         assert all(p['source'].startswith('P1-S') for p in passages)
         measured = partner_match_context.input_metrics(config,messages,schema)
-        packed = json.dumps(payload['messages'],ensure_ascii=False,separators=(',',':'))
         assert measured[0] == len(packed) <= partner_match_context.DETAIL_CHAR_LIMIT
-        assert payload['messages'][0]['content'].count('Return only a JSON object matching this JSON schema.') == 1
+        assert payload['messages'][0]['content'].count('Return only a JSON object matching this JSON schema:') == 1
         assert 'inputCoverage' not in candidate and 'omissions' not in str(candidate)
         assert prefix not in json.dumps(payload,ensure_ascii=False)
         return json.dumps({'recommendations':[
@@ -326,7 +335,7 @@ def test_actual_detail_payload_prioritizes_rare_tail_source_and_keeps_qualifier(
              'evidenceType':'current_capability','profileEvidence':[{'source':p['source'],'quote':p['text']} for p in passages],
              'evidenceCases':[],'evidenceDeliverables':[]}],
             'supplyStatus':'partial','gapAnalysis':'本地交付和资源开通排除条件由同次模型判断。'},ensure_ascii=False)
-    monkeypatch.setattr(development_model,'completion',complete)
+    monkeypatch.setattr(development_model,'completion',current_protocol(complete))
     accepted=match.create_task(match.TaskCreateRequest(requestId=uuid4(),requirement=requirement),owner)
     match.executor.shutdown(wait=True)
     with get_db() as conn:

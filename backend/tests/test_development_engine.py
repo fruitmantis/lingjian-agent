@@ -66,9 +66,8 @@ def test_deleting_current_model_between_stages_stops_remaining_calls(scenario,mo
 def test_model_safe_context_and_strong_judgment_boundary(scenario,caplog):
     accepted,run,version=execute(scenario)
     assert run['status']=='ready' and version
-    assert version['diagnoses'][0]['target_satisfaction']=='needs_assessment'
-    assert version['diagnoses'][0]['evidence_status']=='partial'
-    assert version['diagnoses'][0]['judgment_source']=='model_inference'
+    assert 'diagnoses' not in version and 'overview' not in version
+    assert version['format_version']==2 and version['understanding']['priorities']
     assert version['stages'][0]['items'][0]['conditions']['level']=='advanced'
     assert version['stages'][0]['items'][0]['capability_tag_id']==''  # Untagged resources remain valid recommendations.
     for boundary in [scenario[1],version,caplog.text,run['safe_error_message']]:assert CANARY not in json.dumps(boundary)
@@ -94,27 +93,31 @@ def test_malicious_outputs_never_create_versions(scenario,monkeypatch,malice,cap
             if malice=='resource':item['source_id']='invented-resource'
             if malice=='case':item.update(source_type='case',source_id='secret-case')
             if malice=='version':item['source_version']=99
-            if malice=='url':item['url']='https://example.com/invented'
+            if malice=='url':item['reason']='https://example.com/invented'
         return json.dumps(result)
     monkeypatch.setattr(model,'completion',corrupted)
     accepted,run,version=execute(scenario)
-    assert run['status']=='failed' and version is None
-    assert plan(accepted['plan_id'])['current_version_id'] is None
+    accepted_projection=malice in ('extra','secret','internal_note','unconfirmed_text','formal_tag','analysis_tag')
+    assert run['status']==('ready' if accepted_projection else 'failed')
+    assert bool(version)==accepted_projection
+    if version:
+        assert CANARY not in json.dumps(version) and 'internal_debug' not in version and 'internal_note' not in version
+        if malice=='analysis_tag':assert version['understanding']['priorities'][0]['capability_tag_id'] is None
+    else:assert plan(accepted['plan_id'])['current_version_id'] is None
     assert CANARY not in str(run['safe_error_message'])+caplog.text
 
 
 def test_missing_profile_does_not_gate_recommendations(scenario):
     _,run,version=execute(scenario)
     assert run['status']=='ready' and version['stages'][0]['items']
-    assert version['analysis']['basis_limited']
-    assert version['diagnoses'][0]['target_satisfaction']=='needs_assessment'
+    assert version['understanding']['priorities'] and 'diagnoses' not in version
 
 
 def test_legacy_human_gap_field_no_longer_controls_advice(scenario):
     scenario[0][3].targets[0].confirmed_gap=True
     _,run,version=execute(scenario)
     assert run['status']=='ready'
-    assert version['diagnoses'][0]['judgment_source']=='model_inference'
+    assert 'diagnoses' not in version and version['understanding']['priorities']
 
 
 @pytest.mark.parametrize('change',['unpublished','not_model_allowed','unknown','conflict'])

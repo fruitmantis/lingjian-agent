@@ -33,14 +33,14 @@ def prepare(requirement, cached=None):
     config=resolve_model_record('partner_match');model=configuration_stamp(config)
     with get_db() as conn:
         tags=[r['name'] for r in conn.execute('SELECT name FROM capability_tags WHERE enabled=1 ORDER BY name')]
-    stamp=fingerprint({'requirement':requirement,'tags':tags})
-    if cached and cached.get('stamp')==stamp and cached.get('model')==model:
+    stamp=fingerprint({'requirement':requirement,'tags':tags,'rules':matching.MATCHING_RULES_VERSION})
+    if cached and cached.get('format_version')==2 and cached.get('stamp')==stamp and cached.get('model')==model:
         return cached
     bind_context(stage='understanding')
     try:
         messages=matching.understanding_messages(requirement,tags,taxonomy_prompt())
         schema=MatchUnderstanding.model_json_schema()
-        chars,tokens=match_context.input_metrics(config,messages,schema)
+        config,chars,tokens=match_context.checked_config(config,messages,schema,match_context.DETAIL_CHAR_LIMIT)
         prepared=round((perf_counter()-start)*1000)
         call_start=perf_counter()
         reset_retry_count()
@@ -49,10 +49,10 @@ def prepare(requirement, cached=None):
         finally:
             match_context.log_stage('understanding',0,chars,tokens,prepared,
                                     round((perf_counter()-call_start)*1000),last_retry_count())
-        result=MatchUnderstanding.model_validate_json(raw).model_dump()
+        result,rejected=matching.parse_understanding(raw,requirement,tags)
         if not result['in_scope']:
-            return {'stamp':stamp,'model':model,'understanding':result,'scope_message':MESSAGES['partner_match']}
+            return {'format_version':2,'stamp':stamp,'model':model,'understanding':result,'scope_message':MESSAGES['partner_match'],'auxiliary_rejections':rejected}
         matching.validate_understanding(result,requirement,tags)
-        return {'stamp':stamp,'model':model,'understanding':result}
+        return {'format_version':2,'stamp':stamp,'model':model,'understanding':result,'auxiliary_rejections':rejected}
     except HTTPException:raise
     except Exception as error:raise PublicTaskError(error) from error

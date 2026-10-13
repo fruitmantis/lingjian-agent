@@ -36,27 +36,27 @@ def test_directions_profiles_unmapped_focus_and_latest_profile(scenario):
     add(admin,'lab','Agent 系统集成进阶实验',tag)
     make_partner('profile-b')
     with get_db() as conn:
-        conn.execute("UPDATE partners SET ai_profile='具备数据库交付与云基础经验',industries='制造' WHERE id='partner-1'")
+        conn.execute("UPDATE partners SET ai_profile='具备数据库交付与云基础经验',capabilities='数据库交付与云基础',industries='制造' WHERE id='partner-1'")
         conn.execute("UPDATE partners SET ai_profile=NULL,capabilities='',industries='零售' WHERE id='profile-b'")
         before=conn.execute('SELECT count(*) FROM capability_tags').fetchone()[0]
     db=run(scenario,'数据库迁移');agent=run(scenario,'Agent 应用交付');other=run(scenario,'Agent 应用交付','profile-b')
-    focuses=lambda d:{f['name'] for f in d['payload']['analysis']['priorities']}
+    focuses=lambda d:{f['name'] for f in d['payload']['understanding']['priorities']}
     assert focuses(db)!=focuses(agent)
     assert 'Agent 系统集成与 POC 调优' in focuses(agent)
     assert '应用集成与云服务基础' not in focuses(agent) and '应用集成与云服务基础' in focuses(other)
     assert any('Agent' in i['title'] for i in items(agent)) # metadata search, not tag equality
     assert all(i['source_id']!='test-course' for i in items(agent)) # generic delivery audience is not relevance
-    assert other['payload']['analysis']['basis_limited']
+    assert 'basis_limited' not in other['payload']['understanding']
     assert items(agent)[0]['conditions']['level']=='advanced'
     with get_db() as conn:
         assert conn.execute('SELECT count(*) FROM capability_tags').fetchone()[0]==before
-        conn.execute("UPDATE partners SET ai_profile='已完成数据库与云基础项目实践' WHERE id='profile-b'")
+        conn.execute("UPDATE partners SET ai_profile='已完成数据库与云基础项目实践',capabilities='数据库与云基础' WHERE id='profile-b'")
     refreshed=run(scenario,'Agent 应用交付','profile-b')
     assert '应用集成与云服务基础' not in focuses(refreshed)
     # Removing a formal label does not prevent natural-language focuses.
     with get_db() as conn:conn.execute("UPDATE capability_tags SET enabled=0 WHERE name='盘古大模型'")
     unmatched=run(scenario,'Agent 应用交付')
-    assert any(f['capability_tag_id'] is None for f in unmatched['payload']['analysis']['priorities'])
+    assert any(f['capability_tag_id'] is None for f in unmatched['payload']['understanding']['priorities'])
 
 
 def test_exploration_not_driven_by_resource_inventory(scenario):
@@ -64,7 +64,7 @@ def test_exploration_not_driven_by_resource_inventory(scenario):
     tag=scenario[0][3].targets[0].capability_tag_id
     for n in range(4):add(scenario[0][2],'course',f'数据库热门课程{n}',tag)
     b=run(scenario,'这个伙伴下一步适合往什么方向发展？')
-    assert a['payload']['analysis']['priorities']==b['payload']['analysis']['priorities']
+    assert a['payload']['understanding']['priorities']==b['payload']['understanding']['priorities']
     first=json.loads(scenario[1][0][-1]['content']);assert 'candidates' not in first
 
 
@@ -72,7 +72,7 @@ def test_short_labs_gap_and_no_capability_update(scenario,client):
     tag=scenario[0][3].targets[0].capability_tag_id
     add(scenario[0][2],'lab','数据库进阶实验',tag)
     d=run(scenario,'只给几个数据库进阶实验，不要基础课')
-    assert d['payload']['analysis']['intent']=='resources'
+    assert d['payload']['understanding']['intent']=='resources'
     assert {i['source_type'] for i in items(d)}=={'lab'}
     assert not d['payload']['next_steps']
     assert items(d)[0]['conditions']['lab_requirements']=='需测试环境'
@@ -131,7 +131,7 @@ def test_profile_consent_is_not_system_visibility(scenario):
     engine.execute(accepted['run_id']);d=views.detail(accepted['plan_id'],user)
     assert d['runs'][0]['status']=='ready'
     sent=json.loads(scenario[1][0][-1]['content'])['profile']
-    assert sent=={'basis_limited':True,'notice':'未获准使用画像摘要，仅依据发展方向'}
+    assert sent=={'chapters':[],'shared_evidence':[]}
     assert CANARY not in json.dumps(scenario[1])
 
 
@@ -164,7 +164,7 @@ def test_simple_resource_search_does_not_call_model(scenario,monkeypatch):
 
 
 
-def test_explanation_cannot_be_misrouted_to_revision(scenario,monkeypatch):
+def test_model_selected_regeneration_has_no_regex_override(scenario,monkeypatch):
     d=run(scenario,'数据库迁移');user=scenario[0][0]
     calls=[];original=scenario[2]
     def invalid(c,m,s):
@@ -173,5 +173,5 @@ def test_explanation_cannot_be_misrouted_to_revision(scenario,monkeypatch):
     monkeypatch.setattr(model,'completion',invalid)
     accepted=views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=d['plan']['current_version_id'],message='为什么推荐这个方向？'),user)
     after,failed=finish(accepted,user)
-    assert calls==['Understanding'] and failed['status']=='failed'
-    assert len(after['versions'])==1 and after['plan']['current_version_id']==d['plan']['current_version_id']
+    assert calls==['Understanding','AdviceOutput'] and failed['status']=='ready'
+    assert len(after['versions'])==2 and after['plan']['current_version_id']!=d['plan']['current_version_id']

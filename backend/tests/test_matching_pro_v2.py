@@ -1,3 +1,4 @@
+from backend.tests.support.matching import current_protocol,owned_case_file
 """Finite PRO v2 legal-boundary and actual-input regressions; no real model calls."""
 import copy
 import json
@@ -24,7 +25,7 @@ def legal_item(row, *, kind='current_capability'):
     p = row[1]['profilePassages'][-1]
     return {**recommendation(),'partnerId':row[0]['id'],'partnerName':row[0]['name'],
             'recommendationReason':'泛 IT 能力不足：旧前缀也不能替代模型本次分类。',
-            'evidenceType':kind,'profileEvidence':[{'source':p['source'],'quote':p['text']}],
+            'evidenceType':kind,'profileEvidence':[p['source']],
             'evidenceCases':[],'evidenceDeliverables':[]}
 
 
@@ -33,7 +34,7 @@ def evaluate(row,item,supply='sufficient',*,rejected=False):
     recs=match._validated_recommendations([item],[row[0]],{row[0]['id']:row[2]},
                                         {row[0]['id']:row[3]},reasons)
     return match._validated_outcome(recs,{'recommendations':[item],'supplyStatus':supply,
-                                         'gapAnalysis':'模型给出的覆盖和缺口说明。'},
+                                         'gapAnalysis':'模型给出的覆盖和缺口说明。','analysisRefs':[],'_analysis_shape_valid':True},
                                     bool(reasons) or rejected,[row],requirement='必须有另一陌生专业的交付案例。')
 
 
@@ -53,30 +54,29 @@ def test_legal_model_category_and_supply_are_independent(setup,kind,supply):
 def test_model_exclusion_does_not_mark_legal_analysis_incomplete(setup,kind):
     row=legal_row(setup);item=legal_item(row,kind=kind)
     result=evaluate(row,item)
-    assert not result['recommendations'] and result['supplyStatus']=='unknown'
+    assert not result['recommendations'] and result['supplyStatus']=='sufficient'
     assert result['analysisComplete']
 
 
-@pytest.mark.parametrize('bad',['fake_partner','name_mismatch','foreign_source','fake_quote','stitched_quote','foreign_case','fake_file','foreign_map'])
+@pytest.mark.parametrize('bad',['fake_partner','foreign_source','unsent_source','concatenated_id','foreign_case','fake_file','foreign_map'])
 def test_one_illegal_reference_rejects_whole_item(setup,bad):
     row=legal_row(setup,'具备NovelVision视觉检测能力。\n相关交付边界待核实。')
     item=legal_item(row)
     if bad=='fake_partner':item['partnerId']='unselected-id'
     elif bad=='name_mismatch':item['partnerName']='不同身份'
-    elif bad=='foreign_source':item['profileEvidence'].append({'source':'partner:other:profile:0','quote':'真实但非本伙伴引用'})
-    elif bad=='fake_quote':item['profileEvidence'].append({'source':item['profileEvidence'][0]['source'],'quote':'未实际发送的原文。'})
-    elif bad=='stitched_quote':item['profileEvidence'][0]['quote']='具备NovelVision能力。相关交付边界。'
+    elif bad=='foreign_source':item['profileEvidence'].append('partner:other:profile:0')
+    elif bad=='unsent_source':item['profileEvidence'].append('not-sent')
+    elif bad=='concatenated_id':item['profileEvidence'][0]='P1-S1,P1-S2'
     elif bad=='foreign_case':item['evidenceCases']=['other-case']
     elif bad=='fake_file':item['evidenceDeliverables']=['fake-file']
-    else:row[1]['_sourceMap'][item['profileEvidence'][0]['source']]['partnerId']='other'
+    else:row[1]['_sourceMap'][item['profileEvidence'][0]]['partnerId']='other'
     result=evaluate(row,item)
     assert not result['recommendations'] and not result['analysisComplete']
 
 
-def test_sent_case_and_file_ownership_is_required_even_with_a_good_quote(setup):
+def test_sent_case_and_file_ownership_is_required_even_with_a_good_quote(setup,tmp_path):
     row=legal_row(setup);item=legal_item(row)
-    case={'id':'sent-case','partner_id':row[0]['id'],'title':'案例','description':'原文'}
-    file={'id':'sent-file','case_id':case['id'],'filename':'交付.txt','case_title':case['title']}
+    with get_db() as conn:case,file=owned_case_file(conn,row[0]['id'],tmp_path)
     item.update(evidenceCases=[case['id']],evidenceDeliverables=[file['id']])
     row=(row[0],row[1],[case],[file])
     assert len(evaluate(row,item)['recommendations'])==1
@@ -155,7 +155,7 @@ def test_whole_group_budget_loss_retains_other_candidate_and_model_gap(setup):
     item=legal_item(row)  # Use actual sent short IDs.
     recs=match._validated_recommendations([item],[row[0]],{row[0]['id']:[]},{row[0]['id']:[]})
     result=match._validated_outcome(recs,{'recommendations':[item],'supplyStatus':'sufficient',
-                                         'gapAnalysis':'模型具体指出条件缺口。'},False,[row,bad])
+                                         'gapAnalysis':'模型具体指出条件缺口。','analysisRefs':[],'_analysis_shape_valid':True},False,[row,bad])
     assert len(result['recommendations'])==1 and result['supplyStatus']=='sufficient'
     assert not result['analysisComplete'] and '模型具体指出条件缺口。' in result['gapAnalysis']
 
@@ -189,50 +189,17 @@ def test_heating_zero_recall_is_unknown_without_detailed_model(setup,monkeypatch
     upload(setup,'ordinary-office.txt','普通软件服务与办公系统维护。')
     snapshot={'_task_id':'synthetic-no-progress','understanding':{'facts':{}},'model':{}}
     def forbidden(*args,**kwargs):raise AssertionError('zero recall must not invoke detailed model')
-    monkeypatch.setattr(development_model,'completion',forbidden)
+    monkeypatch.setattr(development_model,'completion',current_protocol(forbidden))
     recs=match._perform_partner_match('区域供热管网水力平衡与换热站调试服务。',snapshot)
     assert recs==[] and snapshot['outcome']['supplyStatus']=='unknown'
     assert snapshot['outcome']['analysisComplete']
 
 
-@pytest.mark.parametrize('case_index',[0,1,2])
-def test_fixed_historic_specialist_projection_passes_persists_and_displays(client,case_index):
-    path=Path(os.environ['BANFEI_MATCH_REPLAY_INPUT'])
-    replay=json.loads(path.read_text())
-    case=replay['cases'][case_index]
-    rows,items=[],[]
-    for entry in case['inputs']:
-        p=entry['partner']
-        make_partner(p['id'],p['name'])
-        with get_db() as conn:
-            conn.execute('UPDATE partners SET capabilities=?,industries=?,service_areas=? WHERE id=?',
-                         (p.get('capabilities',''),p.get('industries',''),p.get('service_areas',''),p['id']))
-        # These are the saved actual-sent projections, not current DB source fill-in.
-        rows.append((p,entry['context'],entry['cases'],entry['deliverables']))
-        items.append(entry['item'])
-    reasons=[]
-    recs=match._validated_recommendations(items,[r[0] for r in rows],
-        {r[0]['id']:r[2] for r in rows},{r[0]['id']:r[3] for r in rows},reasons)
-    result=match._validated_outcome(recs,{'recommendations':items,'supplyStatus':'partial',
-                                        'gapAnalysis':'固定旧输出的合法层回放，不能作为新模型业务正确性证明。'},
-                                   bool(reasons),rows,requirement=case['requirement'],facts=case['facts'])
-    assert not reasons and len(recs)==len(items) and result['analysisComplete']
-    owner=make_user('historic-replay-owner')
-    task=make_task(owner,case['requirement'])
-    snapshot={'candidate_stamp':match._candidate_stamp(),'outcome':result}
-    match._set_task_state(task,'ready',recommendations=recs,snapshot=snapshot)
-    with get_db() as conn:
-        stored=conn.execute('SELECT recommendations_json FROM match_records WHERE id=?',(task,)).fetchone()[0]
-        assert json.loads(stored)==result['recommendations']
-    public=client.get('/agent/tasks/'+task,headers=auth_headers(owner))
-    assert public.status_code==200
-    assert public.json()['recommendations']==result['recommendations']
-    assert all(i['recommendationReason'] in public.json()['answer'] for i in items)
 
 
 def test_prompt_delegates_semantics_without_specialist_whitelist():
     prompt=matching.detail_messages('{}')[0]['content']
-    assert all(x in prompt for x in ['末尾条件','必备和排除条件应按原意执行','逐字连续','不与 evidenceType 机械对应'])
+    assert all(x in prompt for x in ['末尾条件','明示','合作方本身','对应资料','短source编号数组','analysisRefs'])
     assert not any(x in prompt for x in ['Oracle','GaussDB','EDA','PCB','DDoS','药物研发'])
     assert not any(hasattr(matching,name) for name in
                    ['core_anchors','related_to_core','planning_context','project_wording','requires_case_history','evidence_reason'])
@@ -250,13 +217,13 @@ def test_duplicate_id_cannot_reuse_another_item_classification_or_bad_sources(se
         c=data['candidates'][0];p=c['profilePassages'][-1]
         good={**recommendation(),'partnerId':c['partnerId'],'partnerName':c['name'],
               'matchScore':'70','recommendationReason':'合法原文支持的条目。',
-              'evidenceType':'current_capability','profileEvidence':[{'source':p['source'],'quote':p['text']}],
+              'evidenceType':'current_capability','profileEvidence':[p['source']],
               'evidenceCases':[],'evidenceDeliverables':[]}
         bad={**good,'matchScore':'99','recommendationReason':'非法引用的高分条目。',
-             'profileEvidence':[{'source':p['source'],'quote':'虚构资料引用。'}]}
+             'profileEvidence':['invented-source']}
         return json.dumps({'recommendations':[bad,good],
-                           'supplyStatus':'sufficient','gapAnalysis':'虚构资料引用。'})
-    monkeypatch.setattr(development_model,'completion',complete)
+                           'supplyStatus':'sufficient','gapAnalysis':'依据实际输入的独立整体判断。','analysisRefs':[]})
+    monkeypatch.setattr(development_model,'completion',current_protocol(complete))
     task=match.create_task(match.TaskCreateRequest(requestId=uuid4(),requirement='需要NovelVision视觉检测伙伴。'),owner)
     match.executor.shutdown(wait=True)
     with get_db() as conn: saved=match_understanding.load(conn,task.recordId)

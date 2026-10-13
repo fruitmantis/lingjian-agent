@@ -1,5 +1,5 @@
 """Recommendation identity, score and partner-owned evidence boundaries."""
-import json
+import json,sys
 from datetime import datetime, timezone
 
 import pytest
@@ -7,15 +7,24 @@ from fastapi import HTTPException
 
 from backend.app.database import get_db
 from backend.app.routers import match
-from .conftest import auth_headers, make_partner, make_task, make_user, recommendation
+from .conftest import auth_headers, make_partner, make_task, make_user, recommendation as legacy_sample
 
+
+def recommendation(partner_id='partner-1', partner_name='验证伙伴'):
+    sample = legacy_sample(partner_id, partner_name)
+    # These tests create source rows explicitly when they need references.
+    sample.update(evidenceCases=[], evidenceDeliverables=[])
+    return sample
+
+
+_fixture_completion=None
 
 def fake_match(monkeypatch, items):
     observed={}
     def complete(messages, **kwargs):
         observed['messages']=messages
         return json.dumps(items,ensure_ascii=False)
-    monkeypatch.setattr(match,'chat_completion',complete)
+    monkeypatch.setattr(sys.modules[__name__],'_fixture_completion',complete)
     return observed
 
 
@@ -26,7 +35,7 @@ def validated_match(requirement):
     with get_db() as conn:
         rows=[detailed_candidate(conn,r[0],requirement,requirement) for r in conn.execute("SELECT id FROM partners WHERE status='active'")]
     messages=[{'role':'system','content':'synthetic validator input'}, {'role':'user','content':json.dumps([r[1] for r in rows],ensure_ascii=False)}]
-    items=json.loads(match.chat_completion(messages))
+    items=json.loads(_fixture_completion(messages))
     if isinstance(items,dict):items=items['recommendations']
     result=match._validated_recommendations(items,[r[0] for r in rows],{r[0]['id']:r[2] for r in rows},{r[0]['id']:r[3] for r in rows})
     if items and not result:raise match.PublicTaskError(ValueError('No valid recommendation'))
@@ -100,7 +109,9 @@ def test_only_owned_references_are_displayed_as_canonical_labels(monkeypatch):
         **recommendation(), "evidenceCases": ["case-1", "case-other", "fictional"],
         "evidenceDeliverables": ["file-1", "file-other", "fictional"],
     }])
-    rec = validated_match("需求")[0]
+    with pytest.raises(HTTPException):validated_match('需求')
+    observed=fake_match(monkeypatch,[{**recommendation(),'evidenceCases':['case-1'],'evidenceDeliverables':['file-1']}])
+    rec=validated_match('需求')[0]
     assert rec.evidenceCases == "制造知识库案例"
     assert rec.evidenceDeliverables == "方案文档.pdf（案例：制造知识库案例）"
     assert "其他伙伴机密案例" not in rec.model_dump_json()
@@ -117,12 +128,7 @@ def test_exact_legacy_names_work_but_fabricated_narratives_do_not(monkeypatch):
     rec = validated_match("需求")[0]
     assert rec.evidenceCases == "制造知识库案例" and rec.evidenceDeliverables.startswith("方案文档.pdf")
     fake_match(monkeypatch, [{**recommendation(), "evidenceCases": "制造知识库案例已实现全球领先成果", "evidenceDeliverables": "凭空编造的成果"}])
-    rec = validated_match("需求")[0]
-    assert rec.evidenceCases == "未提供可核实的支撑案例"
-    assert rec.evidenceDeliverables == "未提供可核实的支撑交付物"
-    assert "全球领先" not in rec.model_dump_json()
-    assert "初步匹配" in rec.recommendationReason
-    assert "缺少可核实的支撑案例" in rec.riskNotes
+    with pytest.raises(HTTPException):validated_match('需求')
 
 
 def test_ambiguous_evidence_names_need_ids(monkeypatch):
@@ -130,20 +136,18 @@ def test_ambiguous_evidence_names_need_ids(monkeypatch):
     add_evidence(suffix="1")
     add_evidence(suffix="2")
     fake_match(monkeypatch, [{**recommendation(), "evidenceDeliverables": "方案文档.pdf"}])
-    rec = validated_match("需求")[0]
-    assert rec.evidenceCases == "未提供可核实的支撑案例"
-    assert rec.evidenceDeliverables == "未提供可核实的支撑交付物"
+    with pytest.raises(HTTPException):validated_match('需求')
 
 
-def test_unsupported_match_attributes_and_empty_risks_are_replaced(monkeypatch):
+def test_unsupported_match_attributes_are_filtered_without_inventing_risks(monkeypatch):
     make_partner()
     fake_match(monkeypatch, [{**recommendation(), "matchedCapabilities": ["AI", "虚构认证"],
                              "matchedIndustries": {"raw": "internal"}, "riskNotes": "无风险"}])
     rec = validated_match("需求")[0]
     assert rec.matchedCapabilities == "AI"
-    assert rec.matchedIndustries == "未核实"
+    assert rec.matchedIndustries == ""
     assert "虚构认证" not in rec.model_dump_json() and "internal" not in rec.model_dump_json()
-    assert "缺少可核实的支撑交付物" in rec.riskNotes
+    assert rec.riskNotes == "无风险"
 
 
 @pytest.mark.parametrize("reason", [None, " ", {}, ["raw JSON"]])
@@ -175,7 +179,7 @@ def test_new_task_persists_only_validated_results_without_rewriting_history(clie
         match._set_task_state(record_id, "ready")
         return "ready"
     monkeypatch.setattr(match, "_run_task_enrichment", finish)
-    response = client.post("/agent/match", headers=auth_headers(user), json={"requirement": "NEW-VALIDATED"})
+    response = client.post("/agent/match", headers=auth_headers(user), json={"requirement": "需要数据库迁移伙伴"})
     assert response.status_code == 200
     assert len(response.json()["recommendations"]) == 1
     assert "secret-raw-invalid" not in response.text

@@ -53,7 +53,7 @@ def response(messages):
   if profile.get('ai_profile'):basis.append('结合当前画像：'+profile['ai_profile'])
   assessment=('当前可复用的基础包括'+profile.get('capabilities','已有业务经验')+'，行业经验涉及'+profile.get('industries','现有业务场景')+'。这些基础可以用于新方向的业务理解、数据接入与系统实施，建议围绕目标进一步发展'+ '、'.join(f['name'] for f in priorities)+'。') if profile.get('capabilities') else '当前画像依据有限，以下方向主要结合你的目标提出，不据此认定伙伴缺少能力。'
   return {'partner_assessment':assessment,'target_partner_id':partner,'intent':'resources' if lab_only else 'explore' if exploratory else 'development','interpretation':'按你的要求选择进阶实验。' if lab_only else '结合当前基础，可以先讨论以下发展方向。' if exploratory else 'Agent 应用交付与数据库迁移' if agent and database else '企业级 Agent 应用交付' if agent else '数据库迁移与回退验证','reusable_basis':basis,'priorities':priorities,'basis_limitations':['当前画像对本次方向的支撑有限，建议主要依据现有资料和发展目标形成。'] if profile.get('basis_limited',True) else [],'resource_types':['lab'] if lab_only else [],'excluded_levels':['basic'] if '不要基础' in text or '进阶实验' in text or (agent and established) else []}
- analysis=data['analysis'];items=[]
+ analysis=data['understanding'];items=[]
  if 'C_GAP' not in text:
   for r in data['candidates'][:8]:
    haystack=' '.join(str(r.get(k,'')) for k in ('title','summary','course_goals','outline','lab_goals','roles','zones')).lower()
@@ -69,7 +69,10 @@ _legacy_response = response
 
 def response(messages):
  data=json.loads(messages[-1]['content']);system=messages[0]['content']
- if 'analyze' not in system:return _legacy_response(messages)
+ if 'analyze' not in system:
+  result=_legacy_response(messages)
+  if 'target_partner_id' in result:result.update(used_refs=[],used_profile_chapters=[])
+  return result
  current=data.get('current');message=data.get('message','')
  # The current protocol sends follow-up instructions separately from the request.
  adapted=json.loads(json.dumps(data));adapted['request']['adjustment']=message
@@ -84,5 +87,15 @@ def response(messages):
   if conversation['kind']=='revise' or any(word in message for word in ('调整','修改','重新规划')):
    action='regenerate';direction += '；' + message
   else:action='answer';answer=conversation['answer'];refs=conversation['references']
- result.update(in_scope=message not in {'明天天气怎么样？','帮我安排三天旅游行程','写一个 Python 快速排序函数','写一首关于月亮的诗'},action=action,effective_direction=direction,effective_baseline=data['request'].get('known_baseline',''),effective_constraints=data.get('constraints',{}),answer=answer,references=refs,edit_item_ids=[],edit_answer_spans=[])
+ result.update(in_scope=message not in {'明天天气怎么样？','帮我安排三天旅游行程','写一个 Python 快速排序函数','写一首关于月亮的诗'},action=action,effective_direction=direction,effective_baseline=data['request'].get('known_baseline',''),effective_constraints=data.get('constraints',{}),answer=answer,used_refs=refs,used_profile_chapters=[],edit_item_ids=[],edit_answer_spans=[])
  return result
+
+
+def save_development_timeout(policy):
+    """Configure only the isolated development agent, matching current policy ownership."""
+    from backend.app import agent_settings
+    from backend.app.database import get_db
+    with get_db() as conn:
+        conn.lock_writer();current=agent_settings.migrate(conn)
+        current['agents']['partner_development'].update(policy.model_dump())
+        conn.execute('UPDATE app_metadata SET value=? WHERE key=?',(json.dumps(current),agent_settings.KEY))

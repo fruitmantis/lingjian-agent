@@ -1,3 +1,4 @@
+from backend.tests.support.matching import current_protocol
 """Matching-only delay transport, synthetic loopback and isolated PostgreSQL."""
 import json
 import time
@@ -36,7 +37,7 @@ def test_loopback_transport_preserves_provider_options_and_large_input_budget(mo
     assert result == 'synthetic result' and len(received) == 1
     body = json.loads(received[0][1])
     assert body['thinking'] == {'type': 'enabled'}
-    assert body['max_tokens'] == config['max_tokens'] and body['model'] == 'deepseek-v4-flash'
+    assert body['max_tokens'] == config['max_tokens'] and body['model'] == model_config_from_record(config).model
     assert body['messages'][-1]['content'] == messages[0]['content']
     assert configuration_stamp(budgeted) == stamp
     assert partner_match_context.input_metrics(budgeted, messages, schema)[0] == chars
@@ -58,7 +59,7 @@ def test_proxy_rejects_nonlocal_or_mismatched_upstream(monkeypatch, proxy, origi
         development_model.request_base_url({**config, '_match_request': True}, model_config_from_record(config))
 
 
-def test_all_three_matching_calls_opt_into_delay_transport(prepared, monkeypatch):
+def test_both_matching_calls_opt_into_delay_transport(prepared, monkeypatch):
     seen = []
 
     def complete(config, messages, schema):
@@ -69,7 +70,7 @@ def test_all_three_matching_calls_opt_into_delay_transport(prepared, monkeypatch
             return '{"candidates":[{"partnerId":"partner-1","verificationFocus":"合成核验"}]}'
         return answer()
 
-    monkeypatch.setattr(development_model, 'completion', complete)
-    result = match.match_partners(match.MatchRequest(requirement='合成匹配测试'), prepared[0])
+    monkeypatch.setattr(development_model, 'completion', current_protocol(complete))
+    result = match.match_partners(match.MatchRequest(requirement='需要数据库迁移伙伴'), prepared[0])
     assert result.taskStatus == 'ready'
-    assert seen == [('MatchUnderstanding', True), ('InitialSelection', True), ('MatchAnswer', True)]
+    assert seen == [('MatchUnderstanding', True), ('MatchAnswer', True)]

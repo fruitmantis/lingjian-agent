@@ -8,7 +8,7 @@ from .conftest import auth_headers,make_partner,make_user
 @pytest.fixture
 def access(client,monkeypatch):
     from backend.app import profile_sources
-    monkeypatch.setattr(profile_sources,'resolve_model_record',lambda _: {})
+    monkeypatch.setattr(profile_sources,'resolve_model_record',lambda _: {'api_key':'synthetic-only','base_url':'http://127.0.0.1:1/v1','model_name':'synthetic','max_tokens':4096,'temperature':0.3,'top_p':1.0})
     monkeypatch.setattr(profile_sources.development_model,'completion',lambda *_:'{"sections":[]}')
     return auth_headers(make_user('catalogue-admin',role='admin')), auth_headers(make_user('catalogue-user')), make_partner()['id']
 
@@ -106,8 +106,8 @@ def test_file_replacement_keeps_id_validates_first_and_withdraws_legacy_profile(
     from .test_profile_report import merge_result
     def completed(_config,messages,_schema):
         data=json.loads(messages[-1]['content'])
-        if 'material' not in data:return json.dumps(merge_result(data))
-        return json.dumps({'sections':[{'chapter':5,'summary':data['material'],'quotes':[data['material']]}]})
+        if 'blocks' not in data:return json.dumps(merge_result(data))
+        return json.dumps({'sections':[{'chapter':5,'summary':''.join(block['text'] for block in data['blocks']),'block_ids':[block['id'] for block in data['blocks']]}]})
     monkeypatch.setattr(profile_sources.development_model,'completion',completed)
     admin,user,pid=access
     if kind=='case':
@@ -146,7 +146,8 @@ def test_pending_classification_processes_committed_cached_source_once(client,ac
         profile_sources.put(conn,source,'pending')
     calls=[]
     def complete(config,messages,schema):
-        material=json.loads(messages[-1]['content'])['material']
+        blocks=json.loads(messages[-1]['content'])['blocks']
+        material=''.join(block['text'] for block in blocks)
         calls.append(material)
         # A fresh connection can see the committed conversion before model work.
         with get_db() as conn:
@@ -158,7 +159,7 @@ def test_pending_classification_processes_committed_cached_source_once(client,ac
             assert conn.execute("SELECT state FROM partner_profile_sources WHERE source_kind='attachment' AND source_id=?",(did,)).fetchone()['state']=='processing'
         # An overlapping callback sees the processing claim, so it sends nothing.
         profile_sources.process_source(pid,'attachment',did)
-        return json.dumps({'sections':[{'chapter':5,'summary':material,'quotes':[material]}]})
+        return json.dumps({'sections':[{'chapter':5,'summary':material,'block_ids':[block['id'] for block in blocks]}]})
     monkeypatch.setattr(profile_sources.development_model,'completion',complete)
     url=f'/admin/partner-materials/documents/{did}/classify'
     payload={'partner_id':pid,'title':'合成分类资料','category_id':'marketing-3'}

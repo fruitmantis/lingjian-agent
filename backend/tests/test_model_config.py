@@ -226,11 +226,11 @@ def test_client_honors_configured_timeout_and_sends_zero(monkeypatch):
     monkeypatch.setattr(ai_client.httpx, "Client", FakeClient)
     assert ai_client.chat_completion([]) == "synthetic result"
     assert observed["timeout"] == 300
-    assert observed["json"]["temperature"] == 0
-    assert observed["json"]["top_p"] == 0
+    assert json.loads(observed["content"])["temperature"] == 0
+    assert json.loads(observed["content"])["top_p"] == 0
 
 
-def test_separate_admin_maintenance_calls_use_their_scenes(monkeypatch):
+def test_derivatives_use_supplied_understanding_and_scan_is_retired(monkeypatch):
     make_partner()
     owner=make_user("scene_user")
     task_id=make_task(owner,"scene validation")
@@ -240,16 +240,17 @@ def test_separate_admin_maintenance_calls_use_their_scenes(monkeypatch):
     def complete(messages,**kwargs):
         calls.append((kwargs.get("scene"),kwargs.get("timeout")))
         return next(responses)
-    monkeypatch.setattr(match,"chat_completion",complete)
     monkeypatch.setattr(ai_client,"chat_completion",complete)
     # No materials: no speculative profile generation or independent summary call.
     profile.generate_profile("partner-1")
-    match._generate_demand_profile(task_id,"需求",recs,datetime.now(timezone.utc).isoformat())
-    assert match._generate_tag_suggestions("需求",task_id)
-    assert match._extract_project_opportunity("需求",task_id,recs)
+    match._generate_demand_profile(task_id,"需求",recs,datetime.now(timezone.utc).isoformat(),data={})
+    assert match._generate_tag_suggestions("需求",task_id,items=[])
+    assert match._extract_project_opportunity("需求",task_id,recs,data={})
     from backend.app.routers.capability_tags import scan_suggestions
-    scan_suggestions()
-    assert calls==[("demand_profile",None),("tag_suggestion",None),("demand_profile",None),("tag_suggestion",None)]
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as retired:scan_suggestions()
+    assert retired.value.status_code==410
+    assert calls==[]
 
 
 @pytest.mark.parametrize("scene,path", [
@@ -264,8 +265,14 @@ def test_no_enabled_model_returns_actionable_error_without_calling_model(client,
     if scene=="partner_profile":
         client.post('/partners/partner-1/documents',headers=auth_headers(admin),files={'file':('synthetic.txt',b'synthetic business capability')})
     response = client.post(path, headers=auth_headers(admin), json={"requirement": "寻找测试伙伴"})
-    assert response.status_code == 503
-    assert response.json()["detail"] == "服务异常，请联系管理员。"
+    if scene=='tag_suggestion':
+        assert response.status_code==410
+        return
+    if scene=='partner_profile':
+        assert response.status_code==200  # Read saved chapters; failed sources are independently reported.
+    else:
+        assert response.status_code == 503
+    if scene=='partner_match':assert response.json()["detail"] == "服务异常，请联系管理员。"
     from backend.app.error_diagnostics import recent_errors
     errors=recent_errors()
     assert any('选择已启用的模型连接' in item['message'] for item in errors)

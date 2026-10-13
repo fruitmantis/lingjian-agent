@@ -1,3 +1,4 @@
+from backend.tests.support.matching import current_protocol,owned_case_file
 """Actual request-shape regressions using disposable PG and synthetic sources."""
 import json
 from uuid import uuid4
@@ -48,7 +49,7 @@ def test_complete_provider_payload_and_source_checked_policy(setup, monkeypatch,
               'evidenceCases':[], 'evidenceDeliverables':[]}
         return json.dumps({'recommendations':[item],
                            'supplyStatus':'sufficient','gapAnalysis':'未经校验的供给结论'},ensure_ascii=False)
-    monkeypatch.setattr(development_model,'completion',completion)
+    monkeypatch.setattr(development_model,'completion',current_protocol(completion))
     task=match.create_task(match.TaskCreateRequest(requestId=uuid4(),requirement=requirement),owner)
     match.executor.shutdown(wait=True)
     with get_db() as conn:
@@ -87,7 +88,7 @@ def test_unused_unprocessed_sources_do_not_mark_input_incomplete(setup,failure):
     with get_db() as conn:
         conn.execute('UPDATE partner_profile_sources SET state=? WHERE partner_id=? AND source_id=?',(failure,setup[3],fid))
         assert partner_match_context.recall_candidates(conn,'需要药物研发伙伴',{})==[]
-    result=match._validated_outcome([],{},False,[],requirement='需要药物研发伙伴',catalog_incomplete=True)
+    result=match._validated_outcome([],{'recommendations':[],'analysisRefs':[],'_analysis_shape_valid':True},False,[],requirement='需要药物研发伙伴',catalog_incomplete=True)
     assert result['analysisComplete'] and '本次分析不完整' not in result['answer']
 
 
@@ -120,7 +121,7 @@ def test_actual_payload_records_core_omission_when_global_budget_cannot_fit(setu
         assert not candidate['profilePassages']
         assert body not in json.dumps(payload,ensure_ascii=False)
         return json.dumps({'recommendations':[],'supplyStatus':'unknown','gapAnalysis':'上下文未覆盖'})
-    monkeypatch.setattr(development_model,'completion',complete)
+    monkeypatch.setattr(development_model,'completion',current_protocol(complete))
     task=match.create_task(match.TaskCreateRequest(requestId=uuid4(),requirement='需要药物研发伙伴'),owner)
     match.executor.shutdown(wait=True)
     with get_db() as conn:saved=match_understanding.load(conn,task.recordId)
@@ -131,14 +132,14 @@ def test_actual_payload_records_core_omission_when_global_budget_cannot_fit(setu
     assert saved['outcome']['gapAnalysis']=='上下文未覆盖'
 
 
-def test_deliverable_only_reference_is_tied_to_owned_visible_case(setup):
-    with get_db() as conn:partner=dict(conn.execute('SELECT * FROM partners WHERE id=?',(setup[3],)).fetchone())
-    case={'id':'case-synthetic','partner_id':partner['id'],'title':'药物研发项目','description':'已交付药物研发数据平台，完成项目验收。'}
-    file={'id':'file-synthetic','case_id':case['id'],'filename':'交付说明.txt','case_title':case['title']}
+def test_deliverable_only_reference_is_tied_to_owned_visible_case(setup,tmp_path):
+    with get_db() as conn:
+        partner=dict(conn.execute('SELECT * FROM partners WHERE id=?',(setup[3],)).fetchone())
+        case,file=owned_case_file(conn,partner['id'],tmp_path)
     item={**recommendation(),'partnerId':partner['id'],'partnerName':partner['name'],
-          'evidenceType':'delivered_project','evidenceCases':[],'evidenceDeliverables':[file['id']]}
+          'evidenceType':'delivered_project','profileEvidence':[],'evidenceCases':[],'evidenceDeliverables':[file['id']]}
     recs=match._validated_recommendations([item],[partner],{partner['id']:[case]},{partner['id']:[file]})
-    result=match._validated_outcome(recs,{'recommendations':[item],'supplyStatus':'sufficient'},False,
+    result=match._validated_outcome(recs,{'recommendations':[item],'supplyStatus':'sufficient','analysisRefs':[],'_analysis_shape_valid':True},False,
                                    [(partner,{},[case],[file])],requirement='需要药物研发伙伴')
     assert len(result['recommendations'])==1 and result['supplyStatus']=='sufficient'
 
@@ -156,7 +157,7 @@ def test_quoted_fact_keeps_its_own_qualifier_but_not_another_fact_plan(setup,pre
         row=partner_match_context.detailed_candidate(conn,setup[3],requirement,requirement)
     passage=next(p for p in row[1]['profilePassages'] if claim in p['text'])
     item={**recommendation(),'partnerId':setup[3],'partnerName':row[0]['name'],
-          'evidenceType':expected,'profileEvidence':[{'source':passage['source'],'quote':claim}],
+          'evidenceType':expected,'profileEvidence':[passage['source']],
           'evidenceCases':[],'evidenceDeliverables':[]}
     assert match._source_assessment(item,row,requirement)==expected
     assert body == ''.join(p['text'] for p in row[1]['profilePassages'])
@@ -169,7 +170,7 @@ def test_other_fact_plan_after_comma_does_not_govern_quoted_current_fact(setup):
     with get_db() as conn:row=partner_match_context.detailed_candidate(conn,setup[3],requirement,requirement)
     passage=next(p for p in row[1]['profilePassages'] if claim in p['text'])
     item={**recommendation(),'partnerId':setup[3],'partnerName':row[0]['name'],
-          'evidenceType':'current_capability','profileEvidence':[{'source':passage['source'],'quote':claim}],
+          'evidenceType':'current_capability','profileEvidence':[passage['source']],
           'evidenceCases':[],'evidenceDeliverables':[]}
     assert match._source_assessment(item,row,requirement)=='current_capability'
     assert body == ''.join(p['text'] for p in row[1]['profilePassages'])
@@ -190,9 +191,9 @@ def test_adjacent_qualifier_retention_respects_source_group_boundaries(body, exp
     requirement = '需要ScopeQuasar能力'
     source = 'partner:scope-fixture:profile:0'
     partner = {'id': 'scope-fixture', 'name': '合成伙伴', 'capabilities': ''}
-    row = (partner, {'profilePassages': [{'source': source, 'text': body}]}, [], [])
+    row = (partner, {'profilePassages': [{'source': source, 'text': body}], '_sourceMap': {source: {'partnerId':partner['id'],'text':body,'start':0,'end':len(body)}}}, [], [])
     item = {'evidenceType': expected,
-            'profileEvidence': [{'source': source, 'quote': claim}],
+            'profileEvidence': [source],
             'evidenceCases': [], 'evidenceDeliverables': []}
     assert match._source_assessment(item, row, requirement) == expected
     # The legal layer preserves the model category and all supplied source text.

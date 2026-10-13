@@ -18,9 +18,8 @@ class TimeoutSettings(BaseModel):
         return max(600, 2 * self.call_budget() + 60)
 
     def match_run_budget(self):
-        # Task creation performs understanding before persistence; leave room for
-        # all three calls and final writes when recovering an interrupted match.
-        return max(900, 3 * self.call_budget() + 90)
+        # Understanding and detailed review, with existing persistence headroom.
+        return max(900, 2 * self.call_budget() + 90)
 
 
 def get_settings(connection=None, *, agent_id=None, execution=None) -> TimeoutSettings:

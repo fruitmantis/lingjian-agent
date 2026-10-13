@@ -33,7 +33,7 @@ def unified(prepared, monkeypatch):
         if 'patch' in messages[0]['content']:
             return json.dumps({'target_partner_id':request.target_partner_id,'changes':[{'action':'replace','item_id':data['understanding']['edit_item_ids'][0],
                 'items':[{'source_type':'lab','source_id':'unified-lab-3','source_version':1,'reason':'按要求替换第二个实验','estimated_hours':1}]}],
-                'answer_changes':[],'answer':'已替换第二个实验，其他内容保留。',**data['current']['presentation']})
+                'answer_changes':[],'answer':'已替换第二个实验，其他内容保留。','used_refs':[],'used_profile_chapters':[],**data['current']['presentation']})
         result=response(messages)
         result['stages'][0]['items']=sorted(result['stages'][0]['items'],key=lambda item:item['source_id'])[:2]
         return json.dumps(result,ensure_ascii=False)
@@ -123,7 +123,13 @@ def test_changes_invalidate_successful_understanding(unified,monkeypatch,change)
             with get_db() as conn:conn.execute("UPDATE model_configs SET temperature=0.6")
         return result
     monkeypatch.setattr(model,'completion',changed)
-    engine.execute(accepted['run_id']);assert plan(accepted['plan_id'])['current_version_id'] is None
+    engine.execute(accepted['run_id'])
+    if change!='config':
+        assert plan(accepted['plan_id'])['current_version_id']
+        detail=views.detail(accepted['plan_id'],user)
+        if change=='permission':assert all(item['source_id']!='unified-lab-1' for stage in detail['payload']['stages'] for item in stage['items'])
+        return
+    assert plan(accepted['plan_id'])['current_version_id'] is None
     monkeypatch.setattr(model,'completion',original)
     before=len(unified[1]);retry=life.retry(accepted['plan_id'],development.RetryRun(submission_id='changed-retry',run_id=accepted['run_id']),user)
     engine.execute(retry['run_id'])
@@ -172,7 +178,7 @@ def test_match_two_calls_shared_facts_local_recall_and_no_rule_fallback(unified,
         assert data['requirement']=='合成客户需要数据库迁移伙伴'
         assert data['facts']['customerName']=='合成客户'
         assert 'understanding' not in data and data['candidates']
-        return json.dumps({'recommendations':[],'supplyStatus':'unknown','gapAnalysis':'资料不足，需要补充交付证据。'})
+        return json.dumps({'recommendations':[],'analysisRefs':[],'supplyStatus':'unknown','gapAnalysis':'资料不足，需要补充交付证据。'})
     monkeypatch.setattr(model,'completion',complete)
     result=match.match_partners(match.MatchRequest(requirement='合成客户需要数据库迁移伙伴'),unified[0][0])
     assert calls==['MatchUnderstanding','MatchAnswer']
@@ -186,8 +192,7 @@ def test_match_two_calls_shared_facts_local_recall_and_no_rule_fallback(unified,
     assert detail.answer=='本次暂无正式推荐。\n\n资料不足，需要补充交付证据。'
     assert detail.demandProfile['gapAnalysis']=='资料不足，需要补充交付证据。'
     def broken(*args,**kwargs):raise RuntimeError('synthetic model failure')
-    monkeypatch.setattr(match,'chat_completion',broken)
-    with pytest.raises(RuntimeError):match._generate_demand_profile(result.recordId,'合成需求',[],life.now())
+    with pytest.raises(TypeError):match._generate_demand_profile(result.recordId,'合成需求',[],life.now())
 
 
 def test_equivalent_search_phrases_use_same_tokenization(unified):
@@ -204,7 +209,7 @@ def test_match_retry_reuses_successful_facts_after_generation_failure(unified,mo
         if schema['title']=='MatchUnderstanding':return '{"in_scope":true,"facts":{"technicalNeeds":"数据库迁移"}}'
         assert schema['title']=='MatchAnswer'
         if calls.count('MatchAnswer')==1:raise TimeoutError('synthetic second-stage failure')
-        return '{"recommendations":[],"supplyStatus":"unknown","gapAnalysis":"待补充交付证据"}'
+        return '{"recommendations":[],"analysisRefs":[],"supplyStatus":"unknown","gapAnalysis":"待补充交付证据"}'
     monkeypatch.setattr(model,'completion',complete)
     with pytest.raises(HTTPException):match.match_partners(match.MatchRequest(requirement='需要数据库迁移伙伴'),unified[0][0])
     with get_db() as conn:task=conn.execute('SELECT id FROM match_records').fetchone()[0]

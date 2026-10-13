@@ -121,7 +121,7 @@ def test_case_visibility_is_rechecked_for_model_completion(scenario,monkeypatch)
     assert plan(accepted['plan_id'])['current_version_id'] is None
 
 
-def test_model_plan_free_text_cannot_assert_confirmed_gap(scenario,monkeypatch):
+def test_free_text_is_not_subject_to_retired_word_judgment(scenario,monkeypatch):
     from backend.app import development_model
     original=scenario[2]
     def mock(*args):
@@ -129,7 +129,7 @@ def test_model_plan_free_text_cannot_assert_confirmed_gap(scenario,monkeypatch):
         if 'stages' in output:output['stages'][0]['title']='该伙伴确认不具备数据库能力'
         return json.dumps(output)
     monkeypatch.setattr(development_model,'completion',mock)
-    accepted,run,payload=execute(scenario);assert run['status']=='failed' and payload is None
+    accepted,run,payload=execute(scenario);assert run['status']=='ready' and payload['stages'][0]['title']=='该伙伴确认不具备数据库能力'
 
 
 def test_task_creation_p95_under_one_second_without_waiting_model(scenario,client,monkeypatch,record_property):
@@ -150,7 +150,8 @@ def test_natural_revision_without_legacy_fields_preserves_confirmed(scenario):
     accepted=life.revise(pid,Revise(submission_id='natural-revision',based_on_version_id=v1,instruction='再加上 Agent 应用交付方向'),user)
     engine.execute(accepted['run_id']);data=views.detail(pid,user)
     assert data['runs'][0]['status']=='ready'
-    assert 'Agent' in data['request']['development_direction']
+    assert 'Agent' in data['payload']['understanding']['effective_direction']
+    assert data['request']['development_direction']==(scenario[0][3].development_direction or scenario[0][3].development_goal)
     assert plan(pid)['confirmed_version_id']==v1 and data['plan']['current_version_id']!=v1
 
 
@@ -163,7 +164,7 @@ def test_three_parallel_plans_keep_owner_and_goal_snapshots(scenario):
     with ThreadPoolExecutor(max_workers=3) as pool:list(pool.map(engine.execute,[x[0]['run_id'] for x in submissions]))
     versions=set()
     for accepted,owner,n in submissions:
-        d=views.detail(accepted['plan_id'],owner);assert d['runs'][0]['status']=='ready';assert d['payload']['overview']['development_goal']==f'不同目标 {n}'
+        d=views.detail(accepted['plan_id'],owner);assert d['runs'][0]['status']=='ready';assert d['payload']['effective_request']['development_direction']==f'不同目标 {n}'
         versions.add(d['plan']['current_version_id'])
     assert len(versions)==3
 

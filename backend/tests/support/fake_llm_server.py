@@ -19,6 +19,7 @@ def _stage(messages: list[dict]) -> str:
     system = "\n".join(str(item.get("content", "")) for item in messages if item.get("role") == "system")
     if "一次理解项目找伙伴" in system:
         return "understanding"
+    if '"title": "MatchAnswer"' in system:return "detailed_review"
     if "项目伙伴 AI 初选" in system:
         return "initial_selection"
     if "交付伙伴匹配顾问" in system:
@@ -86,6 +87,9 @@ async def completions(payload: dict):
     stage = _stage(messages)
     if stage in {'understanding','initial_selection','detailed_review'}:
         data=json.loads(messages[-1]['content'])
+        delay=float(os.getenv('FAKE_LLM_MATCH_DELAY_SECONDS','0')) if stage=='understanding' else 0
+        if delay and stage not in _delayed_stages:
+            _delayed_stages.add(stage);await asyncio.sleep(delay)
         if stage=='understanding':
             content=json.dumps({'in_scope':data.get('requirement') not in {'明天天气怎么样？','帮我安排三天旅游行程','写一个 Python 快速排序函数','写一首关于月亮的诗'},'facts':json.loads(_content('opportunity')),'tag_suggestions':[]},ensure_ascii=False)
         elif stage=='initial_selection':
@@ -93,8 +97,8 @@ async def completions(payload: dict):
         else:
             items=[]
             for p in data['candidates'][:1]:
-                items.append({**json.loads(_content('match'))[0],'partnerId':p['partnerId'],'partnerName':p['name'],'evidenceCases':[],'evidenceDeliverables':[]})
-            content=json.dumps({'recommendations':items,'supplyStatus':'partial' if items else 'unknown','gapAnalysis':'交付排期与承接边界待核实'},ensure_ascii=False)
+                items.append({**json.loads(_content('match'))[0],'partnerId':p['partnerId'],'partnerName':p['name'],'profileEvidence':[],'evidenceCases':[],'evidenceDeliverables':[]})
+            content=json.dumps({'recommendations':items,'analysisRefs':[],'supplyStatus':'partial' if items else 'unknown','gapAnalysis':'交付排期与承接边界待核实'},ensure_ascii=False)
         if 'SIDEBAR_SLOW' in json.dumps(messages,ensure_ascii=False) and stage=='understanding':await asyncio.sleep(5)
         return {'choices':[{'message':{'content':content},'finish_reason':'stop'}],'usage':{'completion_tokens':20}}
     if "SIDEBAR_SLOW" in json.dumps(payload.get("messages"), ensure_ascii=False) and stage in {"match", "demand"}:

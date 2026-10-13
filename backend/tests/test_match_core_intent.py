@@ -19,21 +19,22 @@ ANSWER_REQUIREMENTS = '请推荐最多两家，区分资料自述与已交付案
 def outcome(requirement, facts, body, *, kind='current_capability', quote=None):
     partner = make_partner('synthetic-core-'+uuid4().hex)
     with get_db() as conn:
-        conn.execute('UPDATE partners SET capabilities=? WHERE id=?', ('', partner['id']))
+        conn.execute('UPDATE partners SET capabilities=? WHERE id=?', (body, partner['id']))
         partner = dict(conn.execute('SELECT * FROM partners WHERE id=?', (partner['id'],)).fetchone())
     source = f"partner:{partner['id']}:profile:0"
     row = (partner, {
         'profilePassages': [{'source': source, 'text': body}],
+        '_sourceMap': {source: {'partnerId':partner['id'],'sourceRef':'partner:'+partner['id'],'path':'/capabilities','start':0,'end':len(body),'text':body}},
         'inputCoverage': {'complete': True, 'omittedCoreGroups': 0, 'sourceState': 'ready'},
     }, [], [])
     item = {**recommendation(), 'partnerId': partner['id'], 'partnerName': partner['name'],
-            'evidenceType': kind, 'profileEvidence': [{'source': source, 'quote': quote or body}],
+            'evidenceType': kind, 'profileEvidence': [source],
             'evidenceCases': [], 'evidenceDeliverables': []}
     rejected = []
     recs = match._validated_recommendations([item], [partner], {partner['id']: []},
                                           {partner['id']: []}, rejected)
     assert len(recs) == 1 and rejected == []
-    return match._validated_outcome(recs, {'recommendations': [item], 'supplyStatus': 'sufficient'},
+    return match._validated_outcome(recs, {'recommendations': [item], 'supplyStatus': 'sufficient','analysisRefs':[],'_analysis_shape_valid':True},
                                     False, [row], requirement=requirement, facts=facts)
 
 
@@ -95,10 +96,7 @@ def test_explicit_delivery_history_condition_remains_on_full_original(body, kind
         result = outcome(requirement, facts, body, kind=kind)
         assert len(result['recommendations']) == count
         assert result['analysisComplete']
-        if count:
-            assert result['supplyStatus'] == 'sufficient'
-        else:
-            assert result['supplyStatus'] == 'unknown'
+        assert result['supplyStatus'] == 'sufficient'  # Independently legal overall conclusion.
 
 
 def test_ungrounded_fact_or_followup_question_cannot_broaden_original_subject():

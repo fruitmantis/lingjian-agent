@@ -15,11 +15,13 @@ def short(setup,monkeypatch):
     calls=[];outputs={}
     def complete(_config,messages,_schema):
         data=json.loads(messages[-1]['content'])
-        stage='source' if 'material' in data else 'merge'
+        stage='source' if 'blocks' in data else 'merge'
         calls.append((stage,data))
         if stage=='merge':return json.dumps(merge_result(data),ensure_ascii=False)
-        material=data['material']
+        material='\n'.join(block['text'] for block in data['blocks'])
         sections=outputs.get(material,[{'chapter':5,'summary':'内部工作台整合流程可视化、系统集成与AI分析。','quotes':[material]}])
+        # Synthetic fixture intentions are translated to actual numbered wire blocks.
+        sections=[{'chapter':row['chapter'],'summary':row['summary'],'block_ids':[block['id'] for block in data['blocks'] if any(quote in block['text'] or quote==material for quote in row.get('quotes',[material]))]} for row in sections]
         return json.dumps({'sections':sections},ensure_ascii=False)
     monkeypatch.setattr(sources.development_model,'completion',complete)
     return setup,calls,outputs,complete
@@ -58,7 +60,7 @@ def test_ten_sources_extract_independently_then_one_manual_merge_without_growth(
     assert len(calls)==11 and profile(ctx)['ai_profile']==body
     payload=calls[-1][1]
     assert 'material' not in payload and 'current_report' not in payload and 'intro' not in payload
-    assert all(set(item)=={'kind','id','version','summary'} for chapter in payload['chapters'] for item in chapter['sources'])
+    assert all(set(item)=={'source','summary'} for chapter in payload['chapters'] for item in chapter['sources'])
 
 
 def test_summary_is_not_a_continuous_quote_or_a_matching_input(short):
@@ -141,7 +143,7 @@ def test_late_merge_commits_only_unchanged_chapters_without_an_automatic_loop(sh
     entered=threading.Event();release=threading.Event();merges=[]
     def waiting(_config,messages,schema):
         data=json.loads(messages[-1]['content'])
-        if 'material' in data:return complete(_config,messages,schema)
+        if 'blocks' in data:return complete(_config,messages,schema)
         merges.append(data);entered.set();assert release.wait(20)
         return json.dumps(merge_result(data))
     monkeypatch.setattr(sources.development_model,'completion',waiting)
@@ -174,7 +176,7 @@ def test_newer_same_input_manual_result_cannot_be_overwritten(short,monkeypatch)
     replies=[]
     def competing(_config,messages,schema):
         data=json.loads(messages[-1]['content'])
-        if 'material' in data:return complete(_config,messages,schema)
+        if 'blocks' in data:return complete(_config,messages,schema)
         replies.append(data)
         result=merge_result(data)
         if len(replies)==1:
@@ -228,12 +230,12 @@ def test_invalid_or_late_legacy_backfill_never_resets_quotes_or_state(short,monk
     with pytest.raises(ValueError):sources.backfill_summary(pid,'document',fid,version)
     with get_db() as conn:
         assert dict(conn.execute('SELECT * FROM partner_profile_sources WHERE source_id=?',(fid,)).fetchone())==before
-    def changed(*_):
+    def changed(_config,messages,_schema):
         with get_db() as conn:
             conn.execute('UPDATE partner_documents SET extracted_text=?,file_path=? WHERE id=?',('替换后的原文。','synthetic-new-version',fid))
             from backend.app.material_files import changed as mark
             mark(conn,pid)
-        return json.dumps({'sections':[{'chapter':5,'summary':'旧事实摘要','quotes':['现有内部事实。']}]})
+        return json.dumps({'sections':[{'chapter':5,'summary':'旧事实摘要','block_ids':[block['id'] for block in json.loads(messages[-1]['content'])['blocks']]}]})
     monkeypatch.setattr(sources.development_model,'completion',changed)
     sources.backfill_summary(pid,'document',fid,version)
     with get_db() as conn:
@@ -252,9 +254,11 @@ def test_sources_mark_only_actual_used_refs_and_recheck_visibility(short,monkeyp
         ids.append((cid,response.json()['id']))
     def selected(_config,messages,schema):
         data=json.loads(messages[-1]['content'])
-        if 'material' in data:return complete(_config,messages,schema)
-        entry=next(item for item in data['chapters'][0]['sources'] if item['id']==ids[0][1])
-        return json.dumps({'sections':[{'chapter':5,'body':entry['summary'],'used_sources':[{key:entry[key] for key in ('kind','id','version')}]}]})
+        if 'blocks' in data:return complete(_config,messages,schema)
+        with get_db() as conn:identities=[row for row in sources.chapter_inputs(conn,pid)['5']]
+        wanted=next(index for index,row in enumerate(identities) if row['id']==ids[0][1])
+        entry=data['chapters'][0]['sources'][wanted]
+        return json.dumps({'sections':[{'chapter':5,'body':entry['summary'],'used_sources':[entry['source']]}]})
     monkeypatch.setattr(sources.development_model,'completion',selected)
     organize(ctx)
     meta=json.loads(stored(pid)['profile_chapter_meta'])
@@ -367,17 +371,27 @@ def test_source_and_manual_prompts_use_direct_facts_preserving_business_names(sh
     ctx,calls,outputs,complete=short
     original='本公司提供合同免责声明检测平台；本次材料为内部演示，尚未对外交付。'
     outputs[original]=[{'chapter':1,'summary':original,'quotes':[original]}]
-    messages_seen=[]
+    from backend.app.ai_client import prepared_completion
+    messages_seen=[];wire_messages_seen=[]
     def capture(config,messages,schema):
         messages_seen.append(messages)
+        wire,_=prepared_completion(config,messages,schema)
+        wire_messages_seen.append(json.loads(wire)["messages"])
         return complete(config,messages,schema)
     monkeypatch.setattr(sources.development_model,'completion',capture)
     upload(ctx,'synthetic.txt',original);organize(ctx)
     assert [stage for stage,_ in calls]==['source','merge'] and len(messages_seen)==2
-    for messages in messages_seen:
+    assert len(wire_messages_seen)==2
+    for messages in wire_messages_seen:
         prompt=messages[0]['content']
-        assert '直接陈述有依据的事实' in prompt and '保留完整业务名称与实际限定' in prompt
-        assert '不添加推责、过度保守或否定式兜底套话' in prompt
+        assert '主体' in prompt and '性质' in prompt
+        assert '采集' in prompt and '审核' in prompt
+        schema=json.loads(prompt.split('Return only a JSON object matching this JSON schema: ',1)[1])
+        if schema['title']=='Contribution':
+            assert schema['$defs']['Section']['required']==['chapter','summary','block_ids']
+        assert all(conflict not in prompt for conflict in (
+            '否定及真实限制', '一般核实说明归合作注意事项',
+            '一般核实事项归合作注意事项并合并一次说明'))
         assert '删除全部免责声明' not in prompt and '省略导航、采集过程、泛泛宣传和全部免责声明' not in prompt
         assert original in json.dumps(json.loads(messages[-1]['content']),ensure_ascii=False)
     assert original in stored(ctx[3])['ai_profile'] and profile(ctx)['intro']==original
@@ -443,7 +457,9 @@ def test_legacy_reclassification_preserves_quote_paths_and_merges_only_actual_su
         values=sources.matching_values(conn,pid)
     calls.clear()
     assert profile(ctx)['profile_needs_update']
-    outputs[original]=[
+    blocks,_=sources.source_blocks(source)
+    assert len(blocks)>1
+    outputs['\n'.join(block['text'] for block in blocks)]=[
         {'chapter':1,'summary':company,'quotes':[company]},
         {'chapter':5,'summary':flow,'quotes':[flow]},
         {'chapter':6,'summary':case,'quotes':[case]},
@@ -485,7 +501,7 @@ def test_legacy_saved_result_reuse_issues_zero_model_calls_and_records_empty_res
         sources.put(conn,source,'ready',old)
         values=sources.matching_values(conn,pid)
     calls.clear()
-    result={'sections':[{'chapter':5,'summary':'本公司提供内部演示平台。','quotes':['本公司提供内部演示平台。']}] if has_facts else []}
+    result={'sections':[{'chapter':5,'summary':'本公司提供内部演示平台。','block_ids':[block['id'] for block in sources.source_blocks(source)[0]]}] if has_facts else []}
     sources.backfill_summary(pid,'document',fid,version,raw_result=json.dumps(result,ensure_ascii=False))
     assert calls==[]
     with get_db() as conn:

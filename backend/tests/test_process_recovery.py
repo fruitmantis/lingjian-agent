@@ -130,7 +130,7 @@ uvicorn.run(app,host='127.0.0.1',port={backend_port},log_level='error')
             },
             PROCESS_SECRET, algorithm="HS256",
         )
-        requirement = f"PROCESS-CRASH-{crash_stage}"
+        requirement = f"PROCESS-CRASH-{crash_stage} AI知识库"
         request_error = []
 
         def submit_task():

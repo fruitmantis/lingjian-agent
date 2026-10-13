@@ -1,10 +1,10 @@
 """Existing matching stage contracts; shared without application imports."""
 from typing import Literal
 from pydantic import Field, StrictBool
-from .common import StrictModel
+from .common import ModelOutput, StrictModel
 
 
-class ProjectFacts(StrictModel):
+class ProjectFacts(ModelOutput):
     customerName: str='未知'
     projectName: str='未知'
     industry: str='未知'
@@ -12,13 +12,12 @@ class ProjectFacts(StrictModel):
     projectStage: str='未知'
     businessNeeds: str='未知'
     technicalNeeds: str='未知'
-    deliveryNeeds: str='未知'
-    qualificationRequirements: str='未知'
-    caseRequirements: str='未知'
+    deliveryNeeds: str=Field(default='未知',description='项目需要完成的工作及用户明示的承接范围；不把全部工作转成每家伙伴必备资格。')
+    qualificationRequirements: str=Field(default='未知',description='用户明确限定合作方本身的资质或资格及其限定对象；一般项目工作不是每家资格，未明示保持未知，不增加条件或凭证形式。')
+    caseRequirements: str=Field(default='未知',description='用户明确限定合作方本身的经验、案例或交付依据要求及其限定对象；须由对应资料支持，未明示保持未知，不增加用户未要求的合同或验收凭证形式。')
     onsiteRequirement: str='未知'
     timelineRequirement: str='未知'
     cloudPlatformPreference: str='未知'
-    followUpQuestions: list[str]=Field(default_factory=list,max_length=10)
     capabilityTags: list[str]=Field(default_factory=list,max_length=30)
     deliveryTypeTags: str=''
     complexityLevel: Literal['高','中','低','未知']='未知'
@@ -26,7 +25,7 @@ class ProjectFacts(StrictModel):
     projectKeywords: str=''
 
 
-class TagSuggestion(StrictModel):
+class TagSuggestion(ModelOutput):
     suggestedName: str=Field(min_length=1,max_length=100)
     suggestedCategoryName: Literal['AI与智能体','云平台与迁移','数据与数据库','应用开发与现代化','运维与安全','咨询与项目管理','其他']='其他'
     description: str=''
@@ -34,7 +33,7 @@ class TagSuggestion(StrictModel):
     confidence: float=Field(default=0.5,ge=0,le=1)
 
 
-class MatchUnderstanding(StrictModel):
+class MatchUnderstanding(ModelOutput):
     in_scope: StrictBool
     facts: ProjectFacts=Field(default_factory=ProjectFacts)
     tag_suggestions: list[TagSuggestion]=Field(default_factory=list,max_length=20)
@@ -45,25 +44,29 @@ class ProfileEvidence(StrictModel):
     quote: str = Field(min_length=2, max_length=25000)
 
 
-class Candidate(StrictModel):
+class AnalysisReference(ModelOutput):
+    partnerId: str = Field(min_length=1)
+    profileEvidence: list[str] = Field(max_length=5)
+    evidenceCases: list[str]
+    evidenceDeliverables: list[str]
+
+
+class Candidate(AnalysisReference):
     partnerId: str
-    partnerName: str
     matchScore: str
-    matchedCapabilities: str
-    matchedIndustries: str
-    matchedRegions: str
+    matchedCapabilities: str = ''
+    matchedIndustries: str = ''
+    matchedRegions: str = ''
     recommendationReason: str
     evidenceType: Literal['current_capability','delivered_project','planning_only','unrelated'] = 'current_capability'
-    profileEvidence: list[ProfileEvidence] = Field(default_factory=list, max_length=5)
-    evidenceCases: list[str]=Field(default_factory=list)
-    evidenceDeliverables: list[str]=Field(default_factory=list)
-    riskNotes: str
+    riskNotes: str = Field(default='',description='只写与该伙伴有关且会改变当前取舍的必要事项，无则空。')
 
 
-class MatchAnswer(StrictModel):
+class MatchAnswer(ModelOutput):
     recommendations: list[Candidate]=Field(default_factory=list,max_length=5)
     supplyStatus: Literal['sufficient','partial','gap','unknown']
-    gapAnalysis: str=Field(default='',max_length=2000)
+    gapAnalysis: str=Field(default='',max_length=2000,description='整体分工、比较及影响取舍的具体未覆盖工作，不逐项罗列所有未知。')
+    analysisRefs: list[AnalysisReference]
 
 
 class InitialCandidate(StrictModel):

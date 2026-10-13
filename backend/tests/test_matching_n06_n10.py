@@ -1,3 +1,4 @@
+from backend.tests.support.matching import current_protocol
 """N10 retrieval and N06 presentation regressions; isolated PG and synthetic models only."""
 import json
 from uuid import uuid4
@@ -50,7 +51,7 @@ def test_distributed_n10_terms_reach_same_detail_with_original_and_conditions(se
         return json.dumps({
                            "recommendations": [], "supplyStatus": "unknown",
                            "gapAnalysis": "本测试不判定实际交付能力。"}, ensure_ascii=False)
-    monkeypatch.setattr(development_model, "completion", complete)
+    monkeypatch.setattr(development_model, "completion", current_protocol(complete))
     accepted = match.create_task(match.TaskCreateRequest(requestId=uuid4(), requirement=requirement), owner)
     match.executor.shutdown(wait=True)
     with get_db() as conn:
@@ -101,11 +102,11 @@ def test_n06_natural_gap_retains_actual_omission_legal_card_and_saved_public_out
             "matchScore": "67", "recommendationReason": "所见资料自述视觉分析方案，可进一步接洽。",
             "riskNotes": "部分已命中资料未完整展示，方案范围仍需补充核实。",
             "evidenceType": "current_capability",
-            "profileEvidence": [{"source": passage["source"], "quote": passage["text"]}],
+            "profileEvidence": [passage["source"]],
             "evidenceCases": [], "evidenceDeliverables": []}
     recs = match._validated_recommendations([item], [row[0]], {row[0]["id"]: []}, {row[0]["id"]: []})
     result = match._validated_outcome(recs, {"recommendations": [item], "supplyStatus": "sufficient",
-        "gapAnalysis": "部分已命中资料未完整展示，不能确认全部需求已覆盖。"}, False, [row])
+        "gapAnalysis": "部分已命中资料未完整展示，不能确认全部需求已覆盖。","analysisRefs":[],"_analysis_shape_valid":True}, False, [row])
     assert len(result["recommendations"]) == 1
     assert result["recommendations"][0]["matchScore"] == "67"
     assert result["recommendations"][0]["riskNotes"].startswith(item["riskNotes"])
@@ -131,12 +132,9 @@ def test_n06_natural_gap_retains_actual_omission_legal_card_and_saved_public_out
 
 def test_n06_prompt_uses_real_omissions_and_keeps_structured_evidence():
     prompt = matching.detail_messages("{}")[0]["content"]
-    assert "只写影响本次判断的缺口，不罗列通用风险，不凑推荐数量" in prompt
-    assert "未知保持未知" in prompt and "直接陈述真实项目或主体" in prompt
-    assert "删除全部免责声明" not in prompt and "资料未说明不等于不具备" not in prompt
-    assert "不添加推责、过度保守或否定式兜底套话" in prompt
-    assert "用户明确提出的必备和排除条件应按原意执行" in prompt
-    assert "不把规划、协作、奖项或群体介绍说成该伙伴已经完成的具体项目" in prompt
-    assert "逐字连续子串" in prompt and "profileEvidence.source" in prompt
-    assert prompt.count("根据完整需求和伙伴资料，推荐有具体接洽价值的伙伴") == 1
-    assert "inputCoverage" not in prompt and "omissions" not in prompt
+    assert '不凑数量' in prompt and '必要事项' in prompt
+    assert all(word in prompt for word in ('实际主体','集团关系','日期','否定','规划','范围'))
+    assert '不补通用免责段' in prompt and '明示' in prompt and '合作方本身' in prompt
+    assert '规划及无关对象不列正式推荐' in prompt
+    assert '短source编号数组' in prompt and 'analysisRefs' in prompt
+    assert 'inputCoverage' not in prompt and 'omissions' not in prompt

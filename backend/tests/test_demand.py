@@ -151,7 +151,7 @@ def test_new_opportunity_extraction_uses_same_completeness_rules(client, monkeyp
     task_id = make_task(owner, "extracted opportunity")
     data = {**COMPLETE_OPPORTUNITY, "region": "  ", "industry": " 未识别 "}
     monkeypatch.setattr(ai_client, "chat_completion", lambda *_args, **_kwargs: json.dumps(data))
-    assert match._extract_project_opportunity("合成需求", task_id, []) is True
+    assert match._extract_project_opportunity("合成需求", task_id, [], data=data) is True
     detail = client.get(f"/agent/tasks/{task_id}", headers=auth_headers(owner)).json()
     assert detail["opportunity"]["completenessScore"] == 67
     assert set(detail["opportunity"]["missingFields"].split(",")) == {"region", "industry"}

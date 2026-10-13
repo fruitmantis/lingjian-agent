@@ -201,7 +201,7 @@ def test_stale_matching_and_enriching_tasks_become_retryable(client, monkeypatch
     assert {(row["task_status"], row["last_error_stage"]) for row in rows} == {("failed", "interrupted")}
 
 
-def test_matching_uses_three_call_recovery_budget_without_delaying_enrichment(client):
+def test_matching_uses_two_call_recovery_budget_without_delaying_enrichment(client):
     user = make_user('stage_budget_user')
     age = (datetime.now(timezone.utc) - timedelta(minutes=50)).isoformat()
     matching_id = make_task(user, 'STAGE-MATCHING', task_status='matching', recommendations=[], updated_at=age)
@@ -211,7 +211,7 @@ def test_matching_uses_three_call_recovery_budget_without_delaying_enrichment(cl
     with get_db() as conn:
         statuses = {row['id']: row['task_status'] for row in conn.execute(
             'SELECT id,task_status FROM match_records WHERE id IN (?,?)', (matching_id, enriching_id))}
-    assert statuses == {matching_id: 'matching', enriching_id: 'failed'}
+    assert statuses == {matching_id: 'failed', enriching_id: 'failed'}
 
 
 def test_empty_partial_recommendations_force_rematch(client, monkeypatch):

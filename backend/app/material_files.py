@@ -178,9 +178,9 @@ def process(scope,file_id,import_profile=False):
             return
     if fingerprint is not None:process_contribution(partner_id,source_kind,file_id,fingerprint)
 
-def process_contribution(partner_id,kind,file_id,fingerprint):
+def process_contribution(partner_id,kind,file_id,fingerprint,*,retry=False):
     from .profile_sources import process_source
-    try:process_source(partner_id,kind,file_id,fingerprint)
+    try:process_source(partner_id,kind,file_id,fingerprint,retry=retry)
     except Exception:
         # Contribution errors persist separately; native text/preview remain usable.
         logger.warning('Source contribution failed for material %s',file_id)
@@ -202,7 +202,7 @@ def retry(scope,parent_id,file_id,tasks):
         if row['processing_status']=='ready' and not row['preview_error']:
             # An explicit contribution retry reuses this file's committed native cache.
             fingerprint=stamp(current)
-            tasks.add_task(process_contribution,partner_id,source_kind,file_id,fingerprint)
+            tasks.add_task(process_contribution,partner_id,source_kind,file_id,fingerprint,retry=True)
             return {'processing_status':'processing'}
         changed(conn,partner_id)
         conn.execute(f"UPDATE {table} SET processing_status='processing',processing_error=NULL,preview_error=NULL WHERE id=?",(file_id,))

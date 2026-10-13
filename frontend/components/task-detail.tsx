@@ -182,7 +182,7 @@ function TaskDetail({id}:{id:string}) {
         <TaskResult as="article" id={id} className="recommendation-item" key={item.partnerId}>
           <div className="recommendation-title"><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><CardEntry href={`/partners/${item.partnerId}`}>查看伙伴</CardEntry></div>
           <div className="evidence-grid">{Object.entries({"匹配能力":item.matchedCapabilities,"行业经验":item.matchedIndustries,"覆盖区域":item.matchedRegions,"推荐理由":item.recommendationReason,"支撑案例":item.evidenceCases,"支撑交付物":item.evidenceDeliverables}).filter(([,value])=>value&&!["未核实","未提供可核实的支撑案例","未提供可核实的支撑交付物"].includes(value)).map(([label,value])=><div key={label}><strong>{label}</strong><p>{value}</p></div>)}</div>
-          {item.riskNotes&&<div className="risk-note"><strong>沟通重点</strong><p>{item.riskNotes}</p></div>}
+          {item.riskNotes&&<div className="risk-note"><strong>风险与条件</strong><p>{item.riskNotes}</p></div>}
           <div className="enablement-actions"><Link className="secondary-btn" href={`/?mode=development&partner_id=${encodeURIComponent(item.partnerId)}&task_id=${encodeURIComponent(task.id)}`}>针对该伙伴制定发展建议</Link></div>
         </TaskResult>
       ))}</div>}</TaskResult>}

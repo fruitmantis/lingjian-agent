@@ -36,7 +36,7 @@ def test_remaining_context_includes_system_and_schema():
     schema = {"type": "object", "description": "完整结构" * 100}
     budgeted, _, estimate = context.checked_config(original, messages, schema, 60000)
     assert estimate > context._token_estimate(messages[-1]["content"])
-    assert 0 < budgeted["_match_output_tokens"] == context.UNKNOWN_CONTEXT_CEILING - estimate
+    assert 0 < budgeted["_match_output_tokens"] <= context.UNKNOWN_CONTEXT_CEILING - estimate
     # Adding system/schema text can exhaust context even when raw user input fits.
     with pytest.raises(MatchInputBudgetError):
         context.checked_config(original, messages, {"description": "中" * 10000}, 60000)

@@ -27,7 +27,7 @@ def replay(prepared,monkeypatch):
         result=response(messages)
         if 'analyze' in messages[0]['content']:
             baseline=data['request'].get('known_baseline','')
-            if not data.get('current') and RAW in data['message']:baseline=BASE
+            if not data.get('current') and RAW in data['request']['development_direction']:baseline=BASE
             if data['message'].startswith('纠正基础'):baseline=CORRECTED
             if data['message']=='撤回之前的能力自述':baseline=''
             result['effective_baseline']=baseline
@@ -79,7 +79,7 @@ def test_corrected_baseline_reaches_actual_model_after_history_window_and_new_ve
     assert after['plan']['current_version_id']!=base and len(after['versions'])==2
     actual=[c for c in replay[1] if c.get('message')==messages[-1]][0]
     assert actual['request']['known_baseline']==CORRECTED
-    assert len(actual['recent_exchanges'])==3
+    assert len(actual['recent_exchanges'])==1
     assert all('纠正基础' not in x['message'] for x in actual['recent_exchanges'])
     assert after['payload']['effective_request']['known_baseline']==CORRECTED
     capture=tmp_path/'actual-model-baseline.json'

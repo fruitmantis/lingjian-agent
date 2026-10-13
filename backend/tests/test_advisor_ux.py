@@ -28,9 +28,9 @@ def test_discussion_keeps_current_advice_without_confirmation(scenario,message):
 
 def test_explore_is_small_direction_response_not_resource_package(scenario):
     before=len(scenario[1]);detail=run(scenario,'这个伙伴下一步适合往哪里发展？')
-    payload=detail['payload'];assert payload['analysis']['intent']=='explore'
-    assert 1<=len(payload['analysis']['priorities'])<=3
-    assert payload['analysis']['partner_assessment']
+    payload=detail['payload'];assert payload['understanding']['intent']=='explore'
+    assert 1<=len(payload['understanding']['priorities'])<=3
+    assert payload['understanding']['partner_assessment']
     assert payload['stages']==payload['next_steps']==payload['resource_gaps']==[]
     assert len(scenario[1])-before==1 # only direction analysis, inventory never decides priorities
 
@@ -40,7 +40,7 @@ def test_natural_adjustment_reorders_focus_and_failed_retry_keeps_current(scenar
     legacy_confirmed(pid,v1,user)
     result=views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v1,message='RAG 暂时放后，先做系统集成'),user)
     assert result['kind']=='revise';engine.execute(result['run_id']);updated=views.detail(pid,user)
-    assert updated['payload']['analysis']['priorities'][0]['name']=='Agent 系统集成与 POC 调优'
+    assert updated['payload']['understanding']['priorities'][0]['name']=='Agent 系统集成与 POC 调优'
     assert plan(pid)['confirmed_version_id']==v1
     v2=updated['plan']['current_version_id'];assert v2!=v1
     fail=views.converse(pid,Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v2,message='模拟调整失败'),user)
@@ -55,10 +55,10 @@ def test_readonly_resource_duration_is_metadata_not_generated_estimate(scenario)
     d=run(scenario,'Agent 应用交付');assert items(d)
     for item in items(d):
         assert 'duration_minutes' in item['conditions']
-    assert all(i['focus'] in {f['name'] for f in d['payload']['analysis']['priorities']} for i in items(d))
+    assert all(i['focus'] in {f['name'] for f in d['payload']['understanding']['priorities']} for i in items(d))
 
 
-def test_difficulty_discussion_cannot_be_misclassified_as_revision(scenario,monkeypatch):
+def test_model_selected_regeneration_is_not_overridden_by_message_regex(scenario,monkeypatch):
     d=run(scenario,'Agent 应用交付');v=d['plan']['current_version_id']
     calls=[];original=scenario[2]
     def invalid(c,m,s):
@@ -67,8 +67,8 @@ def test_difficulty_discussion_cannot_be_misclassified_as_revision(scenario,monk
     monkeypatch.setattr(model,'completion',invalid)
     accepted=views.converse(d['plan']['id'],Conversation(submission_id=str(uuid.uuid4()),based_on_version_id=v,message='哪个实验更难？'),scenario[0][0])
     after,failed=finish(accepted,scenario[0][0])
-    assert calls==['Understanding'] and failed['status']=='failed'
-    assert after['plan']['current_version_id']==v and len(after['versions'])==1
+    assert calls==['Understanding','AdviceOutput'] and failed['status']=='ready'
+    assert after['plan']['current_version_id']!=v and len(after['versions'])==2
 
 
 

@@ -87,7 +87,7 @@ def test_v3_empty_model_risk_stays_empty_without_generic_case_or_schedule_risks(
         'evidenceCases':[],'evidenceDeliverables':[]}
     recs = match._validated_recommendations([item],[partner],{partner['id']:[]},{partner['id']:[]})
     result = match._validated_outcome(recs,{'recommendations':[item],'supplyStatus':'sufficient',
-        'gapAnalysis':'合成离线结果不代表业务判断已通过。'},False,[row])
+        'gapAnalysis':'合成离线结果不代表业务判断已通过。','analysisRefs':[],'_analysis_shape_valid':True},False,[row])
     assert len(recs)==1 and recs[0].riskNotes==''
     assert '需核实：' not in result['answer'] and result['analysisComplete']
     bad = {**item,'matchedCapabilities':'不存在的标签'}
@@ -124,28 +124,23 @@ def test_additional_evidence_rotates_before_first_candidate_exhausts_budget():
 
 def test_short_wire_sources_require_sent_set_and_mapping_owner():
     row=raw_row({'id':'owned','name':'合成主体'},['项目事实，仅限指定区域。'])
-    assemble([row])
-    key=row[1]['profilePassages'][0]['source']
-    item={'evidenceType':'delivered_project','profileEvidence':[{'source':key,'quote':'仅限指定区域'}]}
+    assemble([row]);token=row[1]['profilePassages'][0]['source']
+    item={'evidenceType':'delivered_project','profileEvidence':[token],'evidenceCases':[],'evidenceDeliverables':[]}
     assert match._source_assessment(item,row)=='delivered_project'
-    foreign=copy.deepcopy(row);foreign[1]['_sourceMap'][key]['partnerId']='other'
+    assert item['_resolvedProfileEvidence']==[{'source':token,'quote':'项目事实，仅限指定区域。'}]
+    foreign=copy.deepcopy(row);foreign[1]['_sourceMap'][token]['partnerId']='other'
     assert match._source_assessment(item,foreign) is None
-    altered=copy.deepcopy(row);altered[1]['_sourceMap'][key]['text']='不同原文。'
+    altered=copy.deepcopy(row);altered[1]['_sourceMap'][token]['text']='不同原文。'
     assert match._source_assessment(item,altered) is None
-    assert match._source_assessment({**item,'profileEvidence':[{'source':'P2-S1','quote':'仅限指定区域'}]},row) is None
-    assert match._source_assessment({**item,'profileEvidence':[{'source':key,'quote':'项目事实指定区域'}]},row) is None
-    legacy=raw_row({'id':'legacy','name':'历史主体'},['原有连续事实。'])
-    legacy[1].pop('_sourceMap')
-    assert match._source_assessment({'profileEvidence':[{'source':'partner:legacy:profile:0','quote':'连续事实'}]},legacy)=='current_capability'
-    legacy[1]['profilePassages'][0]['source']='P1-S1'
-    assert match._source_assessment({'profileEvidence':[{'source':'P1-S1','quote':'连续事实'}]},legacy) is None
+    assert match._source_assessment({**item,'profileEvidence':['P2-S1']},row) is None
+    assert match._source_assessment({**item,'profileEvidence':[{'source':token,'quote':'旧抄写格式'}]},row) is None
 
 
 def test_source_intro_and_fact_stay_distinct_without_selecting_navigation():
     text=('文章标题\n存档形式：网页缓存\n原始URL：https://example.invalid/article\n'
           '证据边界：集团介绍，匿名项目。\n图文限制：保留原件。\n'
           '导航甲\n>导航乙\n>导航丙\n文章标题\n2026 / 01 / 01\n'
-          '集团成员在某项目中提供服务。\n项目以移动端作为入口。\n01\n交付细节\n'
+          '集团成员在匿名项目中提供服务。\n项目以移动端作为入口。\n01\n交付细节\n'
           '后续事实，保留原始限定。\n推荐阅读\n2026 / 01 / 02\n其它文章\n')
     start=text.index('后续事实')
     ranges=partner_match_context._merge_ranges(
@@ -155,14 +150,20 @@ def test_source_intro_and_fact_stay_distinct_without_selecting_navigation():
     assert any('后续事实' in p for p in fragments)
     assert not any('导航甲' in p or '>导航乙' in p or '其它文章' in p for p in fragments)
     assert any('匿名项目' in p for p in fragments)
+    assert not any('证据边界：' in p for p in fragments)
     assert all(text[a:b] for a,b in ranges)
 
 
 def test_understanding_asks_only_direction_changing_questions_and_keeps_unknown_names():
     prompt=partner_match_context.matching.understanding_messages('预算和接口未知，希望统一身份。',[], '')[0]['content']
-    assert '能给出建议就不补问' in prompt and '会改变当前推荐方向' in prompt
-    assert '已经表达的目标不重复索要' in prompt and '客户名、项目名未提供就保持未知' in prompt
-    assert '不满足必备条件的接洽线索不能放回正式推荐卡片' in partner_match_context.matching.detail_messages('')[0]['content']
+    assert '不生成商机补表问卷' in prompt and '未提供就保持未知' in prompt
+    from backend.business.matching_types import MatchUnderstanding
+    assert 'followUpQuestions' not in MatchUnderstanding.model_json_schema()['$defs']['ProjectFacts']['properties']
+    requirement='合作方必须持证并驻场；允许分工完成项目。'
+    from backend.business.matching_types import MatchAnswer
+    messages=partner_match_context.matching.detail_messages(json.dumps({'requirement':requirement},ensure_ascii=False))
+    assert json.loads(messages[1]['content'])['requirement']==requirement
+    assert {'recommendations','supplyStatus','gapAnalysis','analysisRefs'}<=set(MatchAnswer.model_fields)
 
 
 def test_selected_same_source_overlap_merges_exactly_without_losing_group_links():
@@ -208,76 +209,3 @@ def test_title_only_recall_keeps_qualification_and_actual_body():
     ranges=partner_match_context._group_ranges(text,0,len('RareTitle'))
     assert ranges==[(0,len(text))]
     assert text[ranges[0][0]:ranges[0][1]]==text
-
-
-@pytest.mark.parametrize(('original','proposed'),[
-    ('指标包括活动报\n名数；效果未独立验证。','指标包括活动报名数；效果未独立验证。'),
-    ('互动问答、消\r\n费引导、智能查询。','互动问答、消费引导、智能查询。'),
-    ('减少查阅\n文档次数。','减少查阅文档次数。'),
-    ('原生第一行\r\n第二行事实。','原生第一行\n第二行事实。'),
-    ('该能力处于规划阶段，尚未交付。','该能力处于规\n划阶段，尚未交付。'),
-])
-def test_profile_quote_linebreak_difference_recovers_untouched_continuous_range(original,proposed):
-    row=raw_row({'id':'owned','name':'合成主体'},['前言。\n'+original+'\n结尾。'])
-    assemble([row])
-    key=row[1]['profilePassages'][0]['source']
-    item={'evidenceType':'planning_only','profileEvidence':[{'source':key,'quote':proposed}]}
-    source_before=copy.deepcopy(row[1])
-    assert match._source_assessment(item,row)=='planning_only'
-    assert item['profileEvidence'][0]['quote']==original
-    assert item['profileEvidence'][0]['quote'] in source_before['profilePassages'][0]['text']
-    assert row[1]==source_before  # Source cache/map/versions are not normalized.
-
-
-@pytest.mark.parametrize(('original','proposed'),[
-    ('活动报\n名数尚未独立验证。','活动报名数已独立验证。'),
-    ('已形成方案。\n仅为规划，未交付。\n拟用于教学。','已形成方案。拟用于教学。'),
-    ('事实甲。\n\n中间限制。\n\n事实乙。','事实甲。事实乙。'),
-    ('AI service 支持。','AIservice 支持。'),
-    ('阶段\t未来规划','阶段未来规划'),
-    ('消⽂档。','消文档。'),
-    ('活动报\n名数。','活动报名数！'),
-])
-def test_profile_quote_keeps_all_non_linebreak_characters_literal(original,proposed):
-    row=raw_row({'id':'owned','name':'合成主体'},[original])
-    assemble([row])
-    key=row[1]['profilePassages'][0]['source']
-    item={'profileEvidence':[{'source':key,'quote':proposed}]}
-    before=copy.deepcopy(item)
-    assert match._source_assessment(item,row) is None
-    assert item==before
-
-
-def test_profile_quote_normalization_does_not_choose_distinct_native_ranges():
-    original='活动报\n名数。\n另一个位置：活动报\r\n名数。'
-    row=raw_row({'id':'owned','name':'合成主体'},[original])
-    assemble([row])
-    key=row[1]['profilePassages'][0]['source']
-    item={'profileEvidence':[{'source':key,'quote':'活动报名数。'}]}
-    assert match._source_assessment(item,row) is None
-
-
-@pytest.mark.parametrize('invalid',['owner','map_text','case','later_quote'])
-def test_profile_quote_recovery_does_not_bypass_identity_or_partially_rewrite_rejected_items(invalid):
-    row=raw_row({'id':'owned','name':'合成主体'},['活动报\n名数；效果未独立验证。'])
-    assemble([row])
-    key=row[1]['profilePassages'][0]['source']
-    item={'profileEvidence':[{'source':key,'quote':'活动报名数；效果未独立验证。'}]}
-    if invalid=='owner':row[1]['_sourceMap'][key]['partnerId']='other'
-    elif invalid=='map_text':row[1]['_sourceMap'][key]['text']='另一份原文。'
-    elif invalid=='case':item['evidenceCases']=['not-owned']
-    else:item['profileEvidence'].append({'source':key,'quote':'效果已经验证。'})
-    before=copy.deepcopy(item)
-    assert match._source_assessment(item,row) is None
-    assert item==before
-
-
-def test_profile_quote_recovery_preserves_legacy_source_identity():
-    row=raw_row({'id':'legacy','name':'历史主体'},['活动报\n名数；效果未独立验证。'])
-    row[1].pop('_sourceMap')
-    key=row[1]['profilePassages'][0]['source']
-    item={'profileEvidence':[{'source':key,'quote':'活动报名数；效果未独立验证。'}]}
-    assert match._source_assessment(item,row)=='current_capability'
-    assert item['profileEvidence'][0]['quote']=='活动报\n名数；效果未独立验证。'
-    row[1]['profilePassages'][0]['source']='P1-S1'
-    assert match._source_assessment({'profileEvidence':[{'source':'P1-S1','quote':item['profileEvidence'][0]['quote']}]},row) is None

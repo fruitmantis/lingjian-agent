@@ -1,7 +1,7 @@
 """Strict request and generated plan contracts. Unknown fields never reach persistence."""
 from typing import Annotated, Literal
-from pydantic import Field, StrictBool, StringConstraints, field_validator
-from .common import StrictModel
+from pydantic import Field, StrictBool, StrictInt, StringConstraints, field_validator
+from .common import StrictModel, ModelOutput
 
 RawInput = Annotated[str, StringConstraints(strip_whitespace=False)]
 
@@ -103,29 +103,44 @@ class VersionAction(StrictModel):
     version_id: str
 
 # V1.2 analysis is advice, never a certification or a prerequisite diagnosis.
-class Focus(StrictModel):
+class Focus(ModelOutput):
     reusable_basis: list[str]=Field(default_factory=list,max_length=8,description='仅列用户当前明确自述或资料明确记载的可复用基础，标明来源；没有依据时为空数组，不从目标或资源反推能力。')
     name: str=Field(min_length=1,max_length=200)
-    reason: str=Field(min_length=1,max_length=1500,description='只解释该方向与发展目标的关系，不在此判断伙伴已有或缺乏什么能力；当前基础放 reusable_basis，未知信息放 basis_limitations。')
+    reason: str=Field(min_length=1,max_length=1500,description='解释该方向与当前发展目标的关系，使用明确可复用基础；不把未提供信息写成能力缺失或未知清单。')
     capability_tag_id: str | None=None
     search_terms: list[str]=Field(default_factory=list,max_length=12)
 
-class DirectionAnalysis(StrictModel):
-    partner_assessment: str=Field(default='',max_length=2000,description='仅根据当前明确自述及资料说明基础与目标的关系；未提及写未知，不写没有经验、零基础或缺乏能力。')
+class DirectionAnalysis(ModelOutput):
+    partner_assessment: str=Field(default='',max_length=2000,description='仅根据明确自述及资料说明基础与目标的关系；没有有用事实为空，不从未提及推断零基础或缺乏能力。')
     target_partner_id: str | None
     intent: Literal['development','explore','resources']
     interpretation: str=Field(min_length=1,max_length=2000)
     reusable_basis: list[str]=Field(default_factory=list,max_length=12)
     priorities: list[Focus]=Field(default_factory=list,max_length=12)
-    basis_limitations: list[str]=Field(default_factory=list,max_length=10)
+    basis_limitations: list[str]=Field(default_factory=list,max_length=10,description='仅列会改变当前建议的具体基础条件；无有用内容为空，不列未提供信息或免责。')
     resource_types: list[Literal['course','lab','case']]=Field(default_factory=list,max_length=3)
     excluded_levels: list[Literal['basic','advanced']]=Field(default_factory=list,max_length=2)
 
-class AdviceStage(StrictModel):
-    title: str=Field(min_length=1,max_length=200)
-    items: list[ResourceItem]=Field(default_factory=list,max_length=50)
+class ModelRef(ModelOutput):
+    source_type: Literal['course','lab','case']
+    source_id: str=Field(min_length=1,max_length=128)
+    source_version: int=Field(ge=1)
 
-class AdviceOutput(PlanOutput):
+class ModelResourceItem(ModelRef):
+    focus: str=Field(default='',max_length=200)
+    reason: str=Field(min_length=1,max_length=2000)
+    estimated_hours: float | None=Field(default=None,gt=0,le=10000)
+    note: str=Field(default='',max_length=2000)
+
+class AdviceStage(ModelOutput):
+    title: str=Field(min_length=1,max_length=200)
+    items: list[ModelResourceItem]=Field(default_factory=list,max_length=50)
+
+class AdviceOutput(ModelOutput):
+    target_partner_id: str | None
+    resource_gaps: list[str]=Field(default_factory=list,max_length=30,description='仅列实际目录未覆盖的目标主题；无则空，不把未选资源或用户未说明基础当作缺口。')
+    used_refs: list[ModelRef]=Field(max_length=100)
+    used_profile_chapters: list[StrictInt]=Field(max_length=9)
     stages: list[AdviceStage]=Field(default_factory=list,max_length=20)
     answer: str=Field(default='',max_length=5000)
     next_steps: list[str]=Field(default_factory=list,max_length=10)
@@ -135,7 +150,7 @@ class Conversation(StrictModel):
     based_on_version_id: str
     message: RawInput=Field(min_length=1,max_length=2000)
 
-class ConversationOutput(StrictModel):
+class ConversationOutput(ModelOutput):
     target_partner_id: str | None
     kind: Literal['explain','revise']
     answer: str=Field(default='',max_length=5000)
@@ -145,33 +160,35 @@ class ConversationOutput(StrictModel):
 class Understanding(DirectionAnalysis):
     in_scope: StrictBool
     action: Literal['answer','generate','patch','regenerate']
-    effective_direction: str=Field(max_length=4000)
+    effective_direction: str=Field(max_length=4000,description='本轮模型理解与执行计划；保留用户目标和限制，模型自选替代对象不作为用户已点名的要求。')
     # Required on every new understanding; empty string explicitly withdraws a self-report.
     effective_baseline: str=Field(max_length=2000,description='当前有效用户自述，合并明确补充并替换被纠正事实；未提及不等于不会，不从推荐理由或历史模型文字加入事实。')
-    effective_constraints: dict[str,str]=Field(default_factory=dict,max_length=8)
+    effective_constraints: dict[str,str]=Field(default_factory=dict,max_length=8,description='只合并用户明确限制，不加入模型自选资源或假定条件；新明确要求替换冲突旧要求，其余保留。')
     answer: str=Field(default='',max_length=5000)
-    references: list[Ref]=Field(default_factory=list,max_length=30)
+    used_refs: list[ModelRef]=Field(max_length=100)
+    used_profile_chapters: list[StrictInt]=Field(max_length=9)
     edit_item_ids: list[str]=Field(default_factory=list,max_length=50)
-    edit_answer_spans: list[str]=Field(default_factory=list,max_length=20)
+    edit_answer_spans: list[RawInput]=Field(default_factory=list,max_length=20)
 
 
-class ItemChange(StrictModel):
+class ItemChange(ModelOutput):
     action: Literal['remove','replace','add_after']
     item_id: str
-    items: list[ResourceItem]=Field(default_factory=list,max_length=10)
+    items: list[ModelResourceItem]=Field(default_factory=list,max_length=10)
 
 
-class AnswerChange(StrictModel):
-    before: str=Field(min_length=1,max_length=5000)
+class AnswerChange(ModelOutput):
+    before: RawInput=Field(min_length=1,max_length=5000)
     after: str=Field(max_length=5000)
 
 
-class AdvicePatch(StrictModel):
+class AdvicePatch(ModelOutput):
     target_partner_id: str | None
     changes: list[ItemChange]=Field(default_factory=list,max_length=50)
     answer_changes: list[AnswerChange]=Field(default_factory=list,max_length=20)
     answer: str=Field(min_length=1,max_length=3000)
-    # Every new patch explicitly refreshes dependent advice; omitted fields must not retain stale facts.
-    limitations: list[str]=Field(max_length=30)
-    resource_gaps: list[str]=Field(max_length=30,description='修改后仍存在的目录覆盖缺口，不推断用户未说明的零基础或无经验。')
-    next_steps: list[str]=Field(max_length=10)
+    used_refs: list[ModelRef]=Field(max_length=100)
+    used_profile_chapters: list[StrictInt]=Field(max_length=9)
+    # Omitted presentation is unchanged; an explicit empty array clears it.
+    resource_gaps: list[str] | None=Field(default=None,max_length=30,description='仅更新实际目录未覆盖的目标主题；省略保留，无则空数组。')
+    next_steps: list[str] | None=Field(default=None,max_length=10)

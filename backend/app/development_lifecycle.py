@@ -134,7 +134,7 @@ def revise(plan_id,payload,user):
 def save_answer(plan_id,payload,user,data,understanding,digest,run=None):
     from .development_context import load
     fresh=load(data,user,plan_id=plan_id,base=payload.based_on_version_id,message=payload.instruction)
-    if fresh['stamp']!=understanding['stamp']:fail(409,'资料或当前要求已变化，请刷新后重试')
+    if fresh['request_stamp']!=understanding['request_stamp']:fail(409,'资料或当前要求已变化，请刷新后重试')
     result=understanding['analysis']
     with get_db() as conn:
         conn.lock_writer();plan=authorize(conn,plan_id,user)
@@ -144,16 +144,18 @@ def save_answer(plan_id,payload,user,data,understanding,digest,run=None):
                 fail(409,'运行不再拥有保存权限')
         else:writable(plan,payload.based_on_version_id)
         current=load(data,user,plan_id=plan_id,base=payload.based_on_version_id,message=payload.instruction,connection=conn)
-        if current['stamp']!=understanding['stamp']:fail(409,'资料或当前要求已变化，请刷新后重试')
+        if current['request_stamp']!=understanding['request_stamp']:fail(409,'资料或当前要求已变化，请刷新后重试')
+        from .development_engine import validate_dependencies
+        validate_dependencies(conn,{'target_partner_id':data['target_partner_id'],'answer':result['answer']},understanding['dependencies'])
         stored=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0])
         history=stored.get('_conversation',[])
         for item in history:
             if item['submission_id']==payload.submission_id:
                 if item['fingerprint']!=digest:fail(409,'同一提交标识不能用于不同请求')
                 return {'kind':'explain','answer':item['answer'],'replayed':True}
-        history.append({'submission_id':payload.submission_id,'fingerprint':digest,'version_id':payload.based_on_version_id,'message':payload.instruction,'answer':result['answer'],'references':result['references'],'created_at':now()})
+        history.append({'submission_id':payload.submission_id,'fingerprint':digest,'version_id':payload.based_on_version_id,'message':payload.instruction,'answer':result['answer'],'used_refs':result['used_refs'],'dependencies':understanding['dependencies'],'format_version':2,'created_at':now()})
         stored.update(_conversation=history,_effective_version_id=payload.based_on_version_id,_effective_request={
-            **fresh['request'],'development_direction':result['effective_direction'],'development_goal':result['effective_direction'],'constraints':result['effective_constraints'],'known_baseline':result.get('effective_baseline',fresh['request'].get('known_baseline',''))})
+            **fresh['request'],'constraints':result['effective_constraints'],'known_baseline':result.get('effective_baseline',fresh['request'].get('known_baseline',''))})
         conn.execute('UPDATE development_requests SET payload_json=? WHERE id=?',(dump(stored),plan['request_id']))
         audit(conn,plan_id,user['id'],'conversation_explained',payload.based_on_version_id)
         if run: finish_without_version(conn,current_run)
@@ -240,7 +242,7 @@ def save_version(conn,plan,base,payload,dependencies,actor,run_id=None):
         for item in stage['items']:
             conn.execute('INSERT INTO development_version_items VALUES (?,?,?,?)',(uid(),version_id,ordinal,dump({'stage':stage['title'],**item})))
             ordinal+=1
-    for diagnosis in payload['diagnoses']:
+    for diagnosis in payload.get('diagnoses',[]):
         conn.execute('INSERT INTO development_diagnoses VALUES (?,?,?)',(version_id,diagnosis['capability_tag_id'],dump(diagnosis)))
     conn.execute('UPDATE development_plans SET current_version_id=?,updated_at=? WHERE id=?',(version_id,now(),plan['id']))
     audit(conn,plan['id'],actor,'version_created',version_id)

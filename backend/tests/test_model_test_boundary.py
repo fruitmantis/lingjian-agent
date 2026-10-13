@@ -35,7 +35,7 @@ def test_seed_rejects_runtime_before_initialization(monkeypatch):
     with pytest.raises(RuntimeError):seed_validation_db.seed()
 
 
-def test_deepseek_json_mode_keeps_schema_and_strict_validation(monkeypatch):
+def test_json_mode_keeps_schema_and_projects_unknown_model_fields(monkeypatch):
     import json, httpx
     from backend.app import development_model as model, development_engine as engine
     from backend.app.development_types import ConversationOutput
@@ -53,7 +53,7 @@ def test_deepseek_json_mode_keeps_schema_and_strict_validation(monkeypatch):
     assert json.dumps(ConversationOutput.model_json_schema(),ensure_ascii=False) in sent
     assert messages==[{'role':'user','content':'Synthetic explanation'}]
     assert len(messages)==1
-    with pytest.raises(engine.InvalidOutput):engine.parse(raw,ConversationOutput,[])
+    assert 'internal_note' not in engine.parse(raw,ConversationOutput,[])
 
 
 def test_reasoning_override_only_for_verified_provider_model():

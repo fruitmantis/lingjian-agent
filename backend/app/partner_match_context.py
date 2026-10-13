@@ -48,7 +48,7 @@ def _native_blocks(value):
         return bool(re.fullmatch(r'第\s*\d+\s*页', text))
     def title(text):
         return bool(_heading(text) and (
-            text.startswith('#') or re.match(r'^(?:\d+[、.)）]|[一二三四五六七八九十]+[、）])', text)
+            text.startswith('#') or re.match(r'^(?:\d+[、.)）]|\d{2}\s+\S|[一二三四五六七八九十]+[、）])', text)
             or re.fullmatch(r'\d{1,2}', text)))
     def finish(right):
         nonlocal left
@@ -125,29 +125,34 @@ def _source_layout(value):
                   for _,_,text in lines[:12])
     if not archive:
         return 0,len(value),[]
-    # The archive format has operation metadata, a navigation run, then an article
-    # title/date. Keep mixed factual boundary text separately, exactly as saved.
+    # The archive format has operation metadata and navigation before its article.
+    # Business context comes from that article's untouched native body.
     dates = [i for i,(_,_,text) in enumerate(lines)
-             if re.fullmatch(r'\d{4}\s*/\s*\d{1,2}\s*/\s*\d{1,2}',text.strip())]
-    if not dates:
+             if re.fullmatch(r'\d{4}\s*(?:[-/]\s*\d{1,2}\s*[-/]\s*\d{1,2}|年\s*\d{1,2}\s*[月⽉]\s*\d{1,2}\s*[日⽇])(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?',text.strip())]
+    publication = [i for i,(_,_,text) in enumerate(lines)
+                   if re.search(r'信息来源\s*[:：].*信息提供[日⽇]期\s*[:：]\s*\d{4}-\d{1,2}-\d{1,2}',text)]
+    if not dates and not publication:
         return 0,len(value),[]  # Unrecognized layout is retained, never cleaned.
-    first = dates[0]
+    first = min(dates+publication)
     start = lines[max(0,first-1)][0]
+    if first in publication:
+        # The preceding breadcrumb contains an inline Markdown article heading.
+        title = re.search(r'(?:^|\s)#\s+\S',lines[max(0,first-1)][2])
+        if title:start += title.start()+len(title.group())-len(title.group().lstrip())
     end = len(value)
-    for index in dates[1:]:
+    if first in publication:
+        for index in range(first+1,len(lines)-2):
+            if re.fullmatch(r'分享到\s*[:：]?',lines[index][2].strip()):
+                controls = lines[index+1][2]
+                if '打印本' in controls and '关闭窗' in controls:
+                    end=lines[index][0]
+                    break
+    for index in (dates if first in publication else dates[1:]):
         previous = next((j for j in range(index-1,first,-1) if lines[j][2].strip()),None)
         if previous is not None and lines[previous][2].strip() in ('推荐阅读','相关阅读','相关推荐'):
-            end = lines[previous][0]
+            end = min(end,lines[previous][0])
             break  # An in-article date is a fact, not a footer boundary.
-    qualifiers = []
-    for i,(_,_,text) in enumerate(lines[:first]):
-        if text.strip().startswith('证据边界：'):
-            j=i+1
-            while j<first and lines[j][2].strip() and not re.match(r'^[^：:\n]{1,12}[:：]',lines[j][2].strip()):
-                j+=1
-            qualifiers.append((lines[i][0],lines[j-1][1]))
-            break
-    return start,end,qualifiers
+    return start,end,[]
 
 
 def _intro_ranges(value):
@@ -156,7 +161,7 @@ def _intro_ranges(value):
     lines = _line_ranges(value)
     headings = [a for a,_,text in lines if start < a < end and _heading(text.strip()) and
                 (re.fullmatch(r'\d{1,2}',text.strip()) or
-                 re.match(r'^(?:#{1,6}\s|\d+[、.)）]|[一二三四五六七八九十]+[、）])',text.strip()))]
+                 re.match(r'^(?:#{1,6}\s|\d+[、.)）]|\d{2}\s+\S|[一二三四五六七八九十]+[、）])',text.strip()))]
     blocks = [(a,b) for a,b in _native_blocks(value) if start <= a < end]
     if start:
         # A webpage's pre-section introduction includes its title/date and project
@@ -269,9 +274,9 @@ def _token_estimate(text: str) -> int:
 
 
 def input_metrics(config: dict, messages: list[dict], schema: dict) -> tuple[int, int]:
-    payload = completion_payload(model_config_from_record(config), messages, schema)
-    packed = json.dumps(payload['messages'], ensure_ascii=False, separators=(',', ':'))
-    return len(packed), _token_estimate(packed)
+    from .ai_client import prepared_completion
+    _, metrics = prepared_completion(config, messages, schema)
+    return metrics['characters'], metrics['estimated_tokens']
 
 
 def checked_config(config: dict, messages: list[dict], schema: dict, char_limit: int):
@@ -283,9 +288,11 @@ def checked_config(config: dict, messages: list[dict], schema: dict, char_limit:
     # Thinking and final content share the output allowance. Short business JSON
     # does not imply short reasoning: use the saved limit within remaining context.
     output_tokens = min(resolved.max_tokens, context_ceiling - estimated_tokens)
-    if chars > char_limit or output_tokens <= 0:
+    if output_tokens <= 0:
         raise MatchInputBudgetError(f'模型输入超过本阶段预算（字符 {chars}/{char_limit}，估算输入 Token {estimated_tokens} + 输出预留 {output_tokens}/{context_ceiling}），任务已保留，请调整资料后重试')
-    return {**config, '_match_output_tokens': output_tokens}, chars, estimated_tokens
+    selected = {**config, '_match_output_tokens': output_tokens, '_input_char_limit': char_limit}
+    chars, estimated_tokens = input_metrics(selected, messages, schema)
+    return selected, chars, estimated_tokens
 
 
 def log_stage(stage: str, partner_count: int, chars: int, estimated_tokens: int,
@@ -430,8 +437,13 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
     passages, source_map, raw_groups, positions = [], {}, [], {}
     for group in merged:
         ranges = group['ranges']
-        if group['value']['kind'] != 'word':
-            ranges = _merge_ranges(ranges+_intro_ranges(group['text']))
+        intro = _intro_ranges(group['text']) if group['value']['kind'] != 'word' else []
+        ancillary = all(any(a <= left and right <= b for a,b in intro) for left,right in ranges)
+        title_only = all(_heading(line.strip()) for a,b in ranges
+                         for line in group['text'][a:b].splitlines() if line.strip())
+        directory = any(re.fullmatch(r'目\s*录|contents|table of contents',line.strip(),re.I)
+                        for a,b in ranges for line in group['text'][a:b].splitlines())
+        ranges = _merge_ranges(ranges+intro)
         keys = []
         for start, end in ranges:
             position = (*group['key'][:3],start,end)
@@ -446,7 +458,8 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
                 positions[position] = source
             keys.append(source)
         raw_groups.append({'sources':keys,'hitIndexes':group['hitIndexes'],
-                           'size':sum(b-a for a,b in ranges),'priority':group['priority']})
+                           'size':sum(len(source_map[key]['text']) for key in keys),'priority':group['priority'],
+                           'ancillary':ancillary or title_only or directory})
     cases = [dict(r) for r in conn.execute(
         'SELECT id,partner_id,title,description,created_at FROM cases '
         'WHERE partner_id=? AND visible=1 ORDER BY id', (partner_id,))]
@@ -458,7 +471,7 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
     evidence_deliverables = []
     for case in cases:
         files = [dict(r) for r in conn.execute(
-            'SELECT id,case_id,filename,? AS case_title FROM deliverables WHERE case_id=? ORDER BY id',
+            'SELECT id,case_id,filename,processed_at,file_path,? AS case_title FROM deliverables WHERE case_id=? ORDER BY id',
             (case['title'],case['id']))]
         files.sort(key=lambda d:(-sum(min(len(t),6) for t in query_terms & terms(d['filename'])),d['id']))
         evidence_deliverables += files
@@ -530,7 +543,17 @@ def assemble_details(rows, config, content_builder, schema):
         context['profilePassages'] = [{**p,'source':aliases[p['source']]} for p in context['profilePassages']]
         context['_sourceMap'] = {aliases[key]:entry for key,entry in context['_sourceMap'].items()}
         context['_groups'] = [{**g,'sources':[aliases[key] for key in g['sources']]} for g in context['_groups']]
-        raw = {'groups': sorted(enumerate(context['_groups']), key=lambda g:(g[1]['priority'],g[0])),
+        ordered = sorted(enumerate(context['_groups']),key=lambda part:(part[1].get('ancillary',False),part[1]['priority'],part[0]))
+        turns,ranked = {},[]
+        for group_index,group in ordered:
+            identity=tuple(sorted({(context['_sourceMap'][key]['sourceRef'],context['_sourceMap'][key]['source_version']) for key in group['sources']}))
+            lane=(group.get('ancillary',False),identity)
+            turn=turns.get(lane,0);turns[lane]=turn+1
+            ranked.append(((group.get('ancillary',False),turn,group['priority'],group_index),(group_index,group)))
+        # Preserve relevance within each source and rotate existing source groups,
+        # so a long document's later groups do not precede another source's body.
+        raw = {'groups':[part for _,part in sorted(ranked,key=lambda part:part[0])],
+               'group_turns':{part[0]:rank[:2] for rank,part in ranked},
                'source_map': dict(context['_sourceMap']),
                'cases': list(cases), 'files': list(files),
                'source_note': _source_note(context['inputCoverage']), 'processed':set()}
@@ -580,22 +603,41 @@ def assemble_details(rows, config, content_builder, schema):
         if sum(len(p['text']) for p in passages) == old_chars:
             context['inputCoverage']['deduplicatedGroups'] += 1
         return True
-    # Give each candidate its first whole fitting group before adding any background.
+    def add_case(index, entry):
+        _,context,sent_cases,_=rows[index]
+        if entry['id'] in {c['id'] for c in sent_cases}:
+            return True
+        item={'id':entry['id'],'title':entry['title'],'relevantDescription':entry.get('description') or ''}
+        context['visibleCases'].append(item)
+        try:
+            checked()
+        except MatchInputBudgetError:
+            context['visibleCases'].pop()
+            return False
+        sent_cases.append(entry)
+        return True
+    # Each candidate receives its primary fact on its existing first turn.
     for index, raw in enumerate(material):
+        primary_ids={entry['sourceRef'].split(':',1)[1] for entry in raw['source_map'].values() if entry['sourceRef'].startswith('case:')}
+        primary=next((case for case in raw['cases'] if case['id'] in primary_ids),None)
+        if primary is not None and add_case(index,primary):
+            continue
         for group_index, group in raw['groups']:
             if add_group(index, group_index, group):
                 break
     # Additional facts rotate across candidates, with their original relevance
     # order. No candidate consumes all remaining material before its peers.
     while True:
-        pending = False
+        pending = []
         for index, raw in enumerate(material):
             next_group = next(((key,g) for key,g in raw['groups'] if key not in raw['processed']),None)
             if next_group is not None:
-                pending = True
-                add_group(index,*next_group)
+                pending.append((index,next_group))
         if not pending:
             break
+        turn=min(material[index]['group_turns'][group[0]] for index,group in pending)
+        for index,group in pending:
+            if material[index]['group_turns'][group[0]]==turn:add_group(index,*group)
     # Related visible cases rotate first, then filenames belonging to sent cases.
     for kind in ('cases','files'):
         for offset in range(max((len(raw[kind]) for raw in material),default=0)):
@@ -605,6 +647,8 @@ def assemble_details(rows, config, content_builder, schema):
                 _,context,sent_cases,sent_files = rows[index]
                 entry = raw[kind][offset]
                 if kind == 'cases':
+                    if entry['id'] in {c['id'] for c in sent_cases}:
+                        continue
                     target,sent = context['visibleCases'],sent_cases
                     item = {'id':entry['id'],'title':entry['title'],
                             'relevantDescription':entry.get('description') or ''}

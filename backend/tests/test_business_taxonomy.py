@@ -81,7 +81,7 @@ def test_model_structured_projection_leaves_narrative():
   ctx=profile_context(conn,{'target_partner_id':p['id'],'model_input_allowed':True})
  assert ctx['industries']=='金融' and ctx['service_areas']=='广东'
  assert ctx['region_groups']==[{'region_type':'domestic','regions':['广东']}]
- assert ctx['ai_profile']=='长期深耕深圳银行业务'
+ assert 'ai_profile' not in ctx and ctx['chapters']==[]
  assert 'classification_pending' not in ctx
 
 def test_stats_and_filter_only_canonical_values():

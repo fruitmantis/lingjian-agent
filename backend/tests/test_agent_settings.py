@@ -107,7 +107,7 @@ def test_match_disable_blocks_new_requests_but_accepted_run_keeps_model_and_poli
         return answer('partner-1',name=name)
     monkeypatch.setattr(development_model,'completion',complete)
     jobs[0][0](*jobs[0][1])
-    assert calls==['MatchUnderstanding','InitialSelection','MatchAnswer']
+    assert calls==['MatchUnderstanding','MatchAnswer']
     assert match.get_match_record(accepted.recordId,user).taskStatus=='ready'
     # Same task ownership/history is readable; a new retry is not admitted.
     with get_db() as conn:conn.execute("UPDATE match_records SET task_status='failed' WHERE id=?",(accepted.recordId,))

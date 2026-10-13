@@ -35,9 +35,9 @@ def test_matching_uses_existing_profile_and_evidence_without_raw_files(client, m
     result=match._perform_partner_match('数据库迁移',snapshot('数据库迁移'))
     assert len(result) == 1
     context = captured[0][-1]['content']
-    for text in ('核心能力：企业数据库迁移与 RAG 数据集成。', '金融', '广东', '数据库项目', '实施数据库迁移。', '迁移交付说明.pdf', '资料有限'):
+    for text in ('金融', '广东', '数据库项目', '实施数据库迁移。', '迁移交付说明.pdf'):
         assert text in context
-    for text in ('DISABLED_SECRET', 'NEVER_SEND_RAW_FILE', 'AI画像: 已生成', '行业经验: 银行', '覆盖区域: 深圳'):
+    for text in ('核心能力：企业数据库迁移与 RAG 数据集成。', '资料有限伙伴', 'DISABLED_SECRET', 'NEVER_SEND_RAW_FILE', 'AI画像: 已生成', '行业经验: 银行', '覆盖区域: 深圳'):
         assert text not in context
     assert len(context) < 6500
     assert 'case-p0' in context and 'file-p0' in context

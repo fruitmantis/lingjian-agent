@@ -1,3 +1,4 @@
+import json
 """Public model failures must not expose upstream diagnostics or content."""
 import httpx
 import pytest
@@ -35,7 +36,7 @@ def test_manual_connection_test_validates_content_and_sanitizes_errors(client, m
         async def __aenter__(self): return self
         async def __aexit__(self, *_args): pass
         async def post(self, url, **kwargs):
-            payload=kwargs['json']
+            payload=json.loads(kwargs['content'])
             assert payload['response_format']=={'type':'json_object'}
             assert (payload['temperature'],payload['max_tokens'])==(.4,131072)
             req = httpx.Request("POST", url)
@@ -78,7 +79,7 @@ def test_profile_failure_preserves_data_without_exposing_exception(setup, monkey
     calls=[]
     def fail(_config,messages,_schema):
         import json
-        calls.append(json.loads(messages[-1]['content'])['material'])
+        calls.append(''.join(block['text'] for block in json.loads(messages[-1]['content'])['blocks']))
         raise RuntimeError("synthetic-secret raw-model-JSON internal-prompt")
     monkeypatch.setattr(profile_sources.development_model,"completion",fail)
     response=client.post(f"/partners/{pid}/documents/{fid}/retry",headers=admin)
@@ -86,7 +87,7 @@ def test_profile_failure_preserves_data_without_exposing_exception(setup, monkey
     assert response.status_code==200
     assert calls==[cached['extracted_text']]
     public=source_profile(setup)
-    assert public['profile_status']=='failed' and public.get('profile_sources') is None
+    assert public['profile_status']=='ready' and public.get('profile_sources') is None
     for text in ("synthetic-secret","raw-model-JSON","internal-prompt"):
         assert text not in response.text and text not in str(public)
     with get_db() as conn:
@@ -130,14 +131,14 @@ def test_profile_does_not_persist_raw_structured_output(setup, monkeypatch, narr
     calls=[]
     def malformed(_config,messages,_schema):
         import json
-        calls.append(json.loads(messages[-1]['content'])['material'])
+        calls.append(''.join(block['text'] for block in json.loads(messages[-1]['content'])['blocks']))
         return narrative
     monkeypatch.setattr(profile_sources.development_model,"completion",malformed)
     response=client.post(f"/partners/{pid}/documents/{fid}/retry",headers=admin)
     assert response.status_code==200
     assert calls==[cached['extracted_text']]
     public=source_profile(setup)
-    assert public['profile_status']=='failed'
+    assert public['profile_status']=='ready'
     assert "synthetic-secret" not in response.text and "synthetic-secret" not in str(public)
     with get_db() as conn:
         contribution=conn.execute("SELECT state,sections_json FROM partner_profile_sources WHERE partner_id=? AND source_kind='document' AND source_id=?",(pid,fid)).fetchone()

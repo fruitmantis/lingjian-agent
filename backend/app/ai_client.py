@@ -34,13 +34,49 @@ def completion_payload(config: ResolvedModelConfig, messages: list[dict], schema
     }
     if schema is not None:
         # JSON mode is portable; field/permission validation remains in the application.
-        instruction = "Return only a JSON object matching this JSON schema. No extra fields: " + json.dumps(schema, ensure_ascii=False)
+        instruction = "Return only a JSON object matching this JSON schema: " + json.dumps(schema, ensure_ascii=False)
         if messages and messages[0].get("role") == "system":
             messages = [{**messages[0], "content": messages[0]["content"] + "\n\n" + instruction}, *messages[1:]]
         else:
             messages = [{"role": "system", "content": instruction}, *messages]
         payload.update(messages=messages, response_format={"type": "json_object"})
     return payload
+
+
+def serialize_completion(payload: dict) -> str:
+    """The measured body is the exact UTF-8 JSON body sent on every attempt."""
+    return json.dumps(payload, ensure_ascii=False, separators=(',', ':'), allow_nan=False)
+
+
+def request_metrics(payload: dict) -> dict:
+    import math
+    import re
+    body = serialize_completion(payload)
+    chinese = len(re.findall(r'[\u3400-\u9fff]', body))
+    return {'characters': len(body), 'utf8_bytes': len(body.encode('utf-8')),
+            'estimated_tokens': math.ceil(chinese * 1.2 + (len(body) - chinese) * 0.5 + 32)}
+
+
+
+def log_request_metrics(metrics: dict, schema: dict | None = None) -> None:
+    """Log size metadata once per actual logical call, without any business input."""
+    import logging
+    logging.getLogger('uvicorn.error').info('MODEL_REQUEST_METRICS %s', json.dumps({
+        'contract': (schema or {}).get('title', 'text'), **metrics,
+    }, ensure_ascii=False, separators=(',', ':')))
+
+
+def prepared_completion(config: dict, messages: list[dict], schema: dict | None = None) -> tuple[str, dict]:
+    from .model_resolver import model_config_from_record
+    payload = completion_payload(model_config_from_record(config), messages, schema)
+    if config.get('_match_output_tokens'):
+        payload['max_tokens'] = min(payload['max_tokens'], config['_match_output_tokens'])
+    metrics = request_metrics(payload)
+    limit = config.get('_input_char_limit')
+    if limit is not None and metrics['characters'] > limit:
+        from .task_failures import MatchInputBudgetError
+        raise MatchInputBudgetError(f"模型输入超过本阶段预算（字符 {metrics['characters']}/{limit}），任务和有效旧结果已保留")
+    return serialize_completion(payload), metrics
 
 
 class ModelResponseError(RuntimeError):
@@ -134,12 +170,14 @@ def chat_completion(messages: list[dict], scene: str = "default") -> str:
         url = f"{cfg.base_url.rstrip('/')}/chat/completions"
         headers = {"Authorization": f"Bearer {cfg.api_key}", "Content-Type": "application/json"}
         payload = completion_payload(cfg, messages)
+        body = serialize_completion(payload)
+        log_request_metrics(request_metrics(payload))
         # Freeze both values for this call and its retries; the next call reads saved settings.
         policy = get_settings(agent_id=scene if scene in ("partner_match","partner_development") else "processing")
 
         def send():
             with httpx.Client(timeout=policy.timeoutSeconds) as client:
-                resp = client.post(url, headers=headers, json=payload)
+                resp = client.post(url, headers=headers, content=body.encode('utf-8'))
                 model_response(resp, cfg.model)
                 resp.raise_for_status()
                 return _completion_content(resp.json())

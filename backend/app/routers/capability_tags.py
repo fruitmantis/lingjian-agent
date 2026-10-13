@@ -318,47 +318,7 @@ def list_suggestions(status: str | None = None, keyword: str | None = None, cate
 
 @router.post("/suggestions/scan")
 def scan_suggestions():
-    """Manually scan match records for new tag suggestions."""
-    from ..ai_client import chat_completion, model_error_message
-    from ..model_resolver import ModelConfigurationError
-    import json as _json
-    with get_db() as conn:
-        records = conn.execute("SELECT id, requirement, recommendations_json FROM match_records ORDER BY created_at DESC LIMIT 10").fetchall()
-        std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
-        existing_sugs = {r["suggested_name"] for r in conn.execute("SELECT suggested_name FROM capability_tag_suggestions").fetchall()}
-    std_tags_str = ", ".join(std_tags) if std_tags else "无标准标签"
-    created = 0
-    for rec in records:
-        try:
-            raw = chat_completion([
-                {"role": "system", "content": f"分析项目需求，找出标准能力标签无法覆盖的新能力诉求。当前标准标签：[{std_tags_str}]。如果存在未覆盖的能力诉求，返回JSON数组，每项含suggestedName(标签名),suggestedCategoryName(分类名,从以下选择:AI与智能体,云平台与迁移,数据与数据库,应用开发与现代化,运维与安全,咨询与项目管理,其他),description(说明),evidenceText(来源片段),confidence(0-1)。不要把行业/区域/资质误判为能力标签。如果没有新诉求返回空数组[]。只返回JSON。"},
-                {"role": "user", "content": f"项目需求: {rec['requirement']}"}
-            ], scene="tag_suggestion")
-            clean = raw.strip()
-            if clean.startswith("```"): clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
-            if clean.endswith("```"): clean = clean[:-3]
-            clean = clean.strip()
-            if clean.startswith("json"): clean = clean[4:].strip()
-            items = _json.loads(clean)
-            now = datetime.now(timezone.utc).isoformat()
-            for item in items:
-                name = item.get("suggestedName", "").strip()
-                if not name or name in std_tags or name in existing_sugs:
-                    continue
-                sug_id = str(uuid.uuid4())
-                conn_exec = None
-                with get_db() as c:
-                    c.execute(
-                        "INSERT INTO capability_tag_suggestions (id, suggested_name, suggested_category_id, suggested_category_name, description, evidence_text, source_requirement, source_match_record_id, confidence, occurrence_count, status, created_at, updated_at, adopted_at) VALUES (?,?,?,?,?,?,?,?,?,1,'pending',?,?,NULL)",
-                        (sug_id, name, None, item.get("suggestedCategoryName", "其他"), item.get("description", ""), item.get("evidenceText", ""), rec["requirement"], rec["id"], float(item.get("confidence", 0.5)), now, now)
-                    )
-                existing_sugs.add(name)
-                created += 1
-        except ModelConfigurationError as exc:
-            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=model_error_message(exc)) from None
-        except Exception:
-            pass
-    return {"status": "ok", "created": created}
+    raise HTTPException(status.HTTP_410_GONE, detail='标签建议随匹配任务生成，请查看已有建议')
 
 
 @router.post("/suggestions/{sug_id}/adopt", response_model=CapabilityTagOut)

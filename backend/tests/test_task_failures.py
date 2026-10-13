@@ -112,8 +112,8 @@ def test_successful_real_matching_path_still_returns_recommendations(client,monk
  make_partner()
  from .support.matching import install,snapshot
  calls=install(monkeypatch,[{**recommendation(),'evidenceCases':[],'evidenceDeliverables':[]}])
- result=match._perform_partner_match('synthetic success',snapshot('synthetic success'))
- assert calls==['MatchUnderstanding','InitialSelection','MatchAnswer']
+ result=match._perform_partner_match('需要数据库迁移伙伴',snapshot('需要数据库迁移伙伴'))
+ assert calls==['MatchUnderstanding','MatchAnswer']
  assert len(result)==1 and result[0].partnerId=='partner-1'
 
 

@@ -1,3 +1,4 @@
+from backend.tests.support.matching import current_protocol
 """Timeouts remain durable, retryable execution failures; isolated data only."""
 import json
 from uuid import uuid4
@@ -50,7 +51,7 @@ def test_matching_understanding_timeout_keeps_original_request_and_retry(client,
         if schema['title']=='MatchUnderstanding':return '{"in_scope":true,"facts":{"technicalNeeds":"数据库迁移"}}'
         if schema['title']=='InitialSelection':return '{"candidates":[{"partnerId":"partner-1","verificationFocus":"数据库迁移"}]}'
         return '{"answer":"待补充资料。","recommendations":[],"supplyStatus":"unknown","gapAnalysis":"资料不足"}'
-    monkeypatch.setattr(model,'completion',complete)
+    monkeypatch.setattr(model,'completion',current_protocol(complete))
     assert client.post('/agent/tasks/'+identifier+'/retry',headers=headers).json()['taskStatus']=='ready'
     with get_db() as conn:assert conn.execute('SELECT count(*) FROM match_records').fetchone()[0]==1
 

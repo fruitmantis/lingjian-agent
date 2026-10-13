@@ -14,7 +14,7 @@ from .support.profile_report_fixture import document,patch_all
 
 @pytest.fixture
 def access(client,monkeypatch):
-    monkeypatch.setattr(profile_sources,'resolve_model_record',lambda _: {})
+    monkeypatch.setattr(profile_sources,'resolve_model_record',lambda _: {'api_key':'synthetic-only','base_url':'http://127.0.0.1:1/v1','model_name':'synthetic','max_tokens':4096,'temperature':0.3,'top_p':1.0})
     monkeypatch.setattr(profile_sources.development_model,'completion',lambda *_: '{"sections":[]}')
     admin=auth_headers(make_user('material-admin',role='admin'))
     ordinary=auth_headers(make_user('material-reader'))
@@ -108,7 +108,7 @@ def test_direct_docx_profile_adoption_and_failure_preserve_old(client,access,mon
     assert 'synthetic extraction failure' in failed['processing_error']
     with get_db() as conn: assert conn.execute('SELECT ai_profile FROM partners WHERE id=?',(access[2],)).fetchone()[0] .startswith(expected)
     assert client.get(f'/partners/{access[2]}',headers=access[1]).json()['ai_profile'] is not None
-    assert '原样采用' not in client.get('/enablement/context',params={'partner_id':access[2]},headers=access[1]).text
+    assert '原样采用' in client.get('/enablement/context',params={'partner_id':access[2]},headers=access[1]).text
 
 def test_preview_failure_retains_text_and_retry_preserves_profile(client,access,monkeypatch):
     monkeypatch.setattr(material_files,'office_preview',lambda *_:(_ for _ in ()).throw(RuntimeError('synthetic converter failure')))
@@ -123,7 +123,7 @@ def test_source_budget_keeps_complete_cache_and_truthful_failure(client,access,m
     assert row['extracted_text']==text and row['processing_status']=='ready'
     p=client.get(f'/partners/{access[2]}',headers=access[0]).json()
     assert p['profile_status']=='failed'
-    assert any('输入上限' in (s['error'] or '') for s in p['profile_sources'])
+    assert any('预算' in (s['error'] or '') for s in p['profile_sources'])
     assert 'END_OF_FILE' not in p['ai_profile']
 
 def test_case_visibility_files_categories_and_live_reference(client,access):

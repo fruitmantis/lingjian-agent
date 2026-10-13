@@ -15,10 +15,9 @@ function requestPath(input: RequestInfo | URL): string {
 export function modelRequestCalls(input: RequestInfo | URL, method = "GET"): number {
   const path = requestPath(input);
   if (method.toUpperCase() === "POST") {
-    // Matching: understanding + initial selection + detailed review; retries stay server-side.
-    if (path === "/agent/match" || /^\/agent\/tasks\/[^/]+\/retry$/.test(path)) return 3;
-    if (path === "/admin/capability-tags/suggestions/scan") return 10;
-    if (/^\/partners\/[^/]+\/profile$/.test(path)) return 3;
+    // Matching: understanding + detailed review; retries stay server-side.
+    if (path === "/agent/match" || /^\/agent\/tasks\/[^/]+\/retry$/.test(path)) return 2;
+    if (/^\/partners\/[^/]+\/profile$/.test(path)) return 1;
     if (/^\/admin\/model-configs\/[^/]+\/test$/.test(path)) return 1;
   }
   return 0;

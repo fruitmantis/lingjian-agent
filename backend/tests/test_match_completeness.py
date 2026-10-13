@@ -31,20 +31,22 @@ def test_normal_unrelated_filter_preserves_real_incompleteness(setup, scenario, 
                 coverage['omittedCoreGroups'] = 1
             else:
                 coverage['sourceState'] = 'failed'
-        rows.append((partner, {'profilePassages': [{'source': source, 'text': quote}], 'inputCoverage': coverage}, [], []))
+        with get_db() as conn:conn.execute('UPDATE partners SET capabilities=? WHERE id=?',(quote,partner['id']))
+        mapping={source:{'partnerId':partner['id'],'sourceRef':'partner:'+partner['id'],'path':'/capabilities','start':0,'end':len(quote),'text':quote}}
+        rows.append((partner, {'profilePassages': [{'source': source, 'text': quote}], '_sourceMap':mapping,'inputCoverage': coverage}, [], []))
         item = {**recommendation(), 'partnerId': partner['id'], 'partnerName': partner['name'],
                 'evidenceType': 'current_capability' if index == 0 else 'unrelated',
-                'profileEvidence': [{'source': source, 'quote': quote}],
+                'profileEvidence': [source],
                 'evidenceCases': [], 'evidenceDeliverables': []}
         if index == 0 and not keep_current:
             continue
         if index == 1 and scenario == 'unsupported_claim':
             item['evidenceType'] = 'current_capability'
-            item['profileEvidence'][0]['quote'] = '未实际发送的虚构事实。'
+            item['profileEvidence'][0]='unsent-source'
         items.append(item)
     rejected = []
     recs = match._validated_recommendations(items, partners, {p['id']: [] for p in partners}, {p['id']: [] for p in partners}, rejected)
-    result = match._validated_outcome(recs, {'recommendations': items, 'supplyStatus': 'sufficient'}, bool(rejected), rows,
+    result = match._validated_outcome(recs, {'recommendations': items, 'supplyStatus': 'sufficient','analysisRefs':[],'_analysis_shape_valid':True}, bool(rejected), rows,
                                       requirement='需要ScopeQuasar能力', catalog_incomplete=scenario == 'incomplete_catalogue')
     assert len(result['recommendations']) == int(keep_current)
     assert result['analysisComplete'] is complete

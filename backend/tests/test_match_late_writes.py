@@ -67,7 +67,7 @@ def scenario(client, monkeypatch):
         else:
             assert schema['title'] == 'MatchAnswer'
             value = { 'gapAnalysis': marker, 'supplyStatus': 'partial',
-                'recommendations': [{**recommendation(), 'evidenceCases': [], 'evidenceDeliverables': []}]}
+                'analysisRefs': [], 'recommendations': [{**recommendation(), 'profileEvidence': [], 'evidenceCases': [], 'evidenceDeliverables': []}]}
         return json.dumps(value, ensure_ascii=False)
 
     monkeypatch.setattr(development_model, 'completion', complete)

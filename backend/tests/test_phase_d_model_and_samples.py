@@ -60,8 +60,8 @@ def supplier(scenario,monkeypatch):
     with get_db() as conn:config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
     with get_db() as conn:
         conn.execute('UPDATE model_configs SET base_url=?,api_key=? WHERE id=?',(f'http://127.0.0.1:{server.server_port}/v1','synthetic-only',config['id']))
-    config=__import__('backend.app.model_resolver',fromlist=['resolve_model_record']).resolve_model_record('partner_development')
-    monkeypatch.setattr(model,'configuration',lambda **kwargs:config)
+    from backend.app.model_resolver import resolve_model_record
+    monkeypatch.setattr(model,'configuration',lambda **kwargs:resolve_model_record('partner_development',**kwargs))
     monkeypatch.setattr(model,'completion',REAL_COMPLETION)
     yield state
     server.shutdown();server.server_close();worker.join(3)
@@ -75,7 +75,8 @@ def test_loopback_supplier_schema_error_timeout_and_retry(scenario,supplier,monk
     accepted,_,_=execute(scenario);user,_,_,request=scenario[0];pid=accepted['plan_id']
     v1=plan(pid)['current_version_id'];assert v1;legacy_confirmed(pid,v1,user)
     supplier['mode']=mode
-    from backend.app.model_timeout_settings import save, TimeoutSettings
+    from backend.app.model_timeout_settings import TimeoutSettings
+    from backend.tests.support.development_mock import save_development_timeout as save
     if mode=='slow':save(TimeoutSettings(timeoutSeconds=.08, timeoutRetries=0))
     if mode=='dribble':save(TimeoutSettings(timeoutSeconds=.25, timeoutRetries=0))
     second=life.revise(pid,Revise(submission_id='supplier-revise-'+mode,based_on_version_id=v1,instruction='缩短周期',request=request),user)

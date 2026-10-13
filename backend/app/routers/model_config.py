@@ -5,7 +5,8 @@ import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import ValidationError, BaseModel, Field, StrictBool
+from backend.business.common import ModelOutput
 
 from ..database import get_db
 from ..auth import require_admin, require_active_user, record_audit
@@ -88,8 +89,7 @@ class TestResult(BaseModel):
     latencyMs: int | None = None
 
 
-class _ConnectionProbe(BaseModel):
-    model_config = {"extra": "forbid"}
+class _ConnectionProbe(ModelOutput):
     ok: StrictBool
 
 
@@ -234,7 +234,8 @@ def test_connection(mc_id: str) -> TestResult:
         return TestResult(success=True, message="连接及 JSON 格式校验通过", latencyMs=elapsed)
     except Exception as e:
         record_error(e)
-        return TestResult(success=False, message=model_error_message(e))
+        message = '连接成功，但返回内容未通过校验' if isinstance(e,(ModelResponseError,ValidationError)) else model_error_message(e)
+        return TestResult(success=False, message=message)
 
 
 # ============ Usage Configs ============

@@ -42,7 +42,7 @@ def test_case_hide_or_delete_preserves_task_prose_and_disables_links(scenario,cl
     for path in ['/enablement/resources/case/secret-case','/enablement/context?case_id=secret-case']:
         assert client.get(path,headers=auth_headers(user)).status_code==404
     with get_db() as conn:
-        assert not any(r['source_type']=='case' for r in engine.candidates(conn,request.model_dump(),payload['diagnoses']))
+        assert not any(r['source_type']=='case' for r in engine.candidates(conn,request.model_dump(),payload['understanding']))
         assert tuple(conn.execute('SELECT payload_json,dependency_json FROM development_versions WHERE id=?',(v1,)).fetchone())==before
     if action=='hide':
         client.patch('/cases/secret-case/visibility',headers=auth_headers(admin),json={'visible':True})
@@ -61,5 +61,5 @@ def test_ordinary_course_unpublish_retains_name_but_disables_redirect_and_future
     assert response.status_code==404 and 'https://' not in response.text
     assert '数据库课程' not in views.transferable(pid,user)['text']
     with get_db() as conn:
-        assert not engine.candidates(conn,request.model_dump(),payload['diagnoses'])
+        assert not engine.candidates(conn,request.model_dump(),payload['understanding'])
         assert conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(v1,)).fetchone()[0]==before

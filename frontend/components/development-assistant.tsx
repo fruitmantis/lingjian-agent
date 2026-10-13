@@ -15,7 +15,7 @@ import {TaskRequest,TaskResult,TaskArrivalReadError} from "./task-transition";
 import {tasksChanged,newTaskId,useTaskNavigation} from "./task-navigation";
 import {copyText} from "../lib/copy-text";
 
-type Item={item_id?:string;source_type:string;source_id:string;source_version:number;capability_tag_id:string;focus?:string;reason:string;estimated_hours:number;note:string;title?:string;prerequisites?:string;availability?:string;conditions?:{duration_minutes?:number;level?:string;roles?:{id:string;name:string}[];zones?:{id:string;name:string}[];lab_requirements?:string;cost?:string;account_requirement?:string;environment_requirement?:string;language?:string;site?:string}};
+type Item={item_id?:string;source_type:string;source_id:string;source_version:number;capability_tag_id:string;focus?:string;reason:string;estimated_hours?:number|null;note?:string;title?:string;prerequisites?:string;availability?:string;conditions?:{duration_minutes?:number;level?:string;roles?:{id:string;name:string}[];zones?:{id:string;name:string}[];lab_requirements?:string;cost?:string;account_requirement?:string;environment_requirement?:string;language?:string;site?:string}};
 type Stage={title:string;items:Item[]};
 type Analysis={intent:string;interpretation:string;partner_assessment?:string;reusable_basis:string[];priorities:{name:string;reason:string;reusable_basis?:string[]}[];basis_limitations:string[]};
 type Payload={analysis?:Analysis;answer?:string;next_steps?:string[];overview:{development_direction?:string;development_goal?:string};stages:Stage[];limitations:string[];resource_gaps:string[]};

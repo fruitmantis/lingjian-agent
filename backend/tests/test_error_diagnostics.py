@@ -18,7 +18,7 @@ def model_reply(monkeypatch, content, status=200):
     with get_db() as conn:
         conn.execute("UPDATE model_configs SET api_key='opaque-provider-credential',api_key_source='db',base_url='https://model.invalid/v1',model_name='test-model'")
     async def post(client, url, **kwargs):
-        messages=kwargs['json']['messages'];system=messages[0]['content']
+        messages=json.loads(kwargs['content'])['messages'];system=messages[0]['content']
         reply=content
         if status==200:
             if '一次理解项目找伙伴' in system:reply='{"in_scope":true,"facts":{}}'
@@ -26,8 +26,8 @@ def model_reply(monkeypatch, content, status=200):
             else:
                 try:
                     values=json.loads(content)
-                    values=[{**item,'evidenceCases':[],'evidenceDeliverables':[]} for item in values]
-                    reply=json.dumps({'recommendations':values,'supplyStatus':'unknown','gapAnalysis':'待核实'})
+                    values=[{**item,'profileEvidence':[],'evidenceCases':[],'evidenceDeliverables':[]} for item in values]
+                    reply=json.dumps({'recommendations':values,'analysisRefs':[],'supplyStatus':'unknown','gapAnalysis':''})
                 except ValueError:pass
         body={'choices':[{'finish_reason':'stop','message':{'content':reply}}]} if status==200 else {'error':{'message':content}}
         return httpx.Response(status,request=httpx.Request('POST',url),json=body)
@@ -48,7 +48,7 @@ def complete_enrichment(monkeypatch):
 def test_real_validation_reason_admin_only_and_success_does_not_erase(client, monkeypatch):
     user=make_user('diagnostic-owner');admin=make_user('diagnostic-admin',role='admin');make_partner()
     model_reply(monkeypatch, json.dumps([{**recommendation(), 'matchScore':'92分'}]))
-    response=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'隔离验证'})
+    response=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'需要AI伙伴，隔离验证'})
     assert response.status_code==502 and response.json()['detail']=='本次处理失败，请重试。'
     errors=saved_errors();assert len(errors)==1
     error=errors[0]
@@ -74,7 +74,7 @@ def test_provider_error_keeps_status_response_and_masks_secrets(client, monkeypa
     user=make_user('provider-owner');make_partner()
     secret='bf_'+'a'*43
     model_reply(monkeypatch, f'quota rejected opaque-provider-credential {secret} Bearer private-token', status=429)
-    response=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'隔离验证'})
+    response=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'需要AI伙伴，隔离验证'})
     assert response.json()['detail']=='本次处理失败，请重试。'
     error=saved_errors()[0]
     assert error['http_status']==429 and error['model']=='test-model'
@@ -87,7 +87,7 @@ def test_provider_error_keeps_status_response_and_masks_secrets(client, monkeypa
 def test_empty_matching_is_a_normal_result(client, monkeypatch):
     user=make_user('empty-owner');make_partner()
     model_reply(monkeypatch,'[]');complete_enrichment(monkeypatch)
-    result=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'没有匹配项'})
+    result=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'需要AI伙伴，没有匹配项'})
     assert result.status_code==200 and result.json()['recommendations']==[] and result.json()['taskStatus']=='ready'
     assert saved_errors()==[]
 
@@ -95,9 +95,9 @@ def test_empty_matching_is_a_normal_result(client, monkeypatch):
 def test_malformed_response_keeps_actual_parse_failure(client, monkeypatch):
     user=make_user('parse-owner');make_partner()
     model_reply(monkeypatch,'{not valid json')
-    result=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'格式验证'})
+    result=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'需要AI伙伴，格式验证'})
     assert result.status_code==502
-    assert saved_errors()[0]['exception_type']=='ValidationError'
+    assert saved_errors()[0]['exception_type']=='JSONDecodeError'
     assert '{not valid json' in saved_errors()[0]['response_excerpt']
 
 

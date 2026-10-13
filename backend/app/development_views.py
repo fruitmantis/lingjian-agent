@@ -21,6 +21,10 @@ def protected(conn,row):
     if source.get('source_case_id'):
         refs.append({'source_type':'case','source_id':source['source_case_id'],'source_version':source['source_case_version']})
     for ref in refs:
+        if ref.get('dependency_kind')=='profile_source':
+            from .profile_sources import profile_dependency_valid
+            if not profile_dependency_valid(conn,ref):return True
+            continue
         if ref['source_type']=='case': continue  # Saved task prose remains readable; file access checks live visibility.
         try:
             head=resources.row_for(conn,'case' if ref['source_type']=='case' else 'resource',ref['source_id'])
@@ -42,7 +46,8 @@ def readable_payload(conn,row):
                 item['title']=source['title']
                 item['availability']='available'
             except HTTPException:item['availability']='unavailable'
-    return payload
+    from backend.business.common import historical_development_payload
+    return historical_development_payload(payload)
 
 def presentation(conn,plan):
     """Four task states; a failed Run never replaces an existing successful Version."""
@@ -83,15 +88,16 @@ def detail(plan_id,user,version_id=None):
         from .development_context import exchanges
         conversation=exchanges(conn,plan,request)
         request.pop('_conversation',None)
-        conversation=[m for m in conversation if not protected(conn,version_row(conn,plan,m['version_id']))]
+        conversation=[m for m in conversation if not protected(conn,version_row(conn,plan,m['version_id'])) and not protected(conn,{'payload_json':'{}','dependency_json':json.dumps(m.get('dependencies',[]))})]
         for message in conversation:
             cards=[]
-            for ref in message.get('references',[]):
+            for ref in message.get('used_refs',message.get('references',[])):
                 try:
                     source=resources.resolve_reference(conn,ref['source_type'],ref['source_id'],ref['source_version'],'system')
                     cards.append({**ref,'title':source['title'],'reason':'','availability':'available','conditions':{k:source.get(k) for k in ('duration_minutes','level','roles','zones')}})
                 except HTTPException:continue
             message['resources']=cards
+            message.pop('dependencies',None)  # Private source identities and permission stamps stay internal.
         if request.get('_effective_version_id')==plan['current_version_id']:
             request.update(request.get('_effective_request',{}))
         request.pop('_effective_request',None);request.pop('_effective_version_id',None)
@@ -119,13 +125,13 @@ def edit(plan_id,body,user):
         if payload is None:life.fail(409,REVOKED)
         request=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0]);request.update(payload.get('effective_request',{}))
         if body.corrections:life.fail(422,'请通过自然语言反馈事实，正式画像仍由既有机制维护')
-        analysis=payload.get('analysis',{'priorities':[]})
+        analysis=payload.get('understanding',payload.get('analysis',{'priorities':[]}))
         pool=engine.candidates(conn,request,analysis)
         output={'target_partner_id':plan['target_partner_id'],'stages':[v.model_dump() for v in body.stages],
                 'limitations':payload.get('limitations',[]),'resource_gaps':[],
                 'answer':payload.get('answer',''),'next_steps':payload.get('next_steps',[])}
         try:
-            result=engine.assemble(output,request,analysis,pool,user['id']);deps=engine.dependencies(conn,pool+analysis.get('profile_basis',{}).get('shared_evidence',[]))
+            result=engine.assemble(output,request,analysis,pool,user['id']);deps=engine.unique_dependencies(engine.inherited_dependencies(payload,result,json.loads(row['dependency_json']))+engine.dependencies(conn,[i for stage in result['stages'] for i in stage['items']]))
             engine.validate_dependencies(conn,result,deps)
         except (engine.InvalidOutput,HTTPException) as error:
             record_error(error, 'validation', task_id=plan_id)
@@ -138,7 +144,7 @@ def options(plan_id,user):
         conn.begin_read();plan=life.authorize(conn,plan_id,user);row=version_row(conn,plan);payload=readable_payload(conn,row)
         if payload is None:life.fail(409,REVOKED)
         request=json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',(plan['request_id'],)).fetchone()[0]);request.update(payload.get('effective_request',{}))
-        return engine.candidates(conn,request,payload.get('analysis',{'priorities':[]}))
+        return engine.candidates(conn,request,payload.get('understanding',payload.get('analysis',{'priorities':[]})))
 
 def transferable(plan_id,user,expected=None,copy_event=False):
     bind_context(task_id=plan_id, stage='transfer_validation')
@@ -149,14 +155,17 @@ def transferable(plan_id,user,expected=None,copy_event=False):
         row=version_row(conn,plan,plan['current_version_id'])
         if protected(conn,row):life.fail(409,REVOKED)
         payload=json.loads(row['payload_json']);lines=['伙伴能力发展安排']
-        if payload.get('partner_goal_allowed'):lines.append('发展目标：'+payload['overview']['development_goal'])
+        if payload.get('partner_goal_allowed'):
+            effective=payload.get('effective_request',{})
+            goal=effective.get('development_direction') or effective.get('development_goal') or payload.get('overview',{}).get('development_goal','')
+            if goal:lines.append('发展目标：'+goal)
         # Stage titles, notes, reasons and diagnostics are generated/internal text: never copied.
         for index,stage in enumerate(payload['stages'],1):
             selected=[]
             for item in stage['items']:
                 try:data=resources.resolve_reference(conn,item['source_type'],item['source_id'],item['source_version'],'partner')
                 except HTTPException:continue
-                selected.append({**data,'estimated_hours':item['estimated_hours']})
+                selected.append({**data,'estimated_hours':item.get('estimated_hours')})
             if not selected:continue
             lines.append(f'阶段 {index}')
             for data in selected:

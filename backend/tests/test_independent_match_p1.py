@@ -1,3 +1,4 @@
+from backend.tests.support.matching import current_protocol
 """Independent QA probes: synthetic sources, dedicated PG, no external model."""
 import json
 from uuid import uuid4
@@ -26,7 +27,7 @@ def run_actual_task(setup, monkeypatch, requirement, raw_builder):
         item=raw_builder(candidate)
         return json.dumps({'recommendations':[item],
                            'supplyStatus':'sufficient','gapAnalysis':'raw supplier coverage'},ensure_ascii=False)
-    monkeypatch.setattr(development_model,'completion',completion)
+    monkeypatch.setattr(development_model,'completion',current_protocol(completion))
     accepted=match.create_task(match.TaskCreateRequest(requestId=uuid4(),requirement=requirement),owner)
     match.executor.shutdown(wait=True)
     with get_db() as conn:
@@ -94,11 +95,13 @@ def test_independent_hidden_source_is_redacted_in_a_retained_public_card(setup,m
     filename='IndependentHiddenSource.txt'
     upload(setup,filename,body)
     def raw(c):
-        item=literal_item(c,'current_capability','相关能力自述（待核实）：依据IndependentHiddenSource.txt https://private.invalid/source 具备药物研发能力。','具备药物研发能力，提供研发数据分析方案。')
+        item=literal_item(c,'current_capability','相关能力自述（待核实）：依据IndependentHiddenSource.txt 具备药物研发能力。','具备药物研发能力，提供研发数据分析方案。')
         item['riskNotes']='IndependentHiddenSource.txt为内部来源，经历待核实'
         return item
     result,payload=run_actual_task(setup,monkeypatch,'需要药物研发服务伙伴',raw)
-    assert len(result['recommendations'])==1, 'Privacy check must retain a valid card instead of passing by rejecting it'
+    with get_db() as conn:
+        diagnostics=match_understanding.load(conn,conn.execute('SELECT id FROM match_records ORDER BY created_at DESC LIMIT 1').fetchone()[0])
+    assert len(result['recommendations'])==1, diagnostics.get('rejection_codes',[])
     assert result['supplyStatus']=='sufficient'  # Hiding source names is not a supply judgment.
     assert filename not in json.dumps(result,ensure_ascii=False)
     assert 'https://private.invalid' not in json.dumps(result,ensure_ascii=False)

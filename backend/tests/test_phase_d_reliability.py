@@ -36,7 +36,8 @@ from backend.tests.conftest import auth_headers
 
 
 def test_default_deadlines_derive_from_saved_policy():
-    from backend.app.model_timeout_settings import save, TimeoutSettings
+    from backend.app.model_timeout_settings import TimeoutSettings
+    from backend.tests.support.development_mock import save_development_timeout as save
     assert run_timeout() == 2460
     save(TimeoutSettings(timeoutSeconds=420, timeoutRetries=1))
     assert run_timeout() == 1740
@@ -52,8 +53,8 @@ def test_run_watchdog_without_polling_preserves_confirmed_and_retries(scenario, 
         entered.set(); assert held.wait(5)
         return original(*args)
     monkeypatch.setattr(model, 'completion', slow)
-    monkeypatch.setattr(engine, 'run_timeout', lambda: .2)
-    monkeypatch.setattr(life, 'run_timeout', lambda: .2)
+    monkeypatch.setattr(engine, 'run_timeout', lambda *_: .2)
+    monkeypatch.setattr(life, 'run_timeout', lambda *_: .2)
     second = life.revise(pid, Revise(submission_id='watchdog-revise', based_on_version_id=v1, instruction='缩短周期', request=request), user)
     worker = threading.Thread(target=engine.execute, args=(second['run_id'],))
     worker.start()
@@ -79,7 +80,7 @@ def test_run_watchdog_without_polling_preserves_confirmed_and_retries(scenario, 
         assert conn.execute('SELECT count(*) FROM development_versions WHERE plan_id=?',(pid,)).fetchone()[0] == 2
 
 
-@pytest.mark.parametrize('fault', ['version','item','diagnosis','pointer'])
+@pytest.mark.parametrize('fault', ['version','item','pointer'])
 def test_fault_with_v2_current_and_v1_confirmed_preserves_all_rows(scenario, fault):
     accepted, _, payload = execute(scenario)
     user, _, _, request = scenario[0]; pid=accepted['plan_id']

@@ -92,22 +92,18 @@ def test_unknowns_are_saved_without_false_completeness(client, monkeypatch):
     user = make_user("unknown-opportunity"); make_partner(); task = make_task(user, "合成缺失数据")
     monkeypatch.setattr(ai_client, "chat_completion", lambda *a, **k: '{"customerName":"合成客户","region":false}')
     failures = []
-    assert match._extract_project_opportunity("合成缺失数据", task, [], failures=failures)
+    assert match._extract_project_opportunity("合成缺失数据", task, [], data={"customerName":"合成客户","region":False}, failures=failures)
     assert failures == []
     with get_db() as conn:
         row = conn.execute("SELECT project_name,region,completeness_score,missing_fields FROM project_opportunities WHERE match_record_id=?", (task,)).fetchone()
     assert row["project_name"] == row["region"] == UNKNOWN
     assert row["completeness_score"] == 17 and "region" in row["missing_fields"]
 
-@pytest.mark.parametrize("error,code", [(httpx.ReadTimeout("synthetic"), "timeout")])
-def test_technical_failures_are_not_masked_as_unknown(client, monkeypatch, error, code):
-    user = make_user("technical-failure"); make_partner(); task = make_task(user, "合成技术失败")
-    monkeypatch.setattr(ai_client, "chat_completion", lambda *a, **k: (_ for _ in ()).throw(error))
-    failures = []
-    assert not match._extract_project_opportunity("合成技术失败", task, [], failures=failures)
-    assert failures[0]["code"] == code
-    with get_db() as conn:
-        assert conn.execute("SELECT count(*) FROM project_opportunities WHERE match_record_id=?", (task,)).fetchone()[0] == 0
+def test_derivative_without_supplied_data_fails_before_model_or_write(client,monkeypatch):
+    user=make_user('missing-derived-data');make_partner();task=make_task(user,'合成需求')
+    monkeypatch.setattr(ai_client,'chat_completion',lambda *a,**k:pytest.fail('No fallback model call'))
+    with pytest.raises(TypeError):match._extract_project_opportunity('合成需求',task,[])
+    with get_db() as conn:assert conn.execute('SELECT count(*) FROM project_opportunities WHERE match_record_id=?',(task,)).fetchone()[0]==0
 
 
 def test_database_failure_rolls_back_instead_of_saving_unknown(client, monkeypatch):
@@ -130,7 +126,7 @@ def test_database_failure_rolls_back_instead_of_saving_unknown(client, monkeypat
             yield Proxy()
     monkeypatch.setattr(match, "get_db", failing_database)
     failures = []
-    assert not match._extract_project_opportunity("合成保存失败", task, [], failures=failures)
+    assert not match._extract_project_opportunity("合成保存失败", task, [], data=BASE, failures=failures)
     assert reached == [True]
     assert failures[0]["code"] == "persistence"
     with get_db() as conn:

@@ -12,6 +12,6 @@ def test_own_fact_qualifier_is_sent_and_model_category_is_not_reclassified(setup
     # planning_only is excluded; deliberately wrong current_capability remains a
     # model judgment, not an invitation to add a program semantic veto.
     assert bool(result['recommendations']) is formal
-    assert result['supplyStatus']==('sufficient' if formal else 'unknown')
+    assert result['supplyStatus']=='sufficient'  # Overall refs remain valid when planning cards are excluded.
     if not formal:
         assert '未来规划线索' in result['answer']
