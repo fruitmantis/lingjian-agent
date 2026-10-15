@@ -1,5 +1,6 @@
 "use client";
 import {useAgent} from "@/components/agent-settings";
+import {useComposerShortcuts,COMPOSER_KEY_HINT} from "@/lib/composer-shortcuts";
 
 import { DevelopmentEntry } from "@/components/enablement-workspace";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
   const submitting=useRef(false),generation=useRef(0),lastPrompt=useRef<string|null>(null);
   const requirementInput=inputRef,taskStatus=loading?"submitting":"";
   const sameDraftPending=pending.some(task=>task.requirement===requirement);
+  const composerKeys=useComposerShortcuts();
   useEffect(()=>{onBusyChange(loading);return()=>onBusyChange(false);},[loading,onBusyChange]);
   useEffect(()=>{
     const id=searchParams.get("task");
@@ -57,6 +59,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
           <label htmlFor="requirement" className="sr-only">输入项目需求</label>
           <textarea
             ref={requirementInput}
+            {...composerKeys(setRequirement,()=>void handleMatchDirect(requirement),agent.enabled&&!loading&&!sameDraftPending&&!!requirement.trim())}
             id="requirement"
             value={requirement}
             onChange={(event) => setRequirement(event.target.value)}
@@ -66,6 +69,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
             maxLength={2000}
             placeholder="例如：寻找有金融行业数据库迁移经验、能够完成实施交付的伙伴…"
           />
+          <p className="muted" data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p>
           <div className="assistant-composer-footer">
             <span className="assistant-counter">{requirement.length}/2000</span>
             <button type="submit" disabled={!agent.enabled || loading || sameDraftPending || !requirement.trim()} className="assistant-submit" aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>

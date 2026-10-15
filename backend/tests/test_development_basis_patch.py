@@ -58,7 +58,7 @@ def test_correction_updates_all_derived_advice_and_preserves_legacy_version(unif
     engine.execute(result['run_id']);after=views.detail(pid,user)
     assert after['runs'][0]['status']=='ready',after['failureDetails']
     payload=after['payload']
-    assert payload['limitations']==[]
+    assert 'limitations' not in payload
     assert payload['resource_gaps']==[] and payload['next_steps']==['使用合成数据完成实践并核验引用。']
     assert payload['understanding']['effective_baseline']==payload['effective_request']['known_baseline']==BASE
     assert payload['understanding']['basis_limitations']==['目标平台待核实。']
@@ -66,7 +66,7 @@ def test_correction_updates_all_derived_advice_and_preserves_legacy_version(unif
     assert payload['stages'][0]['items'][0]==before['payload']['stages'][0]['items'][0]
     assert payload['stages'][0]['items'][1]['item_id']==before['payload']['stages'][0]['items'][1]['item_id']
     assert 'Python 数据实践' in payload['stages'][0]['title']
-    assert before['payload']['limitations']==[]
+    assert 'limitations' not in before['payload']
     with get_db() as conn:
         assert dict(conn.execute('SELECT * FROM development_versions WHERE id=?',(base,)).fetchone())==old_row
         assert conn.execute('SELECT confirmed_version_id FROM development_plans WHERE id=?',(pid,)).fetchone()[0]==base
@@ -85,7 +85,7 @@ def test_correction_updates_all_derived_advice_and_preserves_legacy_version(unif
         assert latest['runs'][0]['status']=='ready'
         assert latest['plan']['current_version_id']==current and len(latest['versions'])==2
         assert observed[-1][1]['request']['known_baseline']==BASE
-        assert latest['payload']['limitations']==payload['limitations']
+        assert 'limitations' not in latest['payload']
     # Check the actual outgoing prompt carries the fact-source boundary; live smoke evaluates adherence.
     assert all('事实' in prompt for _,_,prompt in observed)
 

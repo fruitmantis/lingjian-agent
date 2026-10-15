@@ -56,6 +56,8 @@ class MaterialOut(BaseModel):
     processing_error: str | None = None
     preview_error: str | None = None
     processed_at: str | None = None
+    source_state: Literal['pending','processing','ready','empty','failed'] | None = None
+    source_error: str | None = None
 
 
 class DeliverableOut(MaterialOut):

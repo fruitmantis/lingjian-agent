@@ -92,7 +92,7 @@ def test_twelve_item_history_user_plan_separation_and_legacy_limits_inheritance(
     engine.execute(accepted['run_id'])
     before = views.detail(accepted['plan_id'], user)
     base = before['plan']['current_version_id']
-    assert base and before['payload']['limitations'] == []
+    assert base and 'limitations' not in before['payload']
     # Simulate a pre-change payload before the normal immutable Version INSERT;
     # never update a saved Version or disable its database trigger.
     assemble = engine.assemble
@@ -140,7 +140,7 @@ def test_twelve_item_history_user_plan_separation_and_legacy_limits_inheritance(
     assert resources[3]['reference_label'] == '实验2｜Agent实践4'
     explained = views.detail(accepted['plan_id'], user)
     assert explained['plan']['current_version_id'] == base and len(explained['versions']) == 1
-    assert explained['payload']['limitations'] == old['limitations']
+    assert 'limitations' not in explained['payload']
     with get_db() as conn:
         saved = json.loads(conn.execute('SELECT payload_json FROM development_requests WHERE id=?',
                                       (before['plan']['request_id'],)).fetchone()[0])
@@ -162,7 +162,7 @@ def test_twelve_item_history_user_plan_separation_and_legacy_limits_inheritance(
     for index, item in enumerate(previous):
         assert new[index]['item_id'] == item['item_id']
         if index != 3: assert new[index] == item
-    assert after['payload']['limitations'] == old['limitations']
+    assert 'limitations' not in after['payload']
     assert after['payload']['effective_request']['development_direction'] == goal
     assert after['payload']['answer'] == '第一段保持。\n使用进阶实验验证Agent部署。\n末段保持。'
     with get_db() as conn:

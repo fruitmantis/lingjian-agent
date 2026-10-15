@@ -41,7 +41,8 @@ export function PartnerMaterialsManager(){
       .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
   },[query,revision]);
-  useEffect(()=>{if(!data.items.some(e=>e.processing_status==='processing'))return;const timer=setInterval(refresh,2000);return()=>clearInterval(timer);},[data.items,refresh]);
+  const catalogueWorking=data.items.some(entry=>entry.processing_status==='processing');
+  useEffect(()=>{if(!catalogueWorking)return;const timer=setInterval(refresh,2000);return()=>clearInterval(timer);},[catalogueWorking,refresh]);
   function filter(updates:Record<string,string|null>){
     const next=new URLSearchParams(params.toString());next.delete('page');
     for(const [key,value] of Object.entries(updates)){if(value)next.set(key,value);else next.delete(key);}
@@ -65,13 +66,13 @@ export function PartnerMaterialsManager(){
     {!error&&groups.map(g=>{const entries=data.items.filter(e=>g.id==='unclassified'?!e.category_id:g.ids.includes(e.category_id||''));if(!entries.length)return null;return <section key={g.id} className={styles.group} aria-label={g.name}><div className={styles.groupHeading}><h2>{g.name}</h2><span/></div><div className={styles.grid}>{entries.map(entry=><article key={entry.kind+entry.id} className={`ui-catalog-card ${styles.card}`} data-material-id={entry.id}>
       <div className={styles.cardTop}><span className={styles.tag}>{categoryName(entry.category_id)}</span><small>{entry.visible?'已展示':'未展示'}</small></div>
       <h3><button onClick={()=>setSelected(entry)}>{entry.title}</button></h3><p className={styles.partner}>{entry.partner_name}</p>
-      <p className={styles.description}>{entry.description||'暂无简介'}</p><div className={styles.meta}><span>{entry.file_count} 个文件</span><span>{states[entry.processing_status]||entry.processing_status}</span></div>
+      <p className={styles.description}>{entry.description||'暂无简介'}</p><div className={styles.meta}><span>{entry.file_count} 个文件</span><span>{states[entry.processing_status]||entry.processing_status}</span></div>{entry.processing_status==='failed'&&<p role="alert" className="error-text">文件处理失败，请在“查看与管理”中查看原因并重试。</p>}
       <div className={styles.cardBottom}><small>更新于 {new Date(entry.updated_at).toLocaleDateString('zh-CN')}</small><button className="card-entry-link" onClick={()=>setSelected(entry)}><CardEntryLabel>查看与管理</CardEntryLabel></button></div>
     </article>)}</div></section>;})}
     {!loading&&!error&&!data.total&&<section className="card"><p className="placeholder-text">暂无符合条件的资料。</p></section>}
     <Pagination page={page} pageSize={12} total={data.total} disabled={loading||!!error} onPageChange={n=>filter({page:String(n)})} label="伙伴资料分页"/>
     {creating&&<Panel title="新增资料" onClose={()=>setCreating(false)}><MaterialEditor partners={data.partners} partnerId={partnerId} onSaved={entry=>{setCreating(false);setSelected(entry);changed(entry);}}/></Panel>}
-    {selected&&<MaterialDetail key={selected.kind+selected.id} entry={selected} partners={data.partners} onClose={()=>setSelected(null)} onChanged={changed} onVisibilityChange={refresh} onReplaced={entry=>{setSelected(entry);changed(entry);}}/>}
+    {selected&&<MaterialDetail key={selected.kind+selected.id} entry={selected} partners={data.partners} onClose={()=>{setSelected(null);refresh();}} onChanged={changed} onVisibilityChange={refresh} onReplaced={entry=>{setSelected(entry);changed(entry);}}/>}
   </main>;
 }
 function Panel({title,onClose,children}:{title:string;onClose:()=>void;children:React.ReactNode}){

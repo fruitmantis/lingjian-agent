@@ -27,12 +27,27 @@ def changed(conn, partner_id):
     from .profile_sources import sync
     sync(conn,partner_id)
 
-def public_file(row, admin=True):
+def public_file(row, admin=True, *, conn=None):
     result={k:row[k] for k in ('id','filename','file_type','processing_status','processed_at','created_at')}
     if admin:
         result.update({k:row[k] for k in ('processing_error','preview_error')})
     for k in ('partner_id','case_id','doc_category'):
         if k in dict(row): result[k]=row[k]
+    if admin and conn is not None and row['processing_status']=='ready':
+        from .profile_sources import stamp,TABLE
+        from .error_diagnostics import redact
+        native=dict(row)
+        kind=('word' if native.get('doc_category')=='profile_import' else 'document') if 'partner_id' in native else 'attachment'
+        pid=native.get('partner_id') or conn.execute('SELECT partner_id FROM cases WHERE id=?',(native['case_id'],)).fetchone()[0]
+        current={**native,'kind':kind,'partner_id':pid,'text':native.get('extracted_text') or ''}
+        contribution=conn.execute(f'SELECT state,error,source_fingerprint FROM {TABLE} WHERE partner_id=? AND source_kind=? AND source_id=?',(pid,kind,native['id'])).fetchone()
+        if current and contribution and contribution['source_fingerprint']==stamp(current):
+            result['source_state']=contribution['state']
+            result['source_error']=redact(contribution['error']) if contribution['state']=='failed' else None
+        else:
+            # Native text may commit before its background contribution is claimed.
+            result['source_state']='pending'
+            result['source_error']=None
     return result
 
 def get_file(conn, scope, parent_id, file_id):
@@ -175,15 +190,34 @@ def process(scope,file_id,import_profile=False):
         except Exception as exc:
             from .error_diagnostics import record_error
             record_error(exc,stage='document_result_persistence',request_id=file_id)
+            try:
+                with get_db() as conn:
+                    conn.lock_writer()
+                    conn.execute(f"UPDATE {table} SET processing_status='failed',processing_error=?,processed_at=? WHERE id=? AND file_path=?",
+                                 ('处理结果保存失败，请重试。',now(),file_id,row['file_path']))
+            except Exception as failure:
+                record_error(failure,stage='document_failure_persistence',request_id=file_id)
             return
     if fingerprint is not None:process_contribution(partner_id,source_kind,file_id,fingerprint)
 
 def process_contribution(partner_id,kind,file_id,fingerprint,*,retry=False):
     from .profile_sources import process_source
     try:process_source(partner_id,kind,file_id,fingerprint,retry=retry)
-    except Exception:
-        # Contribution errors persist separately; native text/preview remain usable.
-        logger.warning('Source contribution failed for material %s',file_id)
+    except Exception as exc:
+        from .error_diagnostics import record_error
+        from .profile_sources import source,stamp,TABLE
+        record_error(exc,stage='profile_contribution_background',request_id=file_id)
+        if getattr(exc,'_profile_failure_saved',False) or getattr(exc.__cause__,'_profile_failure_saved',False):return
+        # A failed result transaction must not leave this source claimed forever.
+        # Completed/newer source versions and other files are never overwritten.
+        try:
+            with get_db() as conn:
+                conn.lock_writer();current=source(conn,partner_id,kind,file_id)
+                if current and stamp(current)==fingerprint:
+                    conn.execute(f"UPDATE {TABLE} SET state='failed',error=?,updated_at=? WHERE partner_id=? AND source_kind=? AND source_id=? AND source_fingerprint=? AND state IN ('pending','processing')",
+                                 ('资料提炼或结果保存失败，请重试。',now(),partner_id,kind,file_id,fingerprint))
+        except Exception as failure:
+            record_error(failure,stage='profile_contribution_failure_persistence',request_id=file_id)
 
 def retry(scope,parent_id,file_id,tasks):
     table,_=TABLES[scope]
@@ -202,6 +236,8 @@ def retry(scope,parent_id,file_id,tasks):
         if row['processing_status']=='ready' and not row['preview_error']:
             # An explicit contribution retry reuses this file's committed native cache.
             fingerprint=stamp(current)
+            from .profile_sources import put
+            put(conn,current,'pending')
             tasks.add_task(process_contribution,partner_id,source_kind,file_id,fingerprint,retry=True)
             return {'processing_status':'processing'}
         changed(conn,partner_id)

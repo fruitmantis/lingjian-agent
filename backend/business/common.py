@@ -29,6 +29,5 @@ def historical_match_answer(text,format_version):
     return ''.join(parts)
 
 def historical_development_payload(payload):
-    if payload.get('format_version')!=2 and 'limitations' in payload:
-        payload['limitations']=[item for item in payload['limitations'] if item not in DEVELOPMENT_LEGACY_TEMPLATES]
+    payload.pop('limitations',None)  # Read projection only, including existing Version 2 payloads.
     return payload

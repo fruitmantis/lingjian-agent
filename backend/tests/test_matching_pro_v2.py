@@ -199,7 +199,7 @@ def test_heating_zero_recall_is_unknown_without_detailed_model(setup,monkeypatch
 
 def test_prompt_delegates_semantics_without_specialist_whitelist():
     prompt=matching.detail_messages('{}')[0]['content']
-    assert all(x in prompt for x in ['末尾条件','明示','合作方本身','对应资料','短source编号数组','analysisRefs'])
+    assert all(x in prompt for x in ['末尾条件','明示','每家拟承担的服务','对应资料','短source编号数组','analysisRefs'])
     assert not any(x in prompt for x in ['Oracle','GaussDB','EDA','PCB','DDoS','药物研发'])
     assert not any(hasattr(matching,name) for name in
                    ['core_anchors','related_to_core','planning_context','project_wording','requires_case_history','evidence_reason'])

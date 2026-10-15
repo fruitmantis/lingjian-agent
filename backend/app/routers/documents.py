@@ -15,7 +15,7 @@ def partner_exists(partner_id):
 def list_documents(partner_id: str):
     partner_exists(partner_id)
     with get_db() as conn:
-        return [files.public_file(r) for r in conn.execute('SELECT * FROM partner_documents WHERE partner_id=? ORDER BY created_at DESC',(partner_id,))]
+        return [files.public_file(r,conn=conn) for r in conn.execute('SELECT * FROM partner_documents WHERE partner_id=? ORDER BY created_at DESC',(partner_id,))]
 
 @router.post('/{partner_id}/documents',response_model=PartnerDocumentOut,status_code=201)
 async def upload_document(partner_id: str,background_tasks: BackgroundTasks,file: UploadFile=File(...),initialize_profile: bool=Form(False)):

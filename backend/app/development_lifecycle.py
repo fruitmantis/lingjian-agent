@@ -234,6 +234,7 @@ def finish_failure(run_id,token,stage,status='failed',error=None):
 
 def save_version(conn,plan,base,payload,dependencies,actor,run_id=None):
     if plan['current_version_id']!=base:fail(409,'版本冲突：较早请求不能覆盖新版本')
+    payload.pop('limitations',None)  # Retired field; historical Version rows remain untouched.
     for item in (i for stage in payload['stages'] for i in stage['items']):item.setdefault('item_id',uid())
     version_id=uid();number=conn.execute('SELECT COALESCE(MAX(version_no),0)+1 FROM development_versions WHERE plan_id=?',(plan['id'],)).fetchone()[0]
     conn.execute('INSERT INTO development_versions VALUES (?,?,?,?,?,?,?,?,?)',(version_id,plan['id'],number,base,run_id,dump(payload),dump(dependencies),actor,now()))

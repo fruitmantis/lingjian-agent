@@ -134,7 +134,7 @@ def test_n06_prompt_uses_real_omissions_and_keeps_structured_evidence():
     prompt = matching.detail_messages("{}")[0]["content"]
     assert '不凑数量' in prompt and '必要事项' in prompt
     assert all(word in prompt for word in ('实际主体','集团关系','日期','否定','规划','范围'))
-    assert '不补通用免责段' in prompt and '明示' in prompt and '合作方本身' in prompt
+    assert '不补通用免责段' in prompt and '明示' in prompt and '每家拟承担的服务' in prompt
     assert '规划及无关对象不列正式推荐' in prompt
     assert '短source编号数组' in prompt and 'analysisRefs' in prompt
     assert 'inputCoverage' not in prompt and 'omissions' not in prompt

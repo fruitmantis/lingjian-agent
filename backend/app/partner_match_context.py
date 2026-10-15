@@ -130,7 +130,7 @@ def _source_layout(value):
     dates = [i for i,(_,_,text) in enumerate(lines)
              if re.fullmatch(r'\d{4}\s*(?:[-/]\s*\d{1,2}\s*[-/]\s*\d{1,2}|年\s*\d{1,2}\s*[月⽉]\s*\d{1,2}\s*[日⽇])(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?',text.strip())]
     publication = [i for i,(_,_,text) in enumerate(lines)
-                   if re.search(r'信息来源\s*[:：].*信息提供[日⽇]期\s*[:：]\s*\d{4}-\d{1,2}-\d{1,2}',text)]
+                   if re.search(r'(?:信息来源\s*[:：].*信息提供[日⽇]期|发布(?:时间|[日⽇]期))\s*[:：]\s*\d{4}-\d{1,2}-\d{1,2}',text)]
     if not dates and not publication:
         return 0,len(value),[]  # Unrecognized layout is retained, never cleaned.
     first = min(dates+publication)

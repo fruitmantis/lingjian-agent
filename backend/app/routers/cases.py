@@ -75,7 +75,7 @@ def visibility(case_id: str,payload: Visibility,actor=Depends(require_admin)):
 def list_deliverables(case_id: str,user=Depends(require_active_user)):
     with get_db() as conn:
         visible_case(conn,case_id,user['role']=='admin')
-        return [files.public_file(r,user['role']=='admin') for r in conn.execute('SELECT * FROM deliverables WHERE case_id=? ORDER BY created_at DESC',(case_id,))]
+        return [files.public_file(r,user['role']=='admin',conn=conn) for r in conn.execute('SELECT * FROM deliverables WHERE case_id=? ORDER BY created_at DESC',(case_id,))]
 
 @router.post('/{case_id}/deliverables',response_model=DeliverableOut,status_code=201)
 async def upload_deliverable(case_id: str,background_tasks: BackgroundTasks,file: UploadFile=File(...),actor=Depends(require_admin)):

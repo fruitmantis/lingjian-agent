@@ -38,6 +38,27 @@ WITH attachment_stats AS (
 )
 """
 
+def _processing_status(conn, entry):
+    # Project only files belonging to this returned page entry. The existing
+    # file projection checks the current native fingerprint before using a contribution.
+    if entry['kind']=='case':
+        native=conn.execute('SELECT * FROM deliverables WHERE case_id=?',(entry['id'],))
+    else:
+        native=conn.execute('SELECT * FROM partner_documents WHERE id=? AND partner_id=?',(entry['id'],entry['partner_id']))
+    states=[]
+    for row in native:
+        file=files.public_file(row,conn=conn)
+        state=file['processing_status']
+        if state=='processing' or file.get('source_state') in ('pending','processing'):
+            state='processing'
+        elif state=='failed' or file.get('preview_error') or file.get('source_state')=='failed':
+            state='failed'
+        elif state=='empty' or file.get('source_state')=='empty':
+            state='empty'
+        states.append(state)
+    return next((state for state in ('processing','failed','empty') if state in states), 'ready' if states else 'no_files')
+
+
 @router.get('')
 def catalogue(partner_id: str | None = None, category_group: str | None = None,
               category_id: str | None = None, q: str = Query('', max_length=200),
@@ -66,7 +87,9 @@ def catalogue(partner_id: str | None = None, category_group: str | None = None,
         if partner_id and not any(p['id']==partner_id for p in partners): raise HTTPException(404,'伙伴不存在')
         total=conn.execute(CATALOGUE+'SELECT COUNT(*) FROM materials'+clause, args).fetchone()[0]
         rows=conn.execute(CATALOGUE+'SELECT * FROM materials'+clause+" ORDER BY CASE WHEN category_id ILIKE 'marketing-%' THEN 0 WHEN category_id ILIKE 'delivery-%' THEN 1 WHEN category_id ILIKE 'technical-%' THEN 2 ELSE 3 END, updated_at DESC,id LIMIT ? OFFSET ?", [*args,page_size,(page-1)*page_size]).fetchall()
-    return {'items':[{**dict(r),'visible':bool(r['visible']),'profile_needs_update':bool(r['profile_needs_update'])} for r in rows], 'total':total,'partners':partners}
+        items=[{**dict(r),'visible':bool(r['visible']),'profile_needs_update':bool(r['profile_needs_update']),
+                'processing_status':_processing_status(conn,r)} for r in rows]
+    return {'items':items,'total':total,'partners':partners}
 
 @router.put('/documents/{document_id}/classify', response_model=CaseOut)
 def classify_document(document_id: str, payload: CaseCreate, background_tasks: BackgroundTasks, actor=Depends(require_admin)):

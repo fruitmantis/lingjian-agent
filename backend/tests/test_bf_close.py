@@ -101,7 +101,11 @@ def test_original_bq22_recorded_pair_reaches_saved_version(prepared, evidence, m
     assert '尚不会Python' not in active and '没有API集成经验' not in active and '先补Python' not in active
     assert after['request']['known_baseline'] == responses[0]['effective_baseline']
     assert after['request']['development_direction'] == before['request']['development_direction']
-    assert after['payload']['limitations'] == original['limitations']  # Legacy read contract unchanged.
+    assert 'limitations' not in after['payload']
+    with get_db() as conn:
+        assert conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(base,)).fetchone()[0] == version['payload_json']
+        saved_payload=json.loads(conn.execute('SELECT payload_json FROM development_versions WHERE id=?',(after['plan']['current_version_id'],)).fetchone()[0])
+        assert 'limitations' not in saved_payload
     with get_db() as conn:
         deps = json.loads(conn.execute('SELECT dependency_json FROM development_versions WHERE id=?',
             (after['plan']['current_version_id'],)).fetchone()[0])
