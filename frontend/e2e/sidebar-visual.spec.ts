@@ -1,15 +1,17 @@
 import {test,expect} from '@playwright/test';
-import {mkdir} from 'node:fs/promises';
 
-for(const width of [1366,1920])test(`task history typography and status hierarchy ${width}`,async({page})=>{
+for(const width of [1366,1920])test(`task history typography and status hierarchy ${width}`,async({page},info)=>{
   await page.setViewportSize({width,height:width===1366?768:1080});
   await page.addInitScript(()=>localStorage.setItem('banfei:user:token','synthetic-browser-only'));
   const presentation={state:'available',current_version:1,current_available:true,latest_run_status:'failed',latest_run_type:'revise'};
   const records=Array.from({length:10},(_,index)=>({id:`history-${index}`,requirement:index===1?'合成伙伴 · Agent 应用交付':`华北某医院数据库迁移项目伙伴需求 ${index}`,createdAt:new Date(Date.UTC(2026,8,8-index,10)).toISOString(),taskStatus:index===1?'failed':index===2?'partial':'ready',task_type:index===1?'development_plan':'partner_match',planPresentation:index===1?presentation:null,archivedAt:null,recommendations:[],opportunity:null}));
   let writes=0;const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.route(/https?:\/\/(127\.0\.0\.1|localhost):8000\//,route=>{
+  await page.route('**/*',route=>{
+    const url=new URL(route.request().url());
+    if(!url.pathname.startsWith('/api/')&&url.port!=='8000')return route.continue();
     if(route.request().method()!=='GET'){writes++;return route.abort();}
-    const p=new URL(route.request().url()).pathname;
+    const p=url.pathname.replace(/^\/api/,'');
+    if(p==='/health')return route.fulfill({json:{status:'ok'}});
     if(p==='/auth/me')return route.fulfill({json:{id:'visual-user',username:'visual-user',role:'user',status:'active',must_change_password:false}});
     if(p==='/agent/tasks')return route.fulfill({json:{items:records,total:records.length,page:1,pageSize:10,totalPages:1}});
     if(p.startsWith('/agent/tasks/'))return route.fulfill({json:records.find(x=>x.id===p.split('/').pop())});
@@ -34,8 +36,7 @@ for(const width of [1366,1920])test(`task history typography and status hierarch
   await expect(list.locator('[data-task-id="history-2"]')).toContainText('部分完成');
   expect(await list.evaluate(e=>e.scrollHeight>e.clientHeight)).toBeTruthy();
   await page.mouse.move(width-10,10);await page.evaluate(()=>document.fonts.ready);
-  await mkdir('/tmp/sidebar-refinement',{recursive:true});
-  await page.screenshot({path:`/tmp/sidebar-refinement/history-${width}.png`,fullPage:true});
+  await page.screenshot({path:info.outputPath(`history-${width}.png`),fullPage:true});
   const quiet=await list.evaluate(e=>getComputedStyle(e).scrollbarColor);
   await list.hover();expect(await list.evaluate(e=>getComputedStyle(e).scrollbarColor)).not.toBe(quiet);
   presentation.latest_run_status='interrupted';

@@ -53,7 +53,7 @@ for(const screen of [{name:'desktop',width:1440,height:1000},{name:'narrow',widt
   for(let i=0;i<positiveTask.recommendations.length;i++){
    const item=positiveTask.recommendations[i],card=cards.nth(i),content=compact(await card.innerText());
    await expect(card.getByRole('heading',{name:item.partnerName,exact:true})).toBeVisible();
-   await expect(card.getByRole('link',{name:'查看伙伴',exact:true})).toHaveAttribute('href','/partners/'+item.partnerId);
+   await expect(card.getByRole('link',{name:'查看伙伴',exact:true})).toHaveAttribute('href','/partners/'+item.partnerId+(variant==='after'?'?returnTo='+encodeURIComponent('/tasks/'+positiveTask.id+'#recommendation-'+item.partnerId):''));
    expect(content).toContain(compact('匹配分 '+item.matchScore));
    for(const key of ['matchedCapabilities','matchedIndustries','matchedRegions','recommendationReason','evidenceCases','evidenceDeliverables','riskNotes']){
     const value=item[key];if(value&&!['未核实','未提供可核实的支撑案例','未提供可核实的支撑交付物'].includes(value))expect(content).toContain(compact(value));

@@ -105,6 +105,7 @@ function TaskDetail({id}:{id:string}) {
   const loadVersion = useRef(0);
   const pollBusy = useRef(false);
   const formOpportunityId = useRef<string | null>(null);
+  const restoredRecommendation = useRef("");
 
   async function load(quiet = false) {
     const version = ++loadVersion.current;
@@ -136,6 +137,17 @@ function TaskDetail({id}:{id:string}) {
     }, 3000);
     return () => clearInterval(timer);
   }, [id, task?.taskStatus, retrying]);
+
+  useEffect(() => {
+    if (!task || task.task_type === "development_plan") return;
+    const anchor = window.location.hash.slice(1);
+    if (!anchor || restoredRecommendation.current === anchor || !task.recommendations.some(item => anchor === `recommendation-${item.partnerId}`)) return;
+    const target = document.getElementById(anchor);
+    if (target) {
+      target.scrollIntoView({ block: "start", behavior: "auto" });
+      restoredRecommendation.current = anchor;
+    }
+  }, [task]);
 
   async function saveOpportunity(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError(null);
@@ -181,7 +193,7 @@ function TaskDetail({id}:{id:string}) {
       {task.answer&&<TaskResult id={id} className={`card task-answer ${recommendationStyles.answer}`}><h2>推荐说明</h2><AdvisorAnswer text={task.answer}/></TaskResult>}
       {!task.scopeMessage&&<TaskResult id={id} className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">{task.taskStatus==="ready"||task.taskStatus==="partial"?"本次暂无正式推荐，请参考上方分析说明。":"暂未生成推荐结果。"}</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
         <TaskResult as="article" id={id} className={`recommendation-item ${recommendationStyles.recommendation}`} key={item.partnerId}>
-          <div className={`recommendation-title ${recommendationStyles.title}`}><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><CardEntry href={`/partners/${item.partnerId}`}>查看伙伴</CardEntry></div>
+          <div id={`recommendation-${item.partnerId}`} className={`recommendation-title ${recommendationStyles.title}`}><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>匹配分 {item.matchScore}</span></div><CardEntry href={`/partners/${item.partnerId}?returnTo=${encodeURIComponent(`${pathname}#recommendation-${item.partnerId}`)}`}>查看伙伴</CardEntry></div>
           <dl className={recommendationStyles.summary}>{Object.entries({"匹配能力":item.matchedCapabilities,"行业经验":item.matchedIndustries,"覆盖区域":item.matchedRegions}).filter(([,value])=>value&&value!=="未核实").map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
           {item.recommendationReason&&item.recommendationReason!=="未核实"&&<section className={recommendationStyles.section}><h4>推荐理由</h4><div className={recommendationStyles.prose}><AdvisorProse text={item.recommendationReason}/></div></section>}
           {!![item.evidenceCases,item.evidenceDeliverables].some(value=>value&&!["未核实","未提供可核实的支撑案例","未提供可核实的支撑交付物"].includes(value))&&<div className={recommendationStyles.evidence}>{Object.entries({"支撑案例":item.evidenceCases,"支撑交付物":item.evidenceDeliverables}).filter(([,value])=>value&&!["未核实","未提供可核实的支撑案例","未提供可核实的支撑交付物"].includes(value)).map(([label,value])=><section className={recommendationStyles.section} key={label}><h4>{label}</h4><div className={recommendationStyles.prose}><AdvisorProse text={value}/></div></section>)}</div>}
