@@ -14,14 +14,14 @@ for(const width of [1366,1920])test(`Unified task modes, source links and shared
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const dir=path.resolve(`${evidenceRoot}/unified-entry`);await mkdir(dir,{recursive:true});
  async function shot(name:string){await page.evaluate(()=>window.scrollTo(0,0));await page.addStyleTag({content:'nextjs-portal{display:none}'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();const nav=page.locator('aside').getByRole('link',{name:'资源中心',exact:true});await expect(nav).toBeInViewport();await page.screenshot({path:path.join(dir,`${name}-${width}.png`),fullPage:true});}
- async function development(){await expect(page.getByRole('heading',{name:'开启新任务',exact:true})).toBeVisible();await expect(page.getByRole('tablist',{name:'任务模式',exact:true}).getByRole('tab',{name:'伙伴发展',exact:true})).toHaveAttribute('aria-selected','true');expect(new URL(page.url()).pathname).toBe('/');await expect(page.locator('main')).not.toContainText('伙伴服务能力发展中心');}
+ async function development(){await expect(page.getByRole('heading',{name:'开启新任务',exact:true})).toBeVisible();await expect(page.getByRole('tablist',{name:'任务模式',exact:true}).getByRole('tab',{name:'促发展',exact:true})).toHaveAttribute('aria-selected','true');expect(new URL(page.url()).pathname).toBe('/');await expect(page.locator('main')).not.toContainText('伙伴服务能力发展中心');}
  await page.goto('/');
  const nav=page.locator('aside');await expect(nav.getByText('伙伴服务能力发展中心',{exact:true})).toHaveCount(0);
  await expect(nav.getByRole('link',{name:'场景广场',exact:true})).toBeVisible();
  const links=(await nav.locator('a').allTextContents()).map(text=>text.trim());expect(links.indexOf('场景广场')).toBeLessThan(links.indexOf('伙伴画像'));expect(links.indexOf('伙伴画像')).toBeLessThan(links.indexOf('资源中心'));
- await expect(page.getByRole('tab',{name:'伙伴匹配',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('tab',{name:'找伙伴',exact:true})).toHaveAttribute('aria-selected','true');
  await expect(page.getByRole('button',{name:'开始',exact:true})).toBeVisible();await shot('01-project-match');
- await page.getByRole('tablist',{name:'任务模式',exact:true}).getByRole('tab',{name:'伙伴发展',exact:true}).click();await development();
+ await page.getByRole('tablist',{name:'任务模式',exact:true}).getByRole('tab',{name:'促发展',exact:true}).click();await development();
  await selectPartner(page, 'partner-1');await page.getByText('当前伙伴画像摘要',{exact:true}).click();await expect(page.locator('.profile-preview')).toHaveText('仅用于自动化验证');await expect(page.getByText('具备制造知识库实施能力',{exact:true})).toHaveCount(0);
  await page.getByLabel('发展方向',{exact:true}).fill('希望形成企业级 Agent 应用交付能力');
  for(const name of ['人数','周期','预算','环境','人工差距确认'])await expect(page.locator('main').getByLabel(name,{exact:true})).toHaveCount(0);
@@ -54,10 +54,10 @@ test('Switching mode during matching acknowledgement preserves explicit intent',
  await page.goto('/');await page.locator('#requirement').fill('统一入口切换验证项目');
  const pending=page.waitForResponse(r=>r.url()===API+'/agent/tasks'&&r.request().method()==='POST');
  await page.getByRole('button',{name:'开始',exact:true}).click();
- await page.getByRole('tablist',{name:'任务模式'}).getByRole('tab',{name:'伙伴发展',exact:true}).click();
+ await page.getByRole('tablist',{name:'任务模式'}).getByRole('tab',{name:'促发展',exact:true}).click();
  const response=await pending;expect(response.status()).toBe(202);const {recordId}=await response.json();
  await expect(page.locator(`.sidebar-task-list a[href="/tasks/${recordId}"]`)).toBeVisible();
- await expect(page.getByRole('tablist',{name:'任务模式'}).getByRole('tab',{name:'伙伴发展',exact:true})).toHaveAttribute('aria-selected','true');
+ await expect(page.getByRole('tablist',{name:'任务模式'}).getByRole('tab',{name:'促发展',exact:true})).toHaveAttribute('aria-selected','true');
  expect(new URL(page.url()).searchParams.get('mode')).toBe('development');
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();await page.locator('#requirement').fill('另一个项目');await expect(page.getByRole('button',{name:'开始',exact:true})).toBeEnabled();
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await page.locator('#requirement').fill('另一个项目');await expect(page.getByRole('button',{name:'开始',exact:true})).toBeEnabled();
 });

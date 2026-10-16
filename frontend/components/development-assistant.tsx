@@ -1,4 +1,5 @@
 "use client";
+import composerStyles from "./task-composer.module.css";
 import {useComposerShortcuts,COMPOSER_KEY_HINT} from "../lib/composer-shortcuts";
 import {useAgent,AgentBadge} from "./agent-settings";
 import {TaskProgress,type TaskProgressData} from "./task-progress";
@@ -90,7 +91,7 @@ export function DevelopmentRequestForm({partnerId,sourceTask=null,sourceCase=nul
   }finally{inFlight.current=false;setBusy(false);}
  }
 
- return <section ref={form} className="card development-form" data-task-composer><label className="enablement-field">描述当前情况和发展需求<textarea {...composerKeys(onDirectionChange,()=>void submit(),agent.enabled&&!busy&&!pending&&error!==serviceFailure)} ref={inputRef} aria-label="发展方向" disabled={busy||!!pending} rows={5} maxLength={4000} value={direction} onChange={e=>onDirectionChange(e.target.value)} placeholder="例如：目前有基本的上云迁移能力，希望向 AI Agent 开发方向发展，请推荐适合的课程和实验。"/></label><p className="muted" data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p>{error&&<FailureNotice message={error} partial={false}>{pending&&<button className="secondary-btn" disabled={busy} onClick={()=>void check()}>刷新查看</button>}</FailureNotice>}<div className="development-form-actions"><button disabled={!agent.enabled||busy||!!pending||error===serviceFailure} onClick={()=>void submit()}>{busy?"提交中":error==="本次建议未生成，请重试。"?"重试":"开始"}</button></div></section>;
+ return <section ref={form} className="card development-form" data-task-composer><label className={`enablement-field ${composerStyles.field}`}>描述当前情况和发展需求<textarea {...composerKeys(onDirectionChange,()=>void submit(),agent.enabled&&!busy&&!pending&&error!==serviceFailure)} ref={inputRef} aria-label="发展方向" disabled={busy||!!pending} rows={5} maxLength={2000} value={direction} onChange={e=>onDirectionChange(e.target.value)} placeholder="例如：目前有基本的上云迁移能力，希望向 AI Agent 开发方向发展，请推荐适合的课程和实验。"/></label>{error&&<FailureNotice message={error} partial={false}>{pending&&<button className="secondary-btn" disabled={busy} onClick={()=>void check()}>刷新查看</button>}</FailureNotice>}<div className={composerStyles.actions}><div className={composerStyles.actionRow}><span className={`assistant-counter ${composerStyles.counter}`}>{direction.length}/2000</span><button className={composerStyles.submit} disabled={!agent.enabled||busy||!!pending||error===serviceFailure||!direction.trim()} onClick={()=>void submit()}>{busy?<span className="assistant-loading-dot"/>:<UiIcon name="send" size={18}/>}<span>{busy?"提交中":error==="本次建议未生成，请重试。"?"重试":"开始"}</span></button></div><p className={`muted ${composerStyles.hint}`} data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p></div></section>;
 }
 
 export function DevelopmentPlanDetail({id}:{id:string}){

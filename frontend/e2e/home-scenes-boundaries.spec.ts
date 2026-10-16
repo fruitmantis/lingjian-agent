@@ -60,8 +60,8 @@ for(const kind of ['match','development'] as const)test(`${kind}: untouched plac
 test('source IDs survive template and mode changes into the submitted development request',async({page})=>{
  const f=await fixture(page,'development',{url:'/?mode=development&partner_id=partner-1&task_id=source-task&case_id=source-case&case_version=2'});
  await starter(page,'为项目补能力').click();await input(page,'development').fill('保留来源的自由方向');
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();await input(page,'match').fill('保留匹配草稿');
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();await expect(input(page,'development')).toHaveValue('保留来源的自由方向');
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await input(page,'match').fill('保留匹配草稿');
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();await expect(input(page,'development')).toHaveValue('保留来源的自由方向');
  await submit(page,'development').click();await expect(page).toHaveURL(/\/tasks\//);
  expect(f.posts[0].body.request).toMatchObject({target_partner_id:'partner-1',development_direction:'保留来源的自由方向',source_task_id:'source-task',source_case_id:'source-case',source_case_version:2});
  expect(f.errors).toEqual([]);
@@ -69,7 +69,7 @@ test('source IDs survive template and mode changes into the submitted developmen
 
 test('320px keyboard traversal can select a scene and select partner without pointer input',async({page},info)=>{
  await page.setViewportSize({width:320,height:568});const f=await fixture(page,'match');
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).focus();
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).focus();
  let reached=false;for(let i=0;i<18;i++){await page.keyboard.press('Tab');if(await starter(page,'伙伴发展建议').evaluate(el=>document.activeElement===el)){reached=true;break;}}
  expect(reached).toBe(true);await page.keyboard.press('Enter');await expect(input(page,'development')).toBeFocused();
  const combo=page.getByRole('combobox',{name:'关联已有伙伴资料（可选）'});await combo.focus();await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');
@@ -83,9 +83,9 @@ test('320px keyboard traversal can select a scene and select partner without poi
 test('development rejected acknowledgement while away must restore the preserved draft on return',async({page},info)=>{
  const f=await fixture(page,'development',{reject:true,slow:true});await input(page,'development').fill('不能丢失的可重试草稿');
  await submit(page,'development').click();await expect.poll(()=>f.posts.length).toBe(1);
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();
  const response=page.waitForResponse(r=>r.request().method()==='POST');f.ack.release();await response;
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();await expect(input(page,'development')).toHaveValue('不能丢失的可重试草稿');
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();await expect(input(page,'development')).toHaveValue('不能丢失的可重试草稿');
  const refresh=page.getByRole('button',{name:'刷新查看',exact:true});
  if(await refresh.isVisible()){const checked=page.waitForResponse(r=>r.url().includes('/development/submissions/'));await refresh.click();expect((await checked).status()).toBe(404);}
  await page.screenshot({path:info.outputPath('returned-after-rejected-create.png'),fullPage:true});
@@ -95,7 +95,7 @@ test('development rejected acknowledgement while away must restore the preserved
 test('match mode round trip while acknowledgement is pending must not create the same draft twice',async({page},info)=>{
  const f=await fixture(page,'match',{slow:true});await input(page,'match').fill('同一轮匹配提交，不能重复创建');
  await submit(page,'match').click();await expect.poll(()=>f.posts.length).toBe(1);
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();await page.getByRole('tab',{name:'找伙伴',exact:true}).click();
  if(await submit(page,'match').isEnabled()){await submit(page,'match').click();await page.waitForTimeout(200);}
  await info.attach('creation-count',{body:JSON.stringify({count:f.posts.length,distinctIds:new Set(f.posts.map(p=>p.body.requestId)).size}),contentType:'application/json'});
  await page.screenshot({path:info.outputPath('duplicate-after-mode-roundtrip.png'),fullPage:true});f.ack.release();
@@ -118,7 +118,7 @@ test('same-mode cancel preserves selection content; new task clears both indepen
  page.once('dialog',d=>d.dismiss());await starter(page,'按能力找伙伴').click();await expect(input(page,'match')).toHaveValue('匹配保留文本');
  await starter(page,'伙伴发展建议').click();await input(page,'development').fill('发展保留文本');
  await page.getByRole('link',{name:'开启新任务',exact:true}).click();
- await expect(input(page,'match')).toHaveValue('');await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();await expect(input(page,'development')).toHaveValue('');
+ await expect(input(page,'match')).toHaveValue('');await page.getByRole('tab',{name:'促发展',exact:true}).click();await expect(input(page,'development')).toHaveValue('');
  expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
 });
 
@@ -127,28 +127,28 @@ test('development rejection arriving after return releases only the original sub
  const f=await fixture(page,'development',{reject:true,slow:true});
  await input(page,'development').fill('回到页面后仍可恢复的原草稿');await submit(page,'development').click();
  await expect.poll(()=>f.posts.length).toBe(1);
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();await input(page,'match').fill('另一模式的独立草稿');
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();await expect(input(page,'development')).toBeDisabled();
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await input(page,'match').fill('另一模式的独立草稿');
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();await expect(input(page,'development')).toBeDisabled();
  f.ack.release();await expect(input(page,'development')).toBeEditable();
  await expect(input(page,'development')).toHaveValue('回到页面后仍可恢复的原草稿');
  expect(await page.evaluate(()=>Object.keys(sessionStorage).filter(k=>k.startsWith('development:pending-create:')))).toEqual([]);
  await page.getByRole('button',{name:'重试',exact:true}).click();await expect.poll(()=>f.posts.length).toBe(2);
  expect(f.posts[1].body.submission_id).not.toBe(f.posts[0].body.submission_id);
  await expect(input(page,'development')).toBeEditable();
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();await expect(input(page,'match')).toHaveValue('另一模式的独立草稿');expect(f.errors).toEqual([]);
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await expect(input(page,'match')).toHaveValue('另一模式的独立草稿');expect(f.errors).toEqual([]);
 });
 
 test('a pending match blocks its own draft while allowing a different draft and the other mode',async({page})=>{
  const f=await fixture(page,'match',{slow:true});await input(page,'match').fill('第一个在途匹配草稿');await submit(page,'match').click();
  await expect.poll(()=>f.posts.length).toBe(1);
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();
  const combo=page.getByRole('combobox',{name:'关联已有伙伴资料（可选）'});await combo.click();await page.getByRole('option',{name:'合成伙伴一',exact:true}).click();await expect(combo).toHaveAttribute('data-partner-id','partner-1');
  await input(page,'development').fill('独立的发展方向');await submit(page,'development').click();await expect.poll(()=>f.posts.length).toBe(2);
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();await expect(submit(page,'match')).toBeDisabled();
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await expect(submit(page,'match')).toBeDisabled();
  await expect(input(page,'match')).toBeEditable();await input(page,'match').fill('不同的第二个匹配草稿');await expect(submit(page,'match')).toBeEnabled();
  await submit(page,'match').click();await expect.poll(()=>f.posts.length).toBe(3);
  expect(new Set(f.posts.filter(p=>p.path==='/agent/tasks').map(p=>p.body.requestId)).size).toBe(2);
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();f.ack.release();
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();f.ack.release();
  await expect(input(page,'development')).toBeEditable();await expect(input(page,'development')).toHaveValue('独立的发展方向');
  await expect.poll(()=>page.locator('.sidebar-task-item[href^="/tasks/"]').count()).toBe(4);
  await expect.poll(()=>{const url=new URL(page.url());return {path:url.pathname,mode:url.searchParams.get('mode')};}).toEqual({path:'/',mode:'development'});expect(f.errors).toEqual([]);

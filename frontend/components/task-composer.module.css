@@ -1,0 +1,68 @@
+/* Shared entry controls for matching and development; submission behavior stays in each form. */
+:global(.unified-task-page) .matching {
+  display: block;
+  padding: 24px;
+}
+.field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: var(--font-weight-body);
+  line-height: 20px;
+}
+.actions {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-default);
+}
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: 0;
+}
+.counter {
+  margin-right: auto;
+}
+.actionRow .submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  width: 104px;
+  height: 44px;
+  margin: 0;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--brand-primary);
+  color: white;
+  font-size: 14px;
+  font-weight: var(--font-weight-body);
+  line-height: 20px;
+  white-space: nowrap;
+}
+.actionRow .submit:hover:not(:disabled) {
+  background: var(--brand-primary-hover);
+}
+.actionRow .submit:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.actions .hint {
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Keep the development placeholder at the existing matching placeholder gray. */
+.field:global(.enablement-field) textarea::placeholder {
+  color: #a3a3a3;
+}

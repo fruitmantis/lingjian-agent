@@ -23,9 +23,9 @@ for(const [width,height] of [[1366,768],[1920,1080],[390,844]])test(`representat
     await page.screenshot({path:path.join(directory,`${name}-${width}.png`),fullPage:true,mask:[page.locator('.identity-key-value'),page.locator('[data-testid="identity-key"]')]});
     await page.screenshot({path:path.join(directory,`${name}-${width}-viewport.png`),mask:[page.locator('.identity-key-value')]});
   }
-  await page.goto('/');await expect(page.getByRole('tab',{name:'伙伴匹配',exact:true})).toHaveAttribute('aria-selected','true');
+  await page.goto('/');await expect(page.getByRole('tab',{name:'找伙伴',exact:true})).toHaveAttribute('aria-selected','true');
   await page.locator('#requirement').fill(match.requirement);await capture('01-new-match');
-  await page.getByRole('tablist',{name:'任务模式',exact:true}).getByRole('tab',{name:'伙伴发展',exact:true}).click();await selectPartner(page, partner.id);
+  await page.getByRole('tablist',{name:'任务模式',exact:true}).getByRole('tab',{name:'促发展',exact:true}).click();await selectPartner(page, partner.id);
   await expect(page.getByText('当前伙伴画像摘要',{exact:true})).toBeVisible();
   await page.getByLabel('发展方向',{exact:true}).fill(plan.request.development_direction);await capture('02-new-development');
   await page.goto('/tasks/coze-plan');await expect(page.getByTestId('advisor-main-answer')).toContainText('先完成小范围验证');await capture('03-development-detail');

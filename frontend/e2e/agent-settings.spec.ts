@@ -46,13 +46,13 @@ test('fixed agents save independently and keep existing entry and task ownership
  const evidence=process.env.AGENT_EVIDENCE_DIR;if(evidence)mkdirSync(evidence,{recursive:true});
  if(evidence)await page.screenshot({path:`${evidence}/admin-agents.png`,fullPage:true});
  await page.goto('/');
- await expect(page.getByRole('tab',{name:'项目伙伴顾问',exact:true})).toBeVisible();
+ await expect(page.getByRole('tab',{name:'找伙伴',exact:true})).toBeVisible();
  await expect(page.locator('.home-scene-buttons button')).toHaveCount(6);
  await page.locator('#requirement').fill('合成项目需求');
  await expect(page.locator('#match-panel').getByRole('button',{name:'开始',exact:true})).toBeDisabled();
  await expect(page.getByText('该智能体已停用，历史任务仍可查看。',{exact:true})).toBeVisible();
  if(evidence)await page.screenshot({path:`${evidence}/disabled-match-entry.png`,fullPage:true});
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();
  await page.getByRole('textbox',{name:'发展方向',exact:true}).fill('合成发展需求');
  await expect(page.locator('#development-panel').getByRole('button',{name:'开始',exact:true})).toBeEnabled();
  if(evidence)await page.screenshot({path:`${evidence}/development-entry.png`,fullPage:true});

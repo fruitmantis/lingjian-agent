@@ -1,0 +1,35 @@
+:global(.match-detail) .answer :global(.advisor-answer .advisor-answer-body) {
+  max-width:76ch;
+  min-width:0;
+}
+:global(.match-detail) .answer :global(.advisor-answer .advisor-answer-body p) {
+  line-height:1.95;
+  margin:0 0 20px;
+}
+:global(.match-detail) .answer :global(.advisor-answer .advisor-answer-body > p:first-child) {
+  font-weight:var(--font-weight-heading);
+}
+:global(.match-detail) .answer :global(.advisor-answer .advisor-answer-body > :last-child) {
+  margin-bottom:0;
+}
+.recommendation { min-width:0; overflow-wrap:anywhere; }
+.title > div { min-width:0; }
+.title h3 { overflow-wrap:anywhere; }
+.summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px 24px; margin:0; }
+.summary > div { min-width:0; }
+.summary dt { color:var(--text-secondary); font-size:13px; line-height:1.6; }
+.summary dd { margin:6px 0 0; font-size:15px; line-height:1.85; white-space:pre-line; }
+.section { min-width:0; padding-top:20px; margin-top:20px; border-top:1px solid var(--border-default); }
+.section h4 { margin:0 0 10px; font-size:15px; line-height:1.6; color:var(--text-primary); font-weight:var(--font-weight-heading); }
+.evidence { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 24px; }
+:global(.match-detail) .prose :global(.advisor-answer-body) { max-width:none; min-width:0; }
+:global(.match-detail) .prose :global(.advisor-answer-body p) { margin:0 0 12px; white-space:pre-line; font-size:16px; line-height:1.85; overflow-wrap:anywhere; }
+:global(.match-detail) .prose :global(.advisor-answer-body > :last-child) { margin-bottom:0; }
+:global(.match-detail) .prose :global(.advisor-answer-body :is(h3,h4)) { margin:16px 0 8px; font-size:14px; line-height:1.7; font-weight:var(--font-weight-heading); }
+:global(.match-detail) .prose :global(.advisor-answer-body :is(ul,ol)) { margin:0 0 12px; padding-left:22px; }
+:global(.match-detail) .prose :global(.advisor-answer-body li) { margin:6px 0; font-size:16px; line-height:1.85; }
+@media (max-width:640px) {
+  .summary,.evidence { grid-template-columns:1fr; gap:14px; }
+  .section { padding-top:18px; margin-top:18px; }
+  .evidence { gap:0; }
+}

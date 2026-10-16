@@ -1,4 +1,5 @@
 "use client";
+import composerStyles from "@/components/task-composer.module.css";
 import {useAgent} from "@/components/agent-settings";
 import {useComposerShortcuts,COMPOSER_KEY_HINT} from "@/lib/composer-shortcuts";
 
@@ -55,12 +56,13 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
   return <div hidden={!active} role="tabpanel" id="match-panel" aria-labelledby="match-tab">
     <section className="assistant-hero"><p className="assistant-subtitle">{agent.description}</p>
       {!agent.enabled&&<p className="notice-neutral" role="status">该智能体已停用，历史任务仍可查看。</p>}
-        <form onSubmit={handleMatch} className="assistant-composer" data-task-composer>
-          <label htmlFor="requirement" className="sr-only">输入项目需求</label>
+        <form onSubmit={handleMatch} className={`assistant-composer ${composerStyles.matching}`} data-task-composer>
+          <label htmlFor="requirement" className={composerStyles.field}>描述项目背景和伙伴需求
           <textarea
             ref={requirementInput}
             {...composerKeys(setRequirement,()=>void handleMatchDirect(requirement),agent.enabled&&!loading&&!sameDraftPending&&!!requirement.trim())}
             id="requirement"
+            aria-label="输入项目需求"
             value={requirement}
             onChange={(event) => setRequirement(event.target.value)}
             required
@@ -69,12 +71,15 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
             maxLength={2000}
             placeholder="例如：寻找有金融行业数据库迁移经验、能够完成实施交付的伙伴…"
           />
-          <p className="muted" data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p>
-          <div className="assistant-composer-footer">
-            <span className="assistant-counter">{requirement.length}/2000</span>
-            <button type="submit" disabled={!agent.enabled || loading || sameDraftPending || !requirement.trim()} className="assistant-submit" aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
-              {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={18} />}<span>{loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}</span>
-            </button>
+          </label>
+          <div className={composerStyles.actions}>
+            <div className={composerStyles.actionRow}>
+              <span className={`assistant-counter ${composerStyles.counter}`}>{requirement.length}/2000</span>
+              <button type="submit" disabled={!agent.enabled || loading || sameDraftPending || !requirement.trim()} className={composerStyles.submit} aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
+                {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={18} />}<span>{loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}</span>
+              </button>
+            </div>
+            <p className={`muted ${composerStyles.hint}`} data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p>
           </div>
         </form>
     </section>{error&&<p className="error-text assistant-error">{error}</p>}
@@ -126,8 +131,8 @@ export default function HomePage() {
   return <div className={`page assistant-page unified-task-page${development?" development-task-page":""}`}>
     <header className="unified-task-heading"><div className="assistant-title"><h1>开启新任务</h1></div>
       <nav className="enablement-tabs task-mode-tabs" role="tablist" aria-label="任务模式">
-        <button type="button" id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" onClick={()=>selectMode("match")} className={!development?"active":""}><UiIcon name={matchAgent.icon} size={18}/>{matchAgent.name}</button>
-        <button type="button" id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" onClick={()=>selectMode("development")} className={development?"active":""}><UiIcon name={developmentAgent.icon} size={18}/>{developmentAgent.name}</button>
+        <button type="button" id="match-tab" role="tab" aria-selected={!development} aria-controls="match-panel" onClick={()=>selectMode("match")} className={!development?"active":""}><UiIcon name={matchAgent.icon} size={18}/>找伙伴</button>
+        <button type="button" id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" onClick={()=>selectMode("development")} className={development?"active":""}><UiIcon name={developmentAgent.icon} size={18}/>促发展</button>
       </nav>
     </header>
     <ProjectMatchTask active={!development} requirement={drafts.match} setRequirement={changeMatch} inputRef={matchInput} onBusyChange={matchBusy}/>

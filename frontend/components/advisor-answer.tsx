@@ -15,7 +15,7 @@ function item(line: string) {
   return line.match(/^(?:([-*+])|([0-9]+)[.)])\s+(.+)$/);
 }
 
-export function AdvisorAnswer({ text }: { text: string }) {
+export function AdvisorProse({ text }: { text: string }) {
   const lines = text.replace(/\r\n?/g, "\n").split("\n").map(line => line.trim());
   const blocks: ReactNode[] = [];
   for (let i = 0; i < lines.length;) {
@@ -41,8 +41,12 @@ export function AdvisorAnswer({ text }: { text: string }) {
     while (i < lines.length && lines[i] && !heading(lines[i]) && !item(lines[i])) paragraph.push(lines[i++]);
     blocks.push(<p key={start}>{inline(paragraph.join("\n"))}</p>);
   }
+  return <div className="advisor-answer-body">{blocks}</div>;
+}
+
+export function AdvisorAnswer({ text }: { text: string }) {
   return <div className="advisor-answer" data-testid="advisor-answer">
     <p className="advisor-answer-label">伴飞</p>
-    <div className="advisor-answer-body">{blocks}</div>
+    <AdvisorProse text={text}/>
   </div>;
 }

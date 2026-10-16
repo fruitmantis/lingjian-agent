@@ -62,5 +62,5 @@ test('UI tests do not require a model: login, navigation and resource browsing',
   await page.getByRole('link', {name:'资源中心', exact:true}).click();
   await expect(page.getByRole('heading', {name:'资源中心', exact:true})).toBeVisible();
   await page.getByRole('link', {name:'开启新任务', exact:true}).click();
-  await expect(page.getByRole('tablist', {name:'任务模式'}).getByRole('tab', {name:'伙伴发展', exact:true})).toBeVisible();
+  await expect(page.getByRole('tablist', {name:'任务模式'}).getByRole('tab', {name:'促发展', exact:true})).toBeVisible();
 });

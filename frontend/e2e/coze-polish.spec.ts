@@ -62,7 +62,7 @@ for (const [width, height] of [[1366,768], [1920,1080], [390,844]]) {
         if(phase==='after')expect(actual.some(f=>!f.isCustomFont),`${name}: actual system font`).toBeTruthy();
       }
     }
-    await page.goto('/'); await expect(page.getByRole('tab',{name:'伙伴匹配',exact:true})).toHaveAttribute('aria-selected','true');
+    await page.goto('/'); await expect(page.getByRole('tab',{name:'找伙伴',exact:true})).toHaveAttribute('aria-selected','true');
     await page.locator('#requirement').fill(match.requirement); await capture('01-home','.assistant-composer');
     await page.goto('/?mode=development'); await selectPartner(page, partner.id);
     await expect(page.getByText('当前伙伴画像摘要',{exact:true})).toBeVisible();

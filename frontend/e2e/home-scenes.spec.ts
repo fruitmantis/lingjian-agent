@@ -61,13 +61,13 @@ test('modified drafts require confirmation; cancel preserves both mode and text'
  const f=await setup(page);
  await starter(page,'AI项目找伙伴').click();await page.locator('#requirement').fill('我的匹配草稿');
  await starter(page,'伙伴发展建议').click();await direction(page).fill('我的发展草稿');
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();await expect(page.locator('#requirement')).toHaveValue('我的匹配草稿');
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await expect(page.locator('#requirement')).toHaveValue('我的匹配草稿');
  page.once('dialog',async dialog=>{expect(dialog.message()).toBe('已有未提交内容，要替换成这个场景模板吗？');await dialog.dismiss();});
- await starter(page,'能力短板分析').click();await expect(page.getByRole('tab',{name:'伙伴匹配',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('#requirement')).toHaveValue('我的匹配草稿');
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();await expect(direction(page)).toHaveValue('我的发展草稿');
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();
+ await starter(page,'能力短板分析').click();await expect(page.getByRole('tab',{name:'找伙伴',exact:true})).toHaveAttribute('aria-selected','true');await expect(page.locator('#requirement')).toHaveValue('我的匹配草稿');
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();await expect(direction(page)).toHaveValue('我的发展草稿');
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();
  page.once('dialog',dialog=>dialog.accept());await starter(page,'能力短板分析').click();await expect(direction(page)).toHaveValue(scenes[4].text);
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();await expect(page.locator('#requirement')).toHaveValue('我的匹配草稿');
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await expect(page.locator('#requirement')).toHaveValue('我的匹配草稿');
  expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
 });
 
@@ -76,7 +76,7 @@ test('unchanged templates replace directly; partner and source context survive m
  let dialogs=0;page.on('dialog',async dialog=>{dialogs++;await dialog.dismiss();});
  await starter(page,'伙伴发展建议').click();await starter(page,'能力短板分析').click();await expect(direction(page)).toHaveValue(scenes[4].text);
  await starter(page,'按行业找伙伴').click();await expect(page.locator('#requirement')).toHaveValue(scenes[1].text);
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();await expect(direction(page)).toHaveValue(scenes[4].text);
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();await expect(direction(page)).toHaveValue(scenes[4].text);
  const params=new URL(page.url()).searchParams;for(const [key,value] of Object.entries({partner_id:'partner-1',task_id:'source-task',case_id:'source-case',case_version:'2'}))expect(params.get(key)).toBe(value);
  await expect(page.getByRole('combobox',{name:'关联已有伙伴资料（可选）'})).toHaveAttribute('data-partner-id','partner-1');await expect(page.getByTestId('source-context')).toContainText('已有项目来源');
  expect(dialogs).toBe(0);expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
@@ -121,13 +121,13 @@ for(const width of [1366,390])test(`six compact starters use keyboard and fit ${
  await page.screenshot({path:info.outputPath(`home-scenes-${width}.png`),fullPage:true});
  await starter(page,'伙伴发展建议').focus();await page.keyboard.press('Space');await expect(direction(page)).toBeFocused();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- const actions=page.locator('.development-form-actions'),start=actions.getByRole('button',{name:'开始',exact:true});
- await expect(start).toHaveText('开始');await expect(actions.locator('p')).toHaveCount(0);
+ const hint=page.locator('.development-form').getByTestId('composer-shortcut-hint'),actions=hint.locator('..'),start=actions.getByRole('button',{name:'开始',exact:true});
+ await expect(start).toHaveText('开始');await expect(hint).toHaveText('Enter 提交；Alt+Enter / Ctrl+Enter 换行');
  const footer=await actions.evaluate(el=>{
-  const box=el.getBoundingClientRect(),button=el.querySelector('button')!.getBoundingClientRect();
-  return {rightGap:Math.abs(box.right-button.right),height:box.height,buttonHeight:button.height};
+  const box=el.getBoundingClientRect(),button=el.querySelector('button')!.getBoundingClientRect(),hint=el.querySelector('[data-testid="composer-shortcut-hint"]')!.getBoundingClientRect();
+  return {rightGap:Math.abs(box.right-button.right),hintGap:hint.top-button.bottom,contained:button.top>=box.top&&hint.bottom<=box.bottom+1};
  });
- expect(footer.rightGap).toBeLessThanOrEqual(1);expect(footer.height-footer.buttonHeight).toBeLessThanOrEqual(18);
+ expect(footer.rightGap).toBeLessThanOrEqual(1);expect(footer.hintGap).toBeGreaterThanOrEqual(7);expect(footer.contained).toBe(true);
  expect(await page.locator('.development-form').evaluate(el=>Array.from(el.querySelectorAll('[aria-describedby]')).flatMap(node=>(node.getAttribute('aria-describedby')||'').split(/\s+/).filter(id=>id&&!document.getElementById(id))))).toEqual([]);
  await page.screenshot({path:info.outputPath(`development-scenes-${width}.png`),fullPage:true});expect(f.posts).toHaveLength(0);expect(f.errors).toEqual([]);
 });
@@ -140,8 +140,8 @@ for(const kind of ['clear','replace'] as const)test(`changing linked partner ${k
  await expect(direction(page)).toHaveValue('自述基础和目标，必须保留');
  for(const key of ['task_id','case_id','case_version'])expect(new URL(page.url()).searchParams.has(key)).toBe(false);
  await expect(page.getByTestId('source-context')).toHaveCount(0);
- await page.getByRole('tab',{name:'伙伴匹配',exact:true}).click();await page.locator('#requirement').fill('独立匹配草稿');
- await page.getByRole('tab',{name:'伙伴发展',exact:true}).click();await expect(direction(page)).toHaveValue('自述基础和目标，必须保留');
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await page.locator('#requirement').fill('独立匹配草稿');
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();await expect(direction(page)).toHaveValue('自述基础和目标，必须保留');
  await page.getByRole('button',{name:'开始',exact:true}).click();await expect(page).toHaveURL(/\/tasks\//);
  expect(f.posts[0].body.request).toMatchObject({target_partner_id:kind==='clear'?null:'partner-2',source_task_id:null,source_case_id:null,source_case_version:null});
  expect(f.errors).toEqual([]);
@@ -151,7 +151,8 @@ for(const width of [1366,1920,390])test('phase2 visual: compact composer and ret
  await page.setViewportSize({width,height:width===1920?1080:844});
  const f=await setup(page);
  const composer=await page.locator('.assistant-composer').boundingBox();
- expect(composer!.height).toBeGreaterThanOrEqual(150);expect(composer!.height).toBeLessThanOrEqual(220);
+ expect(composer!.height).toBeGreaterThanOrEqual(150);
+ const complete=await page.locator('.assistant-composer').evaluate(el=>{const box=el.getBoundingClientRect();return Array.from(el.querySelectorAll('label,textarea,button,[data-testid="composer-shortcut-hint"]')).every(node=>{const rect=node.getBoundingClientRect();return rect.top>=box.top&&rect.bottom<=box.bottom+1;});});expect(complete).toBe(true);
  const last=await starter(page,'为项目补能力').boundingBox();expect(last!.y+last!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
  await starter(page,'AI项目找伙伴').click();await expect(page.locator('#requirement')).toHaveValue(scenes[0].text);
  expect((await page.getByRole('button',{name:'开始',exact:true}).boundingBox())!.y).toBeLessThan(page.viewportSize()!.height);
