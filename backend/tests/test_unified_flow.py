@@ -189,7 +189,7 @@ def test_match_two_calls_shared_facts_local_recall_and_no_rule_fallback(unified,
     detail=match.get_match_record(result.recordId,unified[0][0])
     assert result.taskStatus=='ready' and detail.opportunity['customerName']=='合成客户'
     assert detail.demandProfile['supplyStatus']=='unknown'
-    assert detail.answer=='本次暂无正式推荐。\n\n资料不足，需要补充交付证据。'
+    assert detail.answer=='本次暂无推荐伙伴。\n\n资料不足，需要补充交付证据。'
     assert detail.demandProfile['gapAnalysis']=='资料不足，需要补充交付证据。'
     def broken(*args,**kwargs):raise RuntimeError('synthetic model failure')
     with pytest.raises(TypeError):match._generate_demand_profile(result.recordId,'合成需求',[],life.now())
@@ -219,4 +219,4 @@ def test_match_retry_reuses_successful_facts_after_generation_failure(unified,mo
     assert calls==['MatchUnderstanding','MatchAnswer','MatchAnswer']
     detail=match.get_match_record(task,unified[0][0])
     assert detail.demandProfile['supplyStatus']=='unknown'
-    assert detail.answer=='本次暂无正式推荐。\n\n待补充交付证据'
+    assert detail.answer=='本次暂无推荐伙伴。\n\n待补充交付证据'

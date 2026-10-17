@@ -74,11 +74,11 @@ export function OpportunityDetails({opportunity: o}: {opportunity: Opportunity})
     ["businessNeeds", "业务需求"], ["technicalNeeds", "技术需求"], ["deliveryNeeds", "交付需求"],
     ["qualificationRequirements", "资质要求"], ["caseRequirements", "案例要求"], ["onsiteRequirement", "驻场要求"],
     ["timelineRequirement", "时间要求"], ["cloudPlatformPreference", "云平台偏好"],
-    ["matchedCapabilityTags", "匹配能力"], ["unmatchedCapabilitySignals", "能力缺口"], ["recommendedPartnerNames", "推荐伙伴"],
+    ["matchedCapabilityTags", "相关能力"], ["unmatchedCapabilitySignals", "能力缺口"], ["recommendedPartnerNames", "推荐伙伴"],
   ];
   const followups = questions(o.followUpQuestions);
   return <section className={styles.detail} id={`opportunity-${o.id}`} aria-label="项目详情">
-    <header><h3>{text(o.projectName)}</h3>{o.matchRecordId && <a href={`/tasks/${encodeURIComponent(o.matchRecordId)}`}>查看原始匹配任务 →</a>}</header>
+    <header><h3>{text(o.projectName)}</h3>{o.matchRecordId && <a href={`/tasks/${encodeURIComponent(o.matchRecordId)}`}>查看来源推荐任务 →</a>}</header>
     <div className={styles.requirement}><h4>原始项目需求</h4><p>{text(o.requirementText)}</p></div>
     <dl className={styles.detailGrid}>{fields.map(([key, label]) => <div key={key}><dt>{label}</dt><dd>{text(o[key])}</dd></div>)}</dl>
     {followups.length > 0 && <div className={styles.questions}><h4>待补充信息</h4><ul>{followups.map((item, i) => <li key={i}>{item}</li>)}</ul></div>}

@@ -26,7 +26,7 @@ for(const width of [1366,1920])test(`task history typography and status hierarch
   await expect(selected.locator('em')).toHaveCSS('font-weight','400');
   await expect(selected).toHaveCSS('border-radius','8px');
   await expect(selected).toHaveCSS('box-shadow','none');
-  await expect(selected).toContainText('资源匹配');
+  await expect(selected).toContainText('伙伴推荐');
   await expect(selected).toHaveAttribute('title',records[0].requirement);
   await expect(plan.getByTestId('plan-primary')).toHaveText('已生成');
   await expect(plan).not.toContainText(/草稿|确认|采用/);

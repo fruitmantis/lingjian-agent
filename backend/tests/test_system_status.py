@@ -78,7 +78,7 @@ def test_business_status_uses_fallback_when_scene_preference_is_missing(client):
     data = client.get("/admin/system/status", headers=auth_headers(admin)).json()
     states = {item["name"]: item for item in data["businessCapabilities"]}
     assert states["伙伴画像生成"]["status"] == "unknown"
-    assert states["智能匹配"]["status"] == "unknown"
+    assert states["伙伴推荐"]["status"] == "unknown"
     assert data["overallStatus"] == "unknown"
 
 

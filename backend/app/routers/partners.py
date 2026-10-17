@@ -203,9 +203,9 @@ def delete_partner(partner_id: str, actor: dict = Depends(require_admin)) -> Non
                 counts["matching_tasks"] += 1
         labels = {
             "cases": "案例", "deliverables": "交付物", "documents": "资料",
-            "matching_tasks": "项目匹配历史", "development_plans": "能力发展方案",
+            "matching_tasks": "伙伴推荐历史", "development_plans": "能力发展方案",
             "development_requests": "能力发展请求",
-            "unverifiable_matching_tasks": "无法核验关联的匹配历史",
+            "unverifiable_matching_tasks": "无法核验关联的推荐历史",
         }
         if any(counts.values()):
             summary = "、".join(f"{labels[key]} {value} 条" for key, value in counts.items() if value)

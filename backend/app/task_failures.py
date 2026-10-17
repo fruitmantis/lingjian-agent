@@ -7,7 +7,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from .model_resolver import ModelConfigurationError
 from .ai_client import ModelResponseError
 
-STAGES={'understanding':'需求理解','tag_suggestion':'标签建议','partner_match':'伙伴匹配','partner_data':'伙伴数据读取','demand_profile':'需求画像','project_opportunity':'项目机会','recommendation_data':'推荐结果','persistence':'结果保存','interrupted':'执行中断','configuration':'模型配置','analysis':'方向分析','retrieval':'资源检索','generation':'建议生成','run_timeout':'执行时限'}
+STAGES={'understanding':'需求理解','tag_suggestion':'标签建议','partner_match':'伙伴推荐','partner_data':'伙伴数据读取','demand_profile':'需求画像','project_opportunity':'项目机会','recommendation_data':'推荐结果','persistence':'结果保存','interrupted':'执行中断','configuration':'模型配置','analysis':'方向分析','retrieval':'资源检索','generation':'建议生成','run_timeout':'执行时限'}
 LEGACY_REASONS={
  'timeout':('模型响应超时，本次处理未完成','稍后重试'),
  'rate_limit':('模型服务当前繁忙或请求受限','稍后重试'),
@@ -19,7 +19,7 @@ LEGACY_REASONS={
  'persistence':('处理结果未能成功保存','稍后重试；持续失败请联系管理员'),
  'interrupted':('本次处理已中断','重试'),
  'run_timeout':('本次处理超过执行时限，已中断','重试'),
- 'input_budget':('匹配资料超出模型输入预算，任务已保留；请联系管理员核查资料后重试','联系管理员'),
+ 'input_budget':('伙伴资料超出模型输入预算，任务已保留；请联系管理员核查资料后重试','联系管理员'),
  'unknown':('具体原因未记录','重试或联系管理员'),
 }
 GENERAL_FAILURE='本次处理失败，请重试。'

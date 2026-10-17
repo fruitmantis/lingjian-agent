@@ -157,11 +157,11 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
     <main className="page">
       <p className="eyebrow">{subTab === "profiles" ? "Demand Profiles" : subTab === "report" ? "Operations Report" : "Project Opportunities"}</p>
       <h1>{subTab === "profiles" ? "需求画像" : subTab === "report" ? "运营报表" : "项目机会库"}</h1>
-      <p className="lead">{subTab === "profiles" ? "基于历史项目需求和智能匹配记录，分析需求趋势、能力热度与伙伴供给缺口。" : subTab === "report" ? "洞察一线项目需求趋势，识别伙伴能力供给缺口。" : "沉淀和管理 AI 从项目需求中抽取出的结构化项目信息。"}</p>
+      <p className="lead">{subTab === "profiles" ? "基于历史项目需求和伙伴推荐记录，分析需求趋势、能力热度与伙伴供给缺口。" : subTab === "report" ? "洞察一线项目需求趋势，识别伙伴能力供给缺口。" : "沉淀和管理 AI 从项目需求中抽取出的结构化项目信息。"}</p>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void loadData()}>重试</button></div>}
 
       {subTab === "profiles" && !error && data && data.profiles.length === 0 && (
-        <section className="card"><p className="placeholder-text" style={{ marginTop: "12px" }}>暂无需求画像，请先在 Agent 工作台完成一次智能匹配。</p></section>
+        <section className="card"><p className="placeholder-text" style={{ marginTop: "12px" }}>暂无需求画像，请先在 Agent 工作台生成一次伙伴推荐。</p></section>
       )}
 
       {subTab === "profiles" && !error && data && data.profiles.length > 0 && (
@@ -313,7 +313,7 @@ export function AdminDemandPanel({ tab: subTab }: { tab: "profiles" | "report" |
             <button className="secondary-btn" onClick={() => {setOppKeyword(""); setOppIndustry(""); setOppRegion(""); setOppStage(""); setOppPage(1);}}>重置</button>
           </div>
           {oppError && <p className="error-text">{oppError}</p>}
-          {oppLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : opps.length === 0 ? <div style={{ textAlign: "center", padding: "40px 20px" }}><p style={{ fontSize: "15px", color: "var(--muted)", marginBottom: "16px" }}>暂无项目机会。</p><p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "20px" }}>项目机会信息由 Agent 工作台智能匹配后自动抽取生成。</p><a href="/" className="btn-primary-lg" style={{ display: "inline-block", fontSize: "14px", padding: "10px 28px", textDecoration: "none" }}>前往智能匹配</a></div> : (
+          {oppLoading ? <p style={{ marginTop: "12px" }}>加载中...</p> : opps.length === 0 ? <div style={{ textAlign: "center", padding: "40px 20px" }}><p style={{ fontSize: "15px", color: "var(--muted)", marginBottom: "16px" }}>暂无项目机会。</p><p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "20px" }}>项目机会信息由 Agent 工作台生成伙伴推荐后自动抽取生成。</p><a href="/" className="btn-primary-lg" style={{ display: "inline-block", fontSize: "14px", padding: "10px 28px", textDecoration: "none" }}>前往找伙伴</a></div> : (
             <div className="table-wrap"><table className={`data-table ${oppStyles.table}`} style={{ marginTop: "12px" }}>
               <colgroup>{[24,14,12,10,10,8,13,9].map((width,i) => <col key={i} style={{width:`${width}%`}} />)}</colgroup>
               <thead><tr style={{ borderBottom: "1px solid var(--line)" }}>

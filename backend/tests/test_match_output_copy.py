@@ -67,7 +67,7 @@ def test_missing_or_invalid_results_have_no_default_disclaimer_or_unvalidated_su
         recs=match._validated_recommendations(items,[partner],{partner['id']:[]},{partner['id']:[]})
     result=match._validated_outcome(recs,{'answer':'未校验的模型答复。','recommendations':items,
         'supplyStatus':'sufficient','gapAnalysis':'未校验的引用结论。' if items else '', 'analysisRefs':[],'_analysis_shape_valid':mode=='empty'},False,rows)
-    assert result['recommendations']==[] and result['answer']=='本次暂无正式推荐。'
+    assert result['recommendations']==[] and result['answer']=='本次暂无推荐伙伴。'
     assert result['gapAnalysis']=='' and result['supplyStatus']==('sufficient' if mode=='empty' else 'unknown')
     assert result['analysisComplete'] is (mode=='empty')
 
@@ -80,10 +80,10 @@ def test_actual_prompt_and_gap_contract_use_direct_facts_and_keep_explicit_condi
     payload=completion_payload(model_config_from_record(CONFIG),messages,MatchAnswer.model_json_schema())
     prompt=payload['messages'][0]['content'];data=json.loads(payload['messages'][1]['content'])
     assert data['requirement']==requirement and data['facts']['onsiteRequirement']=='必须本地部署'
-    assert '必备和排除条件' in prompt and '实际主体' in prompt
-    assert '主体、集团关系、日期、否定、规划及范围' in prompt
+    assert '明确必备条件、资格和排除条件' in prompt and '实际主体' in prompt
+    assert '实际主体、集团关系、日期与业务性质' in prompt and '保留真实否定、规划及范围' in prompt
     assert '直接陈述事实与建议' in prompt and '不补通用免责段' in prompt
-    assert 'riskNotes仅写必要事项' in prompt and 'gapAnalysis说明整体分工' in prompt
+    assert 'riskNotes只写与该对象相关的必要事项' in prompt and 'gapAnalysis说明整体分工' in prompt
     assert 'analysisRefs列这段分析实际使用的伙伴及引用' in prompt
     parsed=MatchAnswer.model_validate({'recommendations':[],'supplyStatus':'unknown','analysisRefs':[]})
     assert 'answer' not in MatchAnswer.model_json_schema()['properties']
@@ -114,6 +114,6 @@ def test_detail_prompt_keeps_group_subject_and_card_field_responsibilities():
     prompt=matching.detail_messages('')[0]['content']
     assert '主体、集团关系' in prompt and '实际主体' in prompt
     assert 'recommendationReason说明伙伴事实和建议角色' in prompt
-    assert 'riskNotes仅写必要事项' in prompt and 'gapAnalysis说明整体分工' in prompt
+    assert 'riskNotes只写与该对象相关的必要事项' in prompt and 'gapAnalysis说明整体分工' in prompt
     assert 'profileEvidence只选该伙伴已发送的短source编号数组' in prompt
     assert '程序还原原文' in prompt

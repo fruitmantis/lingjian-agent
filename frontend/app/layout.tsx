@@ -7,7 +7,7 @@ import "./globals.css";
 import "./ui-system.css";
 import "./coze-workspace.css";
 
-export const metadata: Metadata = { title: "伴飞 Agent", description: "伙伴能力发展与项目匹配智能助手" };
+export const metadata: Metadata = { title: "伴飞 Agent", description: "伙伴能力发展与伙伴推荐智能助手" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

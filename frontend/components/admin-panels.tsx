@@ -372,6 +372,13 @@ export function CapabilityTagsTab() {
 
 // ============ System Status Tab ============
 export function SystemStatusTab() {
+  const moduleName=(name:string)=>name==="智能匹配"?"伙伴推荐":name;
+  function impactText(value:string){
+    if(value==="可能影响智能匹配")return "可能影响伙伴推荐";
+    if(value==="可能影响伙伴资料、标签配置、匹配历史读取")return "可能影响伙伴资料、标签配置、推荐历史读取";
+    if(value==="可能影响 AI 画像生成、智能匹配和需求画像生成")return "可能影响 AI 画像生成、伙伴推荐和需求画像生成";
+    return value;
+  }
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -406,7 +413,7 @@ export function SystemStatusTab() {
           {items.map((item, i) => (
             <div key={i} className="ui-status-row">
               <div>
-                <span style={{ fontSize: "14px", fontWeight: 400 }}>{item.name}</span>
+                <span style={{ fontSize: "14px", fontWeight: 400 }}>{title==="业务能力"?moduleName(item.name):item.name}</span>
                 <span style={{ fontSize: "13px", color: "var(--muted)", marginLeft: "8px" }}>{item.message}</span>
                 {item.detail && <p className="muted" style={{ margin: "4px 0 0", fontSize: "13px" }}>{item.detail}</p>}
               </div>
@@ -424,7 +431,7 @@ export function SystemStatusTab() {
 
   const overallMap: Record<string, { label: string; color: string }> = {
     normal: { label: "本次检查未发现异常", color: "var(--success)" },
-    partial: { label: `系统部分异常：${data.summary.abnormalModules.slice(0, 3).map((m: any) => m.module).join("、")}${data.summary.abnormalModules.length > 3 ? `等 ${data.summary.abnormalModules.length} 项` : ""}`, color: "#e8a317" },
+    partial: { label: `系统部分异常：${data.summary.abnormalModules.slice(0, 3).map((m: any) => moduleName(m.module)).join("、")}${data.summary.abnormalModules.length > 3 ? `等 ${data.summary.abnormalModules.length} 项` : ""}`, color: "#e8a317" },
     error: { label: "系统异常", color: "var(--danger)" },
     unknown: { label: "部分运行状态尚未验证", color: "var(--muted)" },
   };
@@ -456,11 +463,11 @@ export function SystemStatusTab() {
             {data.summary.abnormalModules.map((m: any, i: number) => (
               <div key={i} className="ui-status-issue">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "14px", fontWeight: 400, color: "#991b1b" }}>{m.module}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 400, color: "#991b1b" }}>{moduleName(m.module)}</span>
                   {statusBadge(m.status)}
                 </div>
                 <div style={{ fontSize: "13px", color: "#666" }}><strong>异常:</strong> {m.message}</div>
-                <div style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}><strong>影响范围:</strong> {m.impact}</div>
+                <div style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}><strong>影响范围:</strong> {impactText(m.impact)}</div>
                 <div style={{ fontSize: "13px", color: "#666", marginTop: "4px" }}><strong>处理建议:</strong> {m.suggestion}</div>
               </div>
             ))}
@@ -645,7 +652,7 @@ export default function AdminPage() {
     <main className="page">
       <p className="eyebrow">Administration</p><h1>后台概览</h1><p className="lead">查看平台用户、伙伴、任务和运营待办。</p>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={loadData}>重试</button></div>}
-      <section className="admin-metric-grid">{cards.map(([label, key]) => <div className="card admin-metric-card" key={key}><span>{label}</span><strong>{data ? data[key] ?? 0 : "--"}</strong>{data && (key === "tasks" || key === "monthTasks") && <small className="muted">资源匹配 {data[key === "tasks" ? "partnerMatchTasks" : "monthPartnerMatchTasks"] ?? 0} · 能力发展 {data[key === "tasks" ? "developmentTasks" : "monthDevelopmentTasks"] ?? 0}</small>}</div>)}</section>
+      <section className="admin-metric-grid">{cards.map(([label, key]) => <div className="card admin-metric-card" key={key}><span>{label}</span><strong>{data ? data[key] ?? 0 : "--"}</strong>{data && (key === "tasks" || key === "monthTasks") && <small className="muted">伙伴推荐 {data[key === "tasks" ? "partnerMatchTasks" : "monthPartnerMatchTasks"] ?? 0} · 能力发展 {data[key === "tasks" ? "developmentTasks" : "monthDevelopmentTasks"] ?? 0}</small>}</div>)}</section>
       <section className="card"><h2>管理重点</h2><div className="admin-shortcuts"><a href="/admin/users">管理用户</a><a href="/admin/partners">完善伙伴资料</a><a href="/admin/tasks">查看全量任务</a><a href="/admin/tags">处理标签建议</a></div></section>
     </main>
   );

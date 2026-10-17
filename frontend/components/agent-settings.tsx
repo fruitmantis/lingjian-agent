@@ -7,13 +7,17 @@ import {UiIcon,type IconName} from "./ui-icons";
 export type AgentId="partner_match"|"partner_development";
 type PublicAgent={id:AgentId;name:string;description:string;icon:IconName;enabled:boolean};
 const defaults:Record<AgentId,PublicAgent>={
- partner_match:{id:"partner_match",name:"伙伴匹配",description:"结合项目需求和已有伙伴资料，寻找合适的交付伙伴。",icon:"users",enabled:true},
+ partner_match:{id:"partner_match",name:"伙伴推荐",description:"结合项目需求和已有伙伴资料，寻找合适的交付伙伴。",icon:"users",enabled:true},
  partner_development:{id:"partner_development",name:"伙伴发展",description:"围绕发展目标，提供能力建议与合适的课程、实验资源。",icon:"trend",enabled:true},
 };
+function displayedAgentName(id:AgentId,name:string){
+  return id==="partner_match"&&name==="伙伴匹配"?"伙伴推荐":name;
+}
 export function useAgent(id:AgentId){
  const [agents,setAgents]=useState<PublicAgent[]>([]);
  useEffect(()=>{let active=true;apiFetch("/agents",{cache:"no-store"}).then(async r=>{if(r.ok&&active)setAgents(await r.json());}).catch(()=>{});return()=>{active=false;};},[]);
- return agents.find(a=>a.id===id)||defaults[id];
+ const agent=agents.find(a=>a.id===id)||defaults[id];
+ return {...agent,name:displayedAgentName(id,agent.name)};
 }
 export function AgentBadge({id}:{id:AgentId}){
  const agent=useAgent(id);
@@ -27,8 +31,9 @@ type Model={id:string;name:string;modelName:string;enabled:boolean};
 const icons:IconName[]=["users","trend","search","puzzle","building","toolbox","spark"];
 
 function AgentEditor({id,initial,models,onSaved}:{id:AgentId|"processing";initial:AgentOptions|ModelOptions;models:Model[];onSaved:(settings:Settings)=>void}){
- const [draft,setDraft]=useState(initial),[saving,setSaving]=useState(false),[message,setMessage]=useState("");
- useEffect(()=>setDraft(initial),[initial]);
+ const visible=(value:AgentOptions|ModelOptions)=>id==="partner_match"?{...value,name:displayedAgentName(id,(value as AgentOptions).name)}:value;
+ const [draft,setDraft]=useState(()=>visible(initial)),[saving,setSaving]=useState(false),[message,setMessage]=useState("");
+ useEffect(()=>setDraft(visible(initial)),[initial,id]);
  const agent=id!=="processing"?draft as AgentOptions:null;
  function update(values:Partial<AgentOptions>){setMessage("");setDraft(old=>({...old,...values}));}
  async function save(){

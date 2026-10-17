@@ -157,3 +157,37 @@ def test_recovery_uses_accepted_timeout_not_new_settings(prepared,monkeypatch):
     assert recover_stale_tasks(record_id=matching.recordId)==0
     life.recover(plan_id=development['plan_id'])
     with get_db() as conn:assert conn.execute('SELECT status FROM development_runs WHERE id=?',(development['run_id'],)).fetchone()[0]=='pending'
+
+
+@pytest.mark.parametrize('name',['伙伴匹配','行业匹配顾问','伙伴发展经理','智能匹配','资源匹配','伙伴推荐'])
+def test_recommendation_name_read_projection_preserves_stored_settings_and_execution(client,name):
+    with get_db() as conn:
+        raw=settings.migrate(conn)
+        raw['agents']['partner_match']['name']=name
+        raw['agents']['partner_match']['description']='原始描述：伙伴匹配与伙伴发展经理'
+        raw['agents']['partner_development']['name']='伙伴发展'
+        conn.execute('UPDATE app_metadata SET value=? WHERE key=?',(json.dumps(raw,ensure_ascii=False),settings.KEY))
+    with get_db() as conn:
+        stored=conn.execute('SELECT value FROM app_metadata WHERE key=?',(settings.KEY,)).fetchone()[0]
+    admin=auth_headers(make_user('recommendation-name-admin',role='admin'))
+    user=auth_headers(make_user('recommendation-name-user'))
+    expected='伙伴推荐' if name=='伙伴匹配' else name
+    public=client.get('/agents',headers=user).json()
+    private=client.get('/admin/agents',headers=admin).json()
+    assert public[0]['id']=='partner_match' and public[0]['name']==expected
+    assert private['agents']['partner_match']=={**raw['agents']['partner_match'],'name':expected}
+    assert private['agents']['partner_development']==raw['agents']['partner_development']
+    assert private['processing']==raw['processing']
+    with get_db() as conn:
+        assert conn.execute('SELECT value FROM app_metadata WHERE key=?',(settings.KEY,)).fetchone()[0]==stored
+        assert settings.execution(conn,'partner_match',accept=False)=={'agentId':'partner_match',**{k:raw['agents']['partner_match'][k] for k in settings.ModelSettings.model_fields}}
+
+
+def test_recommendation_name_projection_keeps_input_and_development_agent_unchanged():
+    raw={'agents':{'partner_match':{'name':'伙伴匹配','description':'伙伴匹配原话'},'partner_development':{'name':'伙伴匹配'}},'processing':{'modelConfigId':'synthetic'}}
+    original=json.dumps(raw,ensure_ascii=False)
+    projected=settings._display_settings(raw)
+    assert projected['agents']['partner_match']['name']=='伙伴推荐'
+    assert projected['agents']['partner_development']['name']=='伙伴匹配'
+    assert projected['processing']==raw['processing']
+    assert json.dumps(raw,ensure_ascii=False)==original

@@ -12,12 +12,12 @@ type CategoryFilter = (typeof SCENE_CATEGORIES)[number];
 const STATUS_TEXT = {
   ready: "可使用",
   preparation: "可整理诉求",
-  embedded: "随匹配生成",
+  embedded: "随推荐生成",
   building: "能力建设中",
 } as const;
 
 function sceneIcon(category: string): IconName {
-  if (category === "智能匹配") return "spark";
+  if (category === "智能推荐") return "spark";
   if (category === "伙伴洞察") return "users";
   if (category === "能力发展") return "chart";
   if (category === "项目机会") return "file";
@@ -25,7 +25,7 @@ function sceneIcon(category: string): IconName {
 }
 
 function sceneTone(category: string): string {
-  if (category === "智能匹配") return "match";
+  if (category === "智能推荐") return "match";
   if (category === "伙伴洞察") return "partner";
   if (category === "能力发展") return "capability";
   if (category === "项目机会") return "opportunity";
@@ -35,7 +35,8 @@ function sceneTone(category: string): string {
 export default function ScenesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedCategory = searchParams.get("category");
+  const categoryParam = searchParams.get("category");
+  const requestedCategory = categoryParam === "智能匹配" ? "智能推荐" : categoryParam;
   const initialCategory = SCENE_CATEGORIES.includes(requestedCategory as CategoryFilter)
     ? requestedCategory as CategoryFilter
     : "全部";

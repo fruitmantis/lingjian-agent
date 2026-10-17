@@ -48,16 +48,25 @@ def _legacy(conn):
         chosen=flash or next((bindings[k] for k in (scene,'default') if bindings.get(k) in available),default)
         return ModelSettings(modelConfigId=chosen,**timeout.model_dump()).model_dump()
     return {'agents':{
-        'partner_match':{**model('partner_match'),'name':'伙伴匹配','description':'结合项目需求和已有伙伴资料，寻找合适的交付伙伴。','icon':'users','enabled':True},
+        'partner_match':{**model('partner_match'),'name':'伙伴推荐','description':'结合项目需求和已有伙伴资料，寻找合适的交付伙伴。','icon':'users','enabled':True},
         'partner_development':{**model('partner_development'),'name':'伙伴发展','description':'围绕发展目标，提供能力建议与合适的课程、实验资源。','icon':'trend','enabled':True},
     },'processing':model('partner_profile')}
+
+
+def _display_settings(settings):
+    # Read projection for the previous system default only; never write it back.
+    agent = settings['agents'].get('partner_match')
+    if agent and agent.get('name') == '伙伴匹配':
+        return {**settings, 'agents': {**settings['agents'],
+                'partner_match': {**agent, 'name': '伙伴推荐'}}}
+    return settings
 
 
 def read(conn=None):
     if conn is None:
         with get_readonly_db() as connection:return read(connection)
     row=conn.execute('SELECT value FROM app_metadata WHERE key=?',(KEY,)).fetchone()
-    return json.loads(row[0]) if row else _legacy(conn)
+    return _display_settings(json.loads(row[0]) if row else _legacy(conn))
 
 
 def migrate(conn):
@@ -85,7 +94,7 @@ def save(agent_id,payload):
         if agent_id=='processing':settings['processing']=payload.model_dump()
         else:settings['agents'][agent_id]=payload.model_dump()
         conn.execute('UPDATE app_metadata SET value=? WHERE key=?',(json.dumps(settings,ensure_ascii=False),KEY))
-    return settings
+    return _display_settings(settings)
 
 
 def execution(conn,agent_id,*,accept=False):

@@ -27,7 +27,7 @@ for (const width of [1366,1920]) test(`opportunity details and aligned compact f
   await expect(region).toContainText(opportunity.requirementText);await expect(region).toContainText(opportunity.technicalNeeds);
   await expect(region).toContainText("是否需要驻场？");
   await expect(region.locator("div").filter({has:page.locator("dt",{hasText:"资质要求"})})).toContainText("未知");
-  await expect(region.getByRole("link",{name:"查看原始匹配任务"})).toHaveAttribute("href","/tasks/match-fixture");
+  await expect(region.getByRole("link",{name:"查看来源推荐任务"})).toHaveAttribute("href","/tasks/match-fixture");
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   const search=await page.getByRole("searchbox").boundingBox();
   const industry=await page.getByLabel("行业筛选").boundingBox();

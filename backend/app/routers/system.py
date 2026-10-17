@@ -129,7 +129,7 @@ def _check_llm() -> tuple[list[ServiceStatus], bool, str]:
 def _check_business() -> tuple[list[ServiceStatus], list[AbnormalModule]]:
     items = []
     abnormals = []
-    for scene, name in (("partner_profile", "伙伴画像生成"), ("partner_match", "智能匹配"),
+    for scene, name in (("partner_profile", "伙伴画像生成"), ("partner_match", "伙伴推荐"),
                         ("demand_profile", "需求画像与项目机会"), ("tag_suggestion", "标签建议")):
         _, error_msg = _inspect_configuration(scene)
         items.append(ServiceStatus(
@@ -199,13 +199,13 @@ def get_system_status() -> SystemStatusResponse:
     if db_error:
         all_abnormals.append(AbnormalModule(
             module="数据库", status="error", message="数据库连接异常",
-            impact="可能影响伙伴资料、标签配置、匹配历史读取",
+            impact="可能影响伙伴资料、标签配置、推荐历史读取",
             suggestion="请检查数据库连接"
         ))
     if llm_error:
         all_abnormals.append(AbnormalModule(
             module="LLM 模型", status="error", message=llm_err_msg or "LLM 服务异常",
-            impact="可能影响 AI 画像生成、智能匹配和需求画像生成",
+            impact="可能影响 AI 画像生成、伙伴推荐和需求画像生成",
             suggestion="请检查模型 API Key 和模型接口配置"
         ))
 

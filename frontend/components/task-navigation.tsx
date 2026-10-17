@@ -9,7 +9,7 @@ import { userApiFetch as apiFetch, PASSWORD_CHANGE_PATH, useAuth } from "./auth-
 export const TASKS_CHANGED = "lingjian:tasks-changed";
 export const NEW_TASK = "lingjian:new-task";
 export const taskLabels: Record<string, string> = {
-  matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "生成失败，可重试",
+  matching: "分析中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "生成失败，可重试",
   submitting: "提交中", unconfirmed: "正在获取任务结果",
 };
 import {responseError,submissionIsUncertain} from "../lib/api-request";
@@ -261,7 +261,7 @@ function UserTaskSidebar({ pathname, selectedId }: { pathname: string; selectedI
       <strong>{task.requirement}</strong>
       <span className="sidebar-task-meta">
         {task.task_type === "development_plan" && task.planPresentation ? <PlanStatus value={task.planPresentation} compact/> :
-          <span className="sidebar-task-summary"><span>{task.task_type === "development_plan" ? "能力发展" : "资源匹配"}</span><span aria-hidden="true"> · </span><em className={`task-state task-${task.taskStatus}`}>{task.task_type === "development_plan" && ["matching","enriching"].includes(task.taskStatus) ? "生成中" : taskLabels[task.taskStatus] || "状态待确认"}</em></span>}
+          <span className="sidebar-task-summary"><span>{task.task_type === "development_plan" ? "能力发展" : "伙伴推荐"}</span><span aria-hidden="true"> · </span><em className={`task-state task-${task.taskStatus}`}>{task.task_type === "development_plan" && ["matching","enriching"].includes(task.taskStatus) ? "生成中" : taskLabels[task.taskStatus] || "状态待确认"}</em></span>}
         <time dateTime={task.createdAt}>{new Date(task.createdAt).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" })}</time>
       </span>
     </Link>;

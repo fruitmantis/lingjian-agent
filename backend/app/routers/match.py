@@ -324,7 +324,7 @@ def _recover_accessible_task(record_id: str, user: dict) -> None:
             "SELECT owner_user_id FROM match_records WHERE id = ?", (record_id,),
         ).fetchone()
     if task is None or (task["owner_user_id"] != user["id"] and user["role"] != "admin"):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="推荐任务不存在")
     recover_stale_tasks(record_id=record_id, owner_user_id=task["owner_user_id"])
 
 
@@ -682,7 +682,7 @@ def _validated_outcome(recs, output, rejected, rows, *, requirement="", facts=No
     gap=redact_sources(_display_source_aliases(output.get('gapAnalysis') or '',aliases),labels) if analysis_valid else ''
     for name in sorted(known_names-allowed_names,key=len,reverse=True):
         gap=gap.replace(name,'[未通过校验的伙伴]')
-    answer=gap if recs else '本次暂无正式推荐。'
+    answer=gap if recs else '本次暂无推荐伙伴。'
     if not recs and plans:
         answer+=' 未来规划线索：'+'、'.join(plans)+'。'
     if not recs and gap:
@@ -870,10 +870,10 @@ def _set_task_state(
                 snapshot['outcome']=_validated_outcome(recommendations,output,bool(snapshot.get('rejection_codes')),snapshot['detail_rows'],connection=conn)
                 if old_count and not recommendations and not snapshot['outcome']['gapAnalysis']:
                     if any(conn.execute('SELECT 1 FROM partners WHERE id=?',(row[0]['id'],)).fetchone() is None for row in snapshot['detail_rows']):
-                        raise DeletedMatchPartnerError('推荐伙伴已删除，请重试匹配')
+                        raise DeletedMatchPartnerError('推荐伙伴已删除，请重新生成推荐')
                     raise ValueError('所有采用结果的实际依赖均已失效')
             if any(conn.execute("SELECT 1 FROM partners WHERE id = ?", (item.partnerId,)).fetchone() is None for item in recommendations):
-                raise DeletedMatchPartnerError("推荐伙伴已删除，请重试匹配")
+                raise DeletedMatchPartnerError("推荐伙伴已删除，请重新生成推荐")
             cursor = conn.execute(
                 """UPDATE match_records
                    SET recommendations_json = ?, task_status = ?, last_error_stage = ?, last_error_details = ?, updated_at = ?
@@ -1233,7 +1233,7 @@ def retry_match_record(record_id: str, user: dict = Depends(require_active_user)
             (record_id,),
         ).fetchone()
     if row is None or (row["owner_user_id"] != user["id"] and user["role"] != "admin"):
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="推荐任务不存在")
     if row["task_status"] == "ready":
         raise HTTPException(status.HTTP_409_CONFLICT, detail="任务已完成，无需重试")
     if row["task_status"] in {"matching", "enriching"}:
@@ -1256,7 +1256,7 @@ def archive_match_record(record_id: str, user: dict = Depends(require_active_use
     with get_db() as conn:
         row = conn.execute("SELECT id, owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
         if row is None or (row["owner_user_id"] != user["id"] and user["role"] != "admin"):
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="推荐任务不存在")
         now = datetime.now(timezone.utc).isoformat()
         conn.execute("UPDATE match_records SET archived_at = ?, updated_at = ? WHERE id = ?", (now, now, record_id))
 
@@ -1272,7 +1272,7 @@ def restore_match_record(record_id: str, user: dict = Depends(require_active_use
     with get_db() as conn:
         row = conn.execute("SELECT id, owner_user_id FROM match_records WHERE id = ?", (record_id,)).fetchone()
         if row is None or (row["owner_user_id"] != user["id"] and user["role"] != "admin"):
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="匹配记录不存在")
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="推荐任务不存在")
         conn.execute(
             "UPDATE match_records SET archived_at = NULL, updated_at = ? WHERE id = ?",
             (datetime.now(timezone.utc).isoformat(), record_id),

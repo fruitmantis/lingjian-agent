@@ -21,11 +21,11 @@ type Task = {
 type TaskPage = { items: Task[]; page: number; pageSize: number; total: number; totalPages: number };
 
 const statusLabels: Record<TaskStatus, string> = {
-  matching: "匹配中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "失败",
+  matching: "分析中", enriching: "处理中", ready: "已完成", partial: "部分完成", failed: "失败",
 };
 const developmentStatusLabels: Record<TaskStatus, string> = {matching:"生成中", enriching:"生成中", ready:"已生成", partial:"生成失败", failed:"生成失败"};
 const errorStageLabels: Record<string, string> = {
-  partner_match: "资源匹配", partner_data: "伙伴数据读取", demand_profile: "需求画像",
+  partner_match: "伙伴推荐", partner_data: "伙伴数据读取", demand_profile: "需求画像",
   project_opportunity: "项目机会", recommendation_data: "推荐结果", persistence: "结果保存", interrupted: "异常中断",
 };
 
@@ -116,7 +116,7 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
         {view !== "errors" && <form onSubmit={event => { event.preventDefault(); void load(1); }} className="inline-search task-search">
           <input value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索需求内容" />
           {admin && <input value={owner} onChange={event => setOwner(event.target.value)} placeholder="创建人 / 部门" />}
-          <select value={taskType} onChange={event => { setTaskType(event.target.value); setTaskStatus(""); }} aria-label="任务类型"><option value="">全部类型</option><option value="partner_match">资源匹配</option><option value="development_plan">能力发展</option></select>
+          <select value={taskType} onChange={event => { setTaskType(event.target.value); setTaskStatus(""); }} aria-label="任务类型"><option value="">全部类型</option><option value="partner_match">伙伴推荐</option><option value="development_plan">能力发展</option></select>
           <select value={taskStatus} onChange={event => setTaskStatus(event.target.value)} aria-label="任务状态">
             <option value="">全部状态</option>
             {Object.entries(taskType === "development_plan" ? {matching:"生成中",ready:"已生成",failed:"生成失败"} : statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -126,10 +126,10 @@ export default function TaskList({ admin = false }: { admin?: boolean }) {
       </section>
       {admin && view === "errors" ? <RecentErrors /> : <section className="card">
         {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load(page)}>重试</button></div>}
-        {loading ? <p>加载中...</p> : items.length === 0 ? <div className="empty-state"><h2>{archived ? "暂无已归档任务" : "暂无任务"}</h2><p>{taskType === "development_plan" ? "暂无能力发展任务，可在开启新任务中选择能力发展。" : admin ? "当前筛选条件下没有任务。" : "前往开启新任务，完成第一次伙伴匹配。"}</p>{!admin && <Link href={taskType === "development_plan" ? "/?mode=development" : "/"} className="btn-primary-lg">开启新任务</Link>}</div> : (
+        {loading ? <p>加载中...</p> : items.length === 0 ? <div className="empty-state"><h2>{archived ? "暂无已归档任务" : "暂无任务"}</h2><p>{taskType === "development_plan" ? "暂无能力发展任务，可在开启新任务中选择能力发展。" : admin ? "当前筛选条件下没有任务。" : "前往开启新任务，获取第一次伙伴推荐。"}</p>{!admin && <Link href={taskType === "development_plan" ? "/?mode=development" : "/"} className="btn-primary-lg">开启新任务</Link>}</div> : (
           <>
-            <div className="table-wrap"><table className="data-table task-table"><thead><tr><th>需求摘要</th><th>任务类型</th>{admin && <><th>创建人</th><th>部门</th></>}<th>状态</th><th>首选伙伴</th><th>推荐数</th><th>机会完整度</th><th>创建时间</th><th>操作</th></tr></thead><tbody>
-              {items.map(item => <tr key={item.id}><td className="task-requirement">{item.requirement}</td><td>{item.task_type === "development_plan" ? "能力发展" : "资源匹配"}</td>{admin && <><td>{item.ownerName || "-"}</td><td>{item.department || "-"}</td></>}<td>{item.task_type === "development_plan" && item.planPresentation ? <PlanStatus value={item.planPresentation}/> : <span className={`status-badge task-${item.taskStatus}`} title={errorStageText(item.lastErrorStage)}>{item.task_type === "development_plan" ? (item.archivedAt ? "已归档" : developmentStatusLabels[item.taskStatus]) : statusLabels[item.taskStatus]}</span>}{item.task_type!=="development_plan"&&(item.taskStatus==="partial"||item.taskStatus==="failed")&&<FailureReasons details={item.failureDetails} stages={item.lastErrorStage} href={`${admin ? "/admin/tasks" : "/tasks"}/${item.id}`}/>}</td><td>{item.topPartner}</td><td>{item.partnerCount}</td><td>{item.completenessScore == null ? "-" : `${item.completenessScore}%`}</td><td className="task-time">{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td><div className="table-actions"><Link href={`${admin ? "/admin/tasks" : "/tasks"}/${item.id}`} className="secondary-btn">详情</Link>{item.task_type !== "development_plan" && (item.taskStatus === "partial" || item.taskStatus === "failed") && <button className="secondary-btn" disabled={retryingId === item.id} onClick={() => void retry(item)}>{retryingId === item.id ? "重试中..." : "重试"}</button>}<button className="secondary-btn" onClick={() => void toggleArchive(item)}>{item.archivedAt ? "恢复" : "归档"}</button></div></td></tr>)}
+            <div className="table-wrap"><table className="data-table task-table"><thead><tr><th>需求摘要</th><th>任务类型</th>{admin && <><th>创建人</th><th>部门</th></>}<th>状态</th><th>首位推荐</th><th>推荐数</th><th>机会完整度</th><th>创建时间</th><th>操作</th></tr></thead><tbody>
+              {items.map(item => <tr key={item.id}><td className="task-requirement">{item.requirement}</td><td>{item.task_type === "development_plan" ? "能力发展" : "伙伴推荐"}</td>{admin && <><td>{item.ownerName || "-"}</td><td>{item.department || "-"}</td></>}<td>{item.task_type === "development_plan" && item.planPresentation ? <PlanStatus value={item.planPresentation}/> : <span className={`status-badge task-${item.taskStatus}`} title={errorStageText(item.lastErrorStage)}>{item.task_type === "development_plan" ? (item.archivedAt ? "已归档" : developmentStatusLabels[item.taskStatus]) : statusLabels[item.taskStatus]}</span>}{item.task_type!=="development_plan"&&(item.taskStatus==="partial"||item.taskStatus==="failed")&&<FailureReasons details={item.failureDetails} stages={item.lastErrorStage} href={`${admin ? "/admin/tasks" : "/tasks"}/${item.id}`}/>}</td><td>{item.topPartner}</td><td>{item.partnerCount}</td><td>{item.completenessScore == null ? "-" : `${item.completenessScore}%`}</td><td className="task-time">{new Date(item.createdAt).toLocaleString("zh-CN")}</td><td><div className="table-actions"><Link href={`${admin ? "/admin/tasks" : "/tasks"}/${item.id}`} className="secondary-btn">详情</Link>{item.task_type !== "development_plan" && (item.taskStatus === "partial" || item.taskStatus === "failed") && <button className="secondary-btn" disabled={retryingId === item.id} onClick={() => void retry(item)}>{retryingId === item.id ? "重试中..." : "重试"}</button>}<button className="secondary-btn" onClick={() => void toggleArchive(item)}>{item.archivedAt ? "恢复" : "归档"}</button></div></td></tr>)}
             </tbody></table></div>
 
           </>

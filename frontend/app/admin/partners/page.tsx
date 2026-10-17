@@ -97,7 +97,10 @@ export default function AdminPartnersPage() {
       const response = await apiFetch(`/partners/${partner.id}`, { method: "DELETE" });
       if (!response.ok) {
         const detail = (await response.json().catch(() => ({}))).detail;
-        throw new Error(typeof detail === "string" ? detail : detail?.message || "删除失败，请稍后重试");
+        const message=typeof detail === "string" ? detail : detail?.message;
+        throw new Error(detail?.code === "partner_delete_blocked" && typeof message === "string"
+          ? message.replace("项目匹配历史", "伙伴推荐历史").replace("无法核验关联的匹配历史", "无法核验关联的推荐历史")
+          : message || "删除失败，请稍后重试");
       }
       setPartners(current => current.filter(item => item.id !== partner.id));
       setMessage("伙伴已删除");

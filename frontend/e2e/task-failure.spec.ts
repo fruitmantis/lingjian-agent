@@ -77,7 +77,7 @@ test("empty match is a normal outcome",async({page})=>{
  await fixture(page);
  await page.route("**/agent/tasks/empty-fixture",route=>route.fulfill({json:{...summary,id:"empty-fixture",taskStatus:"ready",failureDetails:[],recommendations:[],answer:"合成验收：本次已分析资料暂无足够相关依据，未知项需核实。",demandProfile:null,opportunity:null}}));
  await page.goto("/tasks/empty-fixture");
- await expect(page.getByText("本次暂无正式推荐，请参考上方分析说明。",{exact:true})).toBeVisible();
+ await expect(page.getByText("本次暂无推荐伙伴，请参考上方分析说明。",{exact:true})).toBeVisible();
  await expect(page.getByRole("region",{name:"任务未完成说明"})).toHaveCount(0);
  await expect(page.getByText("合成验收：本次已分析资料暂无足够相关依据，未知项需核实。",{exact:true})).toBeVisible();
 });
@@ -366,7 +366,7 @@ test('phase2 F03: incomplete zero recommendations preserve the analysis warning'
  }}));
  await page.goto('/tasks/incomplete-fixture');
  await expect(page.getByText('本次分析不完整，不能据此认定没有合适伙伴。',{exact:false})).toBeVisible();
- await expect(page.getByText('本次暂无正式推荐，请参考上方分析说明。',{exact:true})).toBeVisible();
+ await expect(page.getByText('本次暂无推荐伙伴，请参考上方分析说明。',{exact:true})).toBeVisible();
  await expect(page.getByText('没有匹配项，可调整需求后重新匹配。',{exact:true})).toHaveCount(0);
  await page.screenshot({path:info.outputPath('phase2-F03.png'),fullPage:true});
 });

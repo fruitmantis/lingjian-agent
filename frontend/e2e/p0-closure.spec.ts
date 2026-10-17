@@ -35,7 +35,7 @@ for (const width of [1366,1920]) test(`P0 scene shortcuts, combined counts and d
   for(const [label,total,matching,development] of [['累计任务','tasks','partnerMatchTasks','developmentTasks'],['本月任务','monthTasks','monthPartnerMatchTasks','monthDevelopmentTasks']]){
     const metric=page.locator('.admin-metric-card').filter({has:page.getByText(label,{exact:true})});
     await expect(metric.locator('strong')).toHaveText(String(totals[total]));
-    await expect(metric).toContainText(`资源匹配 ${totals[matching]} · 能力发展 ${totals[development]}`);
+    await expect(metric).toContainText(`伙伴推荐 ${totals[matching]} · 能力发展 ${totals[development]}`);
   }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   await page.goto('/admin/system');
