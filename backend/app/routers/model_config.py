@@ -2,6 +2,7 @@
 
 import uuid
 import time
+import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -10,7 +11,7 @@ from backend.business.common import ModelOutput
 
 from ..database import get_db
 from ..auth import require_admin, require_active_user, record_audit
-from ..model_resolver import _resolve_api_key
+from ..model_resolver import _resolve_api_key, model_endpoint_origin, ModelConfigurationError
 from ..ai_client import ModelResponseError, model_error_message
 from .. import development_model
 from .. import model_timeout_settings
@@ -30,6 +31,16 @@ def read_timeout_policy(response: Response, agent_id: str = "processing"):
 
 
 _MC_COLS = "id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at"
+
+
+def _validated_base_url(value):
+    base_url = value if value is not None else os.getenv('LLM_BASE_URL', 'https://api.deepseek.com')
+    base_url = base_url.strip()
+    try:
+        model_endpoint_origin(base_url)
+    except ModelConfigurationError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from None
+    return base_url
 
 
 class ModelConfigOut(BaseModel):
@@ -123,12 +134,13 @@ def list_configs():
 
 @router.post("", response_model=ModelConfigOut, status_code=status.HTTP_201_CREATED)
 def create_config(payload: ModelConfigCreate) -> ModelConfigOut:
+    base_url = _validated_base_url(payload.baseUrl)
     now = datetime.now(timezone.utc).isoformat()
     mc_id = str(uuid.uuid4())
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'db', 'LLM_API_KEY', ?, ?, ?, ?, 1, 0, ?, ?)",
-            (mc_id, payload.name, payload.provider, payload.baseUrl, payload.apiKey, payload.modelName, payload.temperature, payload.topP, payload.maxTokens, now, now)
+            "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'db', NULL, ?, ?, ?, ?, 1, 0, ?, ?)",
+            (mc_id, payload.name, payload.provider, base_url, payload.apiKey, payload.modelName, payload.temperature, payload.topP, payload.maxTokens, now, now)
         )
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
     return _to_out(row)
@@ -142,6 +154,17 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
+        base_url = _validated_base_url(payload.baseUrl if payload.baseUrl is not None else row['base_url'])
+        new_key = payload.apiKey if payload.apiKey is not None and payload.apiKey.strip() else None
+        if payload.baseUrl is not None:
+            try:
+                previous_origin = model_endpoint_origin(row['base_url'] or os.getenv('LLM_BASE_URL', 'https://api.deepseek.com'))
+            except ModelConfigurationError:
+                previous_origin = None
+            if (model_endpoint_origin(base_url) != previous_origin
+                    and (row['api_key'] or row['api_key_source'] == 'env') and new_key is None):
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                    detail='模型接口目标已变化，请重新填写该目标的 API Key，不能沿用旧凭据')
         updates = []
         params = []
         if payload.name is not None:
@@ -149,7 +172,7 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
         if payload.provider is not None:
             updates.append("provider = ?"); params.append(payload.provider)
         if payload.baseUrl is not None:
-            updates.append("base_url = ?"); params.append(payload.baseUrl)
+            updates.append("base_url = ?"); params.append(base_url)
         if payload.modelName is not None:
             updates.append("model_name = ?"); params.append(payload.modelName)
         if payload.temperature is not None:
@@ -159,9 +182,10 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
         if payload.maxTokens is not None:
             updates.append("max_tokens = ?"); params.append(payload.maxTokens)
         # Only update api_key if explicitly provided and non-empty
-        if payload.apiKey is not None and payload.apiKey.strip():
-            updates.append("api_key = ?"); params.append(payload.apiKey)
-            updates.append("api_key_source = 'db'"); 
+        if new_key is not None:
+            updates.append("api_key = ?"); params.append(new_key)
+            updates.append("api_key_source = 'db'")
+            updates.append("api_key_env_name = NULL")
         updates.append("updated_at = ?"); params.append(now)
         params.append(mc_id)
         if len(updates) > 1:

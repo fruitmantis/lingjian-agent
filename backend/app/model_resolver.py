@@ -8,6 +8,7 @@ import hashlib
 import json
 from urllib.parse import urlsplit
 from dataclasses import dataclass
+import httpx
 from .database import get_db, get_readonly_db
 from . import agent_settings
 
@@ -28,14 +29,35 @@ class ModelConfigurationError(RuntimeError):
     """No enabled model or an invalid connection configuration."""
 
 
+def model_endpoint_origin(base_url: str) -> tuple:
+    """Validate the base URL and compare the normalized origin HTTPX will send."""
+    try:
+        if not isinstance(base_url, str) or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in base_url) or "\\" in base_url:
+            raise ValueError('Invalid URL characters')
+        parsed = urlsplit(base_url)
+        if (parsed.scheme not in ('http', 'https') or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None
+                or '?' in base_url or '#' in base_url):
+            raise ValueError('Invalid HTTP base URL')
+        port = parsed.port
+        if port is not None and not 1 <= port <= 65535:
+            raise ValueError('Invalid port')
+        target = httpx.URL(base_url)
+        host = target.raw_host.decode('ascii')
+        if not host.rstrip('.'):
+            raise ValueError('Empty normalized host')
+        return target.scheme, host, target.port or (443 if target.scheme == 'https' else 80)
+    except (ValueError, UnicodeError, httpx.InvalidURL):
+        raise ModelConfigurationError('模型接口地址须为有效的 HTTP(S) 基础地址，不能包含内嵌凭据、查询参数或片段') from None
+
+
 def _resolve_api_key(row) -> str:
-    """Resolve API key: DB key > env var > empty."""
+    """Use only the stored key or the environment variable explicitly bound to this connection."""
     if row and row["api_key"]:
         return row["api_key"]
     if row and row["api_key_source"] == "env" and row["api_key_env_name"]:
         return os.getenv(row["api_key_env_name"], "")
-    # Fallback to default env var
-    return os.getenv("LLM_API_KEY", "")
+    return ""
 
 
 def resolve_model_record(scene: str = "default", *, read_only: bool = False, connection=None) -> dict:
@@ -95,12 +117,14 @@ def model_config_from_record(record) -> ResolvedModelConfig:
     """Use the same saved settings for text, structured output and connection tests."""
     row = dict(record)
     execution=row.get('_agent_execution')
+    base_url=row.get("base_url") or os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
+    model_endpoint_origin(base_url)
     model=row.get("model_name") or os.getenv("LLM_MODEL", "deepseek-flash")
     if execution and urlsplit(row.get('base_url') or '').hostname=='api.deepseek.com' and model=='deepseek-v4-flash':
         model='deepseek-flash'
     return ResolvedModelConfig(
         api_key=_resolve_api_key(row),
-        base_url=row.get("base_url") or os.getenv("LLM_BASE_URL", "https://api.deepseek.com"),
+        base_url=base_url,
         model=model,
         temperature=row["temperature"] if row.get("temperature") is not None else 0.3,
         top_p=row["top_p"] if row.get("top_p") is not None else 1.0,

@@ -1055,8 +1055,10 @@ def _process_created_task(record_id: str, requirement: str, created_at: str, run
         _execute_match(record_id, requirement, created_at, run_id)
     except _MatchExecutionLost:
         return
-    except Exception:
-        # The response was already sent. _execute_match persists stage-specific failure state.
+    except Exception as error:
+        # Stage-specific errors already recorded inside the worker are deduplicated.
+        # Also cover snapshot/query/parse failures before its inner try block.
+        record_error(error, 'partner_match', task_id=record_id, run_id=run_id, request_id=record_id)
         print(f"[WARN] background processing failed for task {record_id}", flush=True)
 
 

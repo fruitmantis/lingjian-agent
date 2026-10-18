@@ -170,7 +170,7 @@ def test_zero_parameters_and_large_token_budget_are_preserved():
     assert resolved.max_tokens == 384000
 
 
-@pytest.mark.parametrize("source,custom_key,expected", [("env", "synthetic-custom", True), ("env", "", False), ("db", "", True)])
+@pytest.mark.parametrize("source,custom_key,expected", [("env", "synthetic-custom", True), ("env", "", False), ("db", "", False)])
 def test_api_key_status_agrees_with_resolver_without_exposing_key(client, monkeypatch, source, custom_key, expected):
     admin = make_user("key_admin", role="admin")
     model_id = add_model()
@@ -214,7 +214,7 @@ def test_binding_api_validates_enabled_target_and_allows_unbind(client):
 
 
 def test_client_honors_configured_timeout_and_sends_zero(monkeypatch):
-    add_model(temperature=0, topP=0)
+    add_model(temperature=0, topP=0, apiKey="synthetic-db-key")
     observed = {}
     class FakeClient:
         def __init__(self, **kwargs): observed.update(kwargs)
@@ -276,3 +276,199 @@ def test_no_enabled_model_returns_actionable_error_without_calling_model(client,
     from backend.app.error_diagnostics import recent_errors
     errors=recent_errors()
     assert any('选择已启用的模型连接' in item['message'] for item in errors)
+
+
+# Credentials belong to the saved HTTP origin; every wire check uses memory transport.
+_TARGET_URL = 'https://old-model.test/v1'
+_TARGET_KEY = 'synthetic-old-target-key'
+
+
+def target_model(monkeypatch, source='db'):
+    monkeypatch.setenv('SYNTHETIC_TARGET_KEY', _TARGET_KEY)
+    model_id = add_model(baseUrl=_TARGET_URL, apiKey=_TARGET_KEY if source == 'db' else None)
+    if source == 'env':
+        with get_db() as conn:
+            conn.execute("UPDATE model_configs SET api_key_source='env',api_key_env_name='SYNTHETIC_TARGET_KEY' WHERE id=?", (model_id,))
+    return model_id
+
+
+def target_row(model_id):
+    with get_db() as conn:
+        return dict(conn.execute('SELECT * FROM model_configs WHERE id=?', (model_id,)).fetchone())
+
+
+def memory_provider(monkeypatch):
+    from backend.app import development_model
+    observed = []
+    original = httpx.AsyncClient
+    def handle(request):
+        observed.append((str(request.url), request.headers.get('Authorization')))
+        return httpx.Response(200, request=request,
+            json={'choices':[{'finish_reason':'stop','message':{'content':'{"ok":true}'}}]})
+    def client(**kwargs):
+        kwargs.setdefault('transport', httpx.MockTransport(handle))
+        return original(**kwargs)
+    monkeypatch.setattr(development_model.httpx, 'AsyncClient', client)
+    return observed
+
+
+def send_in_memory(monkeypatch, row, expected_url, expected_key):
+    from backend.app import development_model
+    observed = memory_provider(monkeypatch)
+    result = development_model.completion(row, [{'role':'user','content':'synthetic probe'}],
+        {'type':'object','properties':{'ok':{'type':'boolean'}},'required':['ok']})
+    assert json.loads(result) == {'ok':True}
+    expected_endpoint = str(httpx.URL(expected_url.rstrip('/') + '/chat/completions'))
+    assert observed == [(expected_endpoint, 'Bearer ' + expected_key)]
+    assert all('synthetic-env-key' not in authorization for _,authorization in observed)
+
+
+@pytest.mark.parametrize('method', ['post','put'])
+@pytest.mark.parametrize('base_url', [
+    'file:///tmp/model', 'https:///v1', 'https://user:synthetic-secret@model.test/v1',
+    'https://model.test:70000/v1', 'https://model.test/v1?token=synthetic',
+    'https://model.test/v1#fragment', 'https://model.test/vi\non',
+    'https://model.test/v1?', 'https://model.test/v1#', 'https://./v1',
+])
+def test_model_target_rejects_invalid_urls_before_saving(client, monkeypatch, method, base_url):
+    model_id = target_model(monkeypatch)
+    before = target_row(model_id)
+    with get_db() as conn:
+        count = conn.execute('SELECT count(*) FROM model_configs').fetchone()[0]
+    path = '/admin/model-configs' + ('/' + model_id if method == 'put' else '')
+    response = getattr(client, method)(path, headers=auth_headers(make_user('target-admin', role='admin')),
+        json={'name':'invalid-target','baseUrl':base_url,'apiKey':'synthetic-new-target-key'})
+    assert response.status_code == 422
+    assert 'synthetic-secret' not in response.text
+    assert target_row(model_id) == before
+    with get_db() as conn:
+        assert conn.execute('SELECT count(*) FROM model_configs').fetchone()[0] == count
+
+
+@pytest.mark.parametrize('source', ['db','env'])
+@pytest.mark.parametrize('key', [None,'','   '])
+def test_model_target_change_cannot_keep_old_credentials(client, monkeypatch, source, key):
+    model_id = target_model(monkeypatch, source)
+    before = target_row(model_id)
+    body = {'baseUrl':'https://replacement.test/v1'}
+    if key is not None:
+        body['apiKey'] = key
+    response = client.put('/admin/model-configs/' + model_id,
+        headers=auth_headers(make_user('target-admin', role='admin')), json=body)
+    assert response.status_code == 422 and 'API Key' in response.json()['detail']
+    assert target_row(model_id) == before
+    assert _TARGET_KEY not in response.text and 'synthetic-env-key' not in response.text
+
+
+@pytest.mark.parametrize('base_url', ['http://old-model.test/v1','https://old-model.test:8443/v1'])
+def test_model_target_scheme_and_port_changes_require_explicit_credentials(client, monkeypatch, base_url):
+    model_id = target_model(monkeypatch)
+    before = target_row(model_id)
+    response = client.put('/admin/model-configs/' + model_id,
+        headers=auth_headers(make_user('target-admin', role='admin')), json={'baseUrl':base_url})
+    assert response.status_code == 422 and target_row(model_id) == before
+
+
+@pytest.mark.parametrize('source', ['db','env'])
+@pytest.mark.parametrize('base_url', [
+    'https://replacement.test/v1', 'http://10.23.45.67:8080/custom/v1', 'http://[::1]:8081/v1',
+])
+def test_model_target_explicit_new_key_works_for_provider_and_internal_urls(client, monkeypatch, source, base_url):
+    model_id = target_model(monkeypatch, source)
+    response = client.put('/admin/model-configs/' + model_id,
+        headers=auth_headers(make_user('target-admin', role='admin')),
+        json={'baseUrl':base_url,'apiKey':'synthetic-new-target-key'})
+    assert response.status_code == 200 and response.json()['apiKeyConfigured']
+    row = target_row(model_id)
+    assert row['api_key_source'] == 'db' and row['api_key_env_name'] is None
+    send_in_memory(monkeypatch, row, base_url, 'synthetic-new-target-key')
+
+
+@pytest.mark.parametrize('source', ['db','env'])
+def test_model_same_origin_path_edit_keeps_its_explicit_credential(client, monkeypatch, source):
+    model_id = target_model(monkeypatch, source)
+    base_url = 'https://OLD-MODEL.TEST:443/compatible/v1'
+    response = client.put('/admin/model-configs/' + model_id,
+        headers=auth_headers(make_user('target-admin', role='admin')),
+        json={'baseUrl':base_url,'name':'renamed without rotating credentials','apiKey':''})
+    assert response.status_code == 200
+    row = target_row(model_id)
+    assert row['api_key_source'] == source
+    send_in_memory(monkeypatch, row, base_url, _TARGET_KEY)
+
+
+def test_model_new_connection_without_key_never_inherits_default_env(client, monkeypatch):
+    from backend.app import development_model
+    response = client.post('/admin/model-configs', headers=auth_headers(make_user('target-admin', role='admin')),
+        json={'name':'new-unconfigured-target','baseUrl':'http://models.internal:8080/v1'})
+    assert response.status_code == 201 and not response.json()['apiKeyConfigured']
+    row = target_row(response.json()['id'])
+    assert row['api_key_source'] == 'db' and row['api_key_env_name'] is None
+    assert model_resolver._resolve_api_key(row) == model_resolver._resolve_api_key(None) == ''
+    observed = memory_provider(monkeypatch)
+    with pytest.raises(model_resolver.ModelConfigurationError, match='not configured'):
+        development_model.completion(row, [], {'type':'object'})
+    assert observed == []
+
+
+def test_model_creation_freezes_effective_default_url_with_its_supplied_key(monkeypatch):
+    model_id = add_model(apiKey='synthetic-explicit-key')
+    row = target_row(model_id)
+    assert row['base_url'] == 'https://model.invalid/v1'
+    monkeypatch.setenv('LLM_BASE_URL','https://different-default.test/v1')
+    send_in_memory(monkeypatch, row, 'https://model.invalid/v1', 'synthetic-explicit-key')
+
+
+def test_model_invalid_legacy_url_is_rejected_before_any_transport(monkeypatch):
+    from backend.app import development_model
+    model_id = target_model(monkeypatch)
+    with get_db() as conn:
+        conn.execute('UPDATE model_configs SET base_url=? WHERE id=?', ('https:///missing-host',model_id))
+    observed = memory_provider(monkeypatch)
+    with pytest.raises(model_resolver.ModelConfigurationError, match='HTTP'):
+        development_model.completion(target_row(model_id), [], {'type':'object'})
+    assert observed == []
+
+
+@pytest.mark.parametrize('source', ['db','env'])
+def test_model_idna_wire_host_change_requires_new_key(client, monkeypatch, source):
+    old_url = 'https://fass.invalid/v1'
+    new_url = 'https://faß.invalid/v1'
+    assert httpx.URL(old_url).raw_host != httpx.URL(new_url).raw_host
+    model_id = target_model(monkeypatch, source)
+    with get_db() as conn:
+        conn.execute('UPDATE model_configs SET base_url=? WHERE id=?',(old_url,model_id))
+    before = target_row(model_id)
+    response = client.put('/admin/model-configs/' + model_id,
+        headers=auth_headers(make_user('idna-admin',role='admin')), json={'baseUrl':new_url})
+    assert response.status_code == 422
+    assert target_row(model_id) == before
+    send_in_memory(monkeypatch, target_row(model_id), old_url, _TARGET_KEY)
+
+
+@pytest.mark.parametrize('source', ['db','env'])
+def test_model_idna_equivalent_wire_target_retains_its_key(client, monkeypatch, source):
+    old_url = 'https://faß.invalid/v1'
+    new_url = 'https://xn--fa-hia.invalid/compatible/v1'
+    assert httpx.URL(old_url).raw_host == httpx.URL(new_url).raw_host
+    model_id = target_model(monkeypatch, source)
+    with get_db() as conn:
+        conn.execute('UPDATE model_configs SET base_url=? WHERE id=?',(old_url,model_id))
+    response = client.put('/admin/model-configs/' + model_id,
+        headers=auth_headers(make_user('idna-admin',role='admin')), json={'baseUrl':new_url})
+    assert response.status_code == 200
+    assert target_row(model_id)['api_key_source'] == source
+    send_in_memory(monkeypatch, target_row(model_id), new_url, _TARGET_KEY)
+
+
+@pytest.mark.parametrize('source', ['db','env'])
+def test_model_idna_new_wire_target_accepts_explicit_new_key(client, monkeypatch, source):
+    model_id = target_model(monkeypatch, source)
+    with get_db() as conn:
+        conn.execute('UPDATE model_configs SET base_url=? WHERE id=?',('https://fass.invalid/v1',model_id))
+    new_url = 'https://faß.invalid/v1'
+    response = client.put('/admin/model-configs/' + model_id,
+        headers=auth_headers(make_user('idna-admin',role='admin')),
+        json={'baseUrl':new_url,'apiKey':'synthetic-new-idna-key'})
+    assert response.status_code == 200
+    send_in_memory(monkeypatch, target_row(model_id), new_url, 'synthetic-new-idna-key')

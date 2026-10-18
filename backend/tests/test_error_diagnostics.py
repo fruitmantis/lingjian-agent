@@ -205,3 +205,79 @@ def test_failed_status_write_retains_both_original_and_database_error(client, mo
     assert all(error['task_id'] for error in errors)
     assert any('synthetic status write unavailable' in error['message'] for error in errors)
     assert any('synthetic invalid recommendation field' in error['message'] for error in errors)
+
+
+# These failures occur before _execute_match_inner enters its stage error handler.
+def background_before_model(monkeypatch):
+    from .conftest import make_task
+    owner = make_user('early-background-owner')
+    record_id = make_task(owner, 'synthetic background task', task_status='matching', recommendations=[])
+    run_id = 'synthetic-current-run'
+    with get_db() as conn:
+        match.understanding.save(conn,record_id,{'progress':{'run_id':run_id}})
+        task = dict(conn.execute('SELECT * FROM match_records WHERE id=?',(record_id,)).fetchone())
+    def no_model(*args, **kwargs):
+        raise AssertionError('Early failure must not reach a model')
+    monkeypatch.setattr(match.development_model,'completion',no_model)
+    return record_id,run_id,task
+
+
+@pytest.mark.parametrize('failure_point', ['snapshot','query','parse'])
+def test_background_early_failure_is_recorded_once_with_task_and_run(client, monkeypatch, failure_point):
+    record_id,run_id,before = background_before_model(monkeypatch)
+    if failure_point == 'snapshot':
+        def broken_snapshot(*args):
+            raise ValueError('synthetic snapshot load failure')
+        monkeypatch.setattr(match.understanding,'load',broken_snapshot)
+    elif failure_point == 'query':
+        original = match.get_db
+        class QueryFailure:
+            def __init__(self, connection):self.connection=connection
+            def __getattr__(self,name):return getattr(self.connection,name)
+            def execute(self,statement,*args,**kwargs):
+                if str(statement).startswith('SELECT recommendations_json'):
+                    raise RuntimeError('synthetic saved recommendations query failure')
+                return self.connection.execute(statement,*args,**kwargs)
+        @contextmanager
+        def broken_query():
+            with original() as conn:yield QueryFailure(conn)
+        monkeypatch.setattr(match,'get_db',broken_query)
+    else:
+        with get_db() as conn:
+            conn.execute('UPDATE match_records SET recommendations_json=? WHERE id=?',('synthetic invalid JSON',record_id))
+            before = dict(conn.execute('SELECT * FROM match_records WHERE id=?',(record_id,)).fetchone())
+    match._process_created_task(record_id,before['requirement'],before['created_at'],run_id)
+    errors = saved_errors()
+    assert len(errors) == 1
+    error = errors[0]
+    assert error['task_id'] == record_id and error['run_id'] == run_id
+    assert error['request_id'] == record_id and error['stage'] == 'partner_match'
+    assert error['exception_type'] == {'snapshot':'ValueError','query':'RuntimeError','parse':'JSONDecodeError'}[failure_point]
+    admin = make_user('early-background-admin',role='admin')
+    response = client.get('/admin/system/errors',headers=auth_headers(admin))
+    assert response.status_code == 200 and [item['id'] for item in response.json()['items']] == [error['id']]
+    with get_db() as conn:
+        assert dict(conn.execute('SELECT * FROM match_records WHERE id=?',(record_id,)).fetchone()) == before
+
+
+def test_background_existing_public_task_error_is_not_duplicated(client, monkeypatch):
+    record_id,run_id,before = background_before_model(monkeypatch)
+    def already_recorded(*args):
+        with diagnostics.diagnostic_scope(task_id=record_id,run_id=run_id,stage='understanding'):
+            raise match.PublicTaskError(ValueError('synthetic already recorded failure'))
+    monkeypatch.setattr(match,'_execute_match',already_recorded)
+    match._process_created_task(record_id,before['requirement'],before['created_at'],run_id)
+    errors = saved_errors()
+    assert len(errors) == 1 and errors[0]['stage'] == 'understanding'
+    assert errors[0]['task_id'] == record_id and errors[0]['run_id'] == run_id
+
+
+def test_background_lost_execution_stays_normal_control_flow(client, monkeypatch):
+    record_id,run_id,before = background_before_model(monkeypatch)
+    with get_db() as conn:
+        original_snapshot = conn.execute('SELECT value FROM app_metadata WHERE key=?',('match_understanding:'+record_id,)).fetchone()[0]
+    match._process_created_task(record_id,before['requirement'],before['created_at'],'synthetic-expired-run')
+    assert saved_errors() == []
+    with get_db() as conn:
+        assert dict(conn.execute('SELECT * FROM match_records WHERE id=?',(record_id,)).fetchone()) == before
+        assert conn.execute('SELECT value FROM app_metadata WHERE key=?',('match_understanding:'+record_id,)).fetchone()[0] == original_snapshot
