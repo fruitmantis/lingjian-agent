@@ -67,6 +67,24 @@ for(const source of ['link','key'])test('switch: personal center confirms target
  await page.goto('/tasks/'+task);await expect(page.locator('main').getByText('退出身份保留的个人任务',{exact:true})).toBeVisible();
  }finally{await context.close();}
 });
+test('switch: creating a new identity keeps the old one recoverable', async ({ page, request }) => {
+  const a = await welcome(page);
+  const session = await admin(request); const before = await count(request, session.access_token);
+  const dialog = await openSwitch(page);
+  await dialog.getByRole('button', { name: '在这台电脑上新建身份' }).click();
+  await expect(dialog.getByText('新建后，这台电脑只会保留新身份')).toBeVisible();
+  await dialog.getByRole('button', { name: '确定新建' }).click();
+  const created = page.getByRole('dialog', { name: '欢迎使用伴飞' });
+  await expect(created).toBeVisible();
+  await created.getByRole('button', { name: '开始使用伴飞' }).click();
+  expect((await current(page)).id).not.toBe(a.user.id);
+  expect(await count(request, session.access_token)).toBe(before + 1);
+  await page.goto(a.link);
+  const back = page.getByRole('dialog', { name: '切换身份' });
+  await back.getByRole('button', { name: '切换', exact: true }).click();
+  await expect.poll(async () => (await current(page)).id).toBe(a.user.id);
+});
+
 for(const validFormat of [false,true])test('switch: invalid target retains current identity '+validFormat,async({page})=>{
  const b=await welcome(page),token=await page.evaluate(()=>localStorage.getItem('banfei:user:token')),dialog=await openSwitch(page);
  await dialog.getByLabel('目标登录链接').fill(validFormat?origin+'/#k=bf_'+'z'.repeat(43):'invalid');await dialog.getByRole('button',{name:'切换',exact:true}).click();

@@ -56,7 +56,7 @@ for(const failure of ['network',503,429,403,401,'malformed','empty'] as const)te
 test('device pilot: only explicit invalid backup is cleared without creating on login',async({page,context})=>{
  await createIdentity(page);await legacyLogout(page);await context.clearCookies();let creates=0;
  page.on('request',r=>{if(r.url().endsWith('/auth/identity/session')&&r.postDataJSON()?.create)creates++;});await page.goto('/login');
- await expect(page.getByLabel('登录链接或 Key',{exact:true})).toBeVisible();expect(await page.evaluate(key=>localStorage.getItem(key),DEVICE)).toBeNull();expect(creates).toBe(0);
+ await expect(page.getByLabel('登录链接',{exact:true})).toBeVisible();expect(await page.evaluate(key=>localStorage.getItem(key),DEVICE)).toBeNull();expect(creates).toBe(0);
 });
 test('device pilot: verified Cookie replaces a different valid backup',async({page,browser,request})=>{
  const a=await createIdentity(page),first=await storedDevice(page),other=await browser.newContext({baseURL:origin.Origin});try{

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { fetchWithTimeout, type ApiRequestInit } from "../lib/api-request";
-import { SaveIdentityDialog } from "./identity-credential";
+import { SaveIdentityDialog, WelcomeBrand } from "./identity-credential";
 import { SwitchIdentityDialog } from "./identity-switch";
 import { identityLock } from "../lib/identity-coordination";
 import { LingjianMark } from "./ui-icons";
@@ -98,9 +98,9 @@ function keyFromLoginLink(source: string): string {
       const link = new URL(key);
       if (!["http:", "https:"].includes(link.protocol)) throw new Error();
       key = new URLSearchParams(link.hash.slice(1)).get("k") || "";
-    } catch { throw new Error("请输入有效的登录链接或已有 Key。"); }
+    } catch { throw new Error("请输入有效的登录链接。"); }
   }
-  if (!/^bf_[A-Za-z0-9_-]{43}$/.test(key)) throw new Error("请输入有效的登录链接或已有 Key。");
+  if (!/^bf_[A-Za-z0-9_-]{43}$/.test(key)) throw new Error("请输入有效的登录链接。");
   return key;
 }
 async function keySession(key: string, signal?: AbortSignal): Promise<IdentitySession> {
@@ -410,6 +410,16 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     } catch (reason) { setError(reason instanceof Error ? reason.message : "暂时无法进入，请重试"); }
     finally { setBusy(false); }
   }
+  async function createFromSwitch() {
+    if (busy) return; setBusy(true);
+    try {
+      await identityLock(async () => {
+        checkBrowserStorage();
+        const data = await result(await identityRequest("/session", { create: true, replace: true }));
+        adopt(data); setSwitchTarget(null); router.replace("/");
+      });
+    } finally { setBusy(false); }
+  }
   function dismissNotice() {
     if (user) localStorage.removeItem(`banfei:key-save:${user.id}`);
     setNotice(false);
@@ -417,22 +427,27 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   const value = useMemo(() => ({ user, loading, scope, refresh, saveSession, logout, openIdentitySwitch }), [user, loading, scope, refresh, saveSession, logout, openIdentitySwitch]);
   const deletedIdentity = identityErrorCode === "identity_deleted";
   if (loading) return <div className="auth-loading" role="status">正在准备伴飞...</div>;
-  if (scope === "user" && !user) return <main className="password-change-page"><section className="login-card password-change-card identity-entry-card">
-    <div className="login-brand-lockup"><LingjianMark /><span>伴飞 Agent</span></div>
-    <h1>{deletedIdentity ? "原身份已删除" : "使用登录链接进入伴飞"}</h1>
-    <p className="identity-entry-description">{deletedIdentity ? error : "粘贴登录链接或已有 Key，继续使用原身份和历史。"}</p>
-    {deletedIdentity ? <div className="identity-entry-actions">
-      <button type="button" className="login-submit" disabled={busy} onClick={() => void startNew()}>{busy ? "正在创建…" : "创建新身份"}</button>
-      <button type="button" className="secondary-btn" disabled={busy} onClick={() => { setError(""); setIdentityErrorCode(""); }}>使用其他登录链接</button>
-      <p className="meta-text">新身份不会恢复已删除的历史。</p>
-    </div> : <form onSubmit={event => { event.preventDefault(); void loginWithKey(keyInput); }} className="partner-form">
-      <label htmlFor="identity-key-input">登录链接或 Key</label>
-      <input id="identity-key-input" type="text" autoComplete="off" spellCheck={false} autoCapitalize="none" value={keyInput} onChange={event => setKeyInput(event.target.value)} placeholder="粘贴登录链接或已有 Key" disabled={busy} required maxLength={2048} />
-      {error && <p role="alert" className="error-text">{error}</p>}
-      <button className="login-submit" disabled={busy}>{busy ? "正在进入…" : "登录原身份"}</button>
-    </form>}
-    {!deletedIdentity && identityErrorCode !== "identity_disabled" && <div className="identity-entry-new"><button type="button" className="secondary-btn" disabled={busy} onClick={() => void startNew()}>创建新身份</button></div>}
-    <div className="identity-entry-footer"><a className="identity-entry-admin-link" href="/admin/login">管理员登录</a></div>
+  if (scope === "user" && !user) return <main className="identity-entry-page"><section className="identity-entry-shell">
+    <WelcomeBrand />
+    <section className="welcome-panel identity-entry-card">
+      <div className="welcome-inner">
+        <div className="welcome-eyebrow">{deletedIdentity ? "身份状态" : "身份入口"}</div>
+        <h1>{deletedIdentity ? "原身份已删除" : identityErrorCode === "identity_disabled" ? "身份已停用" : "使用登录链接进入伴飞"}</h1>
+        <p className="identity-entry-description">{deletedIdentity ? error : "粘贴登录链接，继续使用原身份和历史。"}</p>
+        {deletedIdentity ? <div className="identity-entry-actions">
+          <button type="button" className="login-submit" disabled={busy} onClick={() => void startNew()}>{busy ? "正在创建…" : "创建新身份"}</button>
+          <button type="button" className="secondary-btn" disabled={busy} onClick={() => { setError(""); setIdentityErrorCode(""); }}>使用其他登录链接</button>
+          <p className="meta-text">新身份不会恢复已删除的历史。</p>
+        </div> : <form onSubmit={event => { event.preventDefault(); void loginWithKey(keyInput); }} className="partner-form">
+          <label htmlFor="identity-key-input">登录链接</label>
+          <input id="identity-key-input" type="text" autoComplete="off" spellCheck={false} autoCapitalize="none" value={keyInput} onChange={event => setKeyInput(event.target.value)} placeholder="粘贴登录链接" disabled={busy} required maxLength={2048} />
+          {error && <p role="alert" className="error-text">{error}</p>}
+          <button className="login-submit" disabled={busy}>{busy ? "正在进入…" : "登录原身份"}</button>
+        </form>}
+        {!deletedIdentity && identityErrorCode !== "identity_disabled" && <div className="identity-entry-new"><button type="button" className="secondary-btn" disabled={busy} onClick={() => void startNew()}>创建新身份</button></div>}
+        <div className="identity-entry-footer"><a className="identity-entry-admin-link" href="/admin/login">管理员登录</a></div>
+      </div>
+    </section>
   </section></main>;
   if (scope === "admin" && ((!user && pathname !== "/admin/login") || (user?.must_change_password && pathname !== PASSWORD_CHANGE_PATH)
       || (user && !user.must_change_password && pathname === PASSWORD_CHANGE_PATH))) return <div className="auth-loading">正在进入管理后台...</div>;
@@ -441,7 +456,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     {error && <div className="identity-notice error-text" role="alert">{error}</div>}
     {children}
     {notice && user && scope === "user" && <SaveIdentityDialog onClose={dismissNotice} />}
-    {switchTarget !== null && user && scope === "user" && <SwitchIdentityDialog initialTarget={switchTarget} onCancel={cancelIdentitySwitch} onSwitch={switchIdentity} />}
+    {switchTarget !== null && user && scope === "user" && <SwitchIdentityDialog initialTarget={switchTarget} onCancel={cancelIdentitySwitch} onSwitch={switchIdentity} onCreate={createFromSwitch} />}
   </AuthContext.Provider>;
 }
 export function useAuth(): AuthContextValue { const value = useContext(AuthContext); if (!value) throw new Error("AuthProvider required"); return value; }

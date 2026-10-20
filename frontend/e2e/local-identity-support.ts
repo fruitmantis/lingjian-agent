@@ -20,14 +20,14 @@ export async function keyLogin(page: Page, key: string) {
   await page.goto('/login?method=key');
   const change=page.getByRole('dialog',{name:'切换身份',exact:true});
   if(await change.count()){await change.getByLabel('目标登录链接').fill(key);await change.getByRole('button',{name:'切换',exact:true}).click();await expect(change).toHaveCount(0);}
-  else{await page.getByLabel('登录链接或 Key',{exact:true}).fill(key);await page.getByRole('button',{name:'登录原身份',exact:true}).click();}
+  else{await page.getByLabel('登录链接',{exact:true}).fill(key);await page.getByRole('button',{name:'登录原身份',exact:true}).click();}
   await expect(page.locator('.sidebar')).toBeVisible();
 }
 export async function emptyEntry(page:Page){
   await page.context().clearCookies();
   await page.evaluate(()=>{localStorage.removeItem('banfei:user:token');localStorage.removeItem('banfei:user:user');localStorage.removeItem('banfei:user:device-secret');});
   await page.goto('/login?method=key');
-  await expect(page.getByLabel('登录链接或 Key',{exact:true})).toBeVisible();
+  await expect(page.getByLabel('登录链接',{exact:true})).toBeVisible();
 }
 export async function legacyLogout(page:Page){
   const token=await page.evaluate(()=>localStorage.getItem('banfei:user:token'));

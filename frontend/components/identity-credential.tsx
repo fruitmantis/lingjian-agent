@@ -54,7 +54,7 @@ export function SaveIdentityDialog({ onClose }: { onClose: () => void }) {
   const { user, refresh } = useAuth();
   const [employeeNumber, setEmployeeNumber] = useState(user?.employee_number || "");
   const [saving, setSaving] = useState(false), [error, setError] = useState("");
-  useEffect(() => { dialog.current?.showModal(); return () => { dialog.current?.close(); }; }, []);
+  useEffect(() => { dialog.current?.showModal(); dialog.current?.focus(); return () => { dialog.current?.close(); }; }, []);
   async function start() {
     if (saving) return;
     const number = employeeNumber.trim();
@@ -67,7 +67,25 @@ export function SaveIdentityDialog({ onClose }: { onClose: () => void }) {
     } catch (reason) { setError(reason instanceof Error ? reason.message : "暂时无法保存"); }
     finally { setSaving(false); }
   }
-  return <dialog ref={dialog} className="identity-save-dialog identity-welcome-dialog" aria-labelledby="identity-save-title" onCancel={event => { if (saving) event.preventDefault(); else onClose(); }}>
+  return <dialog ref={dialog} tabIndex={-1} className="identity-save-dialog identity-welcome-dialog" aria-labelledby="identity-save-title" onCancel={event => { if (saving) event.preventDefault(); else onClose(); }}>
+    <WelcomeBrand />
+    <section className="welcome-panel">
+      <div className="welcome-inner">
+        <div className="welcome-eyebrow">首次使用</div>
+        <h2 id="identity-save-title">欢迎使用伴飞</h2>
+        <p className="identity-welcome-subtitle">找到合适的伙伴，把合作推进下去</p>
+        <div className="identity-employee-sentence"><label htmlFor="welcome-employee">我的工号是</label><input id="welcome-employee" aria-label="工号（可选）" placeholder="例如 a00123456" autoComplete="off" value={employeeNumber} onChange={event => setEmployeeNumber(event.target.value)} maxLength={64} disabled={saving}/></div>
+        <p className="identity-employee-help">可跳过，之后在个人中心补充</p>
+        {error && <p className="error-text" role="alert">{error}</p>}
+        <div className="identity-welcome-link"><IdentityCredential onboarding compact /></div>
+        <div className="identity-save-footer"><button type="button" disabled={saving} onClick={() => void start()}>{saving ? "正在保存…" : "开始使用伴飞"}</button></div>
+      </div>
+    </section>
+  </dialog>;
+}
+
+export function WelcomeBrand() {
+  return (
     <aside className="welcome-brand" aria-hidden="true">
       <svg className="welcome-paths" viewBox="0 0 440 220" fill="none">
         <path d="M-20,178 C80,178 152,148 254,118" stroke="#e7c2c7" strokeWidth="1.5"/>
@@ -83,17 +101,6 @@ export function SaveIdentityDialog({ onClose }: { onClose: () => void }) {
       </div>
       <div className="welcome-brand-foot">内部试点 · 仅限公司内网访问</div>
     </aside>
-    <section className="welcome-panel">
-      <div className="welcome-inner">
-        <div className="welcome-eyebrow">首次使用</div>
-        <h2 id="identity-save-title">欢迎使用伴飞</h2>
-        <p className="identity-welcome-subtitle">找到合适的伙伴，把合作推进下去</p>
-        <div className="identity-employee-sentence"><label htmlFor="welcome-employee">我的工号是</label><input id="welcome-employee" aria-label="工号（可选）" placeholder="例如 a123456" autoComplete="off" value={employeeNumber} onChange={event => setEmployeeNumber(event.target.value)} maxLength={64} disabled={saving}/></div>
-        <p className="identity-employee-help">可跳过，之后在个人中心补充</p>
-        {error && <p className="error-text" role="alert">{error}</p>}
-        <div className="identity-welcome-link"><IdentityCredential onboarding compact /></div>
-        <div className="identity-save-footer"><button type="button" disabled={saving} onClick={() => void start()}>{saving ? "正在保存…" : "开始使用伴飞"}</button></div>
-      </div>
-    </section>
-  </dialog>;
+  );
 }
+

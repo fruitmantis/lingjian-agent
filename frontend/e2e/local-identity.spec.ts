@@ -47,7 +47,7 @@ test('explicit Key entry and invalid input never create users or request busines
   let business = 0, creations = 0;
   await page.addInitScript(() => sessionStorage.setItem('lingjian:pending-tasks:residual', JSON.stringify([{ id: 'missing-task' }])));
   page.on('request', r => { if (r.url().includes('/agent/tasks')) business++; if (r.url().endsWith('/session') && r.postDataJSON()?.create) creations++; });
-  await page.goto('/login'); await page.getByLabel('登录链接或 Key', { exact: true }).fill('incorrect-key');
+  await page.goto('/login'); await page.getByLabel('登录链接', { exact: true }).fill('incorrect-key');
   await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.locator('form [role=alert]')).toHaveText('请输入有效的登录链接或已有 Key。');
   expect(await localUser(page)).toBeNull(); expect(await userCount(request, admin.access_token)).toBe(before);
@@ -161,7 +161,7 @@ test('same browser auto-enters normal login route with either token or remembere
 
 test('missing remembered Cookie on the login route offers Key without creating a replacement',async({page,request})=>{
  const original=await createIdentity(page),admin=await adminSession(request),before=await userCount(request,admin.access_token);
- await legacyLogout(page);await emptyEntry(page);await expect(page.getByLabel('登录链接或 Key',{exact:true})).toBeVisible();expect(await userCount(request,admin.access_token)).toBe(before);
+ await legacyLogout(page);await emptyEntry(page);await expect(page.getByLabel('登录链接',{exact:true})).toBeVisible();expect(await userCount(request,admin.access_token)).toBe(before);
  await keyLogin(page,original.key);expect((await localUser(page)).id).toBe(original.user.id);
 });
 
@@ -186,7 +186,7 @@ test('deleted target cannot clear the current identity; explicit new identity re
  const before=await userCount(request,admin.access_token);await page.goto(deleted.link);
  const change=page.getByRole('dialog',{name:'切换身份',exact:true});await change.getByRole('button',{name:'切换',exact:true}).click();await expect(change.locator('[role=alert]')).toContainText('该身份已被管理员删除');
  await change.getByRole('button',{name:'取消',exact:true}).click();expect((await localUser(page)).id).toBe(current.user.id);
- await emptyEntry(page);await page.getByLabel('登录链接或 Key',{exact:true}).fill(deleted.key);await page.getByRole('button',{name:'登录原身份',exact:true}).click();await expect(page.getByRole('heading',{name:'原身份已删除'})).toBeVisible();
+ await emptyEntry(page);await page.getByLabel('登录链接',{exact:true}).fill(deleted.key);await page.getByRole('button',{name:'登录原身份',exact:true}).click();await expect(page.getByRole('heading',{name:'原身份已删除'})).toBeVisible();
  await page.getByRole('button',{name:'创建新身份',exact:true}).click();await expect(page.getByRole('dialog',{name:'欢迎使用伴飞'})).toBeVisible();
  expect((await localUser(page)).id).not.toBe(current.user.id);expect((await localUser(page)).id).not.toBe(deleted.user.id);expect(await userCount(request,admin.access_token)).toBe(before+1);
  const restored=await request.post(API+'/auth/identity/key/login',{headers:origin,data:{key:current.key}});expect((await restored.json()).user.id).toBe(current.user.id);
@@ -197,13 +197,13 @@ test('disabled Key is distinguished from deletion and provides no new identity s
   await emptyEntry(page);
   expect((await request.patch(API+'/admin/users/'+original.user.id+'/status', { headers: { Authorization: 'Bearer '+admin.access_token }, data: { status: 'disabled' } })).ok()).toBe(true);
   await page.goto('/login?method=key');
-  await page.getByLabel('登录链接或 Key').fill(original.key);
+  await page.getByLabel('登录链接').fill(original.key);
   await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.locator('form [role=alert]')).toHaveText('该身份已停用，需要管理员重新启用后才能继续使用。');
   await expect(page.getByRole('heading', { name: '原身份已删除' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '创建新身份', exact: true })).toHaveCount(0);
   expect((await request.patch(API+'/admin/users/'+original.user.id+'/status', { headers: { Authorization: 'Bearer '+admin.access_token }, data: { status: 'active' } })).ok()).toBe(true);
-  await page.getByLabel('登录链接或 Key').fill(original.key);
+  await page.getByLabel('登录链接').fill(original.key);
   await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.locator('.sidebar')).toBeVisible(); expect((await localUser(page)).id).toBe(original.user.id);
 });
@@ -213,7 +213,7 @@ test('unknown Key with a stale remembered marker offers explicit creation withou
   await page.goto('/login?method=key');
   await page.evaluate(() => localStorage.setItem('banfei:user:signed-out', 'remembered'));
   await page.reload();
-  await page.getByLabel('登录链接或 Key', { exact: true }).fill('bf_'+'z'.repeat(43));
+  await page.getByLabel('登录链接', { exact: true }).fill('bf_'+'z'.repeat(43));
   await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.locator('form [role=alert]')).toHaveText('凭据无效或已失效，请确认 Key 或凭据文件。');
   await expect(page.getByRole('heading', { name: '原身份已删除' })).toHaveCount(0);
@@ -248,7 +248,7 @@ for (const location of ['list', 'detail']) test(`account soft deletion from ${lo
   expect(history.ok()).toBeTruthy(); expect((await history.json()).createdBy).toBe('已删除用户');
   await page.goto('/admin/tasks/'+taskId);
   await expect(page.getByText('已删除用户', { exact: false })).toBeVisible();
-  await page.goto('/login?method=key'); await page.getByLabel('登录链接或 Key', { exact: true }).fill(original.key);
+  await page.goto('/login?method=key'); await page.getByLabel('登录链接', { exact: true }).fill(original.key);
   await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
   expect((await request.get(API+'/auth/me', { headers })).ok()).toBeTruthy();
@@ -342,7 +342,7 @@ test('login link v3: unrecoverable switch response enters login with an explicit
     await page.route('**/auth/identity/key/login',async route=>{expect((await route.fetch()).ok()).toBe(true);await context.clearCookies();await route.abort();});
     await page.goto(a.link);await page.getByRole('dialog',{name:'切换身份',exact:true}).getByRole('button',{name:'切换',exact:true}).click();
     await expect(page).toHaveURL(/\/login$/);await expect(page.locator('.identity-entry-card .error-text[role=alert]')).toHaveText('登录已失效，请重新进入');
-    await expect(page.getByLabel('登录链接或 Key',{exact:true})).toBeVisible();await expect(page.locator('.sidebar')).toHaveCount(0);
+    await expect(page.getByLabel('登录链接',{exact:true})).toBeVisible();await expect(page.locator('.sidebar')).toHaveCount(0);
     expect(await localUser(page)).toBeNull();expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBeNull();expect(creates).toBe(0);
     expect((await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+token}})).status()).toBe(401);
   }finally{await other.close();}
@@ -374,7 +374,7 @@ test('deleted Key shows explicit new identity action without automatic creation'
   let creations = 0;
   page.on('request', r => { if (r.url().endsWith('/auth/identity/session') && r.postDataJSON()?.create) creations++; });
   await page.goto('/login?method=key');
-  await page.getByLabel('登录链接或 Key', { exact: true }).fill(original.key);
+  await page.getByLabel('登录链接', { exact: true }).fill(original.key);
   await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
   await expect(page.getByText('该身份已被管理员删除，原凭据已失效。请重新建立身份。', { exact: true })).toBeVisible();
