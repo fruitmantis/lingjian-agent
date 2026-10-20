@@ -57,15 +57,15 @@ class Candidate(AnalysisReference):
     matchedCapabilities: str = ''
     matchedIndustries: str = ''
     matchedRegions: str = ''
-    recommendationReason: str
+    recommendationReason: str = Field(description='先写资料依据，再写建议承担的角色；内容较长时空行分成两个短段，短内容不硬拆；不使用标题或列表符号。')
     evidenceType: Literal['current_capability','delivered_project','planning_only','unrelated'] = 'current_capability'
-    riskNotes: str = Field(default='',description='只写与该伙伴有关且会改变当前取舍的必要事项，无则空。')
+    riskNotes: str = Field(default='',description='只写与该伙伴有关且会改变当前取舍的必要事项，无则空；多项时每项单独一行。')
 
 
 class MatchAnswer(ModelOutput):
     recommendations: list[Candidate]=Field(default_factory=list,max_length=5)
     supplyStatus: Literal['sufficient','partial','gap','unknown']
-    gapAnalysis: str=Field(default='',max_length=2000,description='整体分工、比较及影响取舍的具体未覆盖工作，不逐项罗列所有未知。')
+    gapAnalysis: str=Field(default='',max_length=2000,description='整体分工、比较及影响取舍的具体未覆盖工作，不逐项罗列所有未知。按整体分工、取舍比较、未覆盖工作与接洽要点的顺序写，用空行分段，通常每段1～2句，无实质内容的主题省略，不重复卡片理由。')
     analysisRefs: list[AnalysisReference]
 
 

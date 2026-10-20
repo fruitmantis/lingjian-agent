@@ -102,7 +102,7 @@ def detail_messages(content):
         'partnerId选候选ID，名称由程序补齐。matchedCapabilities/Industries/Regions只选给定正式标签。最多5家，matchScore为0至100数字字符串。'
         'evidenceType使用current_capability、delivered_project、planning_only或unrelated；规划及无关对象不列正式推荐。'
         'recommendationReason说明伙伴事实和建议角色；riskNotes只写与该对象相关的必要事项，空则留空。gapAnalysis说明整体分工、比较及影响取舍的具体未覆盖工作，analysisRefs列这段分析实际使用的伙伴及引用，含未推荐但参与分析的伙伴；仅讨论用户条件可为空数组。'
-        'supplyStatus按独立整体分析的需求覆盖判断，使用sufficient、partial、gap或unknown；即使无正式推荐，有依据的缺项仍可为gap，无法判断才为unknown。直接陈述事实与建议，不补通用免责段，不公开内部定位。只返回JSON。'},
+        'supplyStatus按独立整体分析的需求覆盖判断，使用sufficient、partial、gap或unknown；即使无正式推荐，有依据的缺项仍可为gap，无法判断才为unknown。直接陈述事实与建议，不补通用免责段，不公开内部定位。正文分段：gapAnalysis按“整体分工、取舍比较、未覆盖工作与接洽要点”的顺序写，用空行分段，每段通常1～2句，内容复杂时不超过4句；没有实质内容的主题省略，不硬凑三段，不重复各伙伴卡片的推荐理由。recommendationReason先写资料依据再写建议承担的角色，内容较长时空行分成两个短段，短内容不硬拆；riskNotes只写会影响本次选择的具体事项，多项时每项单独一行。不要使用【】、#、**、- 等标题或列表符号，不加通用免责声明。只返回JSON。'},
         {'role':'user','content':content}]
 
 
