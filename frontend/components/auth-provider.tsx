@@ -24,6 +24,7 @@ export const PASSWORD_CHANGE_PATH = "/admin/change-password";
 const SIGNED_OUT = "banfei:user:signed-out";
 const DEVICE_SECRET = "banfei:user:device-secret";
 const STORAGE_ERROR = "请允许站点存储后重试，暂时未更换身份。";
+const ENTRY_NOTICE = "banfei:user:entry-notice";
 let userIdentitySwitching = false;
 let userIdentitySwitchVersion = 0;
 const storageKey = (scope: AuthScope, name: string) => `banfei:${scope}:${name}`;
@@ -49,6 +50,16 @@ export async function apiFetch(path: string, init: ApiRequestInit = {}, scope: A
   // Only requests overlapping this tab's explicit switch defer to its identity check.
   const switchHandled = scope === "user" && (userIdentitySwitching || switchVersion !== userIdentitySwitchVersion);
   if (response.status === 401 && typeof window !== "undefined" && !switchHandled) {
+    if (scope === "user") {
+      // Keep the reason across the redirect so the entry can explain the loss.
+      try {
+        const detail = await response.clone().json();
+        const code = detail?.detail?.code;
+        if (code === "identity_deleted" || code === "identity_disabled") {
+          sessionStorage.setItem(ENTRY_NOTICE, JSON.stringify({ code, message: detail.detail.message }));
+        }
+      } catch { /* fall back to the generic entry */ }
+    }
     clearSession(scope);
     if (scope === currentScope() && window.location.pathname !== (scope === "admin" ? "/admin/login" : "/login")) {
       window.location.assign(scope === "admin" ? "/admin/login" : "/login");
@@ -138,7 +149,16 @@ async function restoreUserIdentity(signal: AbortSignal): Promise<IdentitySession
       return keySession((await own.json()).key, signal);
     }
     if (response.status !== 401) throw new Error("暂时无法验证身份，请重试");
+    let code = ""; let message = "";
+    try {
+      const detail = await response.clone().json();
+      code = detail?.detail?.code ?? ""; message = detail?.detail?.message ?? "";
+    } catch { /* keep the generic entry */ }
     clearSession("user");
+    // A deleted or disabled identity must stop here, never fall through to creation.
+    if (code === "identity_deleted" || code === "identity_disabled") {
+      throw new IdentityError(message || "该身份已被管理员删除，请重新建立身份。", code);
+    }
   }
   return null;
 }
@@ -156,6 +176,20 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   const [notice, setNotice] = useState(false); const [keyInput, setKeyInput] = useState("");
   const [switchTarget, setSwitchTarget] = useState<string | null>(null);
   const [identityErrorCode, setIdentityErrorCode] = useState("");
+  // A deleted or disabled identity redirects here; surface why instead of a blank entry.
+  const entranceNoticeShown = useRef(false);
+  useEffect(() => {
+    if (loading || user || entranceNoticeShown.current) return;
+    entranceNoticeShown.current = true;
+    const raw = sessionStorage.getItem(ENTRY_NOTICE);
+    if (!raw) return;
+    sessionStorage.removeItem(ENTRY_NOTICE);
+    try {
+      const notice = JSON.parse(raw);
+      if (typeof notice.code === "string") setIdentityErrorCode(notice.code);
+      if (typeof notice.message === "string") setError(notice.message);
+    } catch { /* ignore a malformed marker */ }
+  }, [loading, user]);
   const [switchMessage, setSwitchMessage] = useState("");
   const reportIdentityError = useCallback((reason: unknown, fallback: string) => {
     setError(reason instanceof Error ? reason.message : fallback);

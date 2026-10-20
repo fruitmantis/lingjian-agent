@@ -81,8 +81,14 @@ def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(secu
             "SELECT id, username, display_name, employee_number, department, role, status, must_change_password, token_version, created_at, updated_at, last_login_at, locked_until FROM users WHERE id = ?",
             (payload.get("sub"),),
         ).fetchone()
-        if row is None or row["status"] != "active":
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="账号不存在或已停用")
+        if row is None or row["status"] == "deleted":
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "identity_deleted", "message": "该身份已被管理员删除，请重新建立身份。"},
+                headers={"WWW-Authenticate": "Bearer"})
+        if row["status"] != "active":
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                detail={"code": "identity_disabled", "message": "该身份已停用，请联系管理员重新启用。"},
+                headers={"WWW-Authenticate": "Bearer"})
         if int(payload.get("ver", 0)) != int(row["token_version"] or 0):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效，请重新登录")
         method = payload.get("amr")

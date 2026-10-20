@@ -355,6 +355,16 @@ async function deleteIdentity(request: APIRequestContext, adminToken: string, us
   expect((await request.delete(API+'/admin/users/'+userId, { headers, data: { confirmationToken: data.confirmationToken } })).status()).toBe(204);
 }
 
+test('admin deletion during an active session explains the loss and offers a new identity', async ({ page, request }) => {
+  const original = await createIdentity(page);
+  const admin = await adminSession(request);
+  await deleteIdentity(request, admin.access_token, original.user.id);
+  await page.goto('/tasks');
+  await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '创建新身份', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '登录原身份', exact: true })).toHaveCount(0);
+});
+
 test('deleted Key shows explicit new identity action without automatic creation', async ({ page, request }) => {
   const original = await createIdentity(page); const admin = await adminSession(request);
   await page.evaluate(s => { localStorage.setItem('banfei:admin:token', s.access_token); localStorage.setItem('banfei:admin:user', JSON.stringify(s.user)); }, admin);
