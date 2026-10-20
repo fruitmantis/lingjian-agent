@@ -76,7 +76,7 @@ def request(stage,payload,contract):
                  'answer简述改动；used_refs和used_profile_chapters只声明变更部分的依据。'
                  'resource_gaps/next_steps省略表示未改，显式空数组清除；提供时为修改后的完整列表。')
     else:
-        prompt+=('answer为最终顾问正文；保留阶段/条目顺序，focus/reason说明本次用途。'
+        prompt+=('answer为最终顾问正文；必须用空行分段：发展路径、各阶段安排、验收物、条件变化各自成段，每段不超过四五句，禁止写成一整段连续文字；固定 3 个阶段，每阶段 3～4 个资源，总资源控制在 9～12 个，候选已按相关度排序，优先选择靠前的资源，只有明显不匹配才跳过；保留阶段/条目顺序，focus/reason说明本次用途。'
                  'resource_gaps/next_steps/note/estimated_hours按实际需要填写，没选择资源不等于资源库没有资源。')
     messages=[{'role':'system','content':prompt},{'role':'user','content':json.dumps(payload,ensure_ascii=False)}]
     schema=contract.model_json_schema()

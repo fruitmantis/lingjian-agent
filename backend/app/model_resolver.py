@@ -126,7 +126,7 @@ def model_config_from_record(record) -> ResolvedModelConfig:
         api_key=_resolve_api_key(row),
         base_url=base_url,
         model=model,
-        temperature=row["temperature"] if row.get("temperature") is not None else 0.3,
+        temperature=row["temperature"] if row.get("temperature") is not None else 0.2,
         top_p=row["top_p"] if row.get("top_p") is not None else 1.0,
         max_tokens=row["max_tokens"] if row.get("max_tokens") is not None else 131072,
         source="db",

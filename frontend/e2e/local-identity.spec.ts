@@ -49,7 +49,7 @@ test('explicit Key entry and invalid input never create users or request busines
   page.on('request', r => { if (r.url().includes('/agent/tasks')) business++; if (r.url().endsWith('/session') && r.postDataJSON()?.create) creations++; });
   await page.goto('/login'); await page.getByLabel('登录链接', { exact: true }).fill('incorrect-key');
   await page.getByRole('button', { name: '登录原身份', exact: true }).click();
-  await expect(page.locator('form [role=alert]')).toHaveText('请输入有效的登录链接或已有 Key。');
+  await expect(page.locator('form [role=alert]')).toHaveText('请输入有效的登录链接。');
   expect(await localUser(page)).toBeNull(); expect(await userCount(request, admin.access_token)).toBe(before);
   expect(business).toBe(0); expect(creations).toBe(0);
 });
@@ -248,7 +248,10 @@ for (const location of ['list', 'detail']) test(`account soft deletion from ${lo
   expect(history.ok()).toBeTruthy(); expect((await history.json()).createdBy).toBe('已删除用户');
   await page.goto('/admin/tasks/'+taskId);
   await expect(page.getByText('已删除用户', { exact: false })).toBeVisible();
-  await page.goto('/login?method=key'); await page.getByLabel('登录链接', { exact: true }).fill(original.key);
+  await page.goto('/login?method=key');
+  await expect(page.getByRole('heading', { name: '原身份已删除' }).or(page.getByLabel('登录链接', { exact: true }))).toBeVisible();
+  if (await page.getByRole('heading', { name: '原身份已删除' }).isVisible()) await page.getByRole('button', { name: '使用其他登录链接' }).click();
+  await page.getByLabel('登录链接', { exact: true }).fill(original.key);
   await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
   expect((await request.get(API+'/auth/me', { headers })).ok()).toBeTruthy();

@@ -66,7 +66,7 @@ class ModelConfigCreate(BaseModel):
     baseUrl: str | None = None
     apiKey: str | None = None
     modelName: str | None = None
-    temperature: float = Field(default=0.3, ge=0, allow_inf_nan=False)
+    temperature: float = Field(default=0.2, ge=0, allow_inf_nan=False)
     topP: float = Field(default=1.0, ge=0, le=1, allow_inf_nan=False)
     maxTokens: int = Field(default=131072, gt=0)
 
