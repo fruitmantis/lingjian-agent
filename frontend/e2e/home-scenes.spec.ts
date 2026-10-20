@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {test,expect,type Page} from '@playwright/test';
 import {selectPartner} from './partner-select-helper';
 
@@ -40,6 +41,7 @@ async function setup(page:Page,{url='/',rejectFirst=false,hold=false}={}){
   if(json===null){errors.push(req.method()+' '+path);return route.fulfill({status:404,json:{detail:'未定义的合成接口'}});}
   return route.fulfill({json});
  });
+  await mockDeviceSession(page);
  await page.goto(url);await expect(page.locator('.home-scene-buttons button')).toHaveCount(6);
  return {posts,errors,release};
 }

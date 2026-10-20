@@ -5,6 +5,7 @@ PUBLIC_OPERATIONS = {
     ("get", "/health"),
     ("post", "/auth/admin/login"),
     ("post", "/auth/identity/session"),
+    ("post", "/auth/identity/resume"),
     ("post", "/auth/identity/key/login"),
     ("post", "/auth/identity/logout"),
 }
@@ -49,3 +50,11 @@ def test_enablement_workspace_operations_remain_authenticated():
 def test_development_conversation_requires_authentication():
     operation=app.openapi()['paths']['/development/plans/{plan_id}/conversation']['post']
     assert operation['security']
+
+
+def test_device_secret_is_identity_response_only():
+    schema=app.openapi()['components']['schemas']
+    assert 'device_secret' in schema['IdentitySession']['properties']
+    assert 'device_secret' in schema['IdentitySession']['required']
+    assert 'device_secret' not in schema['UserOut']['properties']
+    assert 'device_secret' not in schema['AdminUserOut']['properties']

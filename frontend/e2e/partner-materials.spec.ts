@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
@@ -25,7 +26,7 @@ test('one materials page: partner shortcut, private profile originals and legacy
   await office.getByRole('button',{name:'在线查看'}).click();await expect(page.getByRole('dialog').locator('object[type="application/pdf"]')).toBeVisible();
   await page.getByRole('dialog').getByRole('button',{name:'关闭'}).click();
   const download=page.waitForEvent('download');await office.getByRole('button',{name:'下载原件'}).click();expect((await download).suggestedFilename()).toBe('初始化画像.docx');
-  await page.getByRole('link',{name:'管理资料',exact:true}).click();await expect(page).toHaveURL(new RegExp('/admin/partner-materials\\?partner_id='+partner.id));
+  await page.locator('section').filter({has:page.getByRole('heading',{name:'案例与资料',exact:true})}).getByRole('link',{name:'管理资料',exact:true}).click();await expect(page).toHaveURL(new RegExp('/admin/partner-materials\\?partner_id='+partner.id));
   await expect(page.getByText('当前伙伴：'+partner.name,{exact:true})).toBeVisible();
   await expect(page.getByRole('heading',{name:'待分类资料',exact:true})).toBeVisible();
   await expect(page.locator('[data-material-id]')).toHaveCount(1);
@@ -99,6 +100,7 @@ for(const motion of ['no-preference','reduce'] as const)test('phase1 F01: materi
       path==='/admin/partner-materials'?{items:[],total:0,partners:[{id:'focus-fixture',name:'合成焦点伙伴'}]}:{};
     await route.fulfill({json});
   });
+  await mockDeviceSession(page);
   await page.goto('/admin/partner-materials');
   const trigger=page.getByRole('button',{name:'新增资料',exact:true});await trigger.click();
   const dialog=page.getByRole('dialog',{name:'新增资料',exact:true});

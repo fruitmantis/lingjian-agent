@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {test, expect, type Page} from '@playwright/test';
 
 type Kind='match'|'development';
@@ -42,6 +43,7 @@ async function fixture(page:Page,kind:Kind,options:{reject?:boolean,slow?:boolea
   if(json===null){errors.push(req.method()+' '+path);return route.fulfill({status:404,json:{detail:'未定义合成接口'}});}
   return route.fulfill({json});
  });
+  await mockDeviceSession(page);
  await page.goto(options.url||(kind==='match'?'/':'/?mode=development&partner_id=partner-1'));
  await expect(page.locator('.home-scene-buttons button')).toHaveCount(6);
  return {ack,detail,posts,errors};

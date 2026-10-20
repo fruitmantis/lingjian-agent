@@ -30,10 +30,10 @@ for(const width of [1366,390]){
   expect(await preview.evaluate(el=>window.getSelection()?.toString()===el.textContent)).toBe(true);
   await capture(page,'copy-fallback-'+width);
   await welcome.getByRole('button',{name:'开始使用伴飞',exact:true}).click();await expect(welcome).toHaveCount(0);
-  const owner=await page.evaluate(()=>localStorage.getItem('banfei:user:user'));
   await page.goto('/account');
   const switcher=page.locator('main').getByRole('button',{name:'切换身份',exact:true});
   await expect(switcher).toBeEnabled();
+  const owner=await page.evaluate(()=>localStorage.getItem('banfei:user:user'));
   await capture(page,'account-actions-'+width);
   let logout=0;page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/auth/identity/logout'))logout++;});
   if(width===390)await page.getByRole('button',{name:'展开导航',exact:true}).click();

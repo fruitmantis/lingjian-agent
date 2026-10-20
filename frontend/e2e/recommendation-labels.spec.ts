@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {test,expect,type Page} from '@playwright/test';
 
 const stamp='2026-10-16T00:00:00Z';
@@ -46,6 +47,7 @@ async function setup(page:Page){
   if(path==='/admin/system/status')return route.fulfill({json:{overallStatus:'partial',checkedAt:stamp,summary:{normalCount:0,warningCount:1,errorCount:1,unknownCount:0,abnormalModules:[{module:'智能匹配',status:'error',message:'合成配置问题',impact:'可能影响 AI 画像生成、智能匹配和需求画像生成',suggestion:'检查配置'},{module:'能力发展',status:'warning',message:'能力发展模型配置不可用，请检查场景绑定、模型启用状态和凭据',impact:'能力发展任务可能无法执行',suggestion:'检查配置'}]},services:[],database:[],llm:[{name:'智能匹配',status:'normal',message:'自定义连接名称'}],businessCapabilities:[{name:'智能匹配',status:'error',message:'合成配置问题'},{name:'能力发展',status:'warning',message:'能力发展模型配置不可用，请检查场景绑定、模型启用状态和凭据'}],recentErrors:[]}});
   unexpected.push(method+' '+path);return route.fulfill({status:404,json:{detail:'Undefined synthetic route'}});
  });
+  await mockDeviceSession(page);
  return {unexpected,errors,writes,check(){expect(unexpected).toEqual([]);expect(errors).toEqual([]);expect(JSON.stringify(settings)).toBe(snapshot);}};
 }
 async function paste(page:Page){

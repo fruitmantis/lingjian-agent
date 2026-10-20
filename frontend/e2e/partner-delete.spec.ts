@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {test, expect} from '@playwright/test';
@@ -62,6 +63,7 @@ for(const width of [1366,390])test('phase2 visual: admin list leads and editors 
   if(path==='/partners')return route.fulfill({json:Array.from({length:5},(_,i)=>({id:'visual-'+i,name:'合成伙伴 '+i,status:'active',capabilities:'合成能力',industries:'金融',ai_profile:null}))});
   return route.fulfill({status:404,json:{detail:'Unexpected isolated read'}});
  });
+  await mockDeviceSession(page);
  await page.goto('/admin/partners');
  await expect(page.getByRole('cell',{name:'合成伙伴 0',exact:true})).toBeVisible();
  expect((await page.locator('.data-table thead').boundingBox())!.y).toBeLessThan(page.viewportSize()!.height-60);

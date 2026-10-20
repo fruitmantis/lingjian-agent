@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {expect,test} from '@playwright/test';
 
 for (const kind of ['match','development'] as const) {
@@ -28,6 +29,7 @@ for (const kind of ['match','development'] as const) {
    if(json===null){errors.push(req.method()+' '+path);return route.fulfill({status:404,json:{detail:'Unlisted synthetic endpoint'}});}
    return route.fulfill({json});
   });
+  await mockDeviceSession(page);
   await page.goto(kind==='match'?'/':'/?mode=development&partner_id=partner-1');
   await page.locator(kind==='match'?'#requirement':'textarea[aria-label="发展方向"]').fill(original);
   await page.getByRole('button',{name:'开始',exact:true}).click();

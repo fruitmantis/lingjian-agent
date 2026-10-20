@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { ENABLED_SCENES } from "../lib/scenes";
 
@@ -56,6 +57,7 @@ async function fixture(page: Page) {
     else return route.fulfill({ status: 404, json: { detail: "Unexpected isolated request" } });
     return route.fulfill({ json });
   });
+  await mockDeviceSession(page);
   return { requests, state };
 }
 

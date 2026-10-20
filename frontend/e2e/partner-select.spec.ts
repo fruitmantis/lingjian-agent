@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {expect, test, type Page} from '@playwright/test';
 
 const partners = Array.from({length: 500}, (_, i) => ({id: `partner-${i}`, name: `合成伙伴 ${String(i).padStart(3, '0')}`}));
@@ -31,6 +32,7 @@ async function fixture(page: Page, admin = false) {
     let json: unknown;
     if(path==='/auth/me') json=identity;
     else if(path==='/health') json={status:'ok'};
+    else if(path==='/agents') json=[{id:'partner_match',name:'伙伴推荐',description:'合成伙伴推荐入口',icon:'users',enabled:true},{id:'partner_development',name:'伙伴发展',description:'合成伙伴发展入口',icon:'growth',enabled:true}];
     else if(path==='/partners') json=partners;
     else if(path==='/agent/tasks') json={items:[],total:0,page:1,pageSize:20,totalPages:0};
     else if(path==='/enablement/context') {const partner=partners.find(p=>p.id===url.searchParams.get('partner_id'));json={partner:partner?{...partner,intro:'合成资料'}:null,project:null,shared_case:null,evidence:[]};}
@@ -39,6 +41,7 @@ async function fixture(page: Page, admin = false) {
     else {unexpected.push(req.method()+' '+path);return route.fulfill({status:404,json:{detail:'Unlisted fixture API'}});}
     return route.fulfill({json});
   });
+  await mockDeviceSession(page);
   return {writes,queries,errors,unexpected};
 }
 

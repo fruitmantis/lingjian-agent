@@ -48,9 +48,9 @@ test('employee: account edits preserve display name, Key, ID and task owner',asy
  await page.goto('/tasks/'+task);await expect(page.locator('main').getByText('退出身份保留的个人任务',{exact:true})).toBeVisible();
 });
 test('switch: external A link prompts while B stays valid; copy and cancel preserve B',async({page,browser,request})=>{
- const b=await welcome(page),token=await page.evaluate(()=>localStorage.getItem('banfei:user:token')),context=await browser.newContext({baseURL:origin});
+ const b=await welcome(page),context=await browser.newContext({baseURL:origin});
  try{const a=await welcome(await context.newPage());let posts=0;page.on('request',req=>{if(req.url().endsWith('/auth/identity/key/login'))posts++;});
- await page.goto(a.link);const dialog=page.getByRole('dialog',{name:'切换身份',exact:true});await expect(dialog).toBeVisible();await expect(dialog.getByLabel('目标登录链接')).toHaveValue(a.link);
+ await page.goto(a.link);const dialog=page.getByRole('dialog',{name:'切换身份',exact:true});await expect(dialog).toBeVisible();const token=await page.evaluate(()=>localStorage.getItem('banfei:user:token'));await expect(dialog.getByLabel('目标登录链接')).toHaveValue(a.link);
  expect(posts).toBe(0);expect((await current(page)).id).toBe(b.user.id);
  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text:string)=>{(window as any).copied=text;}}}));
  await dialog.getByRole('button',{name:'复制登录链接'}).click();expect(await page.evaluate(()=>(window as any).copied)).toBe(b.link);

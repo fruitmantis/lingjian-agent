@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {test, expect} from '@playwright/test';
 
 test('model deletion supports cancel, success and server errors', async ({page}) => {
@@ -27,6 +28,7 @@ test('model deletion supports cancel, success and server errors', async ({page})
     }
     unexpected.push(path); return route.abort();
   });
+  await mockDeviceSession(page);
   await page.goto('/admin/models');
   const unused = page.getByRole('row').filter({hasText:'默认首选模型'});
   page.once('dialog', dialog => dialog.dismiss());

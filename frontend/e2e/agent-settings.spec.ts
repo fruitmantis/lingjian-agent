@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {test,expect} from '@playwright/test';
 import {mkdirSync} from 'node:fs';
 
@@ -25,6 +26,7 @@ test('fixed agents save independently and keep existing entry and task ownership
   if(path==='/health')return route.fulfill({json:{status:'ok'}});
   unexpected.push(request.method()+' '+path);return route.fulfill({status:404,json:{detail:'Unspecified synthetic route'}});
  });
+  await mockDeviceSession(page);
  await page.goto('/admin/models');
  await expect(page.getByRole('heading',{name:'智能体管理',exact:true})).toBeVisible();
  const matching=page.getByTestId('agent-partner_match');

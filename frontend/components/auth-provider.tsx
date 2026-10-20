@@ -22,6 +22,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 export const PASSWORD_CHANGE_PATH = "/admin/change-password";
 const SIGNED_OUT = "banfei:user:signed-out";
+const DEVICE_SECRET = "banfei:user:device-secret";
+const STORAGE_ERROR = "请允许站点存储后重试，暂时未更换身份。";
 let userIdentitySwitching = false;
 let userIdentitySwitchVersion = 0;
 const storageKey = (scope: AuthScope, name: string) => `banfei:${scope}:${name}`;
@@ -56,23 +58,26 @@ export async function apiFetch(path: string, init: ApiRequestInit = {}, scope: A
 }
 export const adminApiFetch = (path: string, init: ApiRequestInit = {}) => apiFetch(path, init, "admin");
 export const userApiFetch = (path: string, init: ApiRequestInit = {}) => apiFetch(path, init, "user");
-export async function identityRequest(path: string, body: object = {}) {
+export async function identityRequest(path: string, body: object = {}, signal?: AbortSignal) {
   return fetchWithTimeout(`${apiBaseUrl}/auth/identity${path}`, { method: "POST", credentials: "include",
-    headers: { "Content-Type": "application/json", ...authHeaders("user") }, body: JSON.stringify(body) });
+    headers: { "Content-Type": "application/json", ...(["/session", "/resume"].includes(path) ? {} : authHeaders("user")) }, body: JSON.stringify(body), signal });
 }
-type IdentitySession = { access_token: string; user: CurrentUser; created: boolean };
+type IdentitySession = { access_token: string; user: CurrentUser; created: boolean; device_secret: string };
 class IdentityError extends Error {
   constructor(message: string, readonly code: string, readonly browserIdentityAvailable?: boolean) { super(message); }
 }
 async function result(response: Response): Promise<IdentitySession> {
-  const data = await response.json();
+  let data;
+  try { data = await response.json(); }
+  catch { throw new Error("暂时无法读取身份信息，请重试。"); }
   if (!response.ok) {
-    const detail = data.detail;
+    const detail = data?.detail;
     if (detail && typeof detail === "object" && typeof detail.code === "string" && typeof detail.message === "string") {
       throw new IdentityError(detail.message, detail.code, typeof detail.browser_identity_available === "boolean" ? detail.browser_identity_available : undefined);
     }
     throw new Error(typeof detail === "string" ? detail : "暂时无法进入，请重试");
   }
+  if (!data || typeof data.access_token !== "string" || !data.user) throw new Error("身份接口版本不一致，请刷新后重试。");
   return data;
 }
 function keyFromLoginLink(source: string): string {
@@ -87,11 +92,55 @@ function keyFromLoginLink(source: string): string {
   if (!/^bf_[A-Za-z0-9_-]{43}$/.test(key)) throw new Error("请输入有效的登录链接或已有 Key。");
   return key;
 }
-async function keySession(key: string): Promise<IdentitySession> {
+async function keySession(key: string, signal?: AbortSignal): Promise<IdentitySession> {
   let response: Response;
-  try { response = await identityRequest("/key/login", { key }); }
+  try { response = await identityRequest("/key/login", { key }, signal); }
   catch { throw new IdentityError("网络连接失败，登录结果暂未确认，请重试登录链接。", "network_error"); }
   return result(response);
+}
+
+function checkBrowserStorage() {
+  try {
+    const probe = "banfei:user:storage-check";
+    localStorage.setItem(probe, "1"); localStorage.removeItem(probe);
+  } catch { throw new Error(STORAGE_ERROR); }
+}
+function saveDeviceSecret(data: IdentitySession) {
+  if (typeof data.device_secret !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(data.device_secret)) {
+    throw new Error("身份接口版本不一致，请刷新后重试。");
+  }
+  try { localStorage.setItem(DEVICE_SECRET, data.device_secret); }
+  catch { throw new Error(STORAGE_ERROR); }
+}
+async function restoreUserIdentity(signal: AbortSignal): Promise<IdentitySession | null> {
+  try { return await result(await identityRequest("/session", { create: false }, signal)); }
+  catch (reason) {
+    if (!(reason instanceof IdentityError) || reason.code !== "identity_missing") throw reason;
+  }
+  const backup = localStorage.getItem(DEVICE_SECRET);
+  if (backup) {
+    try { return await result(await identityRequest("/resume", { secret: backup }, signal)); }
+    catch (reason) {
+      if (!(reason instanceof IdentityError) || reason.code !== "invalid_device_credential") throw reason;
+      if (localStorage.getItem(DEVICE_SECRET) === backup) localStorage.removeItem(DEVICE_SECRET);
+    }
+  }
+  // Upgrade clients that still have a valid JWT but never stored a device backup.
+  const token = getToken("user");
+  if (token) {
+    const headers = { Authorization: `Bearer ${token}` };
+    const response = await fetchWithTimeout(`${apiBaseUrl}/auth/me`, { headers, cache: "no-store", signal });
+    if (response.ok) {
+      const previous = await response.json() as CurrentUser;
+      if (previous.role !== "user") throw new Error("身份类型不匹配，请重新进入");
+      const own = await fetchWithTimeout(`${apiBaseUrl}/auth/identity/key`, { headers, cache: "no-store", signal });
+      if (!own.ok) throw new Error("暂时无法恢复原身份，请重试。");
+      return keySession((await own.json()).key, signal);
+    }
+    if (response.status !== 401) throw new Error("暂时无法验证身份，请重试");
+    clearSession("user");
+  }
+  return null;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -114,11 +163,14 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
 
   }, []);
   const saveSession = useCallback((token: string, nextUser: CurrentUser) => {
-    storeSession(scope, token, nextUser);
+    if (nextUser.role !== scope) throw new Error("身份类型不匹配，请重新进入");
+    try { storeSession(scope, token, nextUser); }
+    catch { throw new Error(STORAGE_ERROR); }
     if (scope === "user") { localStorage.removeItem(SIGNED_OUT); sessionStorage.removeItem(SIGNED_OUT); }
     setError(""); setIdentityErrorCode(""); setUser(nextUser);
   }, [scope]);
   const adopt = useCallback((data: IdentitySession) => {
+    saveDeviceSecret(data);
     saveSession(data.access_token, data.user);
     if (data.created) localStorage.setItem(`banfei:key-save:${data.user.id}`, "pending");
     setNotice(localStorage.getItem(`banfei:key-save:${data.user.id}`) === "pending");
@@ -146,38 +198,41 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
       const current = () => !cancelled && attempt === generation;
       const fragment = new URLSearchParams(window.location.hash.slice(1));
       const linked = scope === "user" && fragment.has("k");
+      const linkedKey = fragment.get("k") || "";
       const cleanHash = () => window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+      if (linked) cleanHash();
       setLoading(true);
       try {
         await identityLock(async () => {
           if (!current()) return;
-          let restored: IdentitySession | null = null;
-          const token = getToken(scope);
-          if (token) {
-            const response = await fetchWithTimeout(`${apiBaseUrl}/auth/me`, { headers: authHeaders(scope), cache: "no-store" });
-            if (!current()) return;
-            if (response.ok) {
-              const next = await response.json() as CurrentUser;
-              if (next.role === scope) restored = { access_token: token, user: next, created: false };
-            } else if (response.status !== 401) throw new Error("暂时无法验证身份，请重试");
-            if (!restored) clearSession(scope);
+          const signal = AbortSignal.timeout(30_000);
+          if (scope === "admin") {
+            const token = getToken("admin");
+            if (token) {
+              const response = await fetchWithTimeout(`${apiBaseUrl}/auth/me`, { headers: authHeaders("admin"), cache: "no-store", signal });
+              if (!current()) return;
+              if (response.ok) {
+                const next = await response.json() as CurrentUser;
+                if (next.role === "admin") saveSession(token, next);
+                else clearSession("admin");
+              } else if (response.status === 401) clearSession("admin");
+              else throw new Error("暂时无法验证身份，请重试");
+            }
+            return;
           }
-          if (scope === "admin") { if (restored && current()) saveSession(restored.access_token, restored.user); return; }
-          if (!restored) {
-            const response = await identityRequest("/session");
-            if (response.status !== 404) restored = await result(response);
-          }
+          checkBrowserStorage();
+          const restored = await restoreUserIdentity(signal);
           if (!current()) return;
           if (linked) {
             setNotice(false); setError(""); setIdentityErrorCode("");
-            const key = fragment.get("k") || "";
+            const key = linkedKey;
             if (restored) {
-              saveSession(restored.access_token, restored.user);
+              adopt(restored);
               // Compare only the current owner's Key. Never log in to the target
               // before the user has saved/cancelled their current identity.
               let same = false;
               try {
-                const own = await fetchWithTimeout(`${apiBaseUrl}/auth/identity/key`, { headers: authHeaders("user"), cache: "no-store" });
+                const own = await fetchWithTimeout(`${apiBaseUrl}/auth/identity/key`, { headers: authHeaders("user"), cache: "no-store", signal });
                 same = own.ok && (await own.json()).key === key;
               } catch { /* A failed read must not trigger an unconfirmed switch. */ }
               if (!current()) return;
@@ -186,7 +241,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
               cleanHash();
               if (same) router.replace("/");
             } else {
-              const data = await keySession(key);
+              const data = await keySession(key, signal);
               if (current()) {
                 adopt(data); localStorage.removeItem(`banfei:key-save:${data.user.id}`); setNotice(false);
                 cleanHash(); router.replace("/");
@@ -203,7 +258,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
           if (window.location.pathname === "/login") return;
           // Only an explicit no-identity response permits first-time creation.
           // Network/service failures above never fall through to create a user.
-          const created = await result(await identityRequest("/session", { create: true }));
+          const created = await result(await identityRequest("/session", { create: true }, signal));
           if (current()) adopt(created);
         });
       } catch (reason) {
@@ -238,6 +293,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     try {
       const key = keyFromLoginLink(source);
       await identityLock(async () => {
+        checkBrowserStorage();
         const data = await keySession(key);
         setKeyInput(""); adopt(data); router.replace("/");
       });
@@ -257,7 +313,9 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     userIdentitySwitching = true; userIdentitySwitchVersion++;
     try {
       await identityLock(async () => {
-        try { complete(await keySession(key)); }
+        checkBrowserStorage();
+        const signal = AbortSignal.timeout(30_000);
+        try { complete(await keySession(key, signal)); }
         catch (reason) {
           // The server may have committed before the response was lost. Probe
           // only the Cookie, without the now possibly revoked previous Bearer.
@@ -265,7 +323,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
           try {
             const response = await fetchWithTimeout(`${apiBaseUrl}/auth/identity/session`, {
               method: "POST", credentials: "include", cache: "no-store",
-              headers: { "Content-Type": "application/json" }, body: JSON.stringify({ create: false }),
+              headers: { "Content-Type": "application/json" }, body: JSON.stringify({ create: false }), signal,
             });
             if (response.ok) restored = await result(response);
           } catch { /* Verify the previous token before claiming it still works. */ }
@@ -277,12 +335,13 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
           let previous: CurrentUser | null = null, previousStatus = 0;
           try {
             const response = await fetchWithTimeout(`${apiBaseUrl}/auth/me`, {
-              headers: previousToken ? { Authorization: `Bearer ${previousToken}` } : {}, cache: "no-store",
+              headers: previousToken ? { Authorization: `Bearer ${previousToken}` } : {}, cache: "no-store", signal,
             });
             previousStatus = response.status;
             if (response.ok) previous = await response.json() as CurrentUser;
           } catch { /* An unavailable probe does not authorize a replacement identity. */ }
           if (previous?.id === previousUser?.id || restored?.user.id === previousUser?.id) {
+            if (restored) saveDeviceSecret(restored);
             if (!previous && restored) saveSession(restored.access_token, restored.user);
             const detail = reason instanceof IdentityError && reason.code !== "network_error" ? ` ${reason.message}` : "";
             throw new Error("切换失败，你仍是原来的身份，请重试。" + detail);
@@ -310,6 +369,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     try {
       // Explicit creation after logout. Never called by a Key login error.
       await identityLock(async () => {
+        checkBrowserStorage();
         const data = await result(await identityRequest("/session", { create: true, replace: true }));
         adopt(data); router.replace("/");
       });

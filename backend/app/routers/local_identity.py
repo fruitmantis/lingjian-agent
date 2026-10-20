@@ -109,14 +109,22 @@ def add_browser_session(conn, user_id):
     return session_id, secret
 
 
-def current_browser(conn, request):
-    secret = request.cookies.get(BROWSER_COOKIE, '')
-    if not secret:
+def browser_credential(conn, secret):
+    if not isinstance(secret, str) or not re.fullmatch(r'[A-Za-z0-9_-]{43}', secret):
         return None
-    return conn.execute("""SELECT c.id,c.user_id FROM identity_credentials c
+    return conn.execute("""SELECT c.id,c.user_id,c.created_at FROM identity_credentials c
         JOIN user_identity_keys k ON k.user_id=c.user_id
         WHERE c.kind='browser' AND c.secret_hash=? AND c.created_at>?""",
         (digest(secret), (now() - timedelta(days=365)).isoformat())).fetchone()
+
+
+def current_browser(conn, request):
+    return browser_credential(conn, request.cookies.get(BROWSER_COOKIE, ''))
+
+
+def remaining_age(row):
+    expires = datetime.fromisoformat(row['created_at']) + timedelta(days=365)
+    return max(1, int((expires - now()).total_seconds()))
 
 
 def browser_identity_available(conn, request):
@@ -131,6 +139,7 @@ class BrowserSession(BaseModel):
 
 class IdentitySession(TokenResponse):
     created: bool = False
+    device_secret: str
 
 
 @router.post('/session', response_model=IdentitySession)
@@ -142,40 +151,71 @@ def browser_session(payload: BrowserSession, request: Request, response: Respons
         conn.lock_writer()
         row = current_browser(conn, request)
         if row and not payload.replace:
-            result = IdentitySession(**session(conn, row['user_id'], row['id']).model_dump())
-            # Refresh only this HTTP cookie without replacing the verified identity.
-            cookie(response, BROWSER_COOKIE, request.cookies[BROWSER_COOKIE], 365 * 24 * 3600)
-            return result
-        if not payload.create:
-            raise HTTPException(404, '当前浏览器尚未登录，请输入身份 Key 或开始使用')
-        user_id = str(uuid.uuid4())
-        make_user(conn, user_id)
-        session_id, secret = add_browser_session(conn, user_id)
-        result = IdentitySession(**session(conn, user_id, session_id).model_dump(), created=True)
-        if row:
-            conn.execute('DELETE FROM identity_credentials WHERE id=?', (row['id'],))
-    cookie(response, BROWSER_COOKIE, secret, 365 * 24 * 3600)
+            secret = request.cookies[BROWSER_COOKIE]
+            result = IdentitySession(**session(conn, row['user_id'], row['id']).model_dump(), device_secret=secret)
+            age = remaining_age(row)
+        else:
+            if not payload.create:
+                raise HTTPException(404, detail={'code': 'identity_missing', 'message': '当前浏览器尚未登录，请使用保存的登录链接或开始使用。'})
+            user_id = str(uuid.uuid4())
+            make_user(conn, user_id)
+            session_id, secret = add_browser_session(conn, user_id)
+            result = IdentitySession(**session(conn, user_id, session_id).model_dump(), created=True, device_secret=secret)
+            age = 365 * 24 * 3600
+            if row:
+                conn.execute('DELETE FROM identity_credentials WHERE id=?', (row['id'],))
+    cookie(response, BROWSER_COOKIE, secret, age)
+    return result
+
+
+async def identity_payload(request):
+    # Reuse the existing 4 KiB byte limit for both credential POSTs.
+    too_large = HTTPException(413, detail={'code': 'request_too_large', 'message': '登录内容过大，请仅提交身份凭据后重试。'})
+    declared_size = request.headers.get('content-length')
+    if declared_size is not None and int(declared_size) > KEY_LOGIN_MAX_BODY_BYTES:
+        raise too_large
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > KEY_LOGIN_MAX_BODY_BYTES:
+            raise too_large
+        body.extend(chunk)
+    return json.loads(body)
+
+
+@router.post('/resume', response_model=IdentitySession)
+async def resume(request: Request, response: Response):
+    incoming(request, response)
+    try:
+        payload = await identity_payload(request)
+        if not isinstance(payload, dict):
+            raise ValueError()
+    except (ValueError, TypeError, RecursionError):
+        raise HTTPException(400, detail={'code': 'invalid_request', 'message': '恢复请求格式不正确，请重试。'}) from None
+    with get_db() as conn:
+        conn.lock_writer()
+        # A verified Cookie always wins over a stale localStorage backup.
+        row = current_browser(conn, request)
+        secret = request.cookies.get(BROWSER_COOKIE, '') if row else payload.get('secret')
+        if not row:
+            row = browser_credential(conn, secret)
+        if not row:
+            raise identity_error('invalid_device_credential', '当前浏览器凭证已失效，请使用保存的登录链接或重新开始。')
+        try:
+            result = IdentitySession(**session(conn, row['user_id'], row['id']).model_dump(), device_secret=secret)
+        except HTTPException as error:
+            if error.status_code != 401 or isinstance(error.detail, dict):
+                raise
+            raise identity_error('invalid_device_credential', '当前浏览器凭证已失效，请使用保存的登录链接或重新开始。') from None
+        age = remaining_age(row)
+    cookie(response, BROWSER_COOKIE, secret, age)
     return result
 
 
 @router.post('/key/login', response_model=IdentitySession)
 async def key_login(request: Request, response: Response):
     incoming(request, response)
-    # Bound actual bytes before JSON parsing, including chunked/misdeclared bodies.
-    # Never echo the submitted credential in an error response.
-    too_large = HTTPException(413,
-        detail={'code': 'request_too_large', 'message': '登录内容过大，请仅提交身份 Key 后重试。'},
-        headers={'Cache-Control': 'no-store', 'Pragma': 'no-cache'})
     try:
-        declared_size = request.headers.get('content-length')
-        if declared_size is not None and int(declared_size) > KEY_LOGIN_MAX_BODY_BYTES:
-            raise too_large
-        body = bytearray()
-        async for chunk in request.stream():
-            if len(body) + len(chunk) > KEY_LOGIN_MAX_BODY_BYTES:
-                raise too_large
-            body.extend(chunk)
-        payload = json.loads(body)
+        payload = await identity_payload(request)
         key = payload.get('key') if isinstance(payload, dict) else None
         if not isinstance(key, str) or len(key) > 256:
             raise ValueError()
@@ -200,7 +240,7 @@ async def key_login(request: Request, response: Response):
         if previous:
             conn.execute('DELETE FROM identity_credentials WHERE id=?', (previous['id'],))
         session_id, secret = add_browser_session(conn, row['user_id'])
-        result = IdentitySession(**session(conn, row['user_id'], session_id).model_dump())
+        result = IdentitySession(**session(conn, row['user_id'], session_id).model_dump(), device_secret=secret)
     cookie(response, BROWSER_COOKIE, secret, 365 * 24 * 3600)
     return result
 
@@ -251,4 +291,4 @@ def logout(request: Request, response: Response):
             # Return no login token: the logged-out browser must explicitly continue.
             _, remembered_secret = add_browser_session(conn, owner_id)
     cookie(response, BROWSER_COOKIE, remembered_secret or '', 365 * 24 * 3600 if remembered_secret else 0)
-    return {'remembered': bool(remembered_secret)}
+    return {'remembered': bool(remembered_secret), 'device_secret': remembered_secret}

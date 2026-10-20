@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {test,expect,type Page} from '@playwright/test';
 
 type Kind='match'|'development';
@@ -37,6 +38,7 @@ async function setup(page:Page,kind:Kind,{reject=false,slowDetail=false}={}){
   if(json===null){errors.push(req.method()+' '+path);return route.fulfill({status:404,json:{detail:'未定义的合成接口'}});}
   return route.fulfill({json});
  });
+  await mockDeviceSession(page);
  await page.goto(kind==='match'?'/':'/?mode=development&partner_id=partner-1');
  const input=page.locator(kind==='match'?'#requirement':'textarea[aria-label="发展方向"]');
  await input.fill(draft);await page.evaluate(()=>document.fonts.ready);

@@ -1,3 +1,4 @@
+import {mockDeviceSession} from './device-session-fixture';
 import {test,expect,type Page} from "@playwright/test";
 const stamp="2026-09-09T08:00:00Z";
 const user={id:"fixture-user",username:"fixture",display_name:"验收用户",department:"测试",role:"user",status:"active",must_change_password:false,created_at:stamp};
@@ -31,6 +32,7 @@ async function fixture(page:Page){
   else return route.fulfill({status:404,json:{detail:"Unexpected fixture request"}});
   return route.fulfill({json});
  });
+  await mockDeviceSession(page);
  return writes;
 }
 
@@ -195,6 +197,7 @@ for(const copyMode of ["native","manual"] as const)test("admin task errors tab e
   if(path==="/admin/system/status")return route.fulfill({json:{overallStatus:"unknown",checkedAt:stamp,summary:{normalCount:0,warningCount:0,errorCount:0,unknownCount:0,abnormalModules:[]},services:[],database:[],llm:[],businessCapabilities:[],recentErrors:[]}});
   return route.fulfill({status:404,json:{detail:"Fixture route not defined"}});
  });
+  await mockDeviceSession(page);
  // Ordinary HTTP fallback; no clipboard permissions or browser security flags.
  await page.addInitScript(mode=>{
   Object.defineProperty(navigator,"clipboard",{value:undefined,configurable:true});
@@ -352,6 +355,7 @@ for(const role of ['user','admin'] as const)test('phase1 F02: opportunity labels
       path.endsWith('/tasks/label-fixture')?record:{items:[record],total:1,page:1,pageSize:20,totalPages:1};
     await route.fulfill({json});
   });
+  await mockDeviceSession(page);
   await page.goto(role==='admin'?'/admin/tasks/label-fixture':'/tasks/label-fixture');
   await expect(page.getByRole('heading',{name:'项目机会',exact:true})).toBeVisible();
   const ids:string[]=[];

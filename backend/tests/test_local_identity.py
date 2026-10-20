@@ -173,7 +173,7 @@ def test_explicit_logout_revokes_only_current_browser_preserves_key_history_and_
     admin = make_user('independent_admin', role='admin'); admin_headers = auth_headers(admin)
     cookie = BROWSER_COOKIE+'='+first.cookies[BROWSER_COOKIE]
     response = client.post('/auth/identity/logout', headers={**HEADERS, **bearer(first), 'Cookie':cookie})
-    assert response.status_code == 200 and response.json() == {'remembered': True}
+    assert response.status_code == 200 and response.json() == {'remembered': True, 'device_secret': response.cookies[BROWSER_COOKIE]}
     assert response.cookies[BROWSER_COOKIE] != first.cookies[BROWSER_COOKIE]
     assert 'HttpOnly' in response.headers['set-cookie'] and 'access_token' not in response.json()
     assert client.get('/auth/me', headers=bearer(first)).status_code == 401
@@ -305,7 +305,7 @@ def test_logout_replay_or_unproven_identity_cannot_create_remembered_credentials
     before=counts()
     for headers in (HEADERS, {**HEADERS,**bearer(first)}, {**HEADERS,'Cookie':BROWSER_COOKIE+'=forged'}):
         response=client.post('/auth/identity/logout',headers=headers)
-        assert response.status_code==200 and response.json()=={'remembered':False}
+        assert response.status_code==200 and response.json()=={'remembered':False, 'device_secret':None}
         assert 'Max-Age=0' in response.headers['set-cookie'] and counts()==before
     restored=browser(client,cookie,create=False)
     assert restored.json()['user']['id']==first.json()['user']['id']
@@ -315,11 +315,11 @@ def test_logout_remembrance_rejects_expired_version_and_disabled_user(client):
     first=browser(client);uid=first.json()['user']['id']
     with get_db() as conn:conn.execute('UPDATE users SET token_version=token_version+1 WHERE id=?',(uid,))
     response=client.post('/auth/identity/logout',headers={**HEADERS,**bearer(first)})
-    assert response.json()=={'remembered':False}
+    assert response.json()=={'remembered':False, 'device_secret':None}
     second=browser(client)
     with get_db() as conn:conn.execute("UPDATE users SET status='disabled' WHERE id=?",(second.json()['user']['id'],))
     response=client.post('/auth/identity/logout',headers={**HEADERS,**bearer(second),'Cookie':BROWSER_COOKIE+'='+second.cookies[BROWSER_COOKIE]})
-    assert response.json()=={'remembered':False}
+    assert response.json()=={'remembered':False, 'device_secret':None}
 
 
 def test_logout_failure_rolls_back_revocation(client_no_raise,monkeypatch):
@@ -444,3 +444,130 @@ def test_http_origin_and_cookie_preserve_verified_owner(client, monkeypatch):
     denied = client.post('/auth/identity/session', json={'create': True},
         headers={'Origin': 'http://untrusted.invalid', 'Cookie': BROWSER_COOKIE+'='+secret})
     assert denied.status_code == 403 and 'set-cookie' not in denied.headers and counts() == before
+
+
+# The device backup is the existing browser credential, never the long-lived Key.
+def test_device_secret_is_same_as_verified_cookie_and_never_stored_plaintext(client):
+    import re
+    from backend.app.auth import decode_token
+    first=browser(client);data=first.json();secret=data['device_secret'];sid=decode_token(data['access_token'])['sid']
+    assert re.fullmatch(r'[A-Za-z0-9_-]{43}',secret) and first.cookies[BROWSER_COOKIE]==secret
+    assert 'device_secret' not in data['user'] and secret!=key_for(client,first)
+    with get_db() as conn:
+        saved=dict(conn.execute('SELECT * FROM identity_credentials WHERE id=?',(sid,)).fetchone())
+        assert saved['secret_hash']==digest(secret) and secret not in json.dumps(saved)
+    before=counts()
+    for _ in range(2):
+        restored=browser(client,BROWSER_COOKIE+'='+secret,create=False)
+        assert restored.status_code==200 and restored.json()['device_secret']==secret
+        assert restored.json()['user']['id']==data['user']['id'] and not restored.json()['created']
+        assert decode_token(restored.json()['access_token'])['sid']==sid
+        assert restored.headers['cache-control']=='no-store' and restored.headers['pragma']=='no-cache'
+    with get_db() as conn:
+        assert dict(conn.execute('SELECT * FROM identity_credentials WHERE id=?',(sid,)).fetchone())==saved
+    assert counts()==before
+
+
+def test_resume_reinstates_same_cookie_sid_and_owned_history_without_new_rows(client):
+    from backend.app.auth import decode_token
+    first=browser(client);secret=first.json()['device_secret'];uid=first.json()['user']['id'];task=make_task(first.json()['user'],'same device history');before=counts()
+    restored=client.post('/auth/identity/resume',headers=HEADERS,json={'secret':secret})
+    assert restored.status_code==200 and restored.json()['device_secret']==restored.cookies[BROWSER_COOKIE]==secret
+    assert restored.json()['user']['id']==uid and restored.json()['created'] is False
+    assert decode_token(restored.json()['access_token'])['sid']==decode_token(first.json()['access_token'])['sid']
+    assert client.get('/agent/tasks/'+task,headers=bearer(restored)).status_code==200
+    assert client.get('/auth/me',headers=bearer(first)).status_code==200 and counts()==before
+    assert 'HttpOnly' in restored.headers['set-cookie'] and 'SameSite=strict' in restored.headers['set-cookie'] and 'Secure' not in restored.headers['set-cookie']
+
+
+def test_resume_prefers_verified_cookie_and_never_bypasses_disabled_cookie(client):
+    a,b=browser(client),browser(client);before=counts();headers={**HEADERS,'Cookie':BROWSER_COOKIE+'='+a.json()['device_secret']}
+    restored=client.post('/auth/identity/resume',headers=headers,json={'secret':b.json()['device_secret']})
+    assert restored.json()['user']['id']==a.json()['user']['id'] and restored.json()['device_secret']==a.json()['device_secret']
+    with get_db() as conn:conn.execute("UPDATE users SET status='disabled' WHERE id=?",(a.json()['user']['id'],))
+    denied=client.post('/auth/identity/resume',headers=headers,json={'secret':b.json()['device_secret']})
+    assert denied.status_code==401 and denied.json()['detail']['code']=='identity_disabled'
+    assert 'set-cookie' not in denied.headers and counts()==before
+    assert client.get('/auth/me',headers=bearer(b)).status_code==200
+
+
+@pytest.mark.parametrize('value',['', 'x'*43, None, 17, 'bf_'+'y'*43, ' '+('z'*43), {'secret':'no'}])
+def test_resume_invalid_backup_is_explicit_and_never_creates(client,value):
+    before=counts();response=client.post('/auth/identity/resume',headers=HEADERS,json={'secret':value})
+    assert response.status_code==401 and response.json()['detail']['code']=='invalid_device_credential'
+    assert response.headers['cache-control']=='no-store' and 'set-cookie' not in response.headers and counts()==before
+
+
+@pytest.mark.parametrize('state',['expired','revoked','admin','missing_key','disabled'])
+def test_resume_rechecks_existing_binding_and_role(client,state):
+    from datetime import datetime,timedelta,timezone
+    first=browser(client);secret=first.json()['device_secret'];uid=first.json()['user']['id']
+    with get_db() as conn:
+        if state=='expired':conn.execute("UPDATE identity_credentials SET created_at=? WHERE user_id=?",((datetime.now(timezone.utc)-timedelta(days=366)).isoformat(),uid))
+        elif state=='revoked':conn.execute('DELETE FROM identity_credentials WHERE user_id=?',(uid,))
+        elif state=='admin':
+            from backend.app.auth import hash_password
+            conn.execute("UPDATE users SET role='admin',hashed_password=? WHERE id=?",(hash_password('IsolatedAdminPass123'),uid))
+        elif state=='missing_key':conn.execute('DELETE FROM user_identity_keys WHERE user_id=?',(uid,))
+        else:conn.execute("UPDATE users SET status='disabled' WHERE id=?",(uid,))
+    before=counts();response=client.post('/auth/identity/resume',headers=HEADERS,json={'secret':secret})
+    assert response.status_code==401 and response.json()['detail']['code']==('identity_disabled' if state=='disabled' else 'invalid_device_credential')
+    assert secret not in response.text and 'set-cookie' not in response.headers and counts()==before
+
+
+def test_resume_protocol_origin_body_and_rate_errors_do_not_claim_invalid_backup(client):
+    import time
+    from backend.app.routers import local_identity
+    first=browser(client);secret=first.json()['device_secret'];before=counts()
+    denied=client.post('/auth/identity/resume',headers={'Origin':'http://invalid.example'},json={'secret':secret})
+    assert denied.status_code==403 and denied.headers['cache-control']=='no-store'
+    malformed=client.post('/auth/identity/resume',headers={**HEADERS,'Content-Type':'application/json'},content='{"secret":')
+    assert malformed.status_code==400 and malformed.json()['detail']['code']=='invalid_request'
+    large=client.post('/auth/identity/resume',headers=HEADERS,json={'secret':secret,'padding':'x'*KEY_LOGIN_MAX_BODY_BYTES})
+    assert large.status_code==413 and large.headers['cache-control']=='no-store'
+    validation=client.post('/auth/identity/session',headers=HEADERS,json={'create':'not-a-boolean'})
+    assert validation.status_code==422 and validation.headers['cache-control']=='no-store'
+    local_identity._ATTEMPTS['127.0.0.1'].extend([time.monotonic()]*60)
+    limited=client.post('/auth/identity/resume',headers=HEADERS,json={'secret':secret})
+    assert limited.status_code==429 and limited.headers['cache-control']=='no-store'
+    for response in [denied,malformed,large,validation,limited]:
+        assert secret not in response.text and 'set-cookie' not in response.headers
+    assert counts()==before
+
+
+def test_cookie_restore_keeps_original_credential_expiry(client,monkeypatch):
+    from datetime import datetime,timedelta,timezone
+    from backend.app.routers import local_identity
+    fixed=datetime(2026,10,20,tzinfo=timezone.utc);monkeypatch.setattr(local_identity,'now',lambda:fixed)
+    first=browser(client);secret=first.json()['device_secret'];created=(fixed-timedelta(days=10)).isoformat()
+    with get_db() as conn:conn.execute('UPDATE identity_credentials SET created_at=? WHERE secret_hash=?',(created,digest(secret)))
+    response=client.post('/auth/identity/resume',headers=HEADERS,json={'secret':secret})
+    assert response.status_code==200 and 'Max-Age='+str(355*24*3600) in response.headers['set-cookie']
+    restored=browser(client,BROWSER_COOKIE+'='+secret,create=False)
+    assert 'Max-Age='+str(355*24*3600) in restored.headers['set-cookie']
+    with get_db() as conn:assert conn.execute('SELECT created_at FROM identity_credentials WHERE secret_hash=?',(digest(secret),)).fetchone()[0]==created
+
+
+def test_resume_failure_rolls_back_and_is_uncacheable(client_no_raise,monkeypatch):
+    from backend.app.routers import local_identity
+    from backend.tests.postgres_support import snapshot
+    first=browser(client_no_raise);secret=first.json()['device_secret']
+    with get_db() as conn:before=snapshot(conn)
+    original=local_identity.session
+    def fail(*args):original(*args);raise RuntimeError('isolated resume failure')
+    with monkeypatch.context() as patch:
+        patch.setattr(local_identity,'session',fail)
+        response=client_no_raise.post('/auth/identity/resume',headers=HEADERS,json={'secret':secret})
+    assert response.status_code==500 and response.headers['cache-control']=='no-store'
+    assert secret not in response.text and 'set-cookie' not in response.headers
+    with get_db() as conn:assert snapshot(conn)==before
+    assert client_no_raise.get('/auth/me',headers=bearer(first)).status_code==200
+
+
+def test_missing_cookie_has_distinct_code_and_key_login_refreshes_backup(client):
+    before=counts();missing=browser(client,create=False)
+    assert missing.status_code==404 and missing.json()['detail']['code']=='identity_missing' and counts()==before
+    first=browser(client);key=key_for(client,first)
+    logged=client.post('/auth/identity/key/login',headers=HEADERS,json={'key':key})
+    assert logged.json()['device_secret']==logged.cookies[BROWSER_COOKIE] and logged.json()['device_secret']!=first.json()['device_secret']
+    assert logged.json()['user']['id']==first.json()['user']['id']

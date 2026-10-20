@@ -62,6 +62,15 @@ app.add_middleware(ErrorDiagnosticsMiddleware)
 app.add_middleware(CORSMiddleware, allow_origins=get_cors_origins(), allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
+@app.middleware("http")
+async def private_identity_responses(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/auth/identity/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response
+
+
 @app.exception_handler(StarletteHTTPException)
 async def public_http_error(request, error):
     if error.status_code >= 500:
