@@ -23,24 +23,48 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 export const PASSWORD_CHANGE_PATH = "/admin/change-password";
 const SIGNED_OUT = "banfei:user:signed-out";
 const DEVICE_SECRET = "banfei:user:device-secret";
-const STORAGE_ERROR = "请允许站点存储后重试，暂时未更换身份。";
 const ENTRY_NOTICE = "banfei:user:entry-notice";
 let userIdentitySwitching = false;
 let userIdentitySwitchVersion = 0;
 const storageKey = (scope: AuthScope, name: string) => `banfei:${scope}:${name}`;
 const currentScope = (): AuthScope => typeof window !== "undefined" && window.location.pathname.startsWith("/admin") ? "admin" : "user";
+const memoryStore = new Map<string, string>();
+let storageBlocked = false;
+type StorageArea = "local" | "session";
+function storageGet(key: string, area: StorageArea = "local"): string | null {
+  try { return (area === "local" ? localStorage : sessionStorage).getItem(key); }
+  catch { if (area === "local") storageBlocked = true; return memoryStore.get(`${area}:${key}`) ?? null; }
+}
+function storageSet(key: string, value: string, area: StorageArea = "local"): void {
+  memoryStore.set(`${area}:${key}`, value);
+  try { (area === "local" ? localStorage : sessionStorage).setItem(key, value); }
+  catch { if (area === "local") storageBlocked = true; }
+}
+function storageRemove(key: string, area: StorageArea = "local"): void {
+  memoryStore.delete(`${area}:${key}`);
+  try { (area === "local" ? localStorage : sessionStorage).removeItem(key); }
+  catch { if (area === "local") storageBlocked = true; }
+}
+function storageAvailable(): boolean {
+  if (storageBlocked) return false;
+  try {
+    const probe = "banfei:user:storage-check";
+    localStorage.setItem(probe, "1"); localStorage.removeItem(probe);
+    return true;
+  } catch { storageBlocked = true; return false; }
+}
 export function getToken(scope: AuthScope = currentScope()): string | null {
-  return typeof window === "undefined" ? null : localStorage.getItem(storageKey(scope, "token"));
+  return typeof window === "undefined" ? null : storageGet(storageKey(scope, "token"));
 }
 export function authHeaders(scope: AuthScope = currentScope()): Record<string, string> {
   const token = getToken(scope); return token ? { Authorization: `Bearer ${token}` } : {};
 }
 function clearSession(scope: AuthScope) {
-  localStorage.removeItem(storageKey(scope, "token")); localStorage.removeItem(storageKey(scope, "user"));
+  storageRemove(storageKey(scope, "token")); storageRemove(storageKey(scope, "user"));
 }
 function storeSession(scope: AuthScope, token: string, user: CurrentUser) {
   if (user.role !== scope) throw new Error("身份类型不匹配，请重新进入");
-  localStorage.setItem(storageKey(scope, "token"), token); localStorage.setItem(storageKey(scope, "user"), JSON.stringify(user));
+  storageSet(storageKey(scope, "token"), token); storageSet(storageKey(scope, "user"), JSON.stringify(user));
 }
 export async function apiFetch(path: string, init: ApiRequestInit = {}, scope: AuthScope = currentScope()): Promise<Response> {
   const switchVersion = userIdentitySwitchVersion;
@@ -56,7 +80,7 @@ export async function apiFetch(path: string, init: ApiRequestInit = {}, scope: A
         const detail = await response.clone().json();
         const code = detail?.detail?.code;
         if (code === "identity_deleted" || code === "identity_disabled") {
-          sessionStorage.setItem(ENTRY_NOTICE, JSON.stringify({ code, message: detail.detail.message }));
+          storageSet(ENTRY_NOTICE, JSON.stringify({ code, message: detail.detail.message }), "session");
         }
       } catch { /* fall back to the generic entry */ }
     }
@@ -110,30 +134,24 @@ async function keySession(key: string, signal?: AbortSignal): Promise<IdentitySe
   return result(response);
 }
 
-function checkBrowserStorage() {
-  try {
-    const probe = "banfei:user:storage-check";
-    localStorage.setItem(probe, "1"); localStorage.removeItem(probe);
-  } catch { throw new Error(STORAGE_ERROR); }
-}
 function saveDeviceSecret(data: IdentitySession) {
   if (typeof data.device_secret !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(data.device_secret)) {
     throw new Error("身份接口版本不一致，请刷新后重试。");
   }
-  try { localStorage.setItem(DEVICE_SECRET, data.device_secret); }
-  catch { throw new Error(STORAGE_ERROR); }
+  if (!storageAvailable()) return;
+  storageSet(DEVICE_SECRET, data.device_secret);
 }
 async function restoreUserIdentity(signal: AbortSignal): Promise<IdentitySession | null> {
   try { return await result(await identityRequest("/session", { create: false }, signal)); }
   catch (reason) {
     if (!(reason instanceof IdentityError) || reason.code !== "identity_missing") throw reason;
   }
-  const backup = localStorage.getItem(DEVICE_SECRET);
+  const backup = storageGet(DEVICE_SECRET);
   if (backup) {
     try { return await result(await identityRequest("/resume", { secret: backup }, signal)); }
     catch (reason) {
       if (!(reason instanceof IdentityError) || reason.code !== "invalid_device_credential") throw reason;
-      if (localStorage.getItem(DEVICE_SECRET) === backup) localStorage.removeItem(DEVICE_SECRET);
+      if (storageGet(DEVICE_SECRET) === backup) storageRemove(DEVICE_SECRET);
     }
   }
   // Upgrade clients that still have a valid JWT but never stored a device backup.
@@ -173,6 +191,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  const [storageBlockedNotice, setStorageBlockedNotice] = useState(false);
   const [notice, setNotice] = useState(false); const [keyInput, setKeyInput] = useState("");
   const [switchTarget, setSwitchTarget] = useState<string | null>(null);
   const [identityErrorCode, setIdentityErrorCode] = useState("");
@@ -181,9 +200,9 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   useEffect(() => {
     if (loading || user || entranceNoticeShown.current) return;
     entranceNoticeShown.current = true;
-    const raw = sessionStorage.getItem(ENTRY_NOTICE);
+    const raw = storageGet(ENTRY_NOTICE, "session");
     if (!raw) return;
-    sessionStorage.removeItem(ENTRY_NOTICE);
+    storageRemove(ENTRY_NOTICE, "session");
     try {
       const notice = JSON.parse(raw);
       if (typeof notice.code === "string") setIdentityErrorCode(notice.code);
@@ -198,20 +217,19 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   }, []);
   const saveSession = useCallback((token: string, nextUser: CurrentUser) => {
     if (nextUser.role !== scope) throw new Error("身份类型不匹配，请重新进入");
-    try { storeSession(scope, token, nextUser); }
-    catch { throw new Error(STORAGE_ERROR); }
-    if (scope === "user") { localStorage.removeItem(SIGNED_OUT); sessionStorage.removeItem(SIGNED_OUT); }
+    storeSession(scope, token, nextUser);
+    if (scope === "user") { storageRemove(SIGNED_OUT); storageRemove(SIGNED_OUT, "session"); }
     setError(""); setIdentityErrorCode(""); setUser(nextUser);
   }, [scope]);
   const adopt = useCallback((data: IdentitySession) => {
     saveDeviceSecret(data);
     saveSession(data.access_token, data.user);
-    if (data.created) localStorage.setItem(`banfei:key-save:${data.user.id}`, "pending");
-    setNotice(localStorage.getItem(`banfei:key-save:${data.user.id}`) === "pending");
+    if (data.created) storageSet(`banfei:key-save:${data.user.id}`, "pending");
+    setNotice(storageGet(`banfei:key-save:${data.user.id}`) === "pending");
   }, [saveSession]);
   const openIdentitySwitch = useCallback(() => {
     if (scope !== "user" || !user) return;
-    localStorage.removeItem(`banfei:key-save:${user.id}`);
+    storageRemove(`banfei:key-save:${user.id}`);
     setSwitchMessage(""); setNotice(false); setSwitchTarget("");
   }, [scope, user]);
   const logout = useCallback(async () => {
@@ -223,7 +241,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     if (!response.ok) throw new Error("身份已失效");
     const next = await response.json() as CurrentUser;
     if (next.role !== scope) throw new Error("身份类型不匹配");
-    setUser(next); localStorage.setItem(storageKey(scope, "user"), JSON.stringify(next));
+    setUser(next); storageSet(storageKey(scope, "user"), JSON.stringify(next));
   }, [scope]);
   useEffect(() => {
     let cancelled = false; let generation = 0;
@@ -254,7 +272,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
             }
             return;
           }
-          checkBrowserStorage();
+          if (!storageAvailable()) setStorageBlockedNotice(true);
           const restored = await restoreUserIdentity(signal);
           if (!current()) return;
           if (linked) {
@@ -270,14 +288,14 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
                 same = own.ok && (await own.json()).key === key;
               } catch { /* A failed read must not trigger an unconfirmed switch. */ }
               if (!current()) return;
-              localStorage.removeItem(`banfei:key-save:${restored.user.id}`);
+              storageRemove(`banfei:key-save:${restored.user.id}`);
               if (!same) setSwitchTarget(`${window.location.origin}/#k=${encodeURIComponent(key)}`);
               cleanHash();
               if (same) router.replace("/");
             } else {
               const data = await keySession(key, signal);
               if (current()) {
-                adopt(data); localStorage.removeItem(`banfei:key-save:${data.user.id}`); setNotice(false);
+                adopt(data); storageRemove(`banfei:key-save:${data.user.id}`); setNotice(false);
                 cleanHash(); router.replace("/");
               }
             }
@@ -327,7 +345,6 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     try {
       const key = keyFromLoginLink(source);
       await identityLock(async () => {
-        checkBrowserStorage();
         const data = await keySession(key);
         setKeyInput(""); adopt(data); router.replace("/");
       });
@@ -338,7 +355,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     const key = keyFromLoginLink(source);
     const previousUser = user, previousToken = getToken("user");
     const complete = (data: IdentitySession) => {
-      adopt(data); localStorage.removeItem(`banfei:key-save:${data.user.id}`);
+      adopt(data); storageRemove(`banfei:key-save:${data.user.id}`);
       setNotice(false); setSwitchTarget(null);
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
       router.replace("/");
@@ -347,7 +364,6 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     userIdentitySwitching = true; userIdentitySwitchVersion++;
     try {
       await identityLock(async () => {
-        checkBrowserStorage();
         const signal = AbortSignal.timeout(30_000);
         try { complete(await keySession(key, signal)); }
         catch (reason) {
@@ -403,7 +419,6 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     try {
       // Explicit creation after logout. Never called by a Key login error.
       await identityLock(async () => {
-        checkBrowserStorage();
         const data = await result(await identityRequest("/session", { create: true, replace: true }));
         adopt(data); router.replace("/");
       });
@@ -414,14 +429,13 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     if (busy) return; setBusy(true);
     try {
       await identityLock(async () => {
-        checkBrowserStorage();
         const data = await result(await identityRequest("/session", { create: true, replace: true }));
         adopt(data); setSwitchTarget(null); router.replace("/");
       });
     } finally { setBusy(false); }
   }
   function dismissNotice() {
-    if (user) localStorage.removeItem(`banfei:key-save:${user.id}`);
+    if (user) storageRemove(`banfei:key-save:${user.id}`);
     setNotice(false);
   }
   const value = useMemo(() => ({ user, loading, scope, refresh, saveSession, logout, openIdentitySwitch }), [user, loading, scope, refresh, saveSession, logout, openIdentitySwitch]);
@@ -454,6 +468,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   return <AuthContext.Provider value={value}>
     {switchMessage && <div className="identity-notice" role="status">{switchMessage}</div>}
     {error && <div className="identity-notice error-text" role="alert">{error}</div>}
+    {storageBlockedNotice && user && <div className="identity-notice" role="status">这台电脑无法保存身份备份，请把登录链接保存到收藏夹或发给自己。<button type="button" className="identity-notice-dismiss" onClick={() => setStorageBlockedNotice(false)}>知道了</button></div>}
     {children}
     {notice && user && scope === "user" && <SaveIdentityDialog onClose={dismissNotice} />}
     {switchTarget !== null && user && scope === "user" && <SwitchIdentityDialog initialTarget={switchTarget} onCancel={cancelIdentitySwitch} onSwitch={switchIdentity} onCreate={createFromSwitch} />}

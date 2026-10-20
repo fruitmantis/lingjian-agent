@@ -65,10 +65,13 @@ test('device pilot: verified Cookie replaces a different valid backup',async({pa
  const stillB=await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+second.token}});expect((await stillB.json()).id).toBe(b.user.id);
  }finally{await other.close();}
 });
-test('device pilot: unavailable storage stops before any identity mutation',async({page,context})=>{
- await createIdentity(page);const before=await storedDevice(page);let identity=0;
- await page.addInitScript(()=>{Storage.prototype.setItem=function(){throw new DOMException('denied','SecurityError');};});page.on('request',r=>{if(r.url().includes('/auth/identity/'))identity++;});
- await page.reload();await expect(page.locator('.identity-entry-card .error-text[role=alert]')).toHaveText('请允许站点存储后重试，暂时未更换身份。');expect(identity).toBe(0);expect((await context.cookies()).find(c=>c.name==='banfei_http_identity_session')?.value===before.secret).toBe(true);
+test('device pilot: unavailable storage degrades to cookie-only with a notice',async({page,context})=>{
+ await createIdentity(page);const before=await storedDevice(page);let creates=0;
+ await page.addInitScript(()=>{Storage.prototype.setItem=function(){throw new DOMException('denied','SecurityError');};});page.on('request',r=>{if(r.url().endsWith('/auth/identity/session')&&r.postDataJSON()?.create)creates++;});
+ await page.reload();await expect(page.locator('.sidebar')).toBeVisible();
+ await expect(page.getByText('这台电脑无法保存身份备份')).toBeVisible();expect(creates).toBe(0);
+ expect((await context.cookies()).find(c=>c.name==='banfei_http_identity_session')?.value===before.secret).toBe(true);
+ await page.getByRole('button',{name:'知道了'}).click();await expect(page.getByText('这台电脑无法保存身份备份')).toHaveCount(0);
 });
 test('device pilot: missing response backup reports version mismatch without empty overwrite',async({page})=>{
  await createIdentity(page);const before=await storedDevice(page);let creates=0;

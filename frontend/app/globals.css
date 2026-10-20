@@ -1613,3 +1613,5 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .identity-switch-new { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-default); }
 .identity-switch-new > button { border: 0; background: none; padding: 0; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; }
 .identity-switch-new > button:hover:not(:disabled) { background: none; color: var(--brand-primary); text-decoration: underline; }
+.identity-notice-dismiss { border: 0; background: none; padding: 0; color: var(--brand-primary); font: inherit; font-size: 13px; }
+.identity-notice-dismiss:hover:not(:disabled) { background: none; text-decoration: underline; }
