@@ -503,7 +503,7 @@ def test_resume_rechecks_existing_binding_and_role(client,state):
     from datetime import datetime,timedelta,timezone
     first=browser(client);secret=first.json()['device_secret'];uid=first.json()['user']['id']
     with get_db() as conn:
-        if state=='expired':conn.execute("UPDATE identity_credentials SET created_at=? WHERE user_id=?",((datetime.now(timezone.utc)-timedelta(days=366)).isoformat(),uid))
+        if state=='expired':conn.execute("UPDATE identity_credentials SET created_at=? WHERE user_id=?",((datetime.now(timezone.utc)-timedelta(days=31)).isoformat(),uid))
         elif state=='revoked':conn.execute('DELETE FROM identity_credentials WHERE user_id=?',(uid,))
         elif state=='admin':
             from backend.app.auth import hash_password
@@ -542,9 +542,9 @@ def test_cookie_restore_keeps_original_credential_expiry(client,monkeypatch):
     first=browser(client);secret=first.json()['device_secret'];created=(fixed-timedelta(days=10)).isoformat()
     with get_db() as conn:conn.execute('UPDATE identity_credentials SET created_at=? WHERE secret_hash=?',(created,digest(secret)))
     response=client.post('/auth/identity/resume',headers=HEADERS,json={'secret':secret})
-    assert response.status_code==200 and 'Max-Age='+str(355*24*3600) in response.headers['set-cookie']
+    assert response.status_code==200 and 'Max-Age='+str(20*24*3600) in response.headers['set-cookie']
     restored=browser(client,BROWSER_COOKIE+'='+secret,create=False)
-    assert 'Max-Age='+str(355*24*3600) in restored.headers['set-cookie']
+    assert 'Max-Age='+str(20*24*3600) in restored.headers['set-cookie']
     with get_db() as conn:assert conn.execute('SELECT created_at FROM identity_credentials WHERE secret_hash=?',(digest(secret),)).fetchone()[0]==created
 
 

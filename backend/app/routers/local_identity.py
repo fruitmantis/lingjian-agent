@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-from ..auth import create_token, decode_token, record_audit, require_user
+from ..auth import BROWSER_CREDENTIAL_DAYS, create_token, decode_token, record_audit, require_user
 from ..database import get_db
 from ..identity_keys import create_identity_key, reveal_identity_key, digest
 from ..models import TokenResponse, UserOut
@@ -115,7 +115,7 @@ def browser_credential(conn, secret):
     return conn.execute("""SELECT c.id,c.user_id,c.created_at FROM identity_credentials c
         JOIN user_identity_keys k ON k.user_id=c.user_id
         WHERE c.kind='browser' AND c.secret_hash=? AND c.created_at>?""",
-        (digest(secret), (now() - timedelta(days=365)).isoformat())).fetchone()
+        (digest(secret), (now() - timedelta(days=BROWSER_CREDENTIAL_DAYS)).isoformat())).fetchone()
 
 
 def current_browser(conn, request):
@@ -123,7 +123,7 @@ def current_browser(conn, request):
 
 
 def remaining_age(row):
-    expires = datetime.fromisoformat(row['created_at']) + timedelta(days=365)
+    expires = datetime.fromisoformat(row['created_at']) + timedelta(days=BROWSER_CREDENTIAL_DAYS)
     return max(1, int((expires - now()).total_seconds()))
 
 
@@ -161,7 +161,7 @@ def browser_session(payload: BrowserSession, request: Request, response: Respons
             make_user(conn, user_id)
             session_id, secret = add_browser_session(conn, user_id)
             result = IdentitySession(**session(conn, user_id, session_id).model_dump(), created=True, device_secret=secret)
-            age = 365 * 24 * 3600
+            age = BROWSER_CREDENTIAL_DAYS * 24 * 3600
             if row:
                 conn.execute('DELETE FROM identity_credentials WHERE id=?', (row['id'],))
     cookie(response, BROWSER_COOKIE, secret, age)
@@ -241,7 +241,7 @@ async def key_login(request: Request, response: Response):
             conn.execute('DELETE FROM identity_credentials WHERE id=?', (previous['id'],))
         session_id, secret = add_browser_session(conn, row['user_id'])
         result = IdentitySession(**session(conn, row['user_id'], session_id).model_dump(), device_secret=secret)
-    cookie(response, BROWSER_COOKIE, secret, 365 * 24 * 3600)
+    cookie(response, BROWSER_COOKIE, secret, BROWSER_CREDENTIAL_DAYS * 24 * 3600)
     return result
 
 
@@ -278,7 +278,7 @@ def logout(request: Request, response: Response):
                 JOIN users u ON u.id=c.user_id JOIN user_identity_keys k ON k.user_id=u.id
                 WHERE c.id=? AND c.user_id=? AND c.kind='browser' AND c.created_at>?
                   AND u.role='user' AND u.status='active' AND u.token_version=?""",
-                (token['sid'], token.get('sub'), (now()-timedelta(days=365)).isoformat(), token.get('ver', 0))).fetchone()
+                (token['sid'], token.get('sub'), (now()-timedelta(days=BROWSER_CREDENTIAL_DAYS)).isoformat(), token.get('ver', 0))).fetchone()
         if bearer:
             owner_id = bearer['user_id']
         if row:
@@ -290,5 +290,5 @@ def logout(request: Request, response: Response):
             # Replace the current binding, invalidating its JWT and old Cookie.
             # Return no login token: the logged-out browser must explicitly continue.
             _, remembered_secret = add_browser_session(conn, owner_id)
-    cookie(response, BROWSER_COOKIE, remembered_secret or '', 365 * 24 * 3600 if remembered_secret else 0)
+    cookie(response, BROWSER_COOKIE, remembered_secret or '', BROWSER_CREDENTIAL_DAYS * 24 * 3600 if remembered_secret else 0)
     return {'remembered': bool(remembered_secret), 'device_secret': remembered_secret}

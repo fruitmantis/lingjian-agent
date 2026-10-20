@@ -12,6 +12,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from .config import get_jwt_secret_key
 
+BROWSER_CREDENTIAL_DAYS = 30
+
 
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 24
@@ -98,7 +100,7 @@ def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(secu
             credential = conn.execute("""SELECT c.id FROM identity_credentials c
                 JOIN user_identity_keys k ON k.user_id=c.user_id
                 WHERE c.id=? AND c.user_id=? AND c.kind='browser' AND c.created_at>?""",
-                (payload.get('sid'), row['id'], (datetime.now(timezone.utc) - timedelta(days=365)).isoformat())).fetchone()
+                (payload.get('sid'), row['id'], (datetime.now(timezone.utc) - timedelta(days=BROWSER_CREDENTIAL_DAYS)).isoformat())).fetchone()
             if not credential:
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效，请使用身份 Key 登录")
             conn.execute("UPDATE users SET last_active_at=? WHERE id=?", (datetime.now(timezone.utc).isoformat(), row["id"]))
