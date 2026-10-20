@@ -3,7 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { fetchWithTimeout, type ApiRequestInit } from "../lib/api-request";
-import { readIdentityKeyFile } from "../lib/identity-key-file";
 import { SaveIdentityDialog } from "./identity-credential";
 import { SwitchIdentityDialog } from "./identity-switch";
 import { identityLock } from "../lib/identity-coordination";
@@ -108,7 +107,6 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     setIdentityErrorCode(reason instanceof IdentityError ? reason.code : "");
 
   }, []);
-  const keyFileInput = useRef<HTMLInputElement>(null);
   const saveSession = useCallback((token: string, nextUser: CurrentUser) => {
     storeSession(scope, token, nextUser);
     if (scope === "user") { localStorage.removeItem(SIGNED_OUT); sessionStorage.removeItem(SIGNED_OUT); }
@@ -228,11 +226,11 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
       else if (user && !user.must_change_password && ["/admin/login", PASSWORD_CHANGE_PATH].includes(pathname)) router.replace("/admin");
     } else if (user && switchTarget === null && ["/login", "/change-password"].includes(pathname)) router.replace("/");
   }, [loading, pathname, router, scope, user, switchTarget]);
-  async function loginWithKey(source: string | File) {
+  async function loginWithKey(source: string) {
     if (busy) return;
     setBusy(true); setError(""); setIdentityErrorCode("");
     try {
-      const key = typeof source === "string" ? keyFromLoginLink(source) : await readIdentityKeyFile(source);
+      const key = keyFromLoginLink(source);
       await identityLock(async () => {
         const data = await keySession(key);
         setKeyInput(""); adopt(data); router.replace("/");
@@ -297,14 +295,6 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
       <input id="identity-key-input" type="text" autoComplete="off" spellCheck={false} autoCapitalize="none" value={keyInput} onChange={event => setKeyInput(event.target.value)} placeholder="粘贴登录链接或已有 Key" disabled={busy} required maxLength={2048} />
       {error && <p role="alert" className="error-text">{error}</p>}
       <button className="login-submit" disabled={busy}>{busy ? "正在进入…" : "登录原身份"}</button>
-      <div className="identity-file-import">
-        <div className="identity-import-divider" aria-hidden="true"><span>或</span></div>
-        <input ref={keyFileInput} type="file" accept=".txt,text/plain" hidden disabled={busy} aria-label="选择身份凭据文件" onChange={event => {
-          const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
-          if (file) void loginWithKey(file);
-        }} />
-        <button type="button" className="secondary-btn" disabled={busy} onClick={() => keyFileInput.current?.click()}>导入凭据 .txt 登录</button>
-      </div>
     </form>}
     {!deletedIdentity && identityErrorCode !== "identity_disabled" && <div className="identity-entry-new"><button type="button" className="secondary-btn" disabled={busy} onClick={() => void startNew()}>创建新身份</button></div>}
     <div className="identity-entry-footer"><a className="identity-entry-admin-link" href="/admin/login">管理员登录</a></div>

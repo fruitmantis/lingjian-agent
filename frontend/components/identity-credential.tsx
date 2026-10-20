@@ -5,7 +5,6 @@ import { userApiFetch, useAuth } from "./auth-provider";
 import { copyText } from "../lib/copy-text";
 
 export function IdentityCredential({ onboarding = false, compact = false, onSwitch }: { onboarding?: boolean; compact?: boolean; onSwitch?: () => void }) {
-  const [key, setKey] = useState("");
   const [link, setLink] = useState("");
   const linkValue = useRef<HTMLDivElement>(null);
   const [error, setError] = useState(""); const [message, setMessage] = useState("");
@@ -18,13 +17,13 @@ export function IdentityCredential({ onboarding = false, compact = false, onSwit
   }, [manual]);
   useEffect(() => {
     let cancelled = false;
-    setError(""); setKey(""); setLink("");
+    setError(""); setLink("");
     void (async () => {
       try {
         const response = await userApiFetch("/auth/identity/key", { cache: "no-store" });
         if (!response.ok) throw new Error("登录链接暂时无法读取，请重试");
         const data = await response.json();
-        if (!cancelled) { setKey(data.key); setLink(`${window.location.origin}/#k=${encodeURIComponent(data.key)}`); }
+        if (!cancelled) { setLink(`${window.location.origin}/#k=${encodeURIComponent(data.key)}`); }
       } catch (reason) { if (!cancelled) setError(reason instanceof Error ? reason.message : "读取失败，请重试"); }
     })();
     return () => { cancelled = true; };
@@ -33,16 +32,9 @@ export function IdentityCredential({ onboarding = false, compact = false, onSwit
     if (await copyText(link, linkValue.current)) { setMessage("登录链接已复制"); setError(""); }
     else { setManual(true); setMessage(""); setError("复制失败，登录链接已选中，请按 Ctrl+C 手动复制。"); }
   }
-  function download() {
-    const content = `伴飞 Agent 身份凭据\n\n身份 Key：\n${key}\n\n在伴飞身份入口输入此 Key 或导入此文件，可恢复原身份和全部历史。\n请妥善保存，勿分享给他人。\n`;
-    const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
-    const anchor = document.createElement("a"); anchor.href = url; anchor.download = "伴飞-身份凭据.txt";
-    document.body.appendChild(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setMessage("已开始下载凭据");
-  }
   return <div className="identity-credential">
     {!compact && !onboarding && <p>使用登录链接，可在其他电脑或浏览器继续使用当前身份。</p>}
-    {compact && <div className="identity-copy-heading"><h3>{onboarding ? "登录链接" : "换设备也能接着用"}</h3>{!onboarding && <p>保存这条链接，换电脑或浏览器后可继续使用。</p>}</div>}
+    {compact && <div className="identity-copy-heading"><h3>{onboarding ? "换电脑也能用" : "换设备也能接着用"}</h3>{!onboarding && <p>保存这条链接，换电脑或浏览器后可继续使用。</p>}</div>}
     <div className={compact ? "identity-copy-strip" + (manual ? " identity-copy-manual" : "") : "identity-link-box"}>
       <div ref={linkValue} tabIndex={-1} className="identity-key-value" aria-label="当前登录链接" data-testid="identity-key">{link || "正在读取…"}</div>
       {compact ? <button type="button" aria-label={onboarding ? (message === "登录链接已复制" ? "已复制" : "复制登录链接") : undefined} disabled={!link} onClick={() => void copy()}>{message === "登录链接已复制" ? "已复制" : onboarding ? "复制" : "复制登录链接"}</button> : <button type="button" className="identity-link-copy" aria-label="复制登录链接" title="复制登录链接" disabled={!link} onClick={() => void copy()}>
@@ -53,7 +45,7 @@ export function IdentityCredential({ onboarding = false, compact = false, onSwit
     {error && <p role="alert" className="error-text">{error}<button className="text-btn" type="button" onClick={() => setAttempt(value => value + 1)}>重试</button></p>}
     {onboarding && compact && <p className="identity-link-private">请勿分享给他人 · 可保存到收藏夹或发给自己</p>}
     {!compact && <p className="identity-link-private">请勿分享给他人</p>}
-    {!onboarding && !compact && <div className="identity-key-actions"><button type="button" className="secondary-btn" disabled={!key} onClick={download}>下载凭据 .txt</button>{onSwitch && <button type="button" className="secondary-btn" onClick={onSwitch}>切换身份</button>}</div>}
+    {!onboarding && !compact && onSwitch && <div className="identity-key-actions"><button type="button" className="secondary-btn" onClick={onSwitch}>切换身份</button></div>}
   </div>;
 }
 
@@ -76,12 +68,32 @@ export function SaveIdentityDialog({ onClose }: { onClose: () => void }) {
     finally { setSaving(false); }
   }
   return <dialog ref={dialog} className="identity-save-dialog identity-welcome-dialog" aria-labelledby="identity-save-title" onCancel={event => { if (saving) event.preventDefault(); else onClose(); }}>
-    <h2 id="identity-save-title">欢迎使用伴飞</h2>
-    <p className="identity-welcome-subtitle">找到合适的伙伴，把合作推进下去</p>
-    <div className="identity-employee-sentence"><label htmlFor="welcome-employee">你好，我是</label><input id="welcome-employee" aria-label="工号（可选）" placeholder="a00123456" autoComplete="off" value={employeeNumber} onChange={event => setEmployeeNumber(event.target.value)} maxLength={64} disabled={saving}/></div>
-    <p className="identity-employee-help">可跳过，之后在个人中心补充</p>
-    {error && <p className="error-text" role="alert">{error}</p>}
-    <div className="identity-welcome-link"><IdentityCredential onboarding compact /></div>
-    <div className="identity-save-footer"><button type="button" disabled={saving} onClick={() => void start()}>{saving ? "正在保存…" : "开始使用伴飞"}</button><p>以后可在个人中心查看工号、复制登录链接</p></div>
+    <aside className="welcome-brand" aria-hidden="true">
+      <svg className="welcome-paths" viewBox="0 0 440 220" fill="none">
+        <path d="M-20,178 C80,178 152,148 254,118" stroke="#e7c2c7" strokeWidth="1.5"/>
+        <path d="M-20,220 C104,220 178,168 254,118" stroke="#e7c2c7" strokeWidth="1.5"/>
+        <circle cx="254" cy="118" r="5" fill="#dda3a9"/>
+        <circle cx="94" cy="170" r="3.5" fill="#efd0d4"/>
+        <circle cx="56" cy="210" r="2.5" fill="#efd0d4"/>
+      </svg>
+      <div className="welcome-logo"><span className="welcome-mark">◈</span><span className="welcome-wordmark">伴飞</span></div>
+      <div className="welcome-brand-main">
+        <h3>找伙伴，<br/>促发展</h3>
+        <p>按项目需求，发现值得接洽的伙伴。<br/>结合已有基础，梳理发展方向与学习资源。</p>
+      </div>
+      <div className="welcome-brand-foot">内部试点 · 仅限公司内网访问</div>
+    </aside>
+    <section className="welcome-panel">
+      <div className="welcome-inner">
+        <div className="welcome-eyebrow">首次使用</div>
+        <h2 id="identity-save-title">欢迎使用伴飞</h2>
+        <p className="identity-welcome-subtitle">找到合适的伙伴，把合作推进下去</p>
+        <div className="identity-employee-sentence"><label htmlFor="welcome-employee">我的工号是</label><input id="welcome-employee" aria-label="工号（可选）" placeholder="例如 a123456" autoComplete="off" value={employeeNumber} onChange={event => setEmployeeNumber(event.target.value)} maxLength={64} disabled={saving}/></div>
+        <p className="identity-employee-help">可跳过，之后在个人中心补充</p>
+        {error && <p className="error-text" role="alert">{error}</p>}
+        <div className="identity-welcome-link"><IdentityCredential onboarding compact /></div>
+        <div className="identity-save-footer"><button type="button" disabled={saving} onClick={() => void start()}>{saving ? "正在保存…" : "开始使用伴飞"}</button></div>
+      </div>
+    </section>
   </dialog>;
 }

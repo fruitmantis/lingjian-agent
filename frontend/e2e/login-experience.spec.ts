@@ -6,6 +6,7 @@ async function current(page:Page){return page.evaluate(()=>JSON.parse(localStora
 async function welcome(page:Page,employee=''){
  await page.goto('/');const dialog=page.getByRole('dialog',{name:'欢迎使用伴飞'});await expect(dialog).toBeVisible();
  await expect(dialog.getByRole('button',{name:'复制登录链接',includeHidden:true})).toBeEnabled();
+ await expect(dialog.getByTestId('identity-key')).toHaveText(/^http:\/\/.+\/#k=bf_[\w-]{43}$/);
  const link=(await dialog.getByTestId('identity-key').textContent())!;
  if(employee)await dialog.getByRole('textbox',{name:'工号（可选）'}).fill(employee);
  await dialog.getByRole('button',{name:'开始使用伴飞',exact:true}).click();await expect(dialog).toHaveCount(0);
@@ -23,6 +24,7 @@ for(const width of [1366,1920,390])test(`welcome: optional employee, visible com
  await expect(dialog).toContainText('找到合适的伙伴，把合作推进下去');await expect(dialog).toContainText('可跳过');
  await expect(dialog.getByTestId('identity-key')).toBeVisible();await expect(dialog.getByRole('checkbox')).toHaveCount(0);
  const employee=width===1366?'':'a00123';if(employee)await dialog.getByRole('textbox',{name:'工号（可选）'}).fill(employee);
+ await expect(dialog.getByTestId('identity-key')).toHaveText(/^http:\/\/.+\/#k=bf_[\w-]{43}$/);
  const link=(await dialog.getByTestId('identity-key').textContent())!;await expect(dialog.getByRole('button',{name:'复制登录链接',includeHidden:true})).toBeEnabled();
  expect(await page.evaluate(()=>(window as any).copied)).toEqual([]);
  await page.screenshot({path:test.info().outputPath('welcome-'+width+'.png'),mask:[page.getByTestId('identity-key')]});

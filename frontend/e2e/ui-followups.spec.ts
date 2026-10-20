@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
-const origin=process.env.PLAYWRIGHT_HTTP_ORIGIN!;
+const origin=process.env.PLAYWRIGHT_HTTP_ORIGIN||'http://localhost';
 async function capture(page:Page,name:string){
  await page.evaluate(()=>document.fonts.ready);
  await page.screenshot({path:test.info().outputPath(name+'.png'),fullPage:false,style:".identity-key-value, #identity-switch-target { color: transparent !important; -webkit-text-fill-color: transparent !important; text-shadow: none !important; } .admin-identity-key-hint { visibility: hidden !important; }"});
@@ -15,7 +15,7 @@ for(const width of [1366,390]){
   await page.setViewportSize({width,height:width===390?844:900});
   await page.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(t:string)=>{(window as any).lastCopied=t;}}});});
   await page.goto('/');const welcome=page.getByRole('dialog',{name:'欢迎使用伴飞'});
-  await expect(welcome.getByRole('heading',{name:'登录链接',exact:true})).toBeVisible();
+  await expect(welcome.getByRole('heading',{name:'换电脑也能用',exact:true})).toBeVisible();
   await expect(welcome.getByText('请勿分享给他人',{exact:false})).toBeVisible();
   await expect(welcome.getByRole('button',{name:'复制登录链接',exact:true,includeHidden:true})).toBeEnabled();
   const preview=welcome.getByTestId('identity-key');await expect(preview).toBeVisible();
@@ -32,9 +32,8 @@ for(const width of [1366,390]){
   await welcome.getByRole('button',{name:'开始使用伴飞',exact:true}).click();await expect(welcome).toHaveCount(0);
   const owner=await page.evaluate(()=>localStorage.getItem('banfei:user:user'));
   await page.goto('/account');
-  const download=page.getByRole('button',{name:'下载凭据 .txt',exact:true}),switcher=page.locator('main').getByRole('button',{name:'切换身份',exact:true});
-  await expect(download).toBeEnabled();const a=(await download.boundingBox())!,b=(await switcher.boundingBox())!;
-  expect(Math.abs(a.y-b.y)<2?b.x-a.x-a.width:b.y-a.y-a.height).toBeGreaterThanOrEqual(11);
+  const switcher=page.locator('main').getByRole('button',{name:'切换身份',exact:true});
+  await expect(switcher).toBeEnabled();
   await capture(page,'account-actions-'+width);
   let logout=0;page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/auth/identity/logout'))logout++;});
   if(width===390)await page.getByRole('button',{name:'展开导航',exact:true}).click();

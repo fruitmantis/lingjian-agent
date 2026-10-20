@@ -1487,11 +1487,6 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
  .identity-copy-strip > button { font-size: 13px; white-space: nowrap; }
  .identity-copy-heading h3 { font-size: 14px; }
 }
-.identity-file-import { display: grid; gap: 12px; }
-.identity-import-divider { display: flex; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 12px; }
-.identity-import-divider::before, .identity-import-divider::after { content: ""; flex: 1; height: 1px; background: var(--border-default); }
-.identity-file-import > button { width: 100%; min-height: 44px; }
-.identity-file-import > p { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.7; text-align: center; }
 .identity-entry-new { border-top: 1px solid var(--border-default); margin-top: 24px; padding-top: 20px; }
 .identity-entry-new p { color: var(--text-tertiary); font-size: 13px; margin: 0 0 12px; }
 .identity-entry-new button { width: 100%; }
@@ -1555,3 +1550,35 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .agent-settings-fields .agent-description {grid-column:1/-1;}
 .agent-settings-grid h2,.task-mode-tabs button {display:flex;align-items:center;gap:8px;}
 @media(max-width:800px){.agent-settings-grid,.agent-settings-fields {grid-template-columns:1fr;}}
+
+/* 欢迎大卡片：左右分栏 */
+.identity-welcome-dialog{box-sizing:border-box;width:1200px;max-width:calc(100vw - 32px);height:740px;max-height:calc(100dvh - 40px);padding:0;border:0;border-radius:22px;overflow:hidden;background:#fff;box-shadow:0 40px 90px rgba(23,32,48,.16),0 4px 12px rgba(23,32,48,.05)}
+.identity-welcome-dialog[open]{display:flex}
+.identity-welcome-dialog::backdrop{background:rgba(17,24,39,.22)}
+.welcome-brand{position:relative;flex:0 0 440px;width:440px;display:flex;flex-direction:column;padding:54px 44px 40px;overflow:hidden;background:linear-gradient(158deg,#fdf8f7 0%,#fbefee 48%,#f7e7e7 100%)}
+.welcome-brand::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(199,0,11,.05) 1px,transparent 1px);background-size:20px 20px;opacity:.5}
+.welcome-paths{position:absolute;left:0;bottom:92px;width:440px;height:220px}
+.welcome-logo{position:relative;z-index:1;display:flex;align-items:center;gap:11px}
+.welcome-mark{width:38px;height:38px;border-radius:10px;background:#c7000b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 8px 18px rgba(199,0,11,.22)}
+.welcome-wordmark{font-size:27px;font-weight:700;letter-spacing:.5px;color:#1f2329}
+.welcome-brand-main{position:relative;z-index:1;margin:auto 0}
+.welcome-brand-main h3{margin:0;font-size:31px;line-height:1.5;font-weight:700;letter-spacing:-.2px;color:#221d1e}
+.welcome-brand-main p{margin:22px 0 0;font-size:15px;line-height:2;color:#6d6165;max-width:330px}
+.welcome-brand-foot{position:relative;z-index:1;margin-top:auto;padding-top:14px;border-top:1px solid rgba(199,0,11,.12);font-size:11.5px;color:#a08d90}
+.welcome-panel{flex:1;min-width:0;display:flex;align-items:center;padding:0 76px;overflow-y:auto}
+.welcome-inner{width:420px;max-width:100%}
+.welcome-eyebrow{font-size:11.5px;letter-spacing:2px;color:#c7000b;font-weight:600}
+.welcome-inner h2{margin:12px 0 0;font-size:29px;font-weight:700;line-height:1.3;letter-spacing:-.4px;color:var(--text-primary);text-align:left}
+.identity-welcome-dialog .identity-welcome-subtitle{margin:9px 0 0;color:#6b7280;font-size:13.5px;line-height:1.6;text-align:left}
+.welcome-inner .identity-employee-sentence{margin-top:36px;gap:6px;font-size:20px;justify-content:flex-start}
+.welcome-inner .identity-employee-sentence input{width:150px;flex:0 1 150px}
+.welcome-inner .identity-employee-help{margin-top:10px;text-align:left}
+.welcome-inner .identity-welcome-link{margin-top:26px;padding-top:16px}
+.welcome-inner .identity-save-footer{margin-top:26px;text-align:left}
+.welcome-inner .identity-save-footer > button{width:280px;max-width:100%;height:44px;min-height:44px;border-radius:8px;font-size:15px;letter-spacing:.6px}
+@media (max-width:900px){
+  .identity-welcome-dialog{width:min(560px,calc(100vw - 32px));height:fit-content}
+  .welcome-brand{display:none}
+  .welcome-panel{padding:32px 28px}
+  .welcome-inner{width:100%}
+}

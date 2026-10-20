@@ -1,6 +1,6 @@
 import { test, expect, chromium, type Page, type APIRequestContext } from '@playwright/test';
 import { resolve } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 const API = (process.env.PLAYWRIGHT_HTTP_ORIGIN || 'http://localhost') + '/api';
 const origin = { Origin: process.env.PLAYWRIGHT_HTTP_ORIGIN || 'http://localhost' };
@@ -53,7 +53,7 @@ test('first visit enters automatically, same login link in popup/account, copy d
   page.on('request', r => { if (r.url().endsWith('/auth/identity/session') && r.postDataJSON()?.create) creations++; });
   await page.goto('/');
   const dialog = page.getByRole('dialog', { name: '欢迎使用伴飞' }); await expect(dialog).toBeVisible();
-  const { key, link } = await readLoginLink(page); const user = await localUser(page);
+  const { link } = await readLoginLink(page); const user = await localUser(page);
   await expect(dialog.getByRole('button')).toHaveCount(2);
   await expect(dialog.getByRole('checkbox')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: '下载凭据 .txt' })).toHaveCount(0);
@@ -65,8 +65,6 @@ test('first visit enters automatically, same login link in popup/account, copy d
   await page.goto('/account'); await expect(page.getByRole('heading', { name: '身份凭据' })).toBeVisible();
   await expect(page.getByTestId('identity-key')).toHaveText(link);
   await page.getByRole('button', { name: '复制登录链接', exact: true }).click(); expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(link);
-  const personalDownloadEvent = page.waitForEvent('download'); await page.getByRole('button', { name: '下载凭据 .txt' }).click();
-  expect(readFileSync((await (await personalDownloadEvent).path())!, 'utf8')).toContain(key);
   await page.reload(); await expect(page.getByTestId('identity-key')).toHaveText(link);
   expect((await localUser(page)).id).toBe(user.id); expect(creations).toBe(1);
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -176,7 +174,7 @@ test('two first-open tabs create one identity; confirmed switching updates the o
  await a.getByRole('button',{name:'开始使用伴飞',exact:true}).click();
  const other=await browser.newContext({baseURL:origin.Origin});
  try{const target=await createIdentity(await other.newPage());await a.goto(target.link);const change=a.getByRole('dialog',{name:'切换身份',exact:true});await change.getByRole('button',{name:'切换',exact:true}).click();
- await expect.poll(async()=>(await localUser(a)).id).toBe(target.user.id);await expect.poll(async()=>(await localUser(b)).id).toBe(target.user.id);expect(creations).toBe(1);
+ const settledUser=async(p:Page)=>{try{return await localUser(p)}catch{return null}};await expect.poll(async()=>(await settledUser(a))?.id).toBe(target.user.id);await expect.poll(async()=>(await settledUser(b))?.id).toBe(target.user.id);expect(creations).toBe(1);
  }finally{await other.close();}
 });
 
@@ -224,151 +222,6 @@ test('business 401 restores same browser identity without Key or a new user', as
   expect(await userCount(request,admin.access_token)).toBe(before);
 });
 
-test('credential file import restores downloaded identity and history without uploading the file', async ({ page, context, request }) => {
-  const original = await createIdentity(page);
-  const taskId = execFileSync(resolve('../.venv/bin/python'), ['-m', 'backend.tests.support.seed_identity_history', original.user.id], { cwd: resolve('..'), encoding: 'utf8' }).trim();
-  const admin = await adminSession(request); const before = await userCount(request, admin.access_token);
-  await page.evaluate(session => {
-    localStorage.setItem('banfei:admin:token', session.access_token);
-    localStorage.setItem('banfei:admin:user', JSON.stringify(session.user));
-  }, admin);
-  await page.goto('/account');
-  const downloadEvent = page.waitForEvent('download');
-  await page.getByRole('button', { name: '下载凭据 .txt' }).click();
-  const download = await downloadEvent;
-  const file = { name: download.suggestedFilename(), mimeType: 'text/plain', buffer: readFileSync((await download.path())!) };
-  await context.clearCookies();
-  await page.evaluate(() => { localStorage.removeItem('banfei:user:token'); localStorage.removeItem('banfei:user:user'); });
-  await page.goto('/login');
-  await expect(page.getByRole('button', { name: '导入凭据 .txt 登录' })).toBeVisible();
-  await page.screenshot({ path: test.info().outputPath('identity-import-login.png'), fullPage: true });
-  const chooserEvent = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: '导入凭据 .txt 登录' }).click();
-  const loginRequest = page.waitForRequest(r => r.url().endsWith('/auth/identity/key/login'));
-  await (await chooserEvent).setFiles(file);
-  expect((await loginRequest).postDataJSON()).toEqual({ key: original.key });
-  await expect(page.locator('.sidebar')).toBeVisible();
-  expect((await localUser(page)).id).toBe(original.user.id);
-  await page.goto('/tasks'); await expect(page.getByRole('cell', { name: '退出身份保留的个人任务', exact: true })).toBeVisible();
-  await page.reload(); await expect(page.locator('.sidebar')).toBeVisible();
-  expect((await localUser(page)).id).toBe(original.user.id);
-  expect(await userCount(request, admin.access_token)).toBe(before);
-  expect(await page.evaluate(() => localStorage.getItem('banfei:admin:token'))).toBe(admin.access_token);
-  const token = await page.evaluate(() => localStorage.getItem('banfei:user:token'));
-  expect((await page.request.get(API+'/agent/tasks/'+taskId, { headers: { Authorization: 'Bearer '+token } })).ok()).toBeTruthy();
-  await page.goto('/account'); await expect(page.getByTestId('identity-key')).toHaveText(loginLink(page, original.key));
-});
-
-test('credential file import accepts plain Key with BOM and Windows line endings after site-data loss', async ({ page }) => {
-  const original = await createIdentity(page);
-  await emptyEntry(page);
-  const chooserEvent = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: '导入凭据 .txt 登录' }).click();
-  await (await chooserEvent).setFiles({ name: 'identity.TXT', mimeType: 'text/plain', buffer: Buffer.from('\uFEFF \r\n '+original.key+' \r\n') });
-  await expect(page.locator('.sidebar')).toBeVisible();
-  expect((await localUser(page)).id).toBe(original.user.id);
-});
-
-test('credential file import rejects invalid files locally and cancellation preserves the recoverable identity', async ({ page, context, request }) => {
-  const original = await createIdentity(page);
-  const admin = await adminSession(request); const before = await userCount(request, admin.access_token);
-  await emptyEntry(page);
-  const cookie = (await context.cookies()).find(c => c.name === 'banfei_http_identity_session')?.value;
-  let authRequests = 0, businessRequests = 0;
-  page.on('request', r => { if (r.url().includes('/auth/identity/')) authRequests++; if (r.url().includes('/agent/tasks')) businessRequests++; });
-  const chooserEvent = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: '导入凭据 .txt 登录' }).click();
-  await (await chooserEvent).setFiles([]);
-  await expect(page.locator('form [role=alert]')).toHaveCount(0);
-  await page.getByLabel('登录链接或 Key', { exact: true }).fill('manual-value');
-  const invalidFiles = [
-    { name: 'empty.txt', content: '', error: '未找到有效的身份 Key' },
-    { name: 'unrelated.txt', content: '没有凭据的普通文本', error: '未找到有效的身份 Key' },
-    { name: 'truncated.txt', content: original.key.slice(0, -1), error: '未找到有效的身份 Key' },
-    { name: 'long-key.txt', content: original.key+'a', error: '未找到有效的身份 Key' },
-    { name: 'two.txt', content: original.key+'\n'+original.key, error: '文件包含多个 Key' },
-    { name: 'large.txt', content: original.key+'\n'+' '.repeat(16 * 1024), error: '文件过大' },
-    { name: 'wrong.pdf', content: original.key, error: '请选择下载的 .txt' },
-    { name: 'binary.txt', content: original.key+'\n\0', error: '未找到有效的身份 Key' },
-    { name: 'sql.txt', content: "bf_' OR 1=1--", error: '未找到有效的身份 Key' },
-    { name: 'script.txt', content: 'bf_<script>alert(1)</script>', error: '未找到有效的身份 Key' },
-    { name: 'command.txt', content: 'bf_$(id)', error: '未找到有效的身份 Key' },
-    { name: 'path.txt', content: 'bf_../../etc/passwd', error: '未找到有效的身份 Key' },
-  ];
-  for (const file of invalidFiles) {
-    await page.getByLabel('选择身份凭据文件').setInputFiles({ name: file.name, mimeType: 'text/plain', buffer: Buffer.from(file.content) });
-    await expect(page.locator('form [role=alert]')).toContainText(file.error);
-    await expect(page.getByRole('button', { name: '导入凭据 .txt 登录' })).toBeEnabled();
-    await expect(page.getByLabel('登录链接或 Key', { exact: true })).toHaveValue('manual-value');
-  }
-  expect(authRequests).toBe(0); expect(businessRequests).toBe(0);
-  expect(await userCount(request, admin.access_token)).toBe(before);
-  expect((await context.cookies()).find(c => c.name === 'banfei_http_identity_session')?.value).toBe(cookie);
-  await keyLogin(page,original.key);
-  await expect(page.locator('.sidebar')).toBeVisible(); expect((await localUser(page)).id).toBe(original.user.id);
-});
-
-test('credential file import with an unknown Key creates no user and can retry the same filename', async ({ page, context, request }) => {
-  const original = await createIdentity(page);
-  const admin = await adminSession(request); const before = await userCount(request, admin.access_token);
-  await emptyEntry(page);
-  const cookie = (await context.cookies()).find(c => c.name === 'banfei_http_identity_session')?.value;
-  const fileInput = page.getByLabel('选择身份凭据文件');
-  await fileInput.setInputFiles({ name: 'identity.txt', mimeType: 'text/plain', buffer: Buffer.from('bf_'+'x'.repeat(43)) });
-  await expect(page.locator('form [role=alert]')).toHaveText('凭据无效或已失效，请确认 Key 或凭据文件。');
-  expect(await localUser(page)).toBeNull(); expect(await userCount(request, admin.access_token)).toBe(before);
-  expect((await context.cookies()).find(c => c.name === 'banfei_http_identity_session')?.value).toBe(cookie);
-  await fileInput.setInputFiles({ name: 'identity.txt', mimeType: 'text/plain', buffer: Buffer.from(original.key) });
-  await expect(page.locator('.sidebar')).toBeVisible(); expect((await localUser(page)).id).toBe(original.user.id);
-  expect(await userCount(request, admin.access_token)).toBe(before);
-});
-
-async function deleteIdentity(request: APIRequestContext, adminToken: string, userId: string) {
-  const headers = { Authorization: 'Bearer '+adminToken };
-  const preview = await request.get(API+'/admin/users/'+userId+'/deletion-preview', { headers });
-  const data = await preview.json(); expect(data.allowed).toBe(true);
-  expect((await request.delete(API+'/admin/users/'+userId, { headers, data: { confirmationToken: data.confirmationToken } })).status()).toBe(204);
-}
-
-for (const method of ['paste', 'file']) test(`deleted Key ${method} shows explicit new identity action without automatic creation`, async ({ page, request }) => {
-  const original = await createIdentity(page); const admin = await adminSession(request);
-  await page.evaluate(s => { localStorage.setItem('banfei:admin:token', s.access_token); localStorage.setItem('banfei:admin:user', JSON.stringify(s.user)); }, admin);
-  await emptyEntry(page);
-  await deleteIdentity(request, admin.access_token, original.user.id);
-  const before = await userCount(request, admin.access_token);
-  let creations = 0;
-  page.on('request', r => { if (r.url().endsWith('/auth/identity/session') && r.postDataJSON()?.create) creations++; });
-  await page.goto('/login?method=key');
-  if (method === 'paste') {
-    await page.getByLabel('登录链接或 Key', { exact: true }).fill(original.key);
-    await page.getByRole('button', { name: '登录原身份', exact: true }).click();
-  } else {
-    await page.getByLabel('选择身份凭据文件').setInputFiles({ name: 'deleted.txt', mimeType: 'text/plain', buffer: Buffer.from(original.key) });
-  }
-  await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
-  await expect(page.getByText('该身份已被管理员删除，原凭据已失效。请重新建立身份。', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '创建新身份', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '返回当前浏览器身份' })).toHaveCount(0);
-  expect(creations).toBe(0); expect(await userCount(request, admin.access_token)).toBe(before);
-  expect(await localUser(page)).toBeNull();
-  if (method === 'file') {
-    await page.screenshot({ path: test.info().outputPath('deleted-key-entry.png') });
-    // A transient creation error must keep a retryable creation action.
-    await page.route('**/auth/identity/session', route => route.fulfill({ status: 503, json: { detail: '暂时无法创建，请重试' } }), { times: 1 });
-    await page.getByRole('button', { name: '创建新身份', exact: true }).click();
-    await expect(page.getByText('暂时无法创建，请重试', { exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
-    expect(await userCount(request, admin.access_token)).toBe(before);
-  }
-  await page.getByRole('button', { name: '创建新身份', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: '欢迎使用伴飞' })).toBeVisible();
-  expect((await localUser(page)).id).not.toBe(original.user.id);
-  await expect(page.getByTestId('identity-key')).not.toHaveText(loginLink(page, original.key));
-  expect(await userCount(request, admin.access_token)).toBe(before+1);
-  expect(await page.evaluate(() => localStorage.getItem('banfei:admin:token'))).toBe(admin.access_token);
-  expect((await request.get(API+'/auth/me', { headers: { Authorization: 'Bearer '+admin.access_token } })).ok()).toBe(true);
-});
-
 test('deleted target cannot clear the current identity; explicit new identity remains a separate action',async({page,request,browser})=>{
  const current=await createIdentity(page),admin=await adminSession(request),other=await browser.newContext({baseURL:origin.Origin});
  let deleted:Awaited<ReturnType<typeof createIdentity>>;
@@ -387,12 +240,14 @@ test('disabled Key is distinguished from deletion and provides no new identity s
   await emptyEntry(page);
   expect((await request.patch(API+'/admin/users/'+original.user.id+'/status', { headers: { Authorization: 'Bearer '+admin.access_token }, data: { status: 'disabled' } })).ok()).toBe(true);
   await page.goto('/login?method=key');
-  await page.getByLabel('选择身份凭据文件').setInputFiles({ name: 'disabled.txt', mimeType: 'text/plain', buffer: Buffer.from(original.key) });
+  await page.getByLabel('登录链接或 Key').fill(original.key);
+  await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.locator('form [role=alert]')).toHaveText('该身份已停用，需要管理员重新启用后才能继续使用。');
   await expect(page.getByRole('heading', { name: '原身份已删除' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '创建新身份', exact: true })).toHaveCount(0);
   expect((await request.patch(API+'/admin/users/'+original.user.id+'/status', { headers: { Authorization: 'Bearer '+admin.access_token }, data: { status: 'active' } })).ok()).toBe(true);
-  await page.getByLabel('选择身份凭据文件').setInputFiles({ name: 'disabled.txt', mimeType: 'text/plain', buffer: Buffer.from(original.key) });
+  await page.getByLabel('登录链接或 Key').fill(original.key);
+  await page.getByRole('button', { name: '登录原身份', exact: true }).click();
   await expect(page.locator('.sidebar')).toBeVisible(); expect((await localUser(page)).id).toBe(original.user.id);
 });
 
@@ -501,4 +356,41 @@ test('login link v3: lost committed response preserves local B but blocks unconf
  await page.goto(a.link);await page.getByRole('dialog',{name:'切换身份',exact:true}).getByRole('button',{name:'切换',exact:true}).click();await expect(page.locator('.error-text[role=alert]')).toContainText('网络连接失败');
  expect((await localUser(page)).id).toBe(b.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBe(token);await expect(page.locator('.sidebar')).toHaveCount(0);expect((await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+token}})).status()).toBe(401);
  }finally{await context.close();}
+});
+
+async function deleteIdentity(request: APIRequestContext, adminToken: string, userId: string) {
+  const headers = { Authorization: 'Bearer '+adminToken };
+  const preview = await request.get(API+'/admin/users/'+userId+'/deletion-preview', { headers });
+  const data = await preview.json(); expect(data.allowed).toBe(true);
+  expect((await request.delete(API+'/admin/users/'+userId, { headers, data: { confirmationToken: data.confirmationToken } })).status()).toBe(204);
+}
+
+test('deleted Key shows explicit new identity action without automatic creation', async ({ page, request }) => {
+  const original = await createIdentity(page); const admin = await adminSession(request);
+  await page.evaluate(s => { localStorage.setItem('banfei:admin:token', s.access_token); localStorage.setItem('banfei:admin:user', JSON.stringify(s.user)); }, admin);
+  await emptyEntry(page);
+  await deleteIdentity(request, admin.access_token, original.user.id);
+  const before = await userCount(request, admin.access_token);
+  let creations = 0;
+  page.on('request', r => { if (r.url().endsWith('/auth/identity/session') && r.postDataJSON()?.create) creations++; });
+  await page.goto('/login?method=key');
+  await page.getByLabel('登录链接或 Key', { exact: true }).fill(original.key);
+  await page.getByRole('button', { name: '登录原身份', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
+  await expect(page.getByText('该身份已被管理员删除，原凭据已失效。请重新建立身份。', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '创建新身份', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '返回当前浏览器身份' })).toHaveCount(0);
+  expect(creations).toBe(0); expect(await userCount(request, admin.access_token)).toBe(before);
+  expect(await localUser(page)).toBeNull();
+  await page.screenshot({ path: test.info().outputPath('deleted-key-entry.png') });
+  // A transient creation error must keep a retryable creation action.
+  await page.route('**/auth/identity/session', route => route.fulfill({ status: 503, json: { detail: '暂时无法创建，请重试' } }), { times: 1 });
+  await page.getByRole('button', { name: '创建新身份', exact: true }).click();
+  await expect(page.getByText('暂时无法创建，请重试', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '原身份已删除' })).toBeVisible();
+  expect(await userCount(request, admin.access_token)).toBe(before);
+  await page.getByRole('button', { name: '创建新身份', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '欢迎使用伴飞' })).toBeVisible();
+  expect((await localUser(page)).id).not.toBe(original.user.id);
+  await expect(page.getByTestId('identity-key')).not.toHaveText(loginLink(page, original.key));
 });
