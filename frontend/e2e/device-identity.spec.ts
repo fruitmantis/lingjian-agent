@@ -78,3 +78,63 @@ test('device pilot: missing response backup reports version mismatch without emp
  await page.route('**/auth/identity/session',async route=>{if(route.request().postDataJSON()?.create)creates++;const response=await route.fetch(),body=await response.json();delete body.device_secret;await route.fulfill({response,json:body});});
  await page.reload();await expect(page.locator('.identity-entry-card .error-text[role=alert]')).toHaveText('身份接口版本不一致，请刷新后重试。');expect(await page.evaluate(value=>localStorage.getItem('banfei:user:device-secret')===value,before.secret)).toBe(true);expect(creates).toBe(0);
 });
+
+async function openSwitch(page: Page) {
+  await page.locator('.sidebar').getByRole('button', {name:'切换身份', exact:true}).click();
+  const dialog = page.getByRole('dialog', {name:'切换身份', exact:true});
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+async function capture(page: Page, name: string) {
+  await page.screenshot({path:test.info().outputPath(name+'.png'),
+    mask:[page.getByTestId('identity-key'), page.getByLabel('目标登录链接')]});
+}
+async function blockStorage(page: Page, mode: 'write'|'all') {
+  await page.addInitScript((mode)=>{
+    Storage.prototype.setItem=function(){throw new DOMException('synthetic storage restriction','QuotaExceededError');};
+    if(mode==='all'){
+      Storage.prototype.getItem=function(){throw new DOMException('synthetic read restriction','SecurityError');};
+      Storage.prototype.removeItem=function(){throw new DOMException('synthetic removal restriction','SecurityError');};
+    }
+  },mode);
+}
+for(const mode of ['write','all'] as const)test('storage fallback: fresh browser supports authenticated use '+mode,async({page})=>{
+  await blockStorage(page,mode);
+  const sessions:{id:string,created:boolean}[]=[];
+  page.on('response',async response=>{
+    if(response.url().endsWith('/auth/identity/session')&&response.ok()){
+      const data=await response.json().catch(()=>null);
+      if(data?.user)sessions.push({id:data.user.id,created:data.created});
+    }
+  });
+  await page.goto('/');
+  const welcome=page.getByRole('dialog',{name:'欢迎使用伴飞'});
+  await expect(welcome).toBeVisible();
+  await expect(welcome.getByTestId('identity-key')).toHaveText(/^http:\/\/.+\/#k=bf_[\w-]{43}$/);
+  await welcome.getByRole('button',{name:'开始使用伴飞',exact:true}).click();
+  await expect(page.getByText('这台电脑无法保存身份备份',{exact:false})).toBeVisible();
+  await page.goto('/account');
+  await expect(page.getByTestId('identity-key')).toHaveText(/^http:\/\/.+\/#k=bf_[\w-]{43}$/);
+  await page.reload();
+  await expect(page.getByTestId('identity-key')).toHaveText(/^http:\/\/.+\/#k=bf_[\w-]{43}$/);
+  expect(sessions.filter(s=>s.created)).toHaveLength(1);
+  expect(new Set(sessions.map(s=>s.id)).size).toBe(1);
+  await capture(page,'storage-'+mode);
+});
+
+test('storage fallback: write failure cannot leave the previous bearer after switching',async({page,browser})=>{
+  const a=await createIdentity(page), other=await browser.newContext({baseURL:origin.Origin});
+  try{
+    const b=await createIdentity(await other.newPage());
+    await blockStorage(page,'write');await page.reload();await expect(page.locator('.sidebar')).toBeVisible();
+    const dialog=await openSwitch(page);await dialog.getByLabel('目标登录链接').fill(b.link);
+    const login=page.waitForResponse(r=>r.url().endsWith('/auth/identity/key/login')&&r.status()===200);
+    await dialog.getByRole('button',{name:'切换',exact:true}).click();expect((await(await login).json()).user.id).toBe(b.user.id);
+    await expect(dialog).toHaveCount(0);
+    const ownKey=page.waitForResponse(r=>r.url().endsWith('/auth/identity/key'));
+    await page.goto('/account');const response=await ownKey;
+    expect(response.status()).toBe(200);
+    expect((await response.json()).key).toBe(b.key);
+    await expect(page.getByTestId('identity-key')).toHaveText(b.link);
+  }finally{await other.close();}
+});

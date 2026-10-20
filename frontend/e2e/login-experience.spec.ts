@@ -135,3 +135,54 @@ test('switch: same-page hash prompts; cross-tab and administrator remain consist
  await page.goto('/');await expect(page.locator('.sidebar')).toBeVisible();expect((await current(page)).id).toBe(a.user.id);
  }finally{await otherContext.close();}
 });
+
+test('new identity: committed lost response adopts the verified owner exactly once',async({page,request})=>{
+ const a=await welcome(page),session=await admin(request),before=await count(request,session.access_token);
+ let creates=0,committedId='';
+ await page.route('**/auth/identity/session',async route=>{
+  if(!route.request().postDataJSON()?.replace)return route.continue();
+  creates++;const response=await route.fetch();expect(response.ok()).toBe(true);
+  committedId=(await response.json()).user.id;await route.abort();
+ });
+ const dialog=await openSwitch(page);await dialog.getByRole('button',{name:'在这台电脑上新建身份'}).click();
+ await dialog.getByRole('button',{name:'确定新建'}).click();
+ const created=page.getByRole('dialog',{name:'欢迎使用伴飞'});await expect(created).toBeVisible();
+ expect(committedId).not.toBe(a.user.id);expect((await current(page)).id).toBe(committedId);
+ expect(creates).toBe(1);expect(await count(request,session.access_token)).toBe(before+1);
+ await expect(created.getByTestId('identity-key')).toHaveText(/^http:\/\/.+\/#k=bf_[\w-]{43}$/);
+});
+test('new identity: uncertain confirmation blocks duplicate creation on immediate retry',async({page,request})=>{
+ const a=await welcome(page),session=await admin(request),before=await count(request,session.access_token);
+ let creates=0,committedId='',allowConfirmation=false;
+ await page.route('**/auth/identity/session',async route=>{
+  if(route.request().postDataJSON()?.replace){
+   creates++;const response=await route.fetch();expect(response.ok()).toBe(true);
+   committedId=(await response.json()).user.id;return route.abort();
+  }
+  if(!allowConfirmation)return route.fulfill({status:503,json:{detail:'synthetic confirmation unavailable'}});
+  return route.continue();
+ });
+ const dialog=await openSwitch(page);
+ const attempt=async()=>{await dialog.getByRole('button',{name:'在这台电脑上新建身份'}).click();await dialog.getByRole('button',{name:'确定新建'}).click();};
+ await attempt();await expect(dialog.locator('.error-text[role=alert]')).toHaveText('暂时无法确认新建结果，请稍后重试。');
+ expect((await current(page)).id).toBe(a.user.id);expect(creates).toBe(1);
+ expect(await count(request,session.access_token)).toBe(before+1);
+ await attempt();await expect(dialog.locator('.error-text[role=alert]')).toHaveText('暂时无法确认新建结果，请稍后重试。');
+ expect(creates).toBe(1);expect(await count(request,session.access_token)).toBe(before+1);
+ allowConfirmation=true;await attempt();
+ await expect(page.getByRole('dialog',{name:'欢迎使用伴飞'})).toBeVisible();
+ expect((await current(page)).id).toBe(committedId);expect(creates).toBe(1);
+ expect(await count(request,session.access_token)).toBe(before+1);
+});
+test('new identity: an uncommitted request preserves the owner and can be retried',async({page,request})=>{
+ const a=await welcome(page),session=await admin(request),before=await count(request,session.access_token);
+ await page.route('**/auth/identity/session',route=>route.request().postDataJSON()?.replace?route.abort():route.continue());
+ const dialog=await openSwitch(page);await dialog.getByRole('button',{name:'在这台电脑上新建身份'}).click();
+ await dialog.getByRole('button',{name:'确定新建'}).click();
+ await expect(dialog.locator('.error-text[role=alert]')).toBeVisible();
+ expect((await current(page)).id).toBe(a.user.id);expect(await count(request,session.access_token)).toBe(before);
+ await page.unroute('**/auth/identity/session');
+ await dialog.getByRole('button',{name:'在这台电脑上新建身份'}).click();await dialog.getByRole('button',{name:'确定新建'}).click();
+ await expect(page.getByRole('dialog',{name:'欢迎使用伴飞'})).toBeVisible();
+ expect((await current(page)).id).not.toBe(a.user.id);expect(await count(request,session.access_token)).toBe(before+1);
+});

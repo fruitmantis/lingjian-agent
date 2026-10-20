@@ -29,21 +29,27 @@ let userIdentitySwitchVersion = 0;
 const storageKey = (scope: AuthScope, name: string) => `banfei:${scope}:${name}`;
 const currentScope = (): AuthScope => typeof window !== "undefined" && window.location.pathname.startsWith("/admin") ? "admin" : "user";
 const memoryStore = new Map<string, string>();
+// Only failed writes override readable storage; normal reads still see other tabs.
+const memoryOverrides = new Set<string>();
 let storageBlocked = false;
 type StorageArea = "local" | "session";
 function storageGet(key: string, area: StorageArea = "local"): string | null {
+  const cached = `${area}:${key}`;
+  if (memoryOverrides.has(cached)) return memoryStore.get(cached) ?? null;
   try { return (area === "local" ? localStorage : sessionStorage).getItem(key); }
-  catch { if (area === "local") storageBlocked = true; return memoryStore.get(`${area}:${key}`) ?? null; }
+  catch { if (area === "local") storageBlocked = true; return memoryStore.get(cached) ?? null; }
 }
 function storageSet(key: string, value: string, area: StorageArea = "local"): void {
-  memoryStore.set(`${area}:${key}`, value);
-  try { (area === "local" ? localStorage : sessionStorage).setItem(key, value); }
-  catch { if (area === "local") storageBlocked = true; }
+  const cached = `${area}:${key}`;
+  memoryStore.set(cached, value);
+  try { (area === "local" ? localStorage : sessionStorage).setItem(key, value); memoryOverrides.delete(cached); }
+  catch { memoryOverrides.add(cached); if (area === "local") storageBlocked = true; }
 }
 function storageRemove(key: string, area: StorageArea = "local"): void {
-  memoryStore.delete(`${area}:${key}`);
-  try { (area === "local" ? localStorage : sessionStorage).removeItem(key); }
-  catch { if (area === "local") storageBlocked = true; }
+  const cached = `${area}:${key}`;
+  memoryStore.delete(cached);
+  try { (area === "local" ? localStorage : sessionStorage).removeItem(key); memoryOverrides.delete(cached); }
+  catch { memoryOverrides.add(cached); if (area === "local") storageBlocked = true; }
 }
 function storageAvailable(): boolean {
   if (storageBlocked) return false;
@@ -114,6 +120,13 @@ async function result(response: Response): Promise<IdentitySession> {
   }
   if (!data || typeof data.access_token !== "string" || !data.user) throw new Error("身份接口版本不一致，请刷新后重试。");
   return data;
+}
+async function cookieSession(signal?: AbortSignal): Promise<IdentitySession | null> {
+  const response = await fetchWithTimeout(`${apiBaseUrl}/auth/identity/session`, {
+    method: "POST", credentials: "include", cache: "no-store",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ create: false }), signal,
+  });
+  return response.ok ? result(response) : null;
 }
 function keyFromLoginLink(source: string): string {
   let key = source.trim();
@@ -191,6 +204,8 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  const newIdentityInFlight = useRef<Promise<void> | null>(null);
+  const pendingNewIdentity = useRef<{ previousUserId: string } | null>(null);
   const [storageBlockedNotice, setStorageBlockedNotice] = useState(false);
   const [notice, setNotice] = useState(false); const [keyInput, setKeyInput] = useState("");
   const [switchTarget, setSwitchTarget] = useState<string | null>(null);
@@ -355,6 +370,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     const key = keyFromLoginLink(source);
     const previousUser = user, previousToken = getToken("user");
     const complete = (data: IdentitySession) => {
+      pendingNewIdentity.current = null;
       adopt(data); storageRemove(`banfei:key-save:${data.user.id}`);
       setNotice(false); setSwitchTarget(null);
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
@@ -370,13 +386,8 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
           // The server may have committed before the response was lost. Probe
           // only the Cookie, without the now possibly revoked previous Bearer.
           let restored: IdentitySession | null = null;
-          try {
-            const response = await fetchWithTimeout(`${apiBaseUrl}/auth/identity/session`, {
-              method: "POST", credentials: "include", cache: "no-store",
-              headers: { "Content-Type": "application/json" }, body: JSON.stringify({ create: false }), signal,
-            });
-            if (response.ok) restored = await result(response);
-          } catch { /* Verify the previous token before claiming it still works. */ }
+          try { restored = await cookieSession(signal); }
+          catch { /* Verify the previous token before claiming it still works. */ }
           if (restored && restored.user.id !== previousUser?.id) {
             complete(restored);
             setSwitchMessage(`切换已生效，当前身份：${restored.user.employee_number || restored.user.username}`);
@@ -425,14 +436,39 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
     } catch (reason) { setError(reason instanceof Error ? reason.message : "暂时无法进入，请重试"); }
     finally { setBusy(false); }
   }
-  async function createFromSwitch() {
-    if (busy) return; setBusy(true);
-    try {
-      await identityLock(async () => {
-        const data = await result(await identityRequest("/session", { create: true, replace: true }));
-        adopt(data); setSwitchTarget(null); router.replace("/");
-      });
-    } finally { setBusy(false); }
+  function createFromSwitch(): Promise<void> {
+    if (newIdentityInFlight.current) return newIdentityInFlight.current;
+    if (busy || !user) return Promise.resolve();
+    setBusy(true);
+    userIdentitySwitching = true; userIdentitySwitchVersion++;
+    const action = identityLock(async () => {
+      const complete = (data: IdentitySession) => {
+        adopt({ ...data, created: true }); pendingNewIdentity.current = null;
+        setSwitchTarget(null); router.replace("/");
+      };
+      const confirm = async (): Promise<boolean> => {
+        const pending = pendingNewIdentity.current;
+        if (!pending) return false;
+        let restored: IdentitySession | null = null;
+        try { restored = await cookieSession(AbortSignal.timeout(30_000)); }
+        catch { /* Keep the uncertain operation until a later explicit retry can verify it. */ }
+        if (!restored) throw new Error("暂时无法确认新建结果，请稍后重试。");
+        if (restored.user.id !== pending.previousUserId) { complete(restored); return true; }
+        pendingNewIdentity.current = null;
+        return false;
+      };
+      // A retry confirms the previous attempt before it may send another create.
+      if (await confirm()) return;
+      pendingNewIdentity.current = { previousUserId: user.id };
+      try { complete(await result(await identityRequest("/session", { create: true, replace: true }))); }
+      catch (reason) { if (!(await confirm())) throw reason; }
+    });
+    const tracked = action.finally(() => {
+      newIdentityInFlight.current = null; setBusy(false);
+      userIdentitySwitching = false; userIdentitySwitchVersion++;
+    });
+    newIdentityInFlight.current = tracked;
+    return tracked;
   }
   function dismissNotice() {
     if (user) storageRemove(`banfei:key-save:${user.id}`);
