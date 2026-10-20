@@ -112,7 +112,7 @@ def test_unverifiable_history_fails_closed(client, admin, invalid):
     response = client.delete('/partners/partner-1', headers=auth_headers(admin))
     assert response.status_code == 409
     assert response.json()['detail']['counts']['unverifiable_matching_tasks'] == 1
-    assert '无法核验关联的匹配历史 1 条' in response.json()['detail']['message']
+    assert '无法核验关联的推荐历史 1 条' in response.json()['detail']['message']
 
 
 @pytest.mark.parametrize('state', ['running', 'failed', 'confirmed', 'archived'])
@@ -150,7 +150,7 @@ def test_multiple_categories_return_all_counts(client, admin):
     detail = client.delete('/partners/partner-1', headers=auth_headers(admin)).json()['detail']
     assert detail['counts']['cases'] == 1 and detail['counts']['documents'] == 2
     assert detail['counts']['matching_tasks'] == 1
-    for text in ['案例 1 条','资料 2 条','项目匹配历史 1 条']: assert text in detail['message']
+    for text in ['案例 1 条','资料 2 条','伙伴推荐历史 1 条']: assert text in detail['message']
 
 
 def test_audit_failure_rolls_back_deletion(admin):

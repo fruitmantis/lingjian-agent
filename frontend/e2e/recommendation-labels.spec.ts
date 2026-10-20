@@ -23,7 +23,7 @@ async function setup(page:Page){
   if(method!=='GET'){
    writes.push({method,path,body:request.postData()?request.postDataJSON():null});
    if(path==='/development/plans/names-development/copy'&&method==='POST')return route.fulfill({json:{text:transfer,version_id:'names-v1'}});
-   if(path==='/partners/names-partner'&&method==='DELETE')return route.fulfill({status:409,json:{detail:{code:'partner_delete_blocked',counts:{matching_tasks:2,unverifiable_matching_tasks:1,development_plans:3},message:'无法删除：存在项目匹配历史 2 条、无法核验关联的匹配历史 1 条、能力发展方案 3 条。请停用伙伴以保留历史。'}}});
+   if(path==='/partners/names-partner'&&method==='DELETE')return route.fulfill({status:409,json:{detail:{code:'partner_delete_blocked',counts:{matching_tasks:2,unverifiable_matching_tasks:1,development_plans:3},message:'无法删除：存在伙伴推荐历史 2 条、无法核验关联的推荐历史 1 条、能力发展方案 3 条。请停用伙伴以保留历史。'}}});
    unexpected.push(method+' '+path);return route.fulfill({status:500,json:{detail:'Blocked synthetic write'}});
   }
   if(path==='/auth/me')return route.fulfill({json:request.headers().authorization?.includes('admin-token')?admin:user});
