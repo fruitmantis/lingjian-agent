@@ -22,6 +22,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
 export const PASSWORD_CHANGE_PATH = "/admin/change-password";
 const SIGNED_OUT = "banfei:user:signed-out";
+let userIdentitySwitching = false;
+let userIdentitySwitchVersion = 0;
 const storageKey = (scope: AuthScope, name: string) => `banfei:${scope}:${name}`;
 const currentScope = (): AuthScope => typeof window !== "undefined" && window.location.pathname.startsWith("/admin") ? "admin" : "user";
 export function getToken(scope: AuthScope = currentScope()): string | null {
@@ -38,10 +40,13 @@ function storeSession(scope: AuthScope, token: string, user: CurrentUser) {
   localStorage.setItem(storageKey(scope, "token"), token); localStorage.setItem(storageKey(scope, "user"), JSON.stringify(user));
 }
 export async function apiFetch(path: string, init: ApiRequestInit = {}, scope: AuthScope = currentScope()): Promise<Response> {
+  const switchVersion = userIdentitySwitchVersion;
   const response = await fetchWithTimeout(`${apiBaseUrl}${path}`, {
     ...init, headers: { ...Object.fromEntries(new Headers(init.headers)), ...authHeaders(scope) },
   });
-  if (response.status === 401 && typeof window !== "undefined") {
+  // Only requests overlapping this tab's explicit switch defer to its identity check.
+  const switchHandled = scope === "user" && (userIdentitySwitching || switchVersion !== userIdentitySwitchVersion);
+  if (response.status === 401 && typeof window !== "undefined" && !switchHandled) {
     clearSession(scope);
     if (scope === currentScope() && window.location.pathname !== (scope === "admin" ? "/admin/login" : "/login")) {
       window.location.assign(scope === "admin" ? "/admin/login" : "/login");
@@ -102,6 +107,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   const [notice, setNotice] = useState(false); const [keyInput, setKeyInput] = useState("");
   const [switchTarget, setSwitchTarget] = useState<string | null>(null);
   const [identityErrorCode, setIdentityErrorCode] = useState("");
+  const [switchMessage, setSwitchMessage] = useState("");
   const reportIdentityError = useCallback((reason: unknown, fallback: string) => {
     setError(reason instanceof Error ? reason.message : fallback);
     setIdentityErrorCode(reason instanceof IdentityError ? reason.code : "");
@@ -120,7 +126,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   const openIdentitySwitch = useCallback(() => {
     if (scope !== "user" || !user) return;
     localStorage.removeItem(`banfei:key-save:${user.id}`);
-    setNotice(false); setSwitchTarget("");
+    setSwitchMessage(""); setNotice(false); setSwitchTarget("");
   }, [scope, user]);
   const logout = useCallback(async () => {
     if (scope === "user") { openIdentitySwitch(); return; }
@@ -240,23 +246,58 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   }
   async function switchIdentity(source: string) {
     const key = keyFromLoginLink(source);
-    try {
-      const data = await identityLock(() => keySession(key));
+    const previousUser = user, previousToken = getToken("user");
+    const complete = (data: IdentitySession) => {
       adopt(data); localStorage.removeItem(`banfei:key-save:${data.user.id}`);
       setNotice(false); setSwitchTarget(null);
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
       router.replace("/");
-    } catch (reason) {
-      // A response can be lost after the server commits. Preserve local data,
-      // but only resume business access after verifying the previous session.
-      let previous: CurrentUser | null = null;
-      try {
-        const response = await fetchWithTimeout(`${apiBaseUrl}/auth/me`, { headers: authHeaders("user"), cache: "no-store" });
-        if (response.ok) previous = await response.json() as CurrentUser;
-      } catch { /* Do not create a replacement identity on network failure. */ }
-      if (!previous) { setUser(null); setSwitchTarget(null); reportIdentityError(reason, "登录结果暂未确认"); }
-      throw reason;
-    }
+    };
+    setSwitchMessage("");
+    userIdentitySwitching = true; userIdentitySwitchVersion++;
+    try {
+      await identityLock(async () => {
+        try { complete(await keySession(key)); }
+        catch (reason) {
+          // The server may have committed before the response was lost. Probe
+          // only the Cookie, without the now possibly revoked previous Bearer.
+          let restored: IdentitySession | null = null;
+          try {
+            const response = await fetchWithTimeout(`${apiBaseUrl}/auth/identity/session`, {
+              method: "POST", credentials: "include", cache: "no-store",
+              headers: { "Content-Type": "application/json" }, body: JSON.stringify({ create: false }),
+            });
+            if (response.ok) restored = await result(response);
+          } catch { /* Verify the previous token before claiming it still works. */ }
+          if (restored && restored.user.id !== previousUser?.id) {
+            complete(restored);
+            setSwitchMessage(`切换已生效，当前身份：${restored.user.employee_number || restored.user.username}`);
+            return;
+          }
+          let previous: CurrentUser | null = null, previousStatus = 0;
+          try {
+            const response = await fetchWithTimeout(`${apiBaseUrl}/auth/me`, {
+              headers: previousToken ? { Authorization: `Bearer ${previousToken}` } : {}, cache: "no-store",
+            });
+            previousStatus = response.status;
+            if (response.ok) previous = await response.json() as CurrentUser;
+          } catch { /* An unavailable probe does not authorize a replacement identity. */ }
+          if (previous?.id === previousUser?.id || restored?.user.id === previousUser?.id) {
+            if (!previous && restored) saveSession(restored.access_token, restored.user);
+            const detail = reason instanceof IdentityError && reason.code !== "network_error" ? ` ${reason.message}` : "";
+            throw new Error("切换失败，你仍是原来的身份，请重试。" + detail);
+          }
+          if (previousStatus === 401) {
+            clearSession("user"); setUser(null); setNotice(false); setSwitchTarget(null);
+            setIdentityErrorCode(""); setError("登录已失效，请重新进入");
+            window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+            router.replace("/login");
+            return;
+          }
+          throw new Error("暂时无法确认切换结果，请重试。");
+        }
+      });
+    } finally { userIdentitySwitching = false; userIdentitySwitchVersion++; }
   }
   function cancelIdentitySwitch() {
     setSwitchTarget(null);
@@ -302,6 +343,7 @@ function ScopedAuth({ children, scope }: { children: React.ReactNode; scope: Aut
   if (scope === "admin" && ((!user && pathname !== "/admin/login") || (user?.must_change_password && pathname !== PASSWORD_CHANGE_PATH)
       || (user && !user.must_change_password && pathname === PASSWORD_CHANGE_PATH))) return <div className="auth-loading">正在进入管理后台...</div>;
   return <AuthContext.Provider value={value}>
+    {switchMessage && <div className="identity-notice" role="status">{switchMessage}</div>}
     {error && <div className="identity-notice error-text" role="alert">{error}</div>}
     {children}
     {notice && user && scope === "user" && <SaveIdentityDialog onClose={dismissNotice} />}

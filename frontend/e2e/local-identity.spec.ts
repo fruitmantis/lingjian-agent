@@ -337,7 +337,7 @@ for(const failure of ['invalid','network'])test('login link v3: failed target pr
  const b=await createIdentity(page),token=await page.evaluate(()=>localStorage.getItem('banfei:user:token')),cookie=(await context.cookies()).find(c=>c.name==='banfei_http_identity_session')!.value;
  if(failure==='network')await page.route('**/auth/identity/key/login',route=>route.abort());
  await page.goto(loginLink(page,'bf_'+'z'.repeat(43)));const change=page.getByRole('dialog',{name:'切换身份',exact:true});await change.getByRole('button',{name:'切换',exact:true}).click();
- await expect(change.locator('[role=alert]')).toContainText(failure==='network'?'网络连接失败':'凭据无效或已失效');expect((await localUser(page)).id).toBe(b.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBe(token);
+ await expect(change.locator('[role=alert]')).toContainText(failure==='network'?'切换失败，你仍是原来的身份，请重试。':'凭据无效或已失效');expect((await localUser(page)).id).toBe(b.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBe(token);
  expect((await context.cookies()).find(c=>c.name==='banfei_http_identity_session')!.value).toBe(cookie);expect((await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+token}})).ok()).toBe(true);
  await change.getByRole('button',{name:'取消',exact:true}).click();
 });
@@ -350,12 +350,43 @@ test('login link v3: link restores legacy exited identity without touching admin
  await legacyLogout(page);await page.goto(a.link);await expect(page.locator('.sidebar')).toBeVisible();expect((await localUser(page)).id).toBe(a.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:admin:token'))).toBe(admin.access_token);
  await page.goto('/admin#k=invalid');await expect(page.locator('.admin-layout')).toBeVisible();
 });
-test('login link v3: lost committed response preserves local B but blocks unconfirmed business access',async({page,browser,request})=>{
- const b=await createIdentity(page),token=await page.evaluate(()=>localStorage.getItem('banfei:user:token')),context=await browser.newContext({baseURL:origin.Origin});
- try{const a=await createIdentity(await context.newPage());await page.route('**/auth/identity/key/login',async route=>{expect((await route.fetch()).ok()).toBe(true);await route.abort();});
- await page.goto(a.link);await page.getByRole('dialog',{name:'切换身份',exact:true}).getByRole('button',{name:'切换',exact:true}).click();await expect(page.locator('.error-text[role=alert]')).toContainText('网络连接失败');
- expect((await localUser(page)).id).toBe(b.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBe(token);await expect(page.locator('.sidebar')).toHaveCount(0);expect((await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+token}})).status()).toBe(401);
- }finally{await context.close();}
+test('login link v3: lost committed response adopts the verified Cookie identity and reports it',async({page,browser,request})=>{
+  const b=await createIdentity(page),token=await page.evaluate(()=>localStorage.getItem('banfei:user:token')),context=await browser.newContext({baseURL:origin.Origin});
+  let releaseOld401!:()=>void;const old401Ready=new Promise<void>(resolve=>{releaseOld401=resolve;});let held=0,creates=0;
+  const probes:Array<{authorization:string|undefined;create:unknown}>=[];
+  try{
+    const a=await createIdentity(await context.newPage());
+    page.on('request',r=>{if(r.url().endsWith('/auth/identity/session')){if(r.postDataJSON()?.create)creates++;else probes.push({authorization:r.headers().authorization,create:r.postDataJSON()?.create});}});
+    // This old business request returns 401 after adoption, exercising the
+    // same race without letting its default redirect erase the switch notice.
+    await page.route('**/api/agent/tasks?*',async route=>{
+      if(route.request().headers().authorization!=='Bearer '+token)return route.continue();
+      held++;await old401Ready;await route.fulfill({status:401,json:{detail:'synthetic revoked previous session'}});
+    });
+    await page.route('**/auth/identity/key/login',async route=>{expect((await route.fetch()).ok()).toBe(true);await route.abort();});
+    await page.goto(a.link);const change=page.getByRole('dialog',{name:'切换身份',exact:true});await expect(change).toBeVisible();await expect.poll(()=>held).toBeGreaterThan(0);
+    await change.getByRole('button',{name:'切换',exact:true}).click();await expect(change).toHaveCount(0);
+    const notice=page.locator('.identity-notice[role=status]');await expect(notice).toHaveText('切换已生效，当前身份：'+(a.user.employee_number||a.user.username));
+    const late401=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/agent/tasks'&&r.status()===401);releaseOld401();await(await late401).finished();
+    await expect(notice).toBeVisible();await expect(page.locator('.sidebar')).toBeVisible();expect(new URL(page.url()).pathname).toBe('/');
+    expect((await localUser(page)).id).toBe(a.user.id);const currentToken=await page.evaluate(()=>localStorage.getItem('banfei:user:token'));
+    expect((await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+currentToken}})).status()).toBe(200);
+    expect((await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+token}})).status()).toBe(401);
+    expect(creates).toBe(0);expect(probes).toContainEqual({authorization:undefined,create:false});
+  }finally{releaseOld401();await context.close();}
+});
+
+test('login link v3: unrecoverable switch response enters login with an explicit expired notice',async({page,context,browser,request})=>{
+  const b=await createIdentity(page),token=await page.evaluate(()=>localStorage.getItem('banfei:user:token')),other=await browser.newContext({baseURL:origin.Origin});let creates=0;
+  try{
+    const a=await createIdentity(await other.newPage());page.on('request',r=>{if(r.url().endsWith('/auth/identity/session')&&r.postDataJSON()?.create)creates++;});
+    await page.route('**/auth/identity/key/login',async route=>{expect((await route.fetch()).ok()).toBe(true);await context.clearCookies();await route.abort();});
+    await page.goto(a.link);await page.getByRole('dialog',{name:'切换身份',exact:true}).getByRole('button',{name:'切换',exact:true}).click();
+    await expect(page).toHaveURL(/\/login$/);await expect(page.locator('.identity-entry-card .error-text[role=alert]')).toHaveText('登录已失效，请重新进入');
+    await expect(page.getByLabel('登录链接或 Key',{exact:true})).toBeVisible();await expect(page.locator('.sidebar')).toHaveCount(0);
+    expect(await localUser(page)).toBeNull();expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBeNull();expect(creates).toBe(0);
+    expect((await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+token}})).status()).toBe(401);
+  }finally{await other.close();}
 });
 
 async function deleteIdentity(request: APIRequestContext, adminToken: string, userId: string) {

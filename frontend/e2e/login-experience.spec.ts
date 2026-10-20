@@ -73,13 +73,20 @@ for(const validFormat of [false,true])test('switch: invalid target retains curre
  await expect(dialog.locator('.error-text[role=alert]')).toBeVisible();expect((await current(page)).id).toBe(b.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBe(token);
  await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(page.locator('.sidebar')).toBeVisible();
 });
-for(const committed of [false,true])test('switch: network failure preserves local data and verifies access '+committed,async({page,browser,request})=>{
+for(const committed of [false,true])test('switch: lost network response confirms actual identity '+committed,async({page,browser,request})=>{
  const b=await welcome(page),token=await page.evaluate(()=>localStorage.getItem('banfei:user:token')),context=await browser.newContext({baseURL:origin});try{
  const a=await welcome(await context.newPage());await page.route('**/auth/identity/key/login',async route=>{if(committed)expect((await route.fetch()).ok()).toBe(true);await route.abort();});
  const dialog=await openSwitch(page);await dialog.getByLabel('目标登录链接').fill(a.link);await dialog.getByRole('button',{name:'切换',exact:true}).click();
- await expect(page.locator('.error-text[role=alert]')).toContainText('网络连接失败');expect((await current(page)).id).toBe(b.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBe(token);
+ if(committed){
+  await expect(dialog).toHaveCount(0);await expect(page.locator('.identity-notice[role=status]')).toHaveText('切换已生效，当前身份：'+(a.user.employee_number||a.user.username));
+  expect((await current(page)).id).toBe(a.user.id);const adoptedToken=await page.evaluate(()=>localStorage.getItem('banfei:user:token'));
+  const verified=await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+adoptedToken}});expect(verified.ok()).toBe(true);expect((await verified.json()).id).toBe(a.user.id);
+  await expect(page.locator('.sidebar')).toBeVisible();
+ }else{
+  await expect(dialog.locator('.error-text[role=alert]')).toHaveText('切换失败，你仍是原来的身份，请重试。');expect((await current(page)).id).toBe(b.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:user:token'))).toBe(token);
+  await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(page.locator('.sidebar')).toBeVisible();
+ }
  expect((await request.get(API+'/auth/me',{headers:{Authorization:'Bearer '+token}})).status()).toBe(committed?401:200);
- if(committed)await expect(page.locator('.sidebar')).toHaveCount(0);else{await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(page.locator('.sidebar')).toBeVisible();}
  }finally{await context.close();}
 });
 test('link: new browser restores A without extra identity; same identity link is automatic',async({page,browser,request})=>{
@@ -104,8 +111,8 @@ test('switch: same-page hash prompts; cross-tab and administrator remain consist
  const b=await welcome(page),second=await context.newPage();await second.goto('/');await expect(second.locator('.sidebar')).toBeVisible();
  const session=await admin(request);await page.evaluate(admin=>{localStorage.setItem('banfei:admin:token',admin.access_token);localStorage.setItem('banfei:admin:user',JSON.stringify(admin.user));},session);
  const otherContext=await browser.newContext({baseURL:origin});try{const a=await welcome(await otherContext.newPage());await page.evaluate(link=>{location.hash=new URL(link).hash;},a.link);
- const dialog=page.getByRole('dialog',{name:'切换身份',exact:true});await expect(dialog).toBeVisible();expect((await current(page)).id).toBe(b.user.id);await dialog.getByRole('button',{name:'切换',exact:true}).click();
- await expect.poll(async()=>(await current(page)).id).toBe(a.user.id);await expect.poll(async()=>(await current(second)).id).toBe(a.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:admin:token'))).toBe(session.access_token);
+ const dialog=page.getByRole('dialog',{name:'切换身份',exact:true});await expect(dialog).toBeVisible();expect((await current(page)).id).toBe(b.user.id);const otherReload=second.waitForEvent('domcontentloaded');await dialog.getByRole('button',{name:'切换',exact:true}).click();
+ await otherReload;await expect(second.locator('.sidebar')).toBeVisible();await expect.poll(async()=>(await current(page)).id).toBe(a.user.id);expect((await current(second)).id).toBe(a.user.id);expect(await page.evaluate(()=>localStorage.getItem('banfei:admin:token'))).toBe(session.access_token);
  await page.goto('/admin#k=invalid');await expect(page.locator('.admin-layout')).toBeVisible();await page.getByRole('button',{name:'退出登录',exact:true}).click();await expect(page).toHaveURL(/\/admin\/login$/);
  await page.goto('/');await expect(page.locator('.sidebar')).toBeVisible();expect((await current(page)).id).toBe(a.user.id);
  }finally{await otherContext.close();}
