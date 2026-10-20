@@ -1,11 +1,12 @@
 # 验证文档索引
 
-更新日期：2026-10-13。当前正式工作区 main、本地 PostgreSQL schema 20；运行与安全约束以根目录 [README](../../README.md) 和 [AGENTS](../../AGENTS.md) 为准。
+更新日期：2026-10-17。当前正式工作区 main、本地 PostgreSQL schema 20；运行与安全约束以根目录 [README](../../README.md) 和 [AGENTS](../../AGENTS.md) 为准。
 
 ## 当前入口
 
 | 目的 | 文档 |
 |---|---|
+| 2026-10-17 全仓只读代码审查（未改代码，P0/P1 无） | [独立审查](INDEPENDENT_CODE_REVIEW_20261017.md) |
 | 限定整改结束、保留已知缺陷（2026-10-13） | [本轮收口](#bf-close-20261013-01) |
 | 最新：基础纠正 P2 与百秒等待收口 | [DEVELOPMENT_P2_LONG_DELAY_20261002.md](DEVELOPMENT_P2_LONG_DELAY_20261002.md) |
 | 首页六场景、三处边界修复及 76 项回归 | [最新修复验证](HOME_SCENES_FIXES_20261002.md)；[初次交付](HOME_SCENES_20261001.md) |
