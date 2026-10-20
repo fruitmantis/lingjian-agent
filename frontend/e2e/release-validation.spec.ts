@@ -38,7 +38,7 @@ test.describe.configure({ mode: "serial" });
 test("E2E-001 ordinary entry has no password or application", async ({ page }) => {
   await page.goto("/"); await expect(page.locator(".sidebar")).toBeVisible();
   await expect(page.locator("#username, #applyName")).toHaveCount(0);
-  await page.getByRole("button", {name:"稍后保存"}).click();
+  await page.getByRole("button", {name:"开始使用伴飞"}).click();
   await page.goto("/account"); await expect(page.getByRole("heading", {name:"修改密码"})).toHaveCount(0);
 });
 

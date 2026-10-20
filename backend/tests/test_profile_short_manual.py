@@ -279,6 +279,7 @@ def test_field_only_migration_preserves_existing_profiles_quotes_and_rows(short)
     ctx,_,_,_=short;pid=ctx[3]
     fid=upload(ctx,'migration.txt','迁移前原文事实。')
     with get_db() as conn:
+        conn.execute("UPDATE app_metadata SET value='20' WHERE key='schema_version'")
         conn.execute('ALTER TABLE partners DROP COLUMN profile_chapter_meta')
         before=dict(conn.execute('SELECT * FROM partners WHERE id=?',(pid,)).fetchone())
         source_before=dict(conn.execute('SELECT * FROM partner_profile_sources WHERE source_id=?',(fid,)).fetchone())

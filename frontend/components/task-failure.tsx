@@ -13,6 +13,6 @@ export function failureMessage(details?:FailureDetail[],operation="处理"):stri
 export function FailureReasons({details,href}:{details?:FailureDetail[];stages?:string|null;href?:string}){
  return <span className="task-failure-control"><span>{failureMessage(details)}</span>{href&&<Link href={href} className="task-failure-link">查看任务</Link>}</span>;
 }
-export function FailureNotice({details,message,operation,impact,partial,children}:{details?:FailureDetail[];message?:string;operation?:string;stages?:string|null;title?:string;impact?:string;partial:boolean;children?:React.ReactNode}){
- return <section className={`task-failure-notice ${partial?"notice-warning":"notice-error"}`} aria-label="任务未完成说明"><div className="task-failure-copy"><strong>{message||failureMessage(details,operation)}</strong>{impact&&<p className="muted">{impact}</p>}</div><div className="task-failure-actions">{children}</div></section>;
+export function FailureNotice({details,message,title,operation,impact,partial,children}:{details?:FailureDetail[];message?:string;operation?:string;stages?:string|null;title?:string;impact?:string;partial:boolean;children?:React.ReactNode}){
+ return <section className={`task-failure-notice ${partial?"notice-warning":"notice-error"}`} aria-label="任务未完成说明"><div className="task-failure-copy"><strong>{message||title||failureMessage(details,operation)}</strong>{impact&&<p className="muted">{impact}</p>}</div><div className="task-failure-actions">{children}</div></section>;
 }

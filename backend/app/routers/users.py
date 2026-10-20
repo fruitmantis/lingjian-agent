@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ..auth import create_token, hash_password, record_audit, require_admin, require_user, verify_password
 from ..database import get_db
@@ -16,7 +16,7 @@ from ..models import LoginRequest, TokenResponse, UserCreate, UserOut
 
 
 router = APIRouter(tags=["auth"])
-_USER_COLS = "id, username, display_name, department, role, status, must_change_password, created_at, updated_at, last_login_at, locked_until"
+_USER_COLS = "id, username, display_name, employee_number, department, role, status, must_change_password, created_at, updated_at, last_login_at, locked_until"
 # Derived read-only projection; only expose methods accepted for the user's role.
 _ADMIN_USER_FROM = "users LEFT JOIN user_identity_keys identity_key ON identity_key.user_id = users.id AND users.role = 'user'"
 _ADMIN_USER_COLS = ", ".join("users." + column for column in _USER_COLS.split(", ")) + """, last_active_at,
@@ -65,7 +65,26 @@ class UserStatusUpdate(BaseModel):
 
 
 class SelfUpdate(BaseModel):
-    display_name: str = Field(..., min_length=1, max_length=100)
+    display_name: str | None = Field(None, min_length=1, max_length=100)
+    employee_number: str | None = Field(None, max_length=64, strict=True)
+
+    @field_validator('display_name')
+    @classmethod
+    def supplied_display_name(cls, value):
+        if value is None:
+            raise ValueError('显示名称不能为空')
+        return value
+
+    @field_validator('employee_number', mode='before')
+    @classmethod
+    def clean_employee_number(cls, value):
+        return value.strip() or None if isinstance(value, str) else value
+
+    @model_validator(mode='after')
+    def supplied_profile_field(self):
+        if not self.model_fields_set:
+            raise ValueError('请提供需要更新的个人信息')
+        return self
 
 
 class ChangePasswordRequest(BaseModel):
@@ -185,7 +204,12 @@ def get_current_user(user: dict = Depends(require_user)) -> UserOut:
 def update_current_user(payload: SelfUpdate, request: Request, user: dict = Depends(require_user)) -> UserOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
-        conn.execute("UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?", (payload.display_name.strip(), now, user["id"]))
+        fields, values = ['updated_at = ?'], [now]
+        if 'display_name' in payload.model_fields_set:
+            fields.append('display_name = ?'); values.append(payload.display_name.strip())
+        if 'employee_number' in payload.model_fields_set:
+            fields.append('employee_number = ?'); values.append(payload.employee_number)
+        conn.execute('UPDATE users SET ' + ', '.join(fields) + ' WHERE id = ?', (*values, user['id']))
         record_audit(conn, "user.self_update", actor_user_id=user["id"], target_user_id=user["id"], ip_address=_client_ip(request))
         row = conn.execute(f"SELECT {_USER_COLS} FROM users WHERE id = ?", (user["id"],)).fetchone()
     return _user_out(row)

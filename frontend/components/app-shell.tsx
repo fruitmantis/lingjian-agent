@@ -50,7 +50,7 @@ function SidebarLink({ item, pathname }: { item: NavItem; pathname: string }) {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const {arrival} = useTaskNavigation();
-  const { user, logout } = useAuth();
+  const { user, logout, openIdentitySwitch } = useAuth();
   const [health, setHealth] = useState<boolean | null>(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const isStandalone = pathname === "/admin/login" || pathname === "/login" || pathname === "/403" || pathname === PASSWORD_CHANGE_PATH;
@@ -96,7 +96,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {!isAdmin && <Link href="/feedback" className={`sidebar-footer-link ${pathname === "/feedback" ? "active" : ""}`} aria-current={pathname === "/feedback" ? "page" : undefined}><UiIcon name="file" size={18} /><span>问题反馈</span></Link>}
           <Link href={isAdmin ? "/admin/account" : "/account"} className={`sidebar-footer-link ${!isAdmin && pathname === "/account" ? "active" : ""}`} aria-current={pathname === "/account" ? "page" : undefined}><UiIcon name="user" size={18} /><span>个人中心</span></Link>
           {isAdmin ? <Link href="/" className="sidebar-footer-link"><UiIcon name="spark" size={18} /><span>返回伴飞 Agent</span></Link> : <Link href="/admin/login" className="sidebar-footer-link"><UiIcon name="settings" size={18} /><span>管理后台</span></Link>}
-          <button type="button" onClick={logout} className="sidebar-footer-link sidebar-logout"><UiIcon name="logout" size={18} /><span>{isAdmin ? "退出登录" : "退出"}</span></button>
+          <button type="button" aria-label={isAdmin ? "退出登录" : "切换身份"} onClick={isAdmin ? logout : openIdentitySwitch} className="sidebar-footer-link sidebar-logout"><UiIcon name={isAdmin ? "logout" : "refresh"} size={18} /><span>{isAdmin ? "退出登录" : "切换身份"}</span></button>
         </div>
       </aside>
       <div className="main-area">

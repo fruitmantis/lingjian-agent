@@ -1419,20 +1419,74 @@ button,.btn-primary-lg,.login-submit,.secondary-btn,.assistant-submit { font-fam
 .identity-notice { position: fixed; z-index: 1000; bottom: 20px; left: 50%; transform: translateX(-50%); max-width: 90vw; background: var(--bg-surface); padding: 16px 20px; border: var(--border-card-width) solid var(--border-card); box-shadow: var(--shadow-overlay); border-radius: var(--radius-md); }
 .identity-notice button { margin-left: 16px; }
 
-/* Personal identity credential: same compact presentation in onboarding/account. */
-.identity-save-dialog { width: min(560px, calc(100vw - 32px)); padding: 24px; border: var(--border-card-width) solid var(--border-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-overlay); color: var(--text-primary); background: var(--bg-surface); max-height: calc(100dvh - 40px); overflow-y: auto; }
+/* The same complete login link is shown in onboarding and the account. */
+.identity-save-dialog { width: min(560px, calc(100vw - 32px)); padding: 32px; border: var(--border-card-width) solid var(--border-card); border-radius: var(--radius-lg); box-shadow: var(--shadow-overlay); color: var(--text-primary); background: var(--bg-surface); max-height: calc(100dvh - 40px); overflow-y: auto; }
 .identity-save-dialog::backdrop { background: #0006; }
 .identity-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .identity-dialog-heading h2 { margin: 0; font-size: 22px; }
 .identity-dialog-close { background: transparent; color: var(--text-secondary); border: 0; font-size: 26px; padding: 4px 10px; }
-.identity-dialog-intro { color: var(--text-secondary); margin: 12px 0 20px; }
+.identity-dialog-subtitle { margin: 24px 0 12px; font-size: 22px; font-weight: 600; line-height: 1.5; }
+.identity-dialog-intro { color: var(--text-secondary); margin: 0 0 24px; line-height: 1.75; }
 .identity-credential > p:not(.success-text):not(.error-text) { color: var(--text-secondary); font-size: 14px; line-height: 1.75; }
-.identity-key-value { overflow-wrap: anywhere; user-select: all; font-family: monospace; font-size: 15px; line-height: 1.8; letter-spacing: .02em; padding: 16px; background: var(--bg-hover); border: 1px solid var(--border-default); border-radius: var(--radius-md); margin: 16px 0; }
-.identity-key-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.identity-link-box { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--bg-hover); border: 1px solid var(--border-default); border-radius: var(--radius-md); margin: 16px 0 10px; }
+.identity-key-value { flex: 1; min-width: 0; overflow-wrap: anywhere; user-select: all; font-family: monospace; font-size: 14px; line-height: 1.8; }
+.identity-link-box .identity-link-copy { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 40px; width: 40px; height: 40px; padding: 8px; border: 0; background: transparent; color: var(--text-secondary); box-shadow: none; }
+.identity-link-copy svg { flex: 0 0 22px; width: 22px; height: 22px; }
+.identity-link-box .identity-link-copy:hover { color: var(--brand-primary); background: var(--bg-surface); }
+.admin-users-table { min-width: 1280px; }
+.admin-users-table .admin-employee-number { min-width: 100px; white-space: nowrap; }
+.identity-key-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
 .identity-key-actions button { min-height: 40px; padding: 8px 16px; }
-.identity-credential > .success-text, .identity-credential > .error-text { margin: 16px 0 0; }
-.identity-save-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border-default); margin-top: 24px; padding-top: 20px; }
-.identity-key-login-link { padding: 8px 0; border: 0; background: transparent; color: #C7000B; font-size: 14px; }
+.identity-credential > .identity-link-private { margin: 8px 0 0; font-size: 12px !important; }
+.identity-credential > .success-text, .identity-credential > .error-text { margin: 12px 0 0; }
+.identity-save-footer { margin-top: 28px; text-align: center; }
+.identity-save-footer > button { width: 100%; min-height: 44px; background: #C7000B; color: #fff; }
+.identity-save-footer > p { margin: 14px 0 0; color: var(--text-secondary); font-size: 12px; }
+@media (max-width: 480px) { .identity-save-dialog { padding: 24px; } .identity-dialog-subtitle { font-size: 20px; } }
+.identity-welcome-dialog { box-sizing: border-box; width: 560px; max-width: calc(100vw - 32px); padding: 28px 32px; border: 0; border-radius: 16px; transform: none; }
+.identity-welcome-dialog > h2 { margin: 0; color: var(--text-primary); font-size: 24px; font-weight: 700; line-height: 32px; }
+.identity-welcome-subtitle { margin: 8px 0 28px; color: #7b8490; font-size: 14px; line-height: 22px; }
+.identity-employee-sentence { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-size: 20px; font-weight: 400; line-height: 32px; }
+.identity-employee-sentence label { flex: 0 0 auto; }
+.identity-employee-sentence input { width: 170px; min-width: 0; flex: 0 1 170px; border: 0; border-bottom: 1px solid var(--border-default); border-radius: 0; background: transparent; padding: 4px 8px; font-size: 20px; font-weight: 400; font-variant-numeric: tabular-nums; line-height: 32px; box-shadow: none; }
+.identity-employee-sentence input::placeholder { color: #a9afb9; font-size: 16px; font-weight: 400; }
+.identity-employee-sentence input:focus { outline: none; border-bottom-color: #C7000B; box-shadow: none; }
+.identity-employee-help { margin: 8px 0 0; color: #939ba7; font-size: 12px; line-height: 20px; }
+.identity-welcome-link { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-default); }
+.identity-welcome-link > .identity-credential { padding: 14px; background: #f7f8fa; border: 1px solid #eceef1; border-radius: 10px; }
+.identity-welcome-link .identity-copy-heading { margin-bottom: 8px; }
+.identity-welcome-link .identity-copy-heading h3 { color: #7b8490; font-size: 14px; line-height: 22px; font-weight: 400; }
+.identity-welcome-link .identity-copy-strip { min-height: 44px; padding: 6px 8px; gap: 8px; border-radius: 8px; background: #fff; border-color: #e3e6ea; }
+.identity-welcome-link .identity-copy-strip > button { height: 28px; min-height: 28px; padding: 4px 10px; border: 0; border-radius: 6px; color: #fff; background: #C7000B; font-size: 13px; line-height: 20px; font-weight: 600; }
+.identity-welcome-link .identity-link-private { color: #939ba7; font-size: 12px; line-height: 20px; }
+.identity-copy-strip { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 18px; background: #f6f7f9; border: 1px solid #eceef1; border-radius: 12px; min-width: 0; }
+.identity-copy-heading { margin-bottom: 12px; }
+.identity-copy-heading h3 { margin: 0; font-size: 15px; font-weight: 600; line-height: 1.6; }
+.identity-copy-heading p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+.identity-copy-strip .identity-key-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-secondary); }
+.identity-copy-strip.identity-copy-manual { flex-wrap: wrap; align-items: flex-start; }
+.identity-copy-manual .identity-key-value { flex-basis: 100%; overflow: visible; white-space: normal; }
+.identity-copy-strip > button { flex: 0 0 auto; border: 0; box-shadow: none; background: transparent; color: #C7000B; padding: 4px 0; min-height: 32px; font-size: 15px; font-weight: 600; }
+.identity-welcome-dialog .identity-save-footer { margin-top: 24px; }
+.identity-welcome-dialog .identity-save-footer > button { width: min(240px, 100%); height: 44px; min-height: 44px; padding: 10px 20px; border: 0; border-radius: 8px; font-size: 16px; line-height: 24px; font-weight: 600; }
+.identity-welcome-dialog .identity-save-footer > p { margin: 12px 0 0; color: #939ba7; font-size: 12px; line-height: 20px; }
+.identity-switch-dialog > p { color: var(--text-secondary); line-height: 1.7; margin: 20px 0; }
+.identity-switch-dialog .identity-switch-form { display: grid; gap: 12px; margin-top: 24px; }
+.identity-switch-form > label { color: var(--text-primary); font-size: 14px; font-weight: 500; line-height: 1.6; }
+.identity-switch-dialog .identity-switch-form > input { min-width: 0; width: 100%; min-height: 48px; padding: 12px 14px; border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text-primary); font: inherit; font-size: 14px; line-height: 1.6; box-shadow: none; }
+.identity-switch-dialog .identity-switch-form > input::placeholder { color: var(--text-tertiary); }
+.identity-switch-dialog .identity-switch-form > input:focus { outline: none; border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgb(199 0 11 / 10%); }
+.identity-switch-actions > button { min-height: 40px; padding: 8px 20px; }
+.identity-switch-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+@media (max-width: 540px) {
+ .identity-welcome-dialog { padding: 24px; border-radius: 14px; }
+ .identity-welcome-dialog > h2 { font-size: 22px; line-height: 30px; }
+ .identity-welcome-subtitle { margin-bottom: 24px; }
+ .identity-employee-sentence { flex-wrap: nowrap; }
+ .identity-copy-strip { gap: 8px; padding: 12px; }
+ .identity-copy-strip > button { font-size: 13px; white-space: nowrap; }
+ .identity-copy-heading h3 { font-size: 14px; }
+}
 .identity-file-import { display: grid; gap: 12px; }
 .identity-import-divider { display: flex; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 12px; }
 .identity-import-divider::before, .identity-import-divider::after { content: ""; flex: 1; height: 1px; background: var(--border-default); }

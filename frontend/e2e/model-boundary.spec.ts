@@ -55,7 +55,7 @@ test('UI tests do not require a model: login, navigation and resource browsing',
   await page.getByRole('button', {name:'登录', exact:true}).click();
   await expect(page).toHaveURL(/\/admin$/);
   await page.getByRole('link', {name:'返回伴飞 Agent', exact:true}).click();
-  await page.getByRole('dialog', {name:'保存你的身份 Key'}).getByRole('button', {name:'稍后保存',exact:true}).click();
+  await page.getByRole('dialog', {name:'欢迎使用伴飞'}).getByRole('button', {name:'开始使用伴飞',exact:true}).click();
   const identity=await page.evaluate(()=>JSON.parse(localStorage.getItem('banfei:user:user')||'null'));
   expect(identity?.role).toBe('user');
   await expect(page.getByRole('link', {name:'资源中心', exact:true})).toBeVisible();

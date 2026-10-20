@@ -93,6 +93,7 @@ class UserOut(BaseModel):
     id: str
     username: str
     display_name: str | None
+    employee_number: str | None = None
     department: str | None = None
     role: Literal["admin", "user"]
     status: Literal["active", "disabled"] = "active"

@@ -1,6 +1,13 @@
 import {test,expect,type Page} from "@playwright/test";
 const stamp="2026-09-09T08:00:00Z";
 const user={id:"fixture-user",username:"fixture",display_name:"验收用户",department:"测试",role:"user",status:"active",must_change_password:false,created_at:stamp};
+const savedProgress={run_id:"current-saved-run",started_at:stamp,finished_at:stamp,stages:[
+ {key:"understanding",label:"理解项目需求",status:"completed",started_at:stamp,finished_at:stamp},
+ {key:"initial_selection",label:"寻找合适伙伴",status:"completed",started_at:stamp,finished_at:stamp},
+ {key:"detailed_review",label:"形成伙伴推荐",status:"completed",started_at:stamp,finished_at:stamp},
+ {key:"enrichment",label:"完善项目分析",status:"failed",started_at:stamp,finished_at:stamp},
+]};
+const savedRecommendation={partnerId:"fixture-partner",partnerName:"合成伙伴",matchScore:"80",matchedCapabilities:"测试",matchedIndustries:"金融",matchedRegions:"广东",recommendationReason:"仅限隔离验收",evidenceCases:"",evidenceDeliverables:"",riskNotes:""};
 const reason={stage:"project_opportunity",stageLabel:"项目机会",code:"timeout",message:"模型响应超时，本次处理未完成",action:"稍后重试"};
 const presentation={state:"available",current_version:1,current_available:true,latest_run_status:"failed",latest_run_type:"revise"};
 const summary={id:"partial-fixture",requirement:"合成验收：部分完成",task_type:"partner_match",taskStatus:"partial",lastErrorStage:"project_opportunity",failureDetails:[reason],topPartner:"合成伙伴",partnerCount:1,createdAt:stamp,archivedAt:null,ownerName:"验收用户",department:"测试",completenessScore:null};
@@ -19,7 +26,7 @@ async function fixture(page:Page){
   else if(path==="/model-timeout-settings")json={timeoutSeconds:300,timeoutRetries:3};
   else if(path==="/agent/tasks")json={items:[summary,{...summary,id:"legacy-fixture",requirement:"合成验收：历史失败",taskStatus:"failed",failureDetails:[],partnerCount:0},{...summary,id:"plan-fixture",requirement:"合成验收：旧建议可用",task_type:"development_plan",planPresentation:presentation,taskStatus:"failed"}],page:1,pageSize:20,total:3,totalPages:1};
   else if(path==="/agent/tasks/failed-fixture")json={...summary,id:"failed-fixture",taskStatus:"failed",lastErrorStage:"partner_match",failureDetails:[{...reason,stage:"partner_match",stageLabel:"伙伴匹配",code:"authentication",message:"模型服务认证失败",action:"联系管理员检查模型访问凭据"}],recommendations:[],demandProfile:null,opportunity:null};
-  else if(path.startsWith("/agent/tasks/"))json={...summary,id:path.split("/").pop(),task_type:path.endsWith("plan-fixture")?"development_plan":"partner_match",recommendations:[{partnerId:"fixture-partner",partnerName:"合成伙伴",matchScore:"80",matchedCapabilities:"测试",matchedIndustries:"金融",matchedRegions:"广东",recommendationReason:"仅限隔离验收",evidenceCases:"",evidenceDeliverables:"",riskNotes:""}],demandProfile:null,opportunity:null};
+  else if(path.startsWith("/agent/tasks/"))json={...summary,id:path.split("/").pop(),task_type:path.endsWith("plan-fixture")?"development_plan":"partner_match",recommendations:[savedRecommendation],progress:savedProgress,demandProfile:null,opportunity:null};
   else if(path==="/development/plans/plan-fixture")json=developmentDetail;
   else return route.fulfill({status:404,json:{detail:"Unexpected fixture request"}});
   return route.fulfill({json});
@@ -41,7 +48,8 @@ test("ordinary list shows simple messages including legacy failures",async({page
 for(const width of [1366,1920])test(`partial and failed revise preserve useful results at ${width}`,async({page})=>{
  await page.setViewportSize({width,height:width===1366?768:1080});const writes=await fixture(page);
  await page.goto("/tasks/partial-fixture");const notice=page.getByRole("region",{name:"任务未完成说明"});
- await expect(notice).toContainText("已保存的伙伴推荐可继续查看");await expect(notice).toContainText("本次处理失败，请重试。");await expect(notice).not.toContainText("模型响应超时");
+ await expect(notice.locator("strong")).toHaveText("伙伴推荐已完成，后续处理失败");await expect(notice).toContainText("已保存的伙伴推荐可继续查看");await expect(notice).not.toContainText("本次处理失败，请重试。");await expect(notice).not.toContainText("模型响应超时");
+ await expect(page.getByRole("heading",{name:"合成伙伴",exact:true})).toBeVisible();await expect(page.getByTestId("task-progress")).toHaveCount(1);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
  if(process.env.TASK_FAILURE_SCREENSHOTS)await page.screenshot({path:`${process.env.TASK_FAILURE_SCREENSHOTS}/partial-${width}.png`});
  await page.goto("/tasks/plan-fixture");await expect(page.getByRole("heading",{name:"能力发展建议",exact:true})).toBeVisible();
@@ -417,4 +425,52 @@ for(const motion of ['no-preference','reduce'] as const)test('phase3 motion: dev
  const scrolls=await page.evaluate(()=>(window as any).scrollChecks);
  expect(scrolls.filter((s:any)=>s.block==='start'||s.block==='center').map((s:any)=>s.behavior)).toEqual([motion==='reduce'?'auto':'smooth',motion==='reduce'?'auto':'smooth']);
  expect(writes).toHaveLength(0);
+});
+
+for(const status of ['partial','failed'] as const)test('failure title: retained recommendation after early retry failure '+status,async({page},info)=>{
+ const writes=await fixture(page);
+ const progress={...savedProgress,run_id:'new-failed-run',stages:savedProgress.stages.map(stage=>({...stage,
+  status:stage.key==='understanding'?'failed':'skipped',started_at:stage.key==='understanding'?stamp:null,finished_at:stage.key==='understanding'?stamp:null}))};
+ await page.route('**/api/agent/tasks/retained-title',route=>route.fulfill({json:{...summary,id:'retained-title',taskStatus:status,
+  lastErrorStage:'understanding',failureDetails:[{...reason,stage:'understanding'}],progress,
+  recommendations:[savedRecommendation],demandProfile:null,opportunity:null}}));
+ await page.goto('/tasks/retained-title');
+ const notice=page.getByRole('region',{name:'任务未完成说明'});
+ await expect(notice.locator('strong')).toHaveText(status==='partial'?'本次处理未完成，已有结果仍可查看':'本次处理失败，请重试。');
+ await expect(notice).not.toContainText('伙伴推荐已完成');
+ await expect(page.getByRole('heading',{name:'合成伙伴',exact:true})).toBeVisible();
+ await expect(page.getByTestId('task-progress')).toHaveCount(1);expect(writes).toHaveLength(0);
+ await page.screenshot({path:info.outputPath('retained-title-'+status+'.png'),fullPage:true});
+});
+
+test('failure title: legacy partial without current progress stays cautious',async({page})=>{
+ const writes=await fixture(page);
+ await page.route('**/api/agent/tasks/legacy-title',route=>route.fulfill({json:{...summary,id:'legacy-title',progress:null,
+  recommendations:[savedRecommendation],demandProfile:null,opportunity:null}}));
+ await page.goto('/tasks/legacy-title');const notice=page.getByRole('region',{name:'任务未完成说明'});
+ await expect(notice.locator('strong')).toHaveText('本次处理未完成，已有结果仍可查看');await expect(notice).not.toContainText('伙伴推荐已完成');
+ await expect(page.getByRole('heading',{name:'合成伙伴',exact:true})).toBeVisible();await expect(page.getByTestId('task-progress')).toHaveCount(0);expect(writes).toHaveLength(0);
+});
+
+for(const {status,hasAnswer} of [{status:'partial',hasAnswer:false},{status:'failed',hasAnswer:false},{status:'partial',hasAnswer:true}])test('failure title: saved empty recommendation analysis '+status+' '+hasAnswer,async({page})=>{
+ const writes=await fixture(page);
+ const progress={...savedProgress,stages:savedProgress.stages.map(stage=>stage.key==='detailed_review'?{...stage,status:'skipped',started_at:null,finished_at:null}:stage)};
+ await page.route('**/api/agent/tasks/empty-title',route=>route.fulfill({json:{...summary,id:'empty-title',taskStatus:status,progress,
+  recommendations:[],answer:hasAnswer?'合成验收：暂无推荐伙伴，已保存分析结论。':'',demandProfile:null,opportunity:null}}));
+ await page.goto('/tasks/empty-title');const notice=page.getByRole('region',{name:'任务未完成说明'});
+ await expect(notice.locator('strong')).toHaveText(hasAnswer?'伙伴推荐已完成，后续处理失败':'本次处理失败，请重试。');
+ if(hasAnswer)await expect(page.getByText('合成验收：暂无推荐伙伴，已保存分析结论。',{exact:true})).toBeVisible();
+ await expect(page.getByTestId('task-progress')).toHaveCount(1);expect(writes).toHaveLength(0);
+});
+
+
+test('failure title: saved recommendation before enrichment starts is retained',async({page})=>{
+ const writes=await fixture(page);
+ const progress={...savedProgress,stages:savedProgress.stages.map(stage=>stage.key==='enrichment'?{...stage,status:'skipped',started_at:null,finished_at:null}:stage)};
+ await page.route('**/api/agent/tasks/saved-title',route=>route.fulfill({json:{...summary,id:'saved-title',lastErrorStage:'persistence',
+  progress,recommendations:[savedRecommendation],demandProfile:null,opportunity:null}}));
+ await page.goto('/tasks/saved-title');const notice=page.getByRole('region',{name:'任务未完成说明'});
+ await expect(notice.locator('strong')).toHaveText('伙伴推荐已完成，后续处理失败');
+ await expect(page.getByRole('heading',{name:'合成伙伴',exact:true})).toBeVisible();
+ await expect(page.getByTestId('task-progress')).toHaveCount(1);expect(writes).toHaveLength(0);
 });

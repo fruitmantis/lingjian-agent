@@ -107,8 +107,8 @@ def verify_schema(url):
             raise RuntimeError('PostgreSQL schema is incomplete; explicit migration required')
         if 'last_error_details' not in {c['name'] for c in inspect(conn).get_columns('match_records')}:
             raise RuntimeError('Task failure detail column missing; run explicit additive migration')
-        if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='20':
-            raise RuntimeError('PostgreSQL schema version is not 20; refusing automatic changes')
+        if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='21':
+            raise RuntimeError('PostgreSQL schema version is not 21; refusing automatic changes')
 
         if 'profile_chapter_meta' not in {c['name'] for c in inspect(conn).get_columns('partners')}:
             raise RuntimeError('Profile chapter association column missing; explicit additive migration required')
@@ -121,6 +121,9 @@ def verify_schema(url):
 
         if 'last_active_at' not in {c['name'] for c in inspect(conn).get_columns('users')}:
             raise RuntimeError('User activity column missing; explicit migration required')
+
+        if 'employee_number' not in {c['name'] for c in inspect(conn).get_columns('users')}:
+            raise RuntimeError('Employee number column missing; run explicit schema-21 migration')
 
 
 def initialize_empty_schema(url):

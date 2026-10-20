@@ -6,8 +6,9 @@ import { apiFetch, CurrentUser, useAuth } from "./auth-provider";
 import { IdentityCredential } from "./identity-credential";
 
 export default function AccountPage() {
-  const { user, scope, refresh, saveSession, logout } = useAuth();
+  const { user, scope, refresh, saveSession, logout, openIdentitySwitch } = useAuth();
   const [displayName, setDisplayName] = useState("");
+  const [employeeNumber, setEmployeeNumber] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -15,12 +16,12 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { setDisplayName(user?.display_name || ""); }, [user]);
+  useEffect(() => { setDisplayName(user?.display_name || ""); setEmployeeNumber(user?.employee_number || ""); }, [user]);
 
   async function saveProfile(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError(null); setMessage(null);
     try {
-      const response = await apiFetch("/auth/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ display_name: displayName }) });
+      const response = await apiFetch("/auth/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ display_name: displayName, ...(scope === "user" ? { employee_number: employeeNumber.trim() || null } : {}) }) });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || "保存失败");
       await refresh(); setMessage("个人信息已更新");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "保存失败"); } finally { setSaving(false); }
@@ -66,10 +67,11 @@ export default function AccountPage() {
           </dl>
           <form onSubmit={saveProfile} className="partner-form compact-form">
             <div className="form-row"><label htmlFor="displayName">显示名称</label><input id="displayName" value={displayName} onChange={event => setDisplayName(event.target.value)} required /></div>
+            {scope === "user" && <div className="form-row"><label htmlFor="employeeNumber">工号（可选）</label><input id="employeeNumber" value={employeeNumber} onChange={event => setEmployeeNumber(event.target.value)} maxLength={64}/></div>}
             <button disabled={saving}>保存个人信息</button>
           </form>
         </section>
-        {scope === "user" && <section className="card"><h2>身份凭据</h2><IdentityCredential /></section>}
+        {scope === "user" && <section className="card"><h2>身份凭据</h2><IdentityCredential onSwitch={openIdentitySwitch} /></section>}
         {scope === "admin" && <section className="card">
           <h2>修改密码</h2>
           <form onSubmit={changePassword} className="partner-form">

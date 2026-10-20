@@ -78,7 +78,7 @@ def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(secu
         # Serialize activity with cleanup and credential writes across processes.
         conn.lock_writer()
         row = conn.execute(
-            "SELECT id, username, display_name, department, role, status, must_change_password, token_version, created_at, updated_at, last_login_at, locked_until FROM users WHERE id = ?",
+            "SELECT id, username, display_name, employee_number, department, role, status, must_change_password, token_version, created_at, updated_at, last_login_at, locked_until FROM users WHERE id = ?",
             (payload.get("sub"),),
         ).fetchone()
         if row is None or row["status"] != "active":
