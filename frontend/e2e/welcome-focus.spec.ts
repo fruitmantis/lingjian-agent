@@ -15,7 +15,7 @@ for(const width of [1366,390])test('welcome-card: visible link, measured geometr
  await expect(d.locator('details')).toHaveCount(0);await expect(input).toHaveValue('');
  expect(await input.getAttribute('required')).toBeNull();expect(await input.getAttribute('placeholder')).not.toContain('姓名');
  const metrics=await d.evaluate(el=>({width:el.getBoundingClientRect().width,transform:getComputedStyle(el).transform,zoom:getComputedStyle(el).zoom,dpr:devicePixelRatio,overflow:el.scrollWidth>el.clientWidth,bottom:el.getBoundingClientRect().bottom,viewport:innerHeight}));
- expect(metrics.width).toBe(Math.min(1200,width-32));expect(metrics.transform).toBe('none');expect(metrics.zoom).toBe('1');expect(metrics.dpr).toBe(1);expect(metrics.overflow).toBe(false);expect(metrics.bottom<=metrics.viewport).toBe(true);
+ expect(metrics.width).toBe(Math.min(900,width-32));expect(metrics.transform).toBe('none');expect(metrics.zoom).toBe('1');expect(metrics.dpr).toBe(1);expect(metrics.overflow).toBe(false);expect(metrics.bottom<=metrics.viewport).toBe(true);
  expect((await start.boundingBox())!.height).toBe(44);
  expect(await d.locator('.identity-copy-strip').evaluate(el=>getComputedStyle(el).backgroundColor)).toBe('rgb(255, 255, 255)');
  const title=(await d.locator('h2').boundingBox())!,subtitle=(await d.locator('.identity-welcome-subtitle').boundingBox())!;expect(Math.abs(title.x-subtitle.x)).toBeLessThan(1);
