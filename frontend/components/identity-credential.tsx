@@ -34,7 +34,7 @@ export function IdentityCredential({ onboarding = false, compact = false, onSwit
   }
   return <div className="identity-credential">
     {!compact && !onboarding && <p>使用登录链接，可在其他电脑或浏览器继续使用当前身份。</p>}
-    {compact && <div className="identity-copy-heading"><h3>{onboarding ? "换电脑也能用" : "换设备也能接着用"}</h3>{!onboarding && <p>保存这条链接，换电脑或浏览器后可继续使用。</p>}</div>}
+    {compact && <div className="identity-copy-heading"><h3>{onboarding ? "收藏链接，下次继续使用" : "换设备也能接着用"}</h3><p>{onboarding ? "下次通过此链接进入，即可找回身份和查询历史记录；无需找回可忽略。" : "保存这条链接，换电脑或浏览器后可继续使用。"}</p></div>}
     <div className={compact ? "identity-copy-strip" + (manual ? " identity-copy-manual" : "") : "identity-link-box"}>
       <div ref={linkValue} tabIndex={-1} className="identity-key-value" aria-label="当前登录链接" data-testid="identity-key">{link || "正在读取…"}</div>
       {compact ? <button type="button" aria-label={onboarding ? (message === "登录链接已复制" ? "已复制" : "复制登录链接") : undefined} disabled={!link} onClick={() => void copy()}>{message === "登录链接已复制" ? "已复制" : onboarding ? "复制" : "复制登录链接"}</button> : <button type="button" className="identity-link-copy" aria-label="复制登录链接" title="复制登录链接" disabled={!link} onClick={() => void copy()}>
@@ -74,7 +74,7 @@ export function SaveIdentityDialog({ onClose }: { onClose: () => void }) {
         <div className="welcome-eyebrow">首次使用</div>
         <h2 id="identity-save-title">欢迎使用伴飞</h2>
         <p className="identity-welcome-subtitle">找到合适的伙伴，把合作推进下去</p>
-        <div className="identity-employee-sentence"><label htmlFor="welcome-employee">我的工号是</label><input id="welcome-employee" aria-label="工号（可选）" placeholder="例如 a00123456" autoComplete="off" value={employeeNumber} onChange={event => setEmployeeNumber(event.target.value)} maxLength={64} disabled={saving}/></div>
+        <div className="identity-employee-sentence"><label htmlFor="welcome-employee">请输入工号</label><input id="welcome-employee" aria-label="工号（可选）" placeholder="例如 a00123456" autoComplete="off" value={employeeNumber} onChange={event => setEmployeeNumber(event.target.value)} maxLength={64} disabled={saving}/></div>
         <p className="identity-employee-help">可跳过，之后在个人中心补充</p>
         {error && <p className="error-text" role="alert">{error}</p>}
         <div className="identity-welcome-link"><IdentityCredential onboarding compact /></div>

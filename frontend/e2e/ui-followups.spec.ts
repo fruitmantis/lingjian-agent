@@ -15,7 +15,7 @@ for(const width of [1366,390]){
   await page.setViewportSize({width,height:width===390?844:900});
   await page.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(t:string)=>{(window as any).lastCopied=t;}}});});
   await page.goto('/');const welcome=page.getByRole('dialog',{name:'欢迎使用伴飞'});
-  await expect(welcome.getByRole('heading',{name:'换电脑也能用',exact:true})).toBeVisible();
+  await expect(welcome.getByRole('heading',{name:'收藏链接，下次继续使用',exact:true})).toBeVisible();
   await expect(welcome.getByText('请勿分享给他人',{exact:false})).toBeVisible();
   await expect(welcome.getByRole('button',{name:'复制登录链接',exact:true,includeHidden:true})).toBeEnabled();
   const preview=welcome.getByTestId('identity-key');await expect(preview).toBeVisible();

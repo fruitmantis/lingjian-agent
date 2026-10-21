@@ -11,7 +11,9 @@ for(const width of [1366,390])test('welcome-card: visible link, measured geometr
  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(v:string)=>{(window as any).compactCopied=v;}}}));
  let patches=0;page.on('request',r=>{if(r.method()==='PATCH'&&r.url().endsWith('/auth/me'))patches++;});
  await page.goto('/');const d=page.getByRole('dialog',{name:'欢迎使用伴飞'}),input=d.getByRole('textbox',{name:'工号（可选）'}),start=d.getByRole('button',{name:'开始使用伴飞',exact:true}),copy=d.getByRole('button',{name:'复制登录链接',exact:true});
- await expect(d).toBeVisible();await expect(copy).toBeEnabled();await expect(copy).toBeVisible();await expect(d.getByRole('heading',{name:'换电脑也能用',exact:true})).toBeVisible();
+ await expect(d).toBeVisible();await expect(copy).toBeEnabled();await expect(copy).toBeVisible();await expect(d.getByRole('heading',{name:'收藏链接，下次继续使用',exact:true})).toBeVisible();
+ await expect(d.locator('label[for=welcome-employee]')).toHaveText('请输入工号');
+ await expect(d.getByText('下次通过此链接进入，即可找回身份和查询历史记录；无需找回可忽略。',{exact:true})).toBeVisible();
  await expect(d.locator('details')).toHaveCount(0);await expect(input).toHaveValue('');
  expect(await input.getAttribute('required')).toBeNull();expect(await input.getAttribute('placeholder')).not.toContain('姓名');
  const metrics=await d.evaluate(el=>({width:el.getBoundingClientRect().width,transform:getComputedStyle(el).transform,zoom:getComputedStyle(el).zoom,dpr:devicePixelRatio,overflow:el.scrollWidth>el.clientWidth,bottom:el.getBoundingClientRect().bottom,viewport:innerHeight}));
