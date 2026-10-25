@@ -1,4 +1,5 @@
 """One admin catalogue over existing cases and unclassified partner documents."""
+from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from ..auth import require_admin, record_audit
 from ..database import get_db
@@ -10,14 +11,51 @@ from .cases import _process_profile
 
 router = APIRouter(prefix='/admin/partner-materials', tags=['partner-materials'], dependencies=[Depends(require_admin)])
 
-CATALOGUE = """
-WITH attachment_stats AS (
+# Keep the canonical JSON bytes identical to profile_sources.stamp. PostgreSQL's
+# built-in SHA256 checks current contributions before the catalogue is counted/paged.
+_SOURCE_FINGERPRINT_SQL = """
+encode(sha256(convert_to(
+    '{"created_at": ' || COALESCE(to_json(n.created_at)::text, 'null') ||
+    ', "file_path": ' || COALESCE(to_json(n.file_path)::text, 'null') ||
+    ', "id": ' || to_json(n.id)::text ||
+    ', "kind": ' || to_json(n.kind)::text ||
+    ', "partner_id": ' || to_json(n.partner_id)::text ||
+    ', "processing_status": ' || to_json(n.processing_status)::text ||
+    ', "text": ' || to_json(n.native_text)::text || '}', 'UTF8')), 'hex')
+"""
+
+CATALOGUE = f"""
+WITH native_files AS (
+    SELECT 'attachment' AS kind, d.id, c.partner_id, d.case_id, d.file_path,
+        d.processing_status, d.preview_error, d.created_at, d.processed_at,
+        COALESCE(d.extracted_text,'') AS native_text
+    FROM deliverables d JOIN cases c ON c.id=d.case_id
+    UNION ALL
+    SELECT 'document', d.id, d.partner_id, NULL, d.file_path,
+        d.processing_status, d.preview_error, d.created_at, d.processed_at,
+        COALESCE(d.extracted_text,'')
+    FROM partner_documents d WHERE COALESCE(d.doc_category,'')!='profile_import'
+), file_states AS (
+    SELECT n.*,
+        CASE WHEN n.processing_status='processing'
+                  OR (n.processing_status='ready' AND COALESCE(s.state,'pending') IN ('pending','processing'))
+             THEN 'processing'
+             WHEN n.processing_status='failed' OR COALESCE(n.preview_error,'') <> ''
+                  OR (n.processing_status='ready' AND s.state='failed') THEN 'failed'
+             WHEN n.processing_status='empty'
+                  OR (n.processing_status='ready' AND s.state='empty') THEN 'empty'
+             ELSE n.processing_status END AS effective_status
+    FROM native_files n LEFT JOIN partner_profile_sources s
+        ON n.processing_status='ready' AND s.partner_id=n.partner_id
+        AND s.source_kind=n.kind AND s.source_id=n.id
+        AND s.source_fingerprint={_SOURCE_FINGERPRINT_SQL}
+), attachment_stats AS (
     SELECT case_id, COUNT(*) AS file_count,
         MAX(COALESCE(processed_at, created_at)) AS file_updated_at,
-        MAX(CASE WHEN processing_status='processing' THEN 1 ELSE 0 END) AS processing,
-        MAX(CASE WHEN processing_status='failed' OR preview_error IS NOT NULL THEN 1 ELSE 0 END) AS failed,
-        MAX(CASE WHEN processing_status='empty' THEN 1 ELSE 0 END) AS empty
-    FROM deliverables GROUP BY case_id
+        MAX(CASE WHEN effective_status='processing' THEN 1 ELSE 0 END) AS processing,
+        MAX(CASE WHEN effective_status='failed' THEN 1 ELSE 0 END) AS failed,
+        MAX(CASE WHEN effective_status='empty' THEN 1 ELSE 0 END) AS empty
+    FROM file_states WHERE kind='attachment' GROUP BY case_id
 ), entries AS (
     SELECT 'case' AS kind, c.id, c.partner_id, c.title, c.description, c.category_id,
         c.visible, COALESCE(s.file_count,0) AS file_count,
@@ -27,10 +65,9 @@ WITH attachment_stats AS (
              ELSE COALESCE(c.updated_at,c.created_at) END AS updated_at
     FROM cases c LEFT JOIN attachment_stats s ON s.case_id=c.id
     UNION ALL
-    SELECT 'document', d.id, d.partner_id, d.filename, NULL, NULL, 0, 1,
-        CASE WHEN d.preview_error IS NOT NULL AND d.processing_status!='processing' THEN 'failed' ELSE d.processing_status END,
-        COALESCE(d.processed_at,d.created_at)
-    FROM partner_documents d WHERE COALESCE(d.doc_category,'')!='profile_import'
+    SELECT 'document', n.id, n.partner_id, d.filename, NULL, NULL, 0, 1,
+        n.effective_status, COALESCE(n.processed_at,n.created_at)
+    FROM file_states n JOIN partner_documents d ON d.id=n.id WHERE n.kind='document'
 ), materials AS (
     SELECT e.*,p.name AS partner_name,
         CASE WHEN p.materials_revision!=p.profile_materials_revision THEN 1 ELSE 0 END AS profile_needs_update
@@ -38,31 +75,11 @@ WITH attachment_stats AS (
 )
 """
 
-def _processing_status(conn, entry):
-    # Project only files belonging to this returned page entry. The existing
-    # file projection checks the current native fingerprint before using a contribution.
-    if entry['kind']=='case':
-        native=conn.execute('SELECT * FROM deliverables WHERE case_id=?',(entry['id'],))
-    else:
-        native=conn.execute('SELECT * FROM partner_documents WHERE id=? AND partner_id=?',(entry['id'],entry['partner_id']))
-    states=[]
-    for row in native:
-        file=files.public_file(row,conn=conn)
-        state=file['processing_status']
-        if state=='processing' or file.get('source_state') in ('pending','processing'):
-            state='processing'
-        elif state=='failed' or file.get('preview_error') or file.get('source_state')=='failed':
-            state='failed'
-        elif state=='empty' or file.get('source_state')=='empty':
-            state='empty'
-        states.append(state)
-    return next((state for state in ('processing','failed','empty') if state in states), 'ready' if states else 'no_files')
-
-
 @router.get('')
 def catalogue(partner_id: str | None = None, category_group: str | None = None,
               category_id: str | None = None, q: str = Query('', max_length=200),
-              page: int = Query(1, ge=1), page_size: int = Query(12, ge=1, le=60)):
+              status: Literal['failed'] | None = None,
+              page: int = Query(1, ge=1), page_size: int = Query(10, ge=1, le=60)):
     where, args = [], []
     if partner_id:
         where.append('partner_id=?'); args.append(partner_id)
@@ -81,14 +98,15 @@ def catalogue(partner_id: str | None = None, category_group: str | None = None,
         # Search is a literal substring, including user-entered SQL wildcard characters.
         needle=q.strip().lower().replace('\\','\\\\').replace('%','\\%').replace('_','\\_')
         where.append("LOWER(title) ILIKE ? ESCAPE '\\'"); args.append('%'+needle+'%')
+    if status:
+        where.append('processing_status=?'); args.append(status)
     clause=' WHERE '+' AND '.join(where) if where else ''
     with get_db() as conn:
         partners=[dict(r) for r in conn.execute('SELECT id,name FROM partners ORDER BY name,id')]
         if partner_id and not any(p['id']==partner_id for p in partners): raise HTTPException(404,'伙伴不存在')
         total=conn.execute(CATALOGUE+'SELECT COUNT(*) FROM materials'+clause, args).fetchone()[0]
         rows=conn.execute(CATALOGUE+'SELECT * FROM materials'+clause+" ORDER BY CASE WHEN category_id ILIKE 'marketing-%' THEN 0 WHEN category_id ILIKE 'delivery-%' THEN 1 WHEN category_id ILIKE 'technical-%' THEN 2 ELSE 3 END, updated_at DESC,id LIMIT ? OFFSET ?", [*args,page_size,(page-1)*page_size]).fetchall()
-        items=[{**dict(r),'visible':bool(r['visible']),'profile_needs_update':bool(r['profile_needs_update']),
-                'processing_status':_processing_status(conn,r)} for r in rows]
+        items=[{**dict(r),'visible':bool(r['visible']),'profile_needs_update':bool(r['profile_needs_update'])} for r in rows]
     return {'items':items,'total':total,'partners':partners}
 
 @router.put('/documents/{document_id}/classify', response_model=CaseOut)

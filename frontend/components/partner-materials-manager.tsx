@@ -15,6 +15,7 @@ import styles from './partner-materials-manager.module.css';
 type Partner={id:string;name:string};
 type Entry={kind:'case'|'document';id:string;partner_id:string;partner_name:string;title:string;description:string|null;category_id:string|null;visible:boolean;file_count:number;processing_status:string;updated_at:string;profile_needs_update:boolean};
 type Catalogue={items:Entry[];total:number;partners:Partner[]};
+const pageSizes=[10,20,50] as const;
 const states:Record<string,string>={processing:'处理中',ready:'已处理',failed:'处理异常',empty:'无可提取文字',no_files:'暂无文件'};
 const categoryName=(id:string|null)=>contract.categories.flatMap(g=>g.children).find(c=>c.id===id)?.name||'待分类';
 async function request(path:string,method='GET',body?:unknown){
@@ -26,6 +27,7 @@ export function PartnerMaterialsManager(){
   const params=useSearchParams(),router=useRouter();
   const partnerId=params.get('partner_id')||'',group=params.get('category_group')||'',category=params.get('category_id')||'';
   const page=Math.max(1,Number(params.get('page'))||1),query=params.toString(),savedQuery=params.get('q')||'';
+  const requestedSize=Number(params.get('page_size')),pageSize=pageSizes.find(n=>n===requestedSize)||10,status=params.get('status')||'';
   const [data,setData]=useState<Catalogue>({items:[],total:0,partners:[]}),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const [q,setQ]=useState(params.get('q')||''),[revision,setRevision]=useState(0);
   const [selected,setSelected]=useState<Entry|null>(null),[creating,setCreating]=useState(false),[notice,setNotice]=useState<Partner|null>(null);
@@ -33,14 +35,14 @@ export function PartnerMaterialsManager(){
   useEffect(()=>setQ(savedQuery),[savedQuery]);
   useEffect(()=>{
     const controller=new AbortController();setLoading(true);setError('');
-    const search=new URLSearchParams(query);search.set('page_size','12');
+    const search=new URLSearchParams(query);search.set('page_size',String(pageSize));
     void adminApiFetch('/admin/partner-materials?'+search,{cache:'no-store',signal:controller.signal})
       .then(async r=>{if(!r.ok)throw await responseError(r);return r.json();})
       .then(result=>{if(!controller.signal.aborted)setData(result);})
       .catch(e=>{if(!controller.signal.aborted)setError(e.message);})
       .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
     return()=>controller.abort();
-  },[query,revision]);
+  },[query,revision,pageSize]);
   const catalogueWorking=data.items.some(entry=>entry.processing_status==='processing');
   useEffect(()=>{if(!catalogueWorking)return;const timer=setInterval(refresh,2000);return()=>clearInterval(timer);},[catalogueWorking,refresh]);
   function filter(updates:Record<string,string|null>){
@@ -58,6 +60,7 @@ export function PartnerMaterialsManager(){
       <PartnerSelect caption="所属伙伴" label="筛选伙伴" partners={data.partners} value={partnerId} placeholder="全部伙伴" onChange={value=>filter({partner_id:value})}/>
       <label>一级分类<select aria-label="筛选一级分类" value={group} onChange={e=>filter({category_group:e.target.value,category_id:null})}><option value="">全部分类</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
       <label>二级分类<select aria-label="筛选二级分类" value={category} disabled={!group||group==='unclassified'} onChange={e=>filter({category_id:e.target.value})}><option value="">全部</option>{contract.categories.find(g=>g.id===group)?.children.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+      <label>状态<select aria-label="状态" value={status} onChange={e=>filter({status:e.target.value})}><option value="">全部资料</option><option value="failed">处理失败</option></select></label>
       <label className={styles.search}>名称搜索<div><input aria-label="资料名称" value={q} maxLength={200} placeholder="搜索资料名称" onChange={e=>setQ(e.target.value)}/><button className="secondary-btn" type="submit">搜索</button></div></label>
     </form>
     {notice&&<div role="status" className={styles.notice}><span>资料已保存，{notice.name}的画像按有效来源更新；附件处理结果请在详情中查看。</span><div className="table-actions"><Link href={`/admin/partners/${encodeURIComponent(notice.id)}#profile`} className="secondary-btn">查看画像和处理状态</Link><button className="secondary-btn" onClick={()=>setNotice(null)}>关闭提示</button></div></div>}
@@ -70,7 +73,7 @@ export function PartnerMaterialsManager(){
       <div className={styles.cardBottom}><small>更新于 {new Date(entry.updated_at).toLocaleDateString('zh-CN')}</small><button className="card-entry-link" onClick={()=>setSelected(entry)}><CardEntryLabel>查看与管理</CardEntryLabel></button></div>
     </article>)}</div></section>;})}
     {!loading&&!error&&!data.total&&<section className="card"><p className="placeholder-text">暂无符合条件的资料。</p></section>}
-    <Pagination page={page} pageSize={12} total={data.total} disabled={loading||!!error} onPageChange={n=>filter({page:String(n)})} label="伙伴资料分页"/>
+    <Pagination page={page} pageSize={pageSize} pageSizeOptions={pageSizes} onPageSizeChange={n=>filter({page_size:String(n)})} total={data.total} disabled={loading||!!error} onPageChange={n=>filter({page:String(n)})} label="伙伴资料分页"/>
     {creating&&<Panel title="新增资料" onClose={()=>setCreating(false)}><MaterialEditor partners={data.partners} partnerId={partnerId} onSaved={entry=>{setCreating(false);setSelected(entry);changed(entry);}}/></Panel>}
     {selected&&<MaterialDetail key={selected.kind+selected.id} entry={selected} partners={data.partners} onClose={()=>{setSelected(null);refresh();}} onChanged={changed} onVisibilityChange={refresh} onReplaced={entry=>{setSelected(entry);changed(entry);}}/>}
   </main>;
