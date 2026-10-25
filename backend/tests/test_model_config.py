@@ -197,7 +197,7 @@ def test_rejects_invalid_numeric_parameters(client, method, field, value):
     admin = make_user("parameter_admin", role="admin")
     model_id = add_model()
     path = "/admin/model-configs" + (f"/{model_id}" if method == "put" else "")
-    payload={"name":"bad","modelName":"valid-synthetic-id","providerId":target_row(model_id)["provider_id"],field:value}
+    payload={"name":"bad","modelName":"valid-synthetic-id","providerId":target_row(model_id)["provider_id"],"contextWindowTokens":262144,field:value}
     response = getattr(client, method)(path, headers=auth_headers(admin), json=payload)
     assert response.status_code == 422
     assert any(error["loc"]==["body",field] for error in response.json()["detail"])

@@ -26,7 +26,10 @@ def test_options_are_authenticated_minimal_and_do_not_open_processing(client):
  assert client.get('/agents/processing/models',headers=user).status_code==404
  data=client.get('/agents/partner_match/models',headers=user).json()
  assert {m['id'] for m in data['models']}=={default,opened}
- assert all(set(m)=={'id','name','isDefault'} for m in data['models'])
+ assert all(set(m)=={'id','name','isDefault','providerId','providerName'} for m in data['models'])
+ with get_db() as conn:
+  relations={r['id']:(r['provider_id'],r['provider_name']) for r in conn.execute('SELECT m.id,m.provider_id,p.name AS provider_name FROM model_configs m JOIN model_providers p ON p.id=m.provider_id')}
+ assert all((m['providerId'],m['providerName'])==relations[m['id']] for m in data['models'])
  assert 'synthetic-only' not in json.dumps(data) and 'baseUrl' not in json.dumps(data)
  assert client.put('/admin/model-configs/'+hidden,headers=user,json={'userSelectable':True}).status_code==403
  assert client.put('/admin/model-configs/'+hidden,headers=admin,json={'userSelectable':True}).json()['userSelectable']
@@ -35,6 +38,33 @@ def test_options_are_authenticated_minimal_and_do_not_open_processing(client):
  assert opened not in {m['id'] for m in settings.model_options('partner_match')['models']}
  configure('partner_match',enabled=False)
  assert not settings.model_options('partner_match')['agentEnabled']
+
+
+
+@pytest.mark.parametrize('agent_id',['partner_match','partner_development'])
+def test_options_keep_real_provider_identity_for_same_names_without_opening_empty_providers(client,agent_id):
+ user=auth_headers(make_user('provider-choice-user'))
+ first=model_config.create_provider(model_config.ProviderCreate(name='同名供应商',baseUrl='https://first.invalid/v1',apiKey='synthetic-first'))
+ second=model_config.create_provider(model_config.ProviderCreate(name='同名供应商',baseUrl='https://second.invalid/v1',apiKey='synthetic-second'))
+ empty=model_config.create_provider(model_config.ProviderCreate(name='空供应商',baseUrl='https://empty.invalid/v1'))
+ one=create_model(name='同名模型',modelName='same-model',providerId=first.id,userSelectable=True)
+ two=create_model(name='同名模型',modelName='same-model',providerId=second.id,userSelectable=True)
+ disabled=create_model(name='停用模型',modelName='disabled',providerId=second.id,userSelectable=True,enabled=False)
+ private=create_model(name='未开放模型',modelName='private',providerId=first.id,userSelectable=False)
+ before=settings.read()
+ response=client.get('/agents/'+agent_id+'/models',headers=user)
+ assert response.status_code==200
+ data=response.json();rows={m['id']:m for m in data['models']}
+ assert {one.id,two.id}.issubset(rows)
+ assert rows[one.id]['providerId']==first.id and rows[two.id]['providerId']==second.id
+ assert rows[one.id]['providerName']==rows[two.id]['providerName']=='同名供应商'
+ assert rows[one.id]['name']==rows[two.id]['name']=='同名模型'
+ assert disabled.id not in rows and private.id not in rows
+ assert empty.id not in {row['providerId'] for row in rows.values()}
+ assert {m['id'] for m in rows.values() if m['isDefault']}=={before['agents'][agent_id]['modelConfigId']}
+ assert all(set(m)=={'id','name','isDefault','providerId','providerName'} for m in rows.values())
+ assert all(value not in json.dumps(data) for value in ['synthetic-first','synthetic-second','first.invalid','second.invalid','apiKeySource'])
+ assert settings.read()==before
 
 
 def test_selection_does_not_change_default_and_unavailable_selection_rolls_back(prepared,monkeypatch):

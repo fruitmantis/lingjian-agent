@@ -5,12 +5,12 @@ import {responseError} from "../lib/api-request";
 import {AgentManagement} from "./agent-settings";
 import styles from "./model-connections.module.css";
 type Provider={id:string;name:string;baseUrl:string|null;protocol:string;apiKeyConfigured:boolean;apiKeySource:string|null;modelCount:number;updatedAt:string};
-type Model={id:string;providerId:string;providerName:string;name:string;modelName:string|null;temperature:number;topP:number;maxTokens:number;enabled:boolean;userSelectable:boolean;defaultBindings:string[];updatedAt:string};
+type Model={id:string;providerId:string;providerName:string;name:string;modelName:string|null;temperature:number;topP:number;maxTokens:number;contextWindowTokens?:number|null;enabled:boolean;userSelectable:boolean;defaultBindings:string[];updatedAt:string};
 type ProviderDraft={name:string;baseUrl:string;apiKey:string};
-type ModelDraft={name:string;modelName:string;temperature:number;topP:number;maxTokens:number;enabled:boolean;userSelectable:boolean};
+type ModelDraft={name:string;modelName:string;temperature:number;topP:number;maxTokens:number;contextWindowTokens:string;enabled:boolean;userSelectable:boolean};
 type Result={success:boolean;message:string;latencyMs?:number;at:number;signature:string};
 const bindingNames:Record<string,string>={partner_match:"找伙伴默认",partner_development:"促发展默认",processing:"基础处理默认"};
-const modelDraft=(m?:Model):ModelDraft=>({name:m?.name||"",modelName:m?.modelName||"",temperature:m?.temperature??0.2,topP:m?.topP??1,maxTokens:m?.maxTokens??131072,enabled:m?.enabled??true,userSelectable:m?.userSelectable??false});
+const modelDraft=(m?:Model):ModelDraft=>({name:m?.name||"",modelName:m?.modelName||"",temperature:m?.temperature??0.2,topP:m?.topP??1,maxTokens:m?.maxTokens??131072,contextWindowTokens:m?.contextWindowTokens?.toString()??"",enabled:m?.enabled??true,userSelectable:m?.userSelectable??false});
 const providerDraft=(p?:Provider):ProviderDraft=>({name:p?.name||"",baseUrl:p?.baseUrl||"",apiKey:""});
 async function request<T>(path:string,method="GET",body?:unknown):Promise<T>{
  const response=await adminApiFetch(path,{method,cache:"no-store",...(body?{headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{})});
@@ -19,6 +19,7 @@ async function request<T>(path:string,method="GET",body?:unknown):Promise<T>{
 }
 export function ModelConfiguration(){
  const [providers,setProviders]=useState<Provider[]>([]),[models,setModels]=useState<Model[]>([]),[loading,setLoading]=useState(true);
+ const [capacitySupported,setCapacitySupported]=useState(false);
  const [tab,setTab]=useState<"settings"|"providers">("settings"),[selected,setSelected]=useState<string|null>(null);
  const [mode,setMode]=useState<"overview"|"provider"|"add-provider"|"model">("overview"),[editing,setEditing]=useState<string|null>(null);
  const [pd,setPd]=useState<ProviderDraft>(providerDraft()),[md,setMd]=useState<ModelDraft>(modelDraft()),[replaceKey,setReplaceKey]=useState(false);
@@ -29,7 +30,7 @@ export function ModelConfiguration(){
  const dirty=(mode==="provider"||mode==="add-provider")?JSON.stringify(pd)!==JSON.stringify(providerDraft(provider)):mode==="model"?JSON.stringify(md)!==JSON.stringify(modelDraft(model)):false;
  const signature=(m:Model)=>JSON.stringify([modelDraft(m),providers.find(p=>p.id===m.providerId)?.updatedAt]);
  async function load(){
-  setError("");try{const [ps,ms]=await Promise.all([request<Provider[]>("/admin/model-providers"),request<Model[]>("/admin/model-configs")]);setProviders(ps);setModels(ms);setSelected(old=>ps.some(p=>p.id===old)?old:ps[0]?.id||null);}
+  setError("");try{const [ps,response]=await Promise.all([request<Provider[]>("/admin/model-providers"),adminApiFetch("/admin/model-configs",{cache:"no-store"})]);if(!response.ok)throw await responseError(response);const ms:Model[]=await response.json();setCapacitySupported(response.headers.get("X-Model-Context-Window")==="tokens"||ms.some(m=>"contextWindowTokens" in m));setProviders(ps);setModels(ms);setSelected(old=>ps.some(p=>p.id===old)?old:ps[0]?.id||null);}
   catch(e){setError(e instanceof Error?e.message:"模型提供商加载失败");}finally{setLoading(false);}
  }
  useEffect(()=>{void load();},[]);
@@ -43,7 +44,8 @@ export function ModelConfiguration(){
  }
  async function saveModel(){
   if(!provider||busy)return;setSaving(true);setError("");setNotice("");
-  try{const saved=await request<Model>("/admin/model-configs"+(model?"/"+model.id:""),model?"PUT":"POST",{...md,providerId:provider.id});setModels(old=>[...old.filter(m=>m.id!==saved.id),saved]);setEditing(saved.id);setMd(modelDraft(saved));setNotice("模型已保存");}
+  const {contextWindowTokens,...values}=md;
+  try{const saved=await request<Model>("/admin/model-configs"+(model?"/"+model.id:""),model?"PUT":"POST",{...values,providerId:provider.id,...(capacitySupported&&contextWindowTokens.trim()?{contextWindowTokens:Number(contextWindowTokens)}:{})});setModels(old=>[...old.filter(m=>m.id!==saved.id),saved]);setEditing(saved.id);setMd(modelDraft(saved));setNotice("模型已保存");}
   catch(e){setError(e instanceof Error?e.message:"模型保存失败");}finally{setSaving(false);}
  }
  async function testSaved(m:Model){
@@ -93,7 +95,7 @@ export function ModelConfiguration(){
     <div className={styles.fields}><label>显示名称<input required maxLength={120} value={md.name} onChange={e=>setMd({...md,name:e.target.value})}/></label><label>模型 ID<input required value={md.modelName} onChange={e=>setMd({...md,modelName:e.target.value})}/></label></div>
     <div className={styles.usage}><label className={styles.toggle}><span>允许用户手动选择<small>在找伙伴、促发展输入框的模型菜单中提供</small></span><input type="checkbox" checked={md.userSelectable} onChange={e=>setMd({...md,userSelectable:e.target.checked})}/></label>
      <div className={styles.binding}><span>默认绑定</span><span>{model?.defaultBindings?.map(id=><em key={id}>{bindingNames[id]||id}</em>)}<button type="button" onClick={()=>setTab("settings")}>管理绑定 →</button></span></div></div>
-    <details className={styles.advanced}><summary>高级参数 <span>温度 · Top P · 最大输出</span></summary><div className={styles.fields}><label>temperature<input type="number" min={0} step="any" value={md.temperature} onChange={e=>setMd({...md,temperature:Number(e.target.value)})}/></label><label>top_p<input type="number" min={0} max={1} step="any" value={md.topP} onChange={e=>setMd({...md,topP:Number(e.target.value)})}/></label><label>max_tokens<input type="number" min={1} step={1} value={md.maxTokens} onChange={e=>setMd({...md,maxTokens:Number(e.target.value)})}/></label></div></details>
+    <details className={styles.advanced} onInvalidCapture={event=>{event.currentTarget.open=true;}}><summary>高级参数 <span>总容量 · 最大输出 · 温度 · Top P</span></summary><div className={styles.fields}><label>总上下文容量（Token）<input type="number" min={1} max={2147483647} step={1} required={capacitySupported&&(!model||model.contextWindowTokens!=null)} disabled={!capacitySupported} placeholder={capacitySupported?"待填写":"后端升级后可填写"} value={md.contextWindowTokens} onChange={e=>setMd({...md,contextWindowTokens:e.target.value})}/></label><label>最大输出（Token）<input type="number" min={1} step={1} value={md.maxTokens} onChange={e=>setMd({...md,maxTokens:Number(e.target.value)})}/></label><label>temperature<input type="number" min={0} step="any" value={md.temperature} onChange={e=>setMd({...md,temperature:Number(e.target.value)})}/></label><label>top_p<input type="number" min={0} max={1} step="any" value={md.topP} onChange={e=>setMd({...md,topP:Number(e.target.value)})}/></label></div><p className="muted">{capacitySupported?"总上下文容量包含输入与输出，请按当前接入服务的实际容量填写（1～2147483647 的整数）。":"当前后端尚不支持容量配置，其他模型设置仍可编辑。"}</p></details>
     <footer className={styles.footer}>{result(model)}<div className={styles.buttons}>{model&&<button type="button" className="secondary-btn danger-outline" disabled={busy} onClick={()=>void remove("model")}>删除模型</button>}<button type="button" className="secondary-btn" disabled={!model||dirty||busy} title={dirty?"请先保存模型，再测试已保存的连接":undefined} onClick={()=>model&&void testSaved(model)}>{testing===editing?"测试中…":"测试连接"}</button><button type="button" className="secondary-btn" disabled={busy} onClick={()=>setMode("overview")}>取消</button><button type="submit" disabled={busy||!md.name.trim()||!md.modelName.trim()}>{saving?"保存中…":"保存模型"}</button></div></footer>
    </form>:provider?<div className={styles.editor}>
     <div className={styles.heading}><div><h2>{provider.name}</h2><p>共享连接配置 · {owned.length} 个模型</p></div><button className="secondary-btn" disabled={busy} onClick={()=>editProvider()}>编辑提供商</button></div>

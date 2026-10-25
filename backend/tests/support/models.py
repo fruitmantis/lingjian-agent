@@ -3,6 +3,8 @@ import os
 from backend.app.routers import model_config
 
 def create_model(**values):
+    # Explicit synthetic capacity for existing model-using regressions, never runtime defaults.
+    values.setdefault('contextWindowTokens', 1_048_576)
     provider_id=values.pop('providerId',None)
     if provider_id is None:
         provider=model_config.create_provider(model_config.ProviderCreate(

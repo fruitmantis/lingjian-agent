@@ -25,9 +25,9 @@ def test_loopback_transport_preserves_provider_options_and_large_input_budget(mo
     messages = [{'role': 'user', 'content': '资料' * 14000}]
     schema = {'type': 'object'}
     stamp = configuration_stamp(config)
-    # This input exceeds the unknown-provider ceiling but fits the original model.
+    # This synthetic model has an explicit capacity larger than the measured input.
     budgeted, chars, tokens = partner_match_context.checked_config(config, messages, schema, 60000)
-    assert tokens + 2048 > partner_match_context.UNKNOWN_CONTEXT_CEILING
+    assert tokens + 2048 > 32768 and tokens + config['max_tokens'] <= config['context_window_tokens']
     with upstream() as (url, received, _):
         with slow_proxy(url, delay=.1, port=0, events=Capture()) as server:
             monkeypatch.setenv('BANFEI_MATCH_DELAY_PROXY_URL', f'http://127.0.0.1:{server.server_port}/v1')

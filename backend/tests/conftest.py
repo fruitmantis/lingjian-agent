@@ -80,6 +80,10 @@ def fresh_database(monkeypatch, request, tmp_path):
     with empty_postgres_schema() as url:
         monkeypatch.setenv("DATABASE_URL", url)
         initialize_empty_schema(url)
+        # The shared synthetic model is explicitly configured for model-flow tests.
+        # Initializer/migration tests check unknown capacity in separate empty schemas.
+        with get_db() as conn:
+            conn.execute('UPDATE model_configs SET context_window_tokens=1048576')
         request.node.user_properties.append(("database_backend", "postgresql"))
         # Finish workers while their configuration, monkeypatches and schema still exist.
         # Otherwise an accepted asynchronous task can write into the next test's schema.

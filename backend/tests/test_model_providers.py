@@ -10,6 +10,7 @@ from .support.models import create_model
 
 def legacy_schema(conn):
     # Reconstruct the exact legacy columns only inside this test's random schema.
+    conn.execute('ALTER TABLE model_configs DROP COLUMN context_window_tokens')
     for column in LEGACY_COLUMNS:conn.execute(f'ALTER TABLE model_configs ADD COLUMN {column} TEXT')
     conn.execute("""UPDATE model_configs m SET provider=p.name,base_url=p.base_url,api_key=p.api_key,
         api_key_source=p.api_key_source,api_key_env_name=p.api_key_env_name FROM model_providers p WHERE p.id=m.provider_id""")
@@ -92,7 +93,7 @@ def test_provider_crud_auth_safe_output_and_nonempty_delete(client,monkeypatch):
     assert p['protocol']=='openai_chat_completions' and p['modelCount']==0
     assert 'synthetic-provider-private' not in response.text and 'apiKey' not in p
     assert 'apiKeyEnvName' not in p
-    m=client.post('/admin/model-configs',headers=admin,json={'providerId':p['id'],'name':'合成模型','modelName':'synthetic-id','userSelectable':True})
+    m=client.post('/admin/model-configs',headers=admin,json={'providerId':p['id'],'name':'合成模型','modelName':'synthetic-id','userSelectable':True,'contextWindowTokens':262144})
     assert m.status_code==201 and m.json()['providerId']==p['id']
     assert not {'apiKey','apiKeyConfigured','baseUrl'}.intersection(m.json())
     assert client.delete(path+'/'+p['id'],headers=admin).status_code==409

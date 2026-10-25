@@ -23,10 +23,15 @@ class ResolvedModelConfig:
     max_tokens: int
     source: str  # "db" / "env" / "default"
     thinking: bool | None = None
+    context_window_tokens: int | None = None
 
 
 class ModelConfigurationError(RuntimeError):
     """No enabled model or an invalid connection configuration."""
+
+
+class ModelContextCapacityError(ModelConfigurationError):
+    """The selected model has no explicitly configured total context capacity."""
 
 
 def model_endpoint_origin(base_url: str) -> tuple:
@@ -88,6 +93,7 @@ def configuration_stamp(config: dict) -> dict:
     resolved = model_config_from_record(config)
     fields=vars(resolved).copy()
     if fields.get('thinking') is None:fields.pop('thinking',None)
+    if fields.get('context_window_tokens') is None:fields.pop('context_window_tokens',None)
     digest = hashlib.sha256(json.dumps(fields, sort_keys=True).encode()).hexdigest()
     stamp={'id': config['id'], 'fingerprint': digest}
     if config.get('_agent_execution'):stamp['agent_execution']=config['_agent_execution']
@@ -141,6 +147,7 @@ def model_config_from_record(record) -> ResolvedModelConfig:
         max_tokens=row["max_tokens"] if row.get("max_tokens") is not None else 131072,
         source="db",
         thinking=execution['thinking'] if execution else None,
+        context_window_tokens=row.get('context_window_tokens'),
     )
 
 

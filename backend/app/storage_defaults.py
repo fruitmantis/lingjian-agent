@@ -39,7 +39,7 @@ def seed_defaults(connection):
                 (str(uuid.uuid4()), name, category, "", now, now)
             )
 
-    connection.execute("INSERT INTO app_metadata(key,value) VALUES ('schema_version','22')")
+    connection.execute("INSERT INTO app_metadata(key,value) VALUES ('schema_version','23')")
     provider_id = str(uuid.uuid4())
     connection.execute("""INSERT INTO model_providers
         (id,name,base_url,protocol,api_key_source,api_key_env_name,created_at,updated_at)

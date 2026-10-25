@@ -6,7 +6,7 @@
 - 正式工作目录：`/home/yuan/project/lingjian-agent-enablement`；当前开发分支：`main`。
 - 该目录已升格为正式 main 工作区，不再是独立功能试验环境。legacy 目录、旧 feature 分支和其他历史 worktree 均不得作为正式开发环境；不修改或启动 legacy 服务。
 - WSL Ubuntu 24.04；前端 Next.js 15 / React 19 / TypeScript，端口 **3000**；后端 FastAPI / Python，端口 **8000**。
-- 正式数据库：**PostgreSQL 16，代码要求 schema version 22（提供商拆分；现有库须先显式备份迁移，启动不自动迁移）**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
+- 正式数据库：**PostgreSQL 16，代码要求 schema version 23（独立总上下文容量；现有库须先显式备份迁移，启动不自动迁移）**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
 - 连接由私有 `.isolation/runtime/dev/environment.json` 中 `DATABASE_URL` 指定，缺失或失败直接报错，不自动回退其他数据库。
 - 上传目录 `.isolation/runtime/dev/uploads`，日志 `.isolation/logs/`；旧数据库文件仅在核验无独有数据和有效引用后删除；未能确认的私有备份保留并记录，不参与运行。
 - 工程、模块、API、字段及 `LINGJIAN_*` 技术标识不因产品更名而重命名。

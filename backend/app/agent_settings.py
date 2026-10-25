@@ -115,8 +115,8 @@ def model_options(agent_id,conn=None):
     if conn is None:
         with get_readonly_db() as connection:return model_options(agent_id,connection)
     agent=read(conn)['agents'][agent_id];allowed=selectable(conn)
-    rows=conn.execute('SELECT id,name FROM model_configs WHERE enabled=1 ORDER BY created_at,id').fetchall()
-    models=[{'id':r['id'],'name':r['name'],'isDefault':r['id']==agent['modelConfigId']} for r in rows if r['id']==agent['modelConfigId'] or allowed.get(r['id']) is True]
+    rows=conn.execute('SELECT m.id,m.name,m.provider_id,p.name AS provider_name FROM model_configs m JOIN model_providers p ON p.id=m.provider_id WHERE m.enabled=1 ORDER BY m.created_at,m.id').fetchall()
+    models=[{'id':r['id'],'name':r['name'],'isDefault':r['id']==agent['modelConfigId'],'providerId':r['provider_id'],'providerName':r['provider_name']} for r in rows if r['id']==agent['modelConfigId'] or allowed.get(r['id']) is True]
     return {'models':models,'defaultModelConfigId':agent['modelConfigId'],'agentEnabled':agent['enabled'],
             'unavailableReason':'该智能体已停用' if not agent['enabled'] else ('没有可用模型，请联系管理员。' if not models else None)}
 

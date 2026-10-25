@@ -9,7 +9,7 @@ export function actionFailure(message:string,operation="处理"):string {
 }
 export function failureMessage(details?:FailureDetail[],operation="处理"):string {
  const model=details?.find(item=>item.modelRelated);
- const messages:Record<string,string>={timeout:"模型响应超时。本次分析未完成，你可以返回切换模型后重新提交。",rate_limit:"模型服务请求受限。可以稍后重试，或返回切换模型。",connection:"暂时无法连接模型服务，可以重试或返回切换模型。",provider:"模型服务返回异常，可以重试或返回切换模型。",configuration:"当前模型暂不可用。请切换模型，或联系管理员。",authentication:"当前模型暂不可用。请切换模型，或联系管理员。",invalid_result:"模型返回内容未能完成解析。可以重试或切换模型。"};
+ const messages:Record<string,string>={timeout:"模型响应超时。本次分析未完成，你可以返回切换模型后重新提交。",rate_limit:"模型服务请求受限。可以稍后重试，或返回切换模型。",connection:"暂时无法连接模型服务，可以重试或返回切换模型。",provider:"模型服务返回异常，可以重试或返回切换模型。",configuration:"当前模型暂不可用。请切换模型，或联系管理员。",context_capacity:"该模型尚未配置总上下文容量，请管理员填写后重试，或返回切换模型。",authentication:"当前模型暂不可用。请切换模型，或联系管理员。",invalid_result:"模型返回内容未能完成解析。可以重试或切换模型。"};
  if(model&&messages[model.code])return messages[model.code];
  if(details?.some(item=>item.code==="persistence"))return "结果保存失败，已有内容已保留。";
  if(details?.some(item=>item.code==="run_timeout"))return "本次处理超过任务执行时限，已中断。";

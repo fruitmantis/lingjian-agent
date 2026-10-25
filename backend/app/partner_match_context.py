@@ -5,22 +5,17 @@ import logging
 import hashlib
 import math
 import re
-from urllib.parse import urlsplit
 
 
 from .ai_client import completion_payload, last_retry_count, reset_retry_count
 from .development_engine import terms
 from .business_taxonomy import project_partner
-from .model_resolver import model_config_from_record, resolve_model_record
+from .model_resolver import model_config_from_record, resolve_model_record, ModelContextCapacityError
 from .task_failures import MatchInputBudgetError
 from backend.business import matching
 
 
 DETAIL_CHAR_LIMIT = 25_000
-# DeepSeek's published Flash context is 1,048,576 tokens. Other providers are
-# held to a deliberately smaller local ceiling until their capacity is known.
-DEEPSEEK_CONTEXT_TOKENS = 1_048_576
-UNKNOWN_CONTEXT_CEILING = 32_768
 _LOG = logging.getLogger('uvicorn.error')
 
 
@@ -281,10 +276,10 @@ def input_metrics(config: dict, messages: list[dict], schema: dict) -> tuple[int
 
 def checked_config(config: dict, messages: list[dict], schema: dict, char_limit: int):
     resolved = model_config_from_record(config)
+    context_ceiling = resolved.context_window_tokens
+    if context_ceiling is None or context_ceiling <= 0:
+        raise ModelContextCapacityError('该模型尚未配置总上下文容量，请管理员填写后重试，或返回切换模型。')
     chars, estimated_tokens = input_metrics(config, messages, schema)
-    host = urlsplit(resolved.base_url).hostname
-    context_ceiling = (DEEPSEEK_CONTEXT_TOKENS if host == 'api.deepseek.com' and
-                       resolved.model in ('deepseek-v4-flash', 'deepseek-flash') else UNKNOWN_CONTEXT_CEILING)
     # Thinking and final content share the output allowance. Short business JSON
     # does not imply short reasoning: use the saved limit within remaining context.
     output_tokens = min(resolved.max_tokens, context_ceiling - estimated_tokens)

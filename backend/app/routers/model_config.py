@@ -6,7 +6,7 @@ import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import ValidationError, BaseModel, Field, StrictBool, ConfigDict
+from pydantic import ValidationError, BaseModel, Field, StrictBool, ConfigDict, field_validator
 from backend.business.common import ModelOutput
 
 from ..database import get_db
@@ -52,6 +52,7 @@ class ModelConfigOut(BaseModel):
     temperature: float
     topP: float
     maxTokens: int
+    contextWindowTokens: int | None
     enabled: bool
     isDefault: bool
     userSelectable: bool = False
@@ -70,6 +71,7 @@ class ModelConfigCreate(BaseModel):
     temperature: float = Field(default=0.2, ge=0, allow_inf_nan=False)
     topP: float = Field(default=1.0, ge=0, le=1, allow_inf_nan=False)
     maxTokens: int = Field(default=131072, gt=0)
+    contextWindowTokens: int = Field(strict=True, gt=0, le=2147483647)
 
 
 class ModelConfigUpdate(BaseModel):
@@ -82,6 +84,14 @@ class ModelConfigUpdate(BaseModel):
     temperature: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     topP: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
     maxTokens: int | None = Field(default=None, gt=0)
+    contextWindowTokens: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
+
+    @field_validator('contextWindowTokens')
+    @classmethod
+    def capacity_cannot_be_cleared(cls, value):
+        if value is None:
+            raise ValueError('总上下文容量须为正整数；省略此字段可保留原值')
+        return value
 
 
 class UsageConfigOut(BaseModel):
@@ -119,14 +129,15 @@ def save_timeout_settings(payload: TimeoutSettings, response: Response):
 def _to_out(r) -> ModelConfigOut:
     return ModelConfigOut(
         id=r["id"], name=r["name"], providerId=r["provider_id"], providerName=r["provider"], modelName=r["model_name"],
-        temperature=r["temperature"], topP=r["top_p"], maxTokens=r["max_tokens"],
+        temperature=r["temperature"], topP=r["top_p"], maxTokens=r["max_tokens"], contextWindowTokens=r["context_window_tokens"],
         enabled=bool(r["enabled"]), isDefault=bool(r["is_default"]),
         createdAt=r["created_at"], updatedAt=r["updated_at"], **agent_settings.connection_usage(r["id"])
     )
 
 
 @router.get("", response_model=list[ModelConfigOut])
-def list_configs():
+def list_configs(response: Response):
+    response.headers["X-Model-Context-Window"] = "tokens"
     with get_db() as conn:
         rows = conn.execute(MODEL_SELECT + " ORDER BY m.is_default DESC, m.created_at ASC").fetchall()
     return [_to_out(r) for r in rows]
@@ -140,10 +151,10 @@ def create_config(payload: ModelConfigCreate) -> ModelConfigOut:
         conn.lock_writer()
         _require_provider(conn,payload.providerId)
         conn.execute("""INSERT INTO model_configs
-            (id,name,provider_id,model_name,temperature,top_p,max_tokens,enabled,is_default,created_at,updated_at)
-            VALUES (?,?,?,?,?,?,?,?,0,?,?)""",
+            (id,name,provider_id,model_name,temperature,top_p,max_tokens,context_window_tokens,enabled,is_default,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,0,?,?)""",
             (mc_id,payload.name,payload.providerId,payload.modelName,payload.temperature,payload.topP,
-             payload.maxTokens,int(payload.enabled),now,now))
+             payload.maxTokens,payload.contextWindowTokens,int(payload.enabled),now,now))
         agent_settings.set_selectable(conn,mc_id,payload.userSelectable)
         row=model_record(conn,mc_id)
     return _to_out(row)
@@ -158,7 +169,7 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
         if payload.providerId is not None:_require_provider(conn,payload.providerId)
         if payload.userSelectable is not None:agent_settings.set_selectable(conn,mc_id,payload.userSelectable)
         fields={'name':'name','providerId':'provider_id','modelName':'model_name','temperature':'temperature',
-                'topP':'top_p','maxTokens':'max_tokens','enabled':'enabled'}
+                'topP':'top_p','maxTokens':'max_tokens','contextWindowTokens':'context_window_tokens','enabled':'enabled'}
         updates=[];params=[]
         for field,column in fields.items():
             value=getattr(payload,field)

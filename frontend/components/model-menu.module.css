@@ -8,11 +8,12 @@
   display:inline-flex!important;
   align-items:center;
   justify-content:center;
-  gap:12px;
+  gap:10px;
   max-width:100%;
+  height:34px!important;
+  min-height:34px!important;
   margin:0!important;
-  padding:8px 14px!important;
-  min-height:34px;
+  padding:0 12px!important;
   border:0!important;
   border-radius:22px!important;
   background:#f4f4f2!important;
@@ -20,91 +21,81 @@
   font-size:12px!important;
   font-weight:400!important;
   white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
 }
-.trigger>span {
-  color:#888;
-}
+.trigger>span:last-child { color:#999;flex-shrink:0; }
+.name { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .menu {
   position:absolute;
   right:0;
-  bottom:calc(100% + 12px);
+  bottom:calc(100% + 10px);
   z-index:60;
-  min-width:240px;
-  max-width:min(320px,calc(100vw - 48px));
-  padding:8px 6px;
+  width:280px;
+  max-width:calc(100vw - 32px);
+  box-sizing:border-box;
+  padding:4px;
   background:white;
   border:1px solid #e6e6e3;
   border-radius:14px;
   box-shadow:0 10px 28px #0000000d;
+  transform:translateX(var(--menu-shift,0px));
 }
 .caption {
-  margin:6px 10px 8px;
+  display:flex;
+  align-items:center;
+  box-sizing:border-box;
+  height:32px;
+  margin:0;
+  padding:4px 10px;
   color:#888;
-  font-size:11px;
+  font-size:14px;
+  font-weight:400;
+  line-height:20px;
 }
+.list { max-height:min(280px,50dvh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin; }
 .menu button {
   display:flex!important;
   align-items:center;
   justify-content:space-between;
+  box-sizing:border-box;
   width:100%;
-  gap:12px;
-  min-height:40px;
-  margin:0;
-  padding:10px 12px!important;
+  min-height:32px!important;
+  height:auto!important;
+  gap:10px;
+  margin:0!important;
+  padding:4px 10px!important;
   border:0!important;
   border-radius:8px!important;
   background:white!important;
   color:#171717!important;
   text-align:left;
-  font-size:13px!important;
+  font-size:14px!important;
   font-weight:400!important;
+  line-height:20px!important;
+  white-space:normal;
 }
-.menu button:hover,.menu button[aria-checked=true] {
-  background:#f5f5f3!important;
+.menu button:hover,.menu button:focus-visible { background:#f5f5f3!important; }
+.menu button:focus-visible { outline:1px solid #c7000b;outline-offset:-1px; }
+.menu .back {
+  justify-content:flex-start;
+  gap:12px;
+  border-radius:8px 8px 0 0!important;
+  border-bottom:1px solid #eeeeeb!important;
 }
-.menu small {
-  margin-left:8px;
-  font-size:10px;
-  color:#777;
-}
-.check {
-  color:#c7000b;
-}
-.empty {
-  padding:8px 12px;
-  font-size:12px;
-}
-.stamp {
-  display:inline-block;
-  color:#777;
-  font-size:12px;
-  margin:8px 12px 8px 0;
-}
+.label { min-width:0;overflow-wrap:anywhere; }
+.meta { display:flex;flex:0 0 auto;align-items:center;gap:8px; }
+.menu small { display:inline-block;color:#888;font-size:11px;font-weight:400;line-height:16px;white-space:nowrap; }
+.label small { margin-left:8px;padding:0 3px;background:#f5f5f3;border-radius:3px; }
+.meta .current,.check { color:#c7000b; }
+.check { flex:0 0 16px;text-align:center; }
+.chevron { flex-shrink:0;color:#aaa;font-size:18px;font-weight:300;line-height:18px; }
+.empty { margin:0;padding:8px 10px;color:#888;font-size:13px;line-height:20px; }
+.stamp { display:inline-block;color:#777;font-size:12px;margin:8px 12px 8px 0; }
 @media(max-width:600px) {
-  .wrap {
-    max-width:164px;
-  }
-  .trigger {
-    max-width:100%;
-    padding:7px 10px!important;
-  }
-  .menu {
-    min-width:220px;
-  }
-  .stamp {
-    max-width:100%;
-    overflow-wrap:anywhere;
-  }
+  .wrap { max-width:164px; }
+  .trigger { padding:0 10px!important; }
+  .stamp { max-width:100%;overflow-wrap:anywhere; }
 }
-.trigger .name {
-  color:inherit;
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.trigger>span:last-child {
-  flex-shrink:0;
+@media(pointer:coarse) {
+  .menu button { min-height:44px!important; }
+  .trigger { height:44px!important;min-height:44px!important; }
 }

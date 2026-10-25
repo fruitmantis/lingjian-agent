@@ -156,7 +156,7 @@ def schema18_existing_development(prepared):
     with get_db() as conn:
         assert conn.execute('SELECT current_database()').fetchone()[0] in ('banfei_agent_test','banfei_validation')
         assert conn.execute('SELECT current_schema()').fetchone()[0].startswith('validation_')
-        assert conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0]=='22'
+        assert conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0]=='23'
         assert conn.execute('SELECT count(*) FROM partner_profile_sources').fetchone()[0]==0
         assert conn.execute("SELECT count(*) FROM app_metadata WHERE key LIKE 'profile_source_legacy:%'").fetchone()[0]==0
         # Rebuild the historical structure in this invocation's disposable schema.

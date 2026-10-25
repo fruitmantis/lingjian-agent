@@ -10,7 +10,7 @@ from backend.app.task_failures import MatchInputBudgetError
 
 def config(**overrides):
     return {"id": "synthetic", "api_key": "synthetic", "base_url": "https://api.deepseek.com",
-            "model_name": "deepseek-v4-flash", "max_tokens": 384000, **overrides}
+            "model_name": "deepseek-v4-flash", "max_tokens": 384000, "context_window_tokens":1048576, **overrides}
 
 
 @pytest.mark.parametrize("char_limit", [context.DETAIL_CHAR_LIMIT])
@@ -31,12 +31,12 @@ def test_administrator_output_limit_is_never_increased(saved):
 
 
 def test_remaining_context_includes_system_and_schema():
-    original = config(base_url="https://unknown.example", max_tokens=131072)
+    original = config(base_url="https://unknown.example", max_tokens=131072, context_window_tokens=32768)
     messages = [{"role": "system", "content": "规则"}, {"role": "user", "content": "中" * 20000}]
     schema = {"type": "object", "description": "完整结构" * 100}
     budgeted, _, estimate = context.checked_config(original, messages, schema, 60000)
     assert estimate > context._token_estimate(messages[-1]["content"])
-    assert 0 < budgeted["_match_output_tokens"] <= context.UNKNOWN_CONTEXT_CEILING - estimate
+    assert 0 < budgeted["_match_output_tokens"] <= original["context_window_tokens"] - estimate
     # Adding system/schema text can exhaust context even when raw user input fits.
     with pytest.raises(MatchInputBudgetError):
         context.checked_config(original, messages, {"description": "中" * 10000}, 60000)

@@ -4,7 +4,7 @@ import httpx
 from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
-from .model_resolver import ModelConfigurationError
+from .model_resolver import ModelConfigurationError, ModelContextCapacityError
 from .ai_client import ModelResponseError
 
 STAGES={'understanding':'需求理解','tag_suggestion':'标签建议','partner_match':'伙伴推荐','partner_data':'伙伴数据读取','demand_profile':'需求画像','project_opportunity':'项目机会','recommendation_data':'推荐结果','persistence':'结果保存','interrupted':'执行中断','configuration':'模型配置','analysis':'方向分析','retrieval':'资源检索','generation':'建议生成','run_timeout':'执行时限'}
@@ -12,6 +12,7 @@ LEGACY_REASONS={
  'timeout':('模型响应超时，本次处理未完成','稍后重试'),
  'rate_limit':('模型服务当前繁忙或请求受限','稍后重试'),
  'configuration':('当前模型配置不可用','联系管理员检查模型配置'),
+ 'context_capacity':('该模型尚未配置总上下文容量，请管理员填写后重试，或返回切换模型。','联系管理员'),
  'authentication':('模型服务认证失败','联系管理员检查模型访问凭据'),
  'connection':('暂时无法连接模型服务','稍后重试；持续失败请联系管理员'),
  'provider':('模型服务返回异常','稍后重试；持续失败请联系管理员'),
@@ -35,6 +36,7 @@ MODEL_REASONS={
  'connection':'暂时无法连接模型服务，可以重试或返回切换模型。',
  'provider':'模型服务返回异常，可以重试或返回切换模型。',
  'configuration':'当前模型暂不可用。请切换模型，或联系管理员。',
+ 'context_capacity':'该模型尚未配置总上下文容量，请管理员填写后重试，或返回切换模型。',
  'authentication':'当前模型暂不可用。请切换模型，或联系管理员。',
  'invalid_result':'模型返回内容未能完成解析。可以重试或切换模型。',
 }
@@ -65,6 +67,7 @@ def classify(error=None,stage=None):
  if isinstance(error,MatchInputBudgetError):return 'input_budget'
  if stage=='run_timeout':return 'run_timeout'
  if stage=='interrupted':return 'interrupted'
+ if isinstance(error,ModelContextCapacityError):return 'context_capacity'
  if isinstance(error,ModelConfigurationError):return 'configuration'
  if isinstance(error,(httpx.TimeoutException,TimeoutError)):return 'timeout'
  if isinstance(error,httpx.HTTPStatusError):
