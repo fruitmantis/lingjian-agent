@@ -56,7 +56,7 @@ def extract_text(file_path: str, file_type: str) -> str:
         from PyPDF2 import PdfReader
         reader = PdfReader(str(p), strict=False)
         if reader.is_encrypted and not reader.decrypt(''): raise ValueError('PDF 已加密，无法提取文字')
-        return '\n\n'.join(filter(None, (page.extract_text() for page in reader.pages))).strip()
+        return '\n\n'.join(filter(None, (page.extract_text() for page in reader.pages))).strip().replace('\x00','')
     if file_type == 'docx':
         from docx import Document
         from docx.table import Table
@@ -74,7 +74,7 @@ def extract_text(file_path: str, file_type: str) -> str:
                             seen.add(cell._tc); values.append('\n'.join(blocks(cell)))
                         result.append('\t'.join(values))
             return result
-        return '\n'.join(blocks(doc)).strip()
+        return '\n'.join(blocks(doc)).strip().replace('\x00','')
     if file_type == 'pptx':
         from pptx import Presentation
         from pptx.enum.shapes import MSO_SHAPE_TYPE
@@ -89,7 +89,7 @@ def extract_text(file_path: str, file_type: str) -> str:
         for i,slide in enumerate(Presentation(str(p)).slides, 1):
             content='\n'.join(t for t in shapes_text(slide.shapes) if t.strip())
             if content: pages.append(f'第 {i} 页\n{content}')
-        return '\n\n'.join(pages)
+        return '\n\n'.join(pages).replace('\x00','')
     raw=decode_text(p.read_bytes())
     if file_type == 'txt': return raw.strip()
     if file_type == 'markdown': return html_text(markdown_html(raw))

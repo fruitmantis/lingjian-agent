@@ -65,7 +65,7 @@ export function PartnerMaterialsManager(){
     </form>
     {notice&&<div role="status" className={styles.notice}><span>资料已保存，{notice.name}的画像按有效来源更新；附件处理结果请在详情中查看。</span><div className="table-actions"><Link href={`/admin/partners/${encodeURIComponent(notice.id)}#profile`} className="secondary-btn">查看画像和处理状态</Link><button className="secondary-btn" onClick={()=>setNotice(null)}>关闭提示</button></div></div>}
     {error&&<div className="inline-error-actions"><p role="alert" className="error-text">{error}</p><button className="secondary-btn" onClick={refresh}>重试</button></div>}
-    {loading&&<p className="muted" role="status">正在加载资料…</p>}
+    <p className="muted" role="status" style={{height:"1lh"}}>{loading?"正在加载资料…":null}</p>
     {!error&&groups.map(g=>{const entries=data.items.filter(e=>g.id==='unclassified'?!e.category_id:g.ids.includes(e.category_id||''));if(!entries.length)return null;return <section key={g.id} className={styles.group} aria-label={g.name}><div className={styles.groupHeading}><h2>{g.name}</h2><span/></div><div className={styles.grid}>{entries.map(entry=><article key={entry.kind+entry.id} className={`ui-catalog-card ${styles.card}`} data-material-id={entry.id}>
       <div className={styles.cardTop}><span className={styles.tag}>{categoryName(entry.category_id)}</span><small>{entry.visible?'已展示':'未展示'}</small></div>
       <h3><button onClick={()=>setSelected(entry)}>{entry.title}</button></h3><p className={styles.partner}>{entry.partner_name}</p>

@@ -229,3 +229,96 @@ for(const width of [1440,390])test('material controls: aligned controls and pagi
   await page.getByRole('navigation',{name:'伙伴资料分页'}).scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('materials-pagination-'+width+'.png')});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+function loadingCatalogue(prefix:string,state='ready',total=21,count=10){
+  return {items:Array.from({length:count},(_,i)=>({kind:'case',id:'loading-row-'+i,partner_id:'loading-partner',partner_name:'合成加载伙伴',title:prefix+' '+i,description:'合成加载显示验证。',category_id:'technical-1',visible:false,file_count:1,processing_status:state,updated_at:'2026-10-25T00:00:00Z',profile_needs_update:false})),total,partners:[{id:'loading-partner',name:'合成加载伙伴'}]};
+}
+async function loadingFixture(page:Page){
+  const session=adminSession();await setSession(page,session);
+  const releases:Array<()=>void>=[],errors:string[]=[];let requests=0;
+  type Reply={body:unknown;status:number;wait:Promise<void>;seen:()=>void};
+  let current:Reply;
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.route('**/api/**',async route=>{
+    expect(route.request().method()).toBe('GET');
+    const path=new URL(route.request().url()).pathname.slice(4);
+    if(path==='/admin/partner-materials'){
+      requests++;const reply=current;reply.seen();await reply.wait;
+      return route.fulfill({status:reply.status,json:reply.body});
+    }
+    const body=path==='/auth/me'?session.user:path==='/health'?{status:'ok'}:path.startsWith('/cases/')&&path.endsWith('/deliverables')?[]:{};
+    await route.fulfill({json:body});
+  });
+  await mockDeviceSession(page);
+  return {
+    hold(body:unknown,status=200){
+      let release!:()=>void,seen!:()=>void;
+      const wait=new Promise<void>(resolve=>release=resolve),requested=new Promise<void>(resolve=>seen=resolve);
+      current={body,status,wait,seen};releases.push(release);return {release,requested};
+    },
+    releaseAll:()=>releases.forEach(release=>release()),requests:()=>requests,errors
+  };
+}
+
+
+async function documentTop(target:import('@playwright/test').Locator){return target.evaluate(el=>el.getBoundingClientRect().top+window.scrollY);}
+async function fixedSlotPosition(slot:import('@playwright/test').Locator,card:import('@playwright/test').Locator,height:number,top:number){
+  expect(Math.abs((await slot.boundingBox())!.height-height)).toBeLessThanOrEqual(.5);
+  expect(Math.abs(await documentTop(card)-top)).toBeLessThanOrEqual(.5);
+}
+
+test('loading slot: paging filtering and closing detail do not shift the retained list',async({page},info)=>{
+  const f=await loadingFixture(page);await page.setViewportSize({width:1440,height:1000});
+  const slot=page.locator('main.page > p.muted[role="status"]'),card=page.locator('[data-material-id]').first(),pager=page.getByRole('navigation',{name:'伙伴资料分页'});
+  try{
+    const first=f.hold(loadingCatalogue('首批资料'));await page.goto('/admin/partner-materials');await first.requested;
+    await expect(slot).toHaveText('正在加载资料…');const height=(await slot.boundingBox())!.height;expect(height).toBeGreaterThan(0);
+    first.release();await expect(page.getByRole('button',{name:'首批资料 0',exact:true})).toBeVisible();await expect(slot).toHaveText('');
+    await page.evaluate(()=>document.fonts.ready);const top=await documentTop(card);await fixedSlotPosition(slot,card,height,top);
+    const second=f.hold(loadingCatalogue('翻页刷新内容'));await pager.getByRole('button',{name:'下一页',exact:true}).click();await second.requested;
+    await expect(slot).toHaveText('正在加载资料…');await expect(page.getByRole('button',{name:'首批资料 0',exact:true})).toBeVisible();await fixedSlotPosition(slot,card,height,top);
+    second.release();await expect(page.getByRole('button',{name:'翻页刷新内容 0',exact:true})).toBeVisible();await expect(slot).toHaveText('');await fixedSlotPosition(slot,card,height,top);
+    const filtered=f.hold(loadingCatalogue('失败筛选内容','failed'));await page.getByLabel('状态',{exact:true}).selectOption('failed');await filtered.requested;
+    await expect(slot).toHaveText('正在加载资料…');await fixedSlotPosition(slot,card,height,top);
+    filtered.release();await expect(page.getByRole('button',{name:'失败筛选内容 0',exact:true})).toBeVisible();await expect(slot).toHaveText('');await fixedSlotPosition(slot,card,height,top);
+    await card.getByRole('button',{name:'查看与管理',exact:true}).click();const detail=page.getByRole('dialog',{name:'失败筛选内容 0',exact:true});await expect(detail).toBeVisible();
+    const closed=f.hold(loadingCatalogue('详情关闭后更新','failed'));await detail.getByRole('button',{name:'关闭',exact:true}).click();await closed.requested;
+    await expect(slot).toHaveText('正在加载资料…');await fixedSlotPosition(slot,card,height,top);
+    await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:info.outputPath('loading-slot-during-refresh-1440.png')});
+    closed.release();await expect(page.getByRole('button',{name:'详情关闭后更新 0',exact:true})).toBeVisible();await expect(slot).toHaveText('');await fixedSlotPosition(slot,card,height,top);
+    await page.screenshot({path:info.outputPath('loading-slot-after-refresh-1440.png')});expect(f.errors).toEqual([]);
+  }finally{f.releaseAll();}
+});
+
+test('loading slot: polling updates content without shifting the retained card',async({page})=>{
+  const f=await loadingFixture(page),slot=page.locator('main.page > p.muted[role="status"]'),card=page.locator('[data-material-id]').first();
+  try{
+    const first=f.hold(loadingCatalogue('处理中资料','processing',1,1));await page.goto('/admin/partner-materials');await first.requested;
+    await expect(slot).toHaveText('正在加载资料…');const height=(await slot.boundingBox())!.height;
+    first.release();await expect(page.getByRole('button',{name:'处理中资料 0',exact:true})).toBeVisible();await expect(slot).toHaveText('');await page.evaluate(()=>document.fonts.ready);
+    const top=await documentTop(card),polled=f.hold(loadingCatalogue('轮询更新资料','processing',1,1));await polled.requested;
+    await expect(slot).toHaveText('正在加载资料…');await fixedSlotPosition(slot,card,height,top);polled.release();
+    await expect(page.getByRole('button',{name:'轮询更新资料 0',exact:true})).toBeVisible();await expect(slot).toHaveText('');await fixedSlotPosition(slot,card,height,top);
+    const completed=f.hold(loadingCatalogue('处理已完成资料','ready',1,1));await completed.requested;
+    await expect(slot).toHaveText('正在加载资料…');await fixedSlotPosition(slot,card,height,top);completed.release();
+    await expect(page.getByRole('button',{name:'处理已完成资料 0',exact:true})).toBeVisible();await expect(slot).toHaveText('');await fixedSlotPosition(slot,card,height,top);
+    const count=f.requests();await page.waitForTimeout(2200);expect(f.requests()).toBe(count);expect(f.errors).toEqual([]);
+  }finally{f.releaseAll();}
+});
+
+test('loading slot: initial errors retry and empty-result rules remain unchanged',async({page},info)=>{
+  const f=await loadingFixture(page);await page.setViewportSize({width:390,height:844});
+  const slot=page.locator('main.page > p.muted[role="status"]'),empty=page.getByText('暂无符合条件的资料。',{exact:true}),pager=page.getByRole('navigation',{name:'伙伴资料分页'});
+  try{
+    const first=f.hold({detail:'合成列表读取失败'},503);await page.goto('/admin/partner-materials');await first.requested;await expect(slot).toHaveText('正在加载资料…');
+    const height=(await slot.boundingBox())!.height;first.release();await expect(page.getByRole('alert').filter({hasText:'服务异常，请联系管理员。'})).toBeVisible();await expect(page.getByText('合成列表读取失败',{exact:true})).toHaveCount(0);await expect(slot).toHaveText('');
+    expect(Math.abs((await slot.boundingBox())!.height-height)).toBeLessThanOrEqual(.5);await expect(empty).toHaveCount(0);
+    const retry=f.hold(loadingCatalogue('空结果','ready',0,0));await page.getByRole('button',{name:'重试',exact:true}).click();await retry.requested;
+    await expect(slot).toHaveText('正在加载资料…');expect(Math.abs((await slot.boundingBox())!.height-height)).toBeLessThanOrEqual(.5);await expect(empty).toHaveCount(0);
+    retry.release();await expect(empty).toBeVisible();await expect(slot).toHaveText('');expect(Math.abs((await slot.boundingBox())!.height-height)).toBeLessThanOrEqual(.5);
+    const filtered=f.hold(loadingCatalogue('仍为空','ready',0,0));await page.getByLabel('状态',{exact:true}).selectOption('failed');await filtered.requested;
+    await expect(slot).toHaveText('正在加载资料…');await expect(pager).toHaveAttribute('aria-busy','true');await expect(empty).toHaveCount(0);
+    filtered.release();await expect(empty).toBeVisible();await expect(slot).toHaveText('');expect(Math.abs((await slot.boundingBox())!.height-height)).toBeLessThanOrEqual(.5);
+    await slot.scrollIntoViewIfNeeded();await page.screenshot({path:info.outputPath('loading-slot-idle-empty-390.png')});expect(f.errors).toEqual([]);
+  }finally{f.releaseAll();}
+});
