@@ -19,7 +19,8 @@ from scripts.tests.test_slow_model_simulation import Capture, upstream
 
 def test_loopback_transport_preserves_provider_options_and_large_input_budget(monkeypatch):
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET base_url='https://api.deepseek.com',model_name='deepseek-v4-flash',api_key='synthetic-only-key',api_key_source='db'")
+        conn.execute("UPDATE model_providers SET base_url='https://api.deepseek.com',api_key='synthetic-only-key',api_key_source='db'")
+        conn.execute("UPDATE model_configs SET model_name='deepseek-v4-flash'")
     config = resolve_model_record('partner_match')
     messages = [{'role': 'user', 'content': '资料' * 14000}]
     schema = {'type': 'object'}

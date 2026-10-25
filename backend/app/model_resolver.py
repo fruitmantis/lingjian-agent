@@ -60,6 +60,16 @@ def _resolve_api_key(row) -> str:
     return ""
 
 
+# Connection fields have a single persisted source: the owning provider.
+MODEL_SELECT = """SELECT m.*, p.name AS provider, p.base_url, p.protocol,
+    p.api_key, p.api_key_source, p.api_key_env_name
+    FROM model_configs m JOIN model_providers p ON p.id=m.provider_id"""
+
+def model_record(connection, model_id, *, enabled_only=False):
+    return connection.execute(MODEL_SELECT + ' WHERE m.id=?' +
+        (' AND m.enabled=1' if enabled_only else ''), (model_id,)).fetchone()
+
+
 def resolve_model_record(scene: str = "default", *, read_only: bool = False, connection=None) -> dict:
     """Resolve one agent/processing connection; no scene/default override chain."""
     if connection is None:
@@ -68,7 +78,7 @@ def resolve_model_record(scene: str = "default", *, read_only: bool = False, con
     agent_id=agent_settings.owner(scene)
     frozen=agent_settings.current_execution()
     selected=frozen if frozen and frozen['agentId']==agent_id else agent_settings.execution(connection,agent_id)
-    row=connection.execute('SELECT * FROM model_configs WHERE id=? AND enabled=1',(selected['modelConfigId'],)).fetchone()
+    row=model_record(connection, selected['modelConfigId'], enabled_only=True)
     if row is None:raise ModelConfigurationError('请为该智能体选择已启用的模型连接')
     return {**dict(row),'_agent_execution':selected}
 
@@ -88,7 +98,7 @@ def pinned_configuration(stamp: dict, connection=None) -> dict:
     if connection is None:
         with get_db() as conn:
             return pinned_configuration(stamp, conn)
-    row = connection.execute('SELECT * FROM model_configs WHERE id=? AND enabled=1', (stamp['id'],)).fetchone()
+    row = model_record(connection, stamp['id'], enabled_only=True)
     if row is None:
         raise ModelConfigurationError('本次运行的模型已停用或删除，请重试以使用当前配置')
     config = dict(row)
@@ -105,7 +115,7 @@ def resolve_model_config(scene: str = "default", *, read_only: bool = False) -> 
 def validate_model_retry(config: dict):
     """Do not switch providers or send another request after settings/enablement change."""
     with get_readonly_db() as conn:
-        row = conn.execute('SELECT * FROM model_configs WHERE id=?', (config['id'],)).fetchone()
+        row = model_record(conn, config['id'])
     current=dict(row) if row else {}
     if config.get('_agent_execution'):current['_agent_execution']=config['_agent_execution']
     if (row is None or row['enabled'] != config['enabled']

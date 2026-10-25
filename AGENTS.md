@@ -6,7 +6,7 @@
 - 正式工作目录：`/home/yuan/project/lingjian-agent-enablement`；当前开发分支：`main`。
 - 该目录已升格为正式 main 工作区，不再是独立功能试验环境。legacy 目录、旧 feature 分支和其他历史 worktree 均不得作为正式开发环境；不修改或启动 legacy 服务。
 - WSL Ubuntu 24.04；前端 Next.js 15 / React 19 / TypeScript，端口 **3000**；后端 FastAPI / Python，端口 **8000**。
-- 正式数据库：**PostgreSQL 16，schema version 20**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
+- 正式数据库：**PostgreSQL 16，代码要求 schema version 22（提供商拆分；现有库须先显式备份迁移，启动不自动迁移）**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
 - 连接由私有 `.isolation/runtime/dev/environment.json` 中 `DATABASE_URL` 指定，缺失或失败直接报错，不自动回退其他数据库。
 - 上传目录 `.isolation/runtime/dev/uploads`，日志 `.isolation/logs/`；旧数据库文件仅在核验无独有数据和有效引用后删除；未能确认的私有备份保留并记录，不参与运行。
 - 工程、模块、API、字段及 `LINGJIAN_*` 技术标识不因产品更名而重命名。
@@ -79,7 +79,7 @@
 
 ## 模型与测试桩
 
-- 管理后台使用两个固定智能体 `partner_match`（伙伴推荐）、`partner_development`（伙伴发展），分别配置名称、简介、图标、启停、模型、思考及超时；“基础配置”负责独立来源摘要与画像整理，文件解析本身不调用模型。复用模型连接与 `app_metadata` 的 `agent_settings_v1` 键，不新增通用注册或表。初始化默认官方 `https://api.deepseek.com` / `deepseek-flash`，思考默认开启，不擅自修改现有连接或 Key。旧七场景与全局超时首次迁移时事务归档，旧管理接口返回 410。
+- 管理后台使用两个固定智能体 `partner_match`（伙伴推荐）、`partner_development`（伙伴发展），分别配置名称、简介、图标、启停、模型、思考及超时；“基础配置”负责独立来源摘要与画像整理，文件解析本身不调用模型。复用模型与 `app_metadata` 的 `agent_settings_v1` 键；连接由 `model_providers` 单一保存，`model_configs.provider_id` 关联提供商，模型 ID、默认引用和历史快照保留。初始化默认官方 `https://api.deepseek.com` / `deepseek-flash`，思考默认开启，不擅自修改现有连接或 Key。旧七场景与全局超时首次迁移时事务归档，旧管理接口返回 410。
 - 用户已授权按现有业务权限发送所需伙伴资料/画像、案例说明、项目需求、对话和授权资源；伙伴画像生成包括上传文档提取文本。能力发展仍按现有最小上下文规则排除内部附件和未展示案例原文。
 - 日常开发和人工体验用真实模型；本地 mock 停用。新运行只使用所属智能体的明确模型选择，无有效连接即报错。受理时保存模型选择、思考和超时快照，管理员后续修改智能体设置不改变已受理运行；停用智能体拒绝新建、续问和重试，历史结果与任务归属保留。后续调用仍重检连接本身，连接停用、删除或参数变化时停止尚未发出的调用，已发出的不强行中止，已有结果保留，重试才重新选择。管理员仍可删除模型配置，清理关联引用并记录脱敏审计，不能因此删除任务、结果、版本或归属。
 - 单元故障注入和显式 replay 只在隔离测试环境使用。模型集成测试须限定场景、数据和次数，记录实际请求；批量业务调用需事先说明范围/费用，不自动批量执行。

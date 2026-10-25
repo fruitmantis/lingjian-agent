@@ -18,7 +18,7 @@ CORRECTED='已经能交付 RAG 知识库，并有 Python 开发经验'
 @pytest.fixture
 def replay(prepared,monkeypatch):
     calls=[]
-    with get_db() as conn:conn.execute("UPDATE model_configs SET api_key='synthetic-only',api_key_source='db'")
+    with get_db() as conn:conn.execute("UPDATE model_providers SET api_key='synthetic-only',api_key_source='db'")
     def complete(config,messages,schema):
         from backend.tests.support.development_mock import response
         data=json.loads(messages[-1]['content']);calls.append(copy.deepcopy(data))
@@ -156,7 +156,7 @@ def schema18_existing_development(prepared):
     with get_db() as conn:
         assert conn.execute('SELECT current_database()').fetchone()[0] in ('banfei_agent_test','banfei_validation')
         assert conn.execute('SELECT current_schema()').fetchone()[0].startswith('validation_')
-        assert conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0]=='21'
+        assert conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0]=='22'
         assert conn.execute('SELECT count(*) FROM partner_profile_sources').fetchone()[0]==0
         assert conn.execute("SELECT count(*) FROM app_metadata WHERE key LIKE 'profile_source_legacy:%'").fetchone()[0]==0
         # Rebuild the historical structure in this invocation's disposable schema.

@@ -1,3 +1,4 @@
+from .support.models import create_model
 """Model selection and recovery contracts, isolated PostgreSQL and synthetic responses only."""
 import json,uuid
 import httpx,pytest
@@ -16,7 +17,7 @@ from .test_partner_match_stages import answer
 
 
 def another(selectable=True):
- return model_config.create_config(model_config.ModelConfigCreate(name='合成模型B',baseUrl='https://synthetic.invalid/v1',modelName='synthetic-b',apiKey='synthetic-only',userSelectable=selectable)).id
+ return create_model(name='合成模型B',baseUrl='https://synthetic.invalid/v1',modelName='synthetic-b',apiKey='synthetic-only',userSelectable=selectable).id
 
 
 def test_options_are_authenticated_minimal_and_do_not_open_processing(client):

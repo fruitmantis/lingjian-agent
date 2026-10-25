@@ -1,7 +1,17 @@
 import type {Page} from '@playwright/test';
+import {mockDeviceSession} from './device-session-fixture';
 
 const stamp = '2026-09-28T02:30:00Z';
 export const partner = {id:'coze-partner',name:'远航数智（合成演示）',capabilities:'数据库迁移、系统集成',industries:'金融',service_areas:'广东',intro:'面向企业数字化项目提供系统集成与交付服务。',ai_profile:'已有数据库迁移与系统集成项目基础。建议先验证应用集成、数据质量和回退能力，再逐步扩展 Agent 交付场景。'};
+export const agents=[
+ {id:'partner_match',name:'伙伴推荐',description:'根据需求寻找合适的交付伙伴。',icon:'users',enabled:true},
+ {id:'partner_development',name:'伙伴发展',description:'提供发展建议与合适的资源。',icon:'trend',enabled:true},
+];
+const modelOptions={modelConfigId:'model-1',thinking:true,timeoutSeconds:300,timeoutRetries:3};
+export const agentSettings={agents:Object.fromEntries(agents.map(({id,...agent})=>[id,{...modelOptions,...agent}])),processing:{...modelOptions}};
+export const modelProvider={id:'provider-1',name:'合成供应商',baseUrl:'https://example.com/v1',protocol:'openai_chat_completions',apiKeyConfigured:true,apiKeySource:'db',modelCount:1,createdAt:stamp,updatedAt:stamp};
+export const modelConfig={id:'model-1',providerId:modelProvider.id,providerName:modelProvider.name,name:'界面验收配置',modelName:'example-model',temperature:.2,topP:1,maxTokens:8192,enabled:true,isDefault:true,userSelectable:true,defaultBindings:['partner_match','partner_development','processing'],createdAt:stamp,updatedAt:stamp};
+export const modelMenu={models:[{id:modelConfig.id,name:modelConfig.name,isDefault:true}],defaultModelConfigId:modelConfig.id,agentEnabled:true,unavailableReason:null};
 const user = {id:'coze-user',username:'ui-review',display_name:'界面验收',role:'user',status:'active',must_change_password:false};
 const roles = [{id:'role-1',name:'解决方案架构师'},{id:'role-2',name:'开发工程师'},{id:'role-3',name:'运维工程师'}];
 const zones = [{id:'zone-1',name:'人工智能'},{id:'zone-2',name:'数据库'}];
@@ -13,6 +23,8 @@ export const match = {id:'coze-match',task_type:'partner_match',requirement:'寻
 
 export async function fixture(page:Page) {
   const data=structuredClone(plan), requests:{path:string;method:string;body:any}[]=[],unexpected:string[]=[];
+  const identityRestores:boolean[]=[];
+  page.on('request',request=>{if(new URL(request.url()).pathname==='/api/auth/identity/session'&&request.method()==='POST')identityRestores.push(request.postDataJSON()?.create??false);});
   await page.addInitScript(user=>{localStorage.setItem('banfei:user:token','synthetic-ui-only');localStorage.setItem('banfei:user:user',JSON.stringify(user));},user);
   await page.route('**/*',async route=>{
     const req=route.request(),url=new URL(req.url());
@@ -25,6 +37,7 @@ export async function fixture(page:Page) {
     let json:unknown;
     if(p==='/health')json={status:'ok'};
     else if(p==='/auth/me')json=user;
+    else if(p==='/agents')json=agents;
     else if(p==='/agent/tasks'&&req.method()==='POST')json={...match,id:req.postDataJSON().requestId};
     else if(p==='/agent/tasks')json={items:[{...match,topPartner:partner.name,partnerCount:1},{id:'coze-plan',task_type:'development_plan',requirement:'企业级 Agent 项目交付能力发展',taskStatus:'ready',createdAt:stamp,planPresentation:data.presentation}],total:2,page:1,pageSize:20,totalPages:1};
     else if(p==='/agent/tasks/coze-plan')json={id:'coze-plan',task_type:'development_plan',requirement:'企业级 Agent 项目交付能力发展',taskStatus:'ready',createdAt:stamp,planPresentation:data.presentation};
@@ -32,7 +45,7 @@ export async function fixture(page:Page) {
     else if(p==='/development/plans'&&req.method()==='POST')json={plan_id:'coze-plan'};
     else if(p==='/development/plans/coze-plan/conversation') {data.conversation.push({...req.postDataJSON(),answer:'建议先对照接口清单，验证异常处理与回退。当前建议仍可使用。'});json={};}
     else if(p==='/development/plans/coze-plan')json=data;
-    else if(p==='/partners')json=[partner];
+    else if(p==='/partners'||p==='/partners/profiles')json=[partner];
     else if(p==='/enablement/context')json={partner:url.searchParams.get('partner_id')?partner:null,evidence:[{source_type:'case',source_id:'case-0',title:'系统集成交付案例（合成）'}],project:null,shared_case:null};
     else if(p==='/enablement/resource-filters')json={roles,zones};
     else if(p==='/enablement/resources')json={items:Array.from({length:6},(_,i)=>resource(url.searchParams.get('source_type')||'course',i)),total:6};
@@ -42,5 +55,7 @@ export async function fixture(page:Page) {
     else {unexpected.push(p);return route.abort();}
     return route.fulfill({json});
   });
-  return {requests,unexpected};
+  await mockDeviceSession(page);
+  await page.route('**/api/agents/*/models',route=>route.fulfill({json:modelMenu}));
+  return {requests,unexpected,identityRestores};
 }

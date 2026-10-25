@@ -8,7 +8,7 @@ from backend.tests.conftest import make_user,make_task
 
 def install(monkeypatch, answer=None, facts=None):
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET api_key_source='db',api_key='synthetic-only',base_url='https://synthetic.invalid/v1'")
+        conn.execute("UPDATE model_providers SET api_key_source='db',api_key='synthetic-only',base_url='https://synthetic.invalid/v1'")
     calls=[]
     def complete(config,messages,schema):
         title=schema['title'];calls.append(title)

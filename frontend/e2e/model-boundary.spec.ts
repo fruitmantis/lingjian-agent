@@ -3,7 +3,7 @@ import {test, expect} from '@playwright/test';
 
 test('model deletion supports cancel, success and server errors', async ({page}) => {
   const configs = ['unused', 'referenced'].map(id => ({
-    id, name: id === 'unused' ? '默认首选模型' : '待删除模型', provider: 'Synthetic',
+    id, name: id === 'unused' ? '默认首选模型' : '待删除模型', providerId:'provider-1', providerName:'合成提供商',
     baseUrl: 'https://model.invalid/v1', modelName: 'synthetic', maxTokens: 1024,
     temperature: 0.3, topP: 1, userSelectable: false, enabled: true, isDefault: id === 'unused', apiKeyConfigured: true,
   }));
@@ -17,6 +17,7 @@ test('model deletion supports cancel, success and server errors', async ({page})
     if (path === '/health') return route.fulfill({json:{status:'ok'}});
     if (path === '/auth/me') return route.fulfill({json: {id:'admin',role:'admin',status:'active',must_change_password:false}});
     if (path === '/admin/agents') { const options={modelConfigId:'unused',thinking:true,timeoutSeconds:300,timeoutRetries:3}; return route.fulfill({json:{agents:{partner_match:{...options,name:'伙伴匹配',description:'',icon:'users',enabled:true},partner_development:{...options,name:'伙伴发展',description:'',icon:'trend',enabled:true}},processing:options}}); }
+    if (path === '/admin/model-providers') return route.fulfill({json:[{id:'provider-1',name:'合成提供商',baseUrl:'https://model.invalid/v1',protocol:'openai_chat_completions',apiKeyConfigured:true,apiKeySource:'db',updatedAt:'2026'}]});
     if (path === '/admin/model-configs') return route.fulfill({json: configs.filter(c => !deleted.includes(c.id))});
     if (path === '/admin/model-configs/timeout-settings') return route.fulfill({json:{timeoutSeconds:300,timeoutRetries:3}});
     if (path === '/admin/model-configs/usage') return route.fulfill({json: []});
@@ -30,26 +31,26 @@ test('model deletion supports cancel, success and server errors', async ({page})
   });
   await mockDeviceSession(page);
   await page.goto('/admin/models');
-  await page.getByRole('tab',{name:'模型连接',exact:true}).click();
-  const unused = page.getByRole('button',{name:/默认首选模型/});
-  await unused.click();
+  await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+  const unused = page.getByRole('article',{name:'默认首选模型',exact:true});
+  await unused.getByRole('button',{name:'编辑',exact:true}).click();
   page.once('dialog', dialog => dialog.dismiss());
-  await page.getByRole('button', {name:'删除',exact:true}).click();
-  await expect(unused).toBeVisible();
+  await page.getByRole('button', {name:'删除模型',exact:true}).click();
+  await expect(page.getByLabel('显示名称',{exact:true})).toHaveValue('默认首选模型');
   expect(deleted).toEqual([]);
   page.once('dialog', async dialog => {
     expect(dialog.message()).toContain('请先更换其模型选择');
     await dialog.accept();
   });
-  await page.getByRole('button', {name:'删除',exact:true}).click();
+  await page.getByRole('button', {name:'删除模型',exact:true}).click();
   await expect(unused).toHaveCount(0);
   expect(deleted).toEqual(['unused']);
   page.once('dialog', dialog => dialog.accept());
-  const referenced = page.getByRole('button',{name:/待删除模型/});
-  await referenced.click();
-  await page.getByRole('button', {name:'删除',exact:true}).click();
+  const referenced = page.getByRole('article',{name:'待删除模型',exact:true});
+  await referenced.getByRole('button',{name:'编辑',exact:true}).click();
+  await page.getByRole('button', {name:'删除模型',exact:true}).click();
   await expect(page.getByRole('alert').filter({hasText:'服务异常'})).toContainText('请联系管理员');
-  await expect(referenced).toBeVisible();
+  await expect(page.getByLabel('显示名称',{exact:true})).toHaveValue('待删除模型');
   expect(unexpected).toEqual([]);
 });
 

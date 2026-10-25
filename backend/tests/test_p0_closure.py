@@ -76,7 +76,8 @@ def safe_status(client, monkeypatch):
     monkeypatch.setattr(httpx.Client, 'post', no_call)
     monkeypatch.setattr(httpx.AsyncClient, 'post', no_call)
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET base_url='http://127.0.0.1:18180/v1',api_key='synthetic-only',api_key_source='db',enabled=1,is_default=1")
+        conn.execute("UPDATE model_providers SET base_url='http://127.0.0.1:18180/v1',api_key='synthetic-only',api_key_source='db'")
+        conn.execute("UPDATE model_configs SET enabled=1,is_default=1")
         conn.execute('UPDATE model_usage_configs SET model_config_id=NULL')
     return make_user('p0-status-admin', role='admin')
 
@@ -125,6 +126,6 @@ def test_invalid_run_timestamps_never_invent_duration(prepared, client, safe_sta
 
 def test_status_accepts_configured_external_model_without_probing(client, safe_status):
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET base_url='https://model.invalid/v1'")
+        conn.execute("UPDATE model_providers SET base_url='https://model.invalid/v1'")
     d = status_data(client,safe_status)
     assert d['status'] != 'error' and '模型配置可用' in d['message']

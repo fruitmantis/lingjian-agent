@@ -16,7 +16,7 @@ from backend.app import enablement
 @pytest.fixture
 def unified(prepared, monkeypatch):
     user,other,admin,request=prepared
-    with get_db() as conn:conn.execute("UPDATE model_configs SET api_key='synthetic-only',api_key_source='db'")
+    with get_db() as conn:conn.execute("UPDATE model_providers SET api_key='synthetic-only',api_key_source='db'")
     for i in range(1,4):
         row=enablement.save('resource',f'unified-lab-{i}',enablement.ResourceSave(base_revision=0,metadata=enablement.ResourceMetadata(
             resource_type='lab',title=f'数据库迁移实验{i}',summary='数据库迁移与回退验证',lab_goals='验证数据库迁移和回退',level='advanced',source_url=f'https://example.com/lab/{i}')),admin['id'])

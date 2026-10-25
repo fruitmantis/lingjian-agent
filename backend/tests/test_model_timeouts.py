@@ -208,7 +208,7 @@ def test_real_loopback_request_timeouts_and_recovery(kind, monkeypatch):
     worker.start()
     try:
         with get_db() as conn:
-            conn.execute('UPDATE model_configs SET base_url=?', (f'http://127.0.0.1:{server.server_port}/v1',))
+            conn.execute('UPDATE model_providers SET base_url=?', (f'http://127.0.0.1:{server.server_port}/v1',))
         assert invoke(kind) == 'synthetic result'
         assert len(requests) == 4 and all(item == requests[0] for item in requests)
         assert len(diagnostics.recent_errors()) == 3

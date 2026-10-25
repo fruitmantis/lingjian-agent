@@ -39,7 +39,7 @@ def _legacy(conn):
     from .model_timeout_settings import TimeoutSettings
     row=conn.execute("SELECT value FROM app_metadata WHERE key='model_timeout_settings'").fetchone()
     timeout=TimeoutSettings.model_validate_json(row[0]) if row else TimeoutSettings()
-    models=[dict(r) for r in conn.execute('SELECT id,base_url,model_name,is_default FROM model_configs WHERE enabled=1 ORDER BY is_default DESC,created_at,id')]
+    models=[dict(r) for r in conn.execute('SELECT m.id,p.base_url,m.model_name,m.is_default FROM model_configs m JOIN model_providers p ON p.id=m.provider_id WHERE m.enabled=1 ORDER BY m.is_default DESC,m.created_at,m.id')]
     available={m['id'] for m in models}
     bindings={r['scene_key']:r['model_config_id'] for r in conn.execute('SELECT scene_key,model_config_id FROM model_usage_configs')}
     flash=next((m['id'] for m in models if urlsplit(m['base_url'] or '').hostname=='api.deepseek.com' and m['model_name'] in ('deepseek-flash','deepseek-v4-flash')),None)

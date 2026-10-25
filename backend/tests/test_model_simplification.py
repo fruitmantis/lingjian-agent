@@ -348,7 +348,7 @@ def test_probe_projects_extras_but_requires_strict_true(monkeypatch,value,succes
     from backend.app.routers.model_config import test_connection
     with get_db() as conn:
         config_id=conn.execute('SELECT id FROM model_configs ORDER BY id LIMIT 1').fetchone()[0]
-        conn.execute("UPDATE model_configs SET api_key='synthetic-only',api_key_source='db' WHERE id=?",(config_id,))
+        conn.execute("UPDATE model_providers SET api_key='synthetic-only',api_key_source='db' WHERE id=(SELECT provider_id FROM model_configs WHERE id=?)",(config_id,))
     monkeypatch.setattr(model,'completion',lambda *args:json.dumps(value))
     result=test_connection(config_id)
     assert result.success is success

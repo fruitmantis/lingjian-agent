@@ -2,12 +2,13 @@ import {test,expect,type Page} from '@playwright/test';
 import {mockDeviceSession} from './device-session-fixture';
 const raw='  企业知识库项目，希望找到实施伙伴。\n保留原文与交付约束。  ';
 const names:Record<string,string>={a:'合成模型A',b:'合成模型B',c:'合成模型C'};
-async function fixture(page:Page,admin=false){
+async function fixture(page:Page,admin=false,shared=false){
  const user={id:admin?'admin-model-qa':'user-model-qa',username:'model-qa',display_name:'合成测试用户',role:admin?'admin':'user',status:'active',must_change_password:false};
  await page.addInitScript(({user,admin})=>{localStorage.setItem(`banfei:${admin?'admin':'user'}:token`,'synthetic-model-token');localStorage.setItem(`banfei:${admin?'admin':'user'}:user`,JSON.stringify(user));},{user,admin});
- const state={posts:[] as Array<{path:string;body:any}>,records:new Map<string,any>(),removed:false,lose:false,followups:[] as any[],modelError:'timeout',partial:false,tests:0,saves:[] as any[],testPass:false,errors:[] as string[]};
+ const state={posts:[] as Array<{path:string;body:any}>,records:new Map<string,any>(),removed:false,lose:false,followups:[] as any[],modelError:'timeout',partial:false,tests:0,saves:[] as any[],providerSaves:[] as any[],testPass:false,errors:[] as string[]};
  const stamp=new Date().toISOString();
- const configs=['a','b','c'].map((id,i)=>({id,name:names[id],provider:'synthetic',baseUrl:'https://synthetic.invalid/v1',modelName:'synthetic-'+id,temperature:0.2,topP:0.8,maxTokens:2048,enabled:true,userSelectable:true,apiKeyConfigured:true,apiKeySource:'db',defaultBindings:id==='a'?['partner_match']:id==='c'?['partner_development']:[],updatedAt:stamp}));
+ const configs=['a','b','c'].map((id,i)=>({id,name:names[id],providerId:'provider-'+(shared&&id==='b'?'a':id),providerName:names[id],modelName:'synthetic-'+id,temperature:0.2,topP:0.8,maxTokens:2048,enabled:true,userSelectable:true,apiKeyConfigured:true,apiKeySource:'db',defaultBindings:id==='a'?['partner_match']:id==='c'?['partner_development']:[],updatedAt:stamp}));
+ const providers=['a','b','c'].map(id=>({id:'provider-'+id,name:names[id],baseUrl:'https://synthetic.invalid/v1',protocol:'openai_chat_completions',apiKeyConfigured:true,apiKeySource:'db',modelCount:1,updatedAt:stamp}));
  const opts={modelConfigId:'a',thinking:true,timeoutSeconds:300,timeoutRetries:3};const settings={agents:{partner_match:{...opts,name:'伙伴推荐',description:'根据项目需求寻找伙伴。',icon:'users',enabled:true},partner_development:{...opts,modelConfigId:'c',name:'伙伴发展',description:'提供发展建议。',icon:'trend',enabled:true}},processing:{...opts}};
  const fail=()=>[{stage:state.partial?'persistence':'understanding',stageLabel:state.partial?'结果保存':'需求理解',code:state.partial?'persistence':state.modelError,message:'untrusted raw error must not display',action:'',modelRelated:!state.partial}];
  const summary=(id:string,record:any)=>({id,task_type:record?.kind==='development'?'development_plan':'partner_match',requirement:record?.text||raw,createdAt:stamp,taskStatus:'failed',archivedAt:null});
@@ -19,6 +20,10 @@ async function fixture(page:Page,admin=false){
   if(path==='/health')return route.fulfill({json:{status:'ok'}});
   if(path==='/agents')return route.fulfill({json:Object.entries(settings.agents).map(([id,v])=>({id,...v}))});
   if(path==='/admin/agents')return route.fulfill({json:settings});
+  if(path==='/admin/model-providers'&&req.method()==='GET')return route.fulfill({json:providers});
+  if(path==='/admin/model-providers'&&req.method()==='POST'){const body=req.postDataJSON();state.providerSaves.push(body);const saved={...body,id:'provider-new',protocol:'openai_chat_completions',apiKey:undefined,apiKeyConfigured:!!body.apiKey,apiKeySource:'db',modelCount:0,updatedAt:new Date().toISOString()};providers.push(saved);return route.fulfill({status:201,json:saved});}
+  if(path.startsWith('/admin/model-providers/')&&req.method()==='PUT'){const body=req.postDataJSON();state.providerSaves.push(body);const provider=providers.find(p=>p.id===path.split('/')[3])!;Object.assign(provider,{...body,apiKey:undefined,updatedAt:new Date().toISOString()});return route.fulfill({json:provider});}
+  if(path==='/admin/model-configs'&&req.method()==='POST'){const body=req.postDataJSON();state.saves.push(body);const saved={...body,id:'new-model',defaultBindings:[],updatedAt:new Date().toISOString()};configs.push(saved);return route.fulfill({status:201,json:saved});}
   if(path==='/admin/model-configs'&&req.method()==='GET')return route.fulfill({json:configs});
   if(path.startsWith('/admin/model-configs/')&&path.endsWith('/test')){state.tests++;return route.fulfill({json:{success:state.testPass,message:state.testPass?'连接及 JSON 格式校验通过':'模型服务请求受限，请稍后重试',latencyMs:123}});}
   if(path.startsWith('/admin/model-configs/')&&req.method()==='PUT'){const body=req.postDataJSON();state.saves.push(body);const config=configs.find(c=>c.id===path.split('/')[3])!;Object.assign(config,body,{updatedAt:new Date().toISOString()});return route.fulfill({json:config});}
@@ -53,7 +58,7 @@ test('failed match returns exact text and model, opens menu and creates a new id
 });
 
 test('development failure returns original partner and source context without posting again',async({page})=>{
- const s=await fixture(page);await page.goto('/?mode=development&partner_id=partner-1&task_id=source-task&case_id=case-1&case_version=2');await page.getByRole('textbox',{name:'发展方向',exact:true}).fill(raw);await choose(page,names.b);await page.getByRole('button',{name:'开始',exact:true}).click();await page.getByRole('button',{name:'返回并切换模型',exact:true}).click();await expect(page.getByRole('textbox',{name:'发展方向',exact:true})).toHaveValue(raw);await expect(page.getByRole('menu',{name:'选择模型'})).toBeVisible();await expect(page.getByTestId('source-context')).toBeVisible();expect(s.posts).toHaveLength(1);expect(s.posts[0].body.modelConfigId).toBe('b');expect(s.posts[0].body.request).toMatchObject({target_partner_id:'partner-1',source_task_id:'source-task',source_case_id:'case-1',source_case_version:2});expect(s.errors).toEqual([]);
+ const s=await fixture(page);await page.goto('/?mode=development&partner_id=partner-1&task_id=source-task&case_id=case-1&case_version=2');await page.getByRole('textbox',{name:'发展方向',exact:true}).fill(raw);await choose(page,names.b);await page.getByRole('button',{name:'开始',exact:true}).click();await page.getByRole('button',{name:'返回并切换模型',exact:true}).click();await expect(page.getByRole('textbox',{name:'发展方向',exact:true})).toHaveValue(raw);await expect(page.getByRole('menu',{name:'选择模型'})).toBeVisible();await expect(page.getByTestId('task-transition')).toHaveCount(0);await expect(page.getByRole('tabpanel',{name:'促发展',exact:true}).getByTestId('source-context')).toBeVisible();expect(s.posts).toHaveLength(1);expect(s.posts[0].body.modelConfigId).toBe('b');expect(s.posts[0].body.request).toMatchObject({target_partner_id:'partner-1',source_task_id:'source-task',source_case_id:'case-1',source_case_version:2});expect(s.errors).toEqual([]);
 });
 
 test('failed followup restores raw question, retains current plan, and submits edited text in the same plan',async({page})=>{
@@ -80,8 +85,22 @@ test('lost development acknowledgement retains pending submission and queries be
  const s=await fixture(page);s.lose=true;await page.goto('/?mode=development');await page.getByRole('textbox',{name:'发展方向',exact:true}).fill(raw);await page.getByRole('button',{name:'开始',exact:true}).click();await expect(page.getByRole('button',{name:'刷新查看',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:/选择模型：/})).toBeDisabled();await page.getByRole('button',{name:'刷新查看',exact:true}).click();await expect(page).toHaveURL(/\/tasks\/development-1$/);expect(s.posts).toHaveLength(1);expect(s.errors).toEqual([]);
 });
 
-test('admin same-screen editor separates save from saved connection test and invalidates old results',async({page})=>{
- const s=await fixture(page,true);await page.setViewportSize({width:1440,height:960});await page.goto('/admin/models');await page.getByRole('tab',{name:'模型连接',exact:true}).click();await page.getByRole('button',{name:new RegExp(names.b)}).click();await expect(page.getByText('已保存凭据',{exact:false})).toBeVisible();await page.getByLabel('名称',{exact:true}).fill('合成连接修改名');await page.getByLabel('允许用户手动选择',{exact:true}).uncheck();await page.getByRole('button',{name:'保存配置',exact:true}).click();await expect.poll(()=>s.saves.length).toBe(1);expect(s.tests).toBe(0);expect(s.saves[0]).toMatchObject({name:'合成连接修改名',userSelectable:false,topP:0.8,enabled:true});expect(s.saves[0].apiKey).toBeUndefined();await page.getByRole('button',{name:'测试连接',exact:true}).click();await expect(page.getByText('本次测试失败',{exact:true})).toBeVisible();await expect(page.getByText(/123 ms/)).toBeVisible();await page.getByLabel('模型 ID',{exact:true}).fill('changed-synthetic-id');await expect(page.getByText('配置已变更',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'测试连接',exact:true})).toBeDisabled();await page.getByRole('button',{name:'保存配置',exact:true}).click();s.testPass=true;await page.getByRole('button',{name:'测试连接',exact:true}).click();await expect(page.getByText('本次测试通过',{exact:true})).toBeVisible();expect(s.tests).toBe(2);await page.getByRole('button',{name:'更换',exact:true}).click();await expect(page.getByLabel('替换 API Key',{exact:true})).toHaveValue('');await page.getByLabel('替换 API Key',{exact:true}).fill('synthetic-replacement-only');await expect(page.getByRole('button',{name:'测试连接',exact:true})).toBeDisabled();await page.evaluate(()=>window.scrollTo(0,0));await page.screenshot({path:test.info().outputPath('admin-refined-model-editor.png'),fullPage:true});expect(s.errors).toEqual([]);
+test('admin provider and model editors separate save from saved model test and invalidate old results',async({page})=>{
+ const s=await fixture(page,true);await page.setViewportSize({width:1440,height:960});await page.goto('/admin/models');
+ await page.getByRole('tab',{name:'模型提供商',exact:true}).click();await page.getByRole('button',{name:new RegExp(names.b)}).click();
+ await page.getByRole('article',{name:names.b,exact:true}).getByRole('button',{name:'编辑',exact:true}).click();
+ await page.getByLabel('显示名称',{exact:true}).fill('合成连接修改名');await page.getByLabel('允许用户手动选择',{exact:false}).uncheck();
+ await page.getByRole('button',{name:'保存模型',exact:true}).click();await expect.poll(()=>s.saves.length).toBe(1);expect(s.tests).toBe(0);
+ expect(s.saves[0]).toMatchObject({providerId:'provider-b',name:'合成连接修改名',userSelectable:false,topP:0.8,enabled:true});expect(s.saves[0].apiKey).toBeUndefined();expect(s.saves[0].baseUrl).toBeUndefined();
+ await page.getByRole('button',{name:'测试连接',exact:true}).click();await expect(page.getByText('本次测试失败',{exact:true})).toBeVisible();await expect(page.getByText(/123 ms/)).toBeVisible();
+ await page.getByLabel('模型 ID',{exact:true}).fill('changed-synthetic-id');await expect(page.getByText('配置已变更',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'测试连接',exact:true})).toBeDisabled();
+ await page.getByRole('button',{name:'保存模型',exact:true}).click();s.testPass=true;await page.getByRole('button',{name:'测试连接',exact:true}).click();await expect(page.getByText('本次测试通过',{exact:true})).toBeVisible();expect(s.tests).toBe(2);
+ await page.screenshot({path:test.info().outputPath('03-model-editor.png'),fullPage:true});
+ await page.getByRole('button',{name:'取消',exact:true}).click();await page.getByRole('button',{name:'编辑提供商',exact:true}).click();
+ await expect(page.getByText('已保存凭据',{exact:false})).toBeVisible();await page.getByRole('button',{name:'更换',exact:true}).click();await expect(page.getByLabel('替换 API Key',{exact:true})).toHaveValue('');
+ await page.getByLabel('替换 API Key',{exact:true}).fill('synthetic-replacement-only');await page.screenshot({path:test.info().outputPath('02-provider-editor.png'),fullPage:true});
+ await page.getByRole('button',{name:'保存提供商',exact:true}).click();expect(s.tests).toBe(2);expect(s.providerSaves).toHaveLength(1);
+ await expect(page.getByText('配置已变更',{exact:true})).toBeVisible();expect(s.errors).toEqual([]);
 });
 
 for(const width of [1440,390])test('refined model menu keyboard and viewport '+width,async({page})=>{
@@ -103,7 +122,7 @@ test('non-model followup save failure restores question without suggesting a mod
 
 for(const width of [1440,390])test('refined admin connection hover stays neutral '+width,async({page})=>{
  const s=await fixture(page,true);await page.setViewportSize({width,height:width===390?844:1000});await page.goto('/admin/models');
- await page.getByRole('tab',{name:'模型连接',exact:true}).click();await page.mouse.move(0,0);
+ await page.getByRole('tab',{name:'模型提供商',exact:true}).click();await page.mouse.move(0,0);
  const chosen=page.getByRole('button',{name:new RegExp(names.a)}),other=page.getByRole('button',{name:new RegExp(names.b)});
  await expect(chosen).toHaveAttribute('aria-pressed','true');await expect(chosen).toHaveCSS('background-color','rgb(255, 255, 255)');
  await other.hover();await expect(other).toHaveCSS('background-color','rgb(240, 240, 237)');await expect(other).toHaveCSS('color','rgb(23, 23, 23)');await expect(other).toHaveAttribute('aria-pressed','false');
@@ -112,6 +131,124 @@ for(const width of [1440,390])test('refined admin connection hover stays neutral
  await chosen.hover();await expect(chosen).toHaveCSS('background-color','rgb(255, 255, 255)');await expect(chosen).toHaveCSS('color','rgb(23, 23, 23)');
  expect(await chosen.evaluate(el=>getComputedStyle(el,'::before').backgroundColor)).toBe('rgb(199, 0, 11)');
  expect(await chosen.evaluate(el=>getComputedStyle(el,'::before').width)).toBe('3px');
- await other.click();await expect(other).toHaveAttribute('aria-pressed','true');await expect(other).toHaveCSS('background-color','rgb(255, 255, 255)');await expect(page.getByLabel('名称',{exact:true})).toHaveValue(names.b);
+ await other.click();await expect(other).toHaveAttribute('aria-pressed','true');await expect(other).toHaveCSS('background-color','rgb(255, 255, 255)');await expect(page.getByRole('heading',{name:names.b,exact:true})).toBeVisible();
  expect(s.tests).toBe(0);expect(s.saves).toHaveLength(0);expect(s.errors).toEqual([]);
+});
+
+
+for(const width of [1440,390])test('provider overview, provider editor and model editor fit viewport '+width,async({page})=>{
+ const s=await fixture(page,true);await page.setViewportSize({width,height:width===390?844:960});
+ await page.goto('/admin/models');await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+ await expect(page.getByRole('heading',{name:names.a,exact:true})).toBeVisible();
+ await expect(page.getByText('OpenAI Chat Completions',{exact:true})).toBeVisible();
+ await expect(page.getByText('✓ 用户可选',{exact:true})).toBeVisible();
+ const fits=async()=>expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await fits();await page.screenshot({path:test.info().outputPath('01-provider-overview-'+width+'.png'),fullPage:true});
+ await page.getByRole('button',{name:'编辑提供商',exact:true}).click();
+ await expect(page.getByLabel('API 协议',{exact:true})).toHaveAttribute('readonly','');
+ await expect(page.getByLabel('提供商名称',{exact:true})).toHaveValue(names.a);
+ await fits();await page.screenshot({path:test.info().outputPath('02-provider-editor-'+width+'.png'),fullPage:true});
+ await page.getByRole('button',{name:'取消',exact:true}).click();await page.getByRole('article',{name:names.a,exact:true}).getByRole('button',{name:'编辑',exact:true}).click();
+ await expect(page.getByLabel('启用模型',{exact:true})).toBeChecked();await expect(page.getByText('找伙伴默认',{exact:true})).toBeVisible();
+ await page.getByText('高级参数',{exact:false}).click();await page.getByLabel('temperature',{exact:true}).fill('0');
+ await expect(page.getByRole('button',{name:'测试连接',exact:true})).toBeDisabled();
+ await fits();await page.screenshot({path:test.info().outputPath('03-model-editor-'+width+'.png'),fullPage:true});
+ expect(s.tests).toBe(0);expect(s.saves).toHaveLength(0);expect(s.providerSaves).toHaveLength(0);expect(s.errors).toEqual([]);
+});
+
+test('new provider precedes new model and neither save calls inference',async({page})=>{
+ const s=await fixture(page,true);await page.goto('/admin/models');await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+ await page.getByRole('button',{name:'＋ 添加提供商',exact:true}).click();await page.getByLabel('提供商名称',{exact:true}).fill('新增合成提供商');await page.getByLabel('API 地址',{exact:false}).fill('https://new-synthetic.invalid/v1');await page.getByLabel('替换 API Key',{exact:true}).fill('synthetic-new-provider');
+ await page.getByRole('button',{name:'保存提供商',exact:true}).click();await expect(page.getByRole('heading',{name:'新增合成提供商',exact:true})).toBeVisible();
+ expect(s.providerSaves).toHaveLength(1);expect(s.tests).toBe(0);
+ await page.getByRole('button',{name:'＋ 添加模型',exact:true}).click();await page.getByLabel('显示名称',{exact:true}).fill('新增合成模型');await page.getByLabel('模型 ID',{exact:true}).fill('synthetic-new-id');await page.getByLabel('允许用户手动选择',{exact:false}).check();await page.getByRole('button',{name:'保存模型',exact:true}).click();
+ await expect(page.getByRole('button',{name:'测试连接',exact:true})).toBeEnabled();
+ expect(s.saves).toHaveLength(1);expect(s.saves[0]).toMatchObject({providerId:'provider-new',name:'新增合成模型',modelName:'synthetic-new-id',userSelectable:true});
+ expect(s.tests).toBe(0);expect(s.errors).toEqual([]);
+});
+
+
+test('shared provider owns two models and connection edits invalidate both saved test results',async({page})=>{
+ const s=await fixture(page,true,true);s.testPass=true;await page.goto('/admin/models');await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+ await expect(page.getByText('共享连接配置 · 2 个模型',{exact:true})).toBeVisible();
+ for(const name of [names.a,names.b]){await page.getByRole('article',{name,exact:true}).getByRole('button',{name:'测试',exact:true}).click();await expect(page.getByRole('article',{name,exact:true}).getByText('本次测试通过',{exact:true})).toBeVisible();}
+ expect(s.tests).toBe(2);await page.getByRole('button',{name:'编辑提供商',exact:true}).click();
+ await expect(page.getByText('用于 '+names.a+'、'+names.b,{exact:true})).toBeVisible();
+ await page.getByLabel('API 地址',{exact:false}).fill('https://synthetic.invalid/compatible/v1');await page.getByRole('button',{name:'保存提供商',exact:true}).click();
+ await expect(page.getByText('配置已变更',{exact:true})).toHaveCount(2);expect(s.tests).toBe(2);expect(s.providerSaves).toHaveLength(1);
+ expect(s.providerSaves[0].apiKey).toBeUndefined();expect(s.errors).toEqual([]);
+});
+
+
+for(const width of [1440,390])test('cancel adding provider restores previously selected provider and models '+width,async({page})=>{
+ const s=await fixture(page,true);await page.setViewportSize({width,height:width===390?844:960});
+ await page.goto('/admin/models');await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+ const previous=page.getByRole('button',{name:new RegExp(names.b)});
+ await previous.click();await expect(previous).toHaveAttribute('aria-pressed','true');
+ await expect(page.getByRole('article',{name:names.b,exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'＋ 添加提供商',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'添加提供商',exact:true})).toBeVisible();
+ await expect(page.getByLabel('提供商名称',{exact:true})).toHaveValue('');
+ await expect(page.getByRole('button',{name:'删除提供商',exact:true})).toHaveCount(0);
+ await expect(page.getByText('尚未添加模型',{exact:true})).toBeVisible();
+ await page.getByLabel('提供商名称',{exact:true}).fill('取消的提供商草稿');
+ await page.getByLabel('API 地址',{exact:false}).fill('https://cancelled.invalid/v1');
+ await page.getByLabel('替换 API Key',{exact:true}).fill('synthetic-discarded-key');
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(previous).toHaveAttribute('aria-pressed','true');
+ await expect(page.getByRole('heading',{name:names.b,exact:true})).toBeVisible();
+ await expect(page.getByRole('article',{name:names.b,exact:true})).toBeVisible();
+ await expect(page.getByRole('article',{name:names.a,exact:true})).toHaveCount(0);
+ await expect(page.getByText('选择提供商，或添加一个模型提供商。',{exact:true})).toHaveCount(0);
+ await expect(page.getByText('https://synthetic.invalid/v1',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'＋ 添加提供商',exact:true}).click();
+ await expect(page.getByLabel('提供商名称',{exact:true})).toHaveValue('');
+ await expect(page.getByLabel('API 地址',{exact:false})).toHaveValue('');
+ await expect(page.getByLabel('替换 API Key',{exact:true})).toHaveValue('');
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(page.getByRole('article',{name:names.b,exact:true})).toBeVisible();
+ expect(s.providerSaves).toHaveLength(0);expect(s.saves).toHaveLength(0);expect(s.tests).toBe(0);expect(s.errors).toEqual([]);
+ await page.screenshot({path:test.info().outputPath('cancel-add-provider-restores-selection-'+width+'.png'),fullPage:true});
+});
+
+test('cancel existing provider and model edits retains their saved values and selection',async({page})=>{
+ const s=await fixture(page,true);await page.goto('/admin/models');await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+ const previous=page.getByRole('button',{name:new RegExp(names.b)});await previous.click();
+ await page.getByRole('button',{name:'编辑提供商',exact:true}).click();
+ await page.getByLabel('提供商名称',{exact:true}).fill('未保存的提供商名称');
+ await page.getByLabel('API 地址',{exact:false}).fill('https://discarded.invalid/v1');
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(previous).toHaveAttribute('aria-pressed','true');await expect(page.getByRole('heading',{name:names.b,exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'编辑提供商',exact:true}).click();
+ await expect(page.getByLabel('提供商名称',{exact:true})).toHaveValue(names.b);
+ await expect(page.getByLabel('API 地址',{exact:false})).toHaveValue('https://synthetic.invalid/v1');
+ await expect(page.getByText('已保存凭据',{exact:false})).toBeVisible();
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ const row=page.getByRole('article',{name:names.b,exact:true});
+ await row.getByRole('button',{name:'编辑',exact:true}).click();
+ await page.getByLabel('显示名称',{exact:true}).fill('未保存的模型名称');await page.getByLabel('模型 ID',{exact:true}).fill('discarded-model-id');
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(previous).toHaveAttribute('aria-pressed','true');await expect(row).toBeVisible();
+ await expect(row.getByText('synthetic-b',{exact:true})).toBeVisible();
+ await row.getByRole('button',{name:'编辑',exact:true}).click();
+ await expect(page.getByLabel('显示名称',{exact:true})).toHaveValue(names.b);
+ await expect(page.getByLabel('模型 ID',{exact:true})).toHaveValue('synthetic-b');
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ expect(s.providerSaves).toHaveLength(0);expect(s.saves).toHaveLength(0);expect(s.tests).toBe(0);expect(s.errors).toEqual([]);
+});
+
+test('cancel adding provider from initial empty list returns to the empty state',async({page})=>{
+ const s=await fixture(page,true);
+ await page.route('**/api/admin/model-providers',route=>route.fulfill({json:[]}));
+ await page.route('**/api/admin/model-configs',route=>route.fulfill({json:[]}));
+ await page.goto('/admin/models');await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+ await expect(page.getByText('暂无模型提供商。',{exact:true})).toBeVisible();
+ await expect(page.getByText('选择提供商，或添加一个模型提供商。',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'＋ 添加提供商',exact:true}).click();
+ await page.getByLabel('提供商名称',{exact:true}).fill('取消的空态草稿');
+ await page.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(page.getByText('暂无模型提供商。',{exact:true})).toBeVisible();
+ await expect(page.getByText('选择提供商，或添加一个模型提供商。',{exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'添加提供商',exact:true})).toHaveCount(0);
+ expect(s.providerSaves).toHaveLength(0);expect(s.saves).toHaveLength(0);expect(s.tests).toBe(0);expect(s.errors).toEqual([]);
 });

@@ -19,7 +19,7 @@ from app.model_network_policy import install_model_network_policy
 def enabled_endpoints():
     with get_readonly_db() as connection:
         return [row['base_url'] for row in connection.execute(
-            'SELECT base_url FROM model_configs WHERE enabled = 1'
+            'SELECT p.base_url FROM model_providers p WHERE EXISTS (SELECT 1 FROM model_configs m WHERE m.provider_id=p.id AND m.enabled=1)'
         ).fetchall() if row['base_url']]
 
 install_model_network_policy(enabled_endpoints)

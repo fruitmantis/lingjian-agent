@@ -16,7 +16,8 @@ from .conftest import auth_headers, make_user, make_partner, recommendation
 
 def model_reply(monkeypatch, content, status=200):
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET api_key='opaque-provider-credential',api_key_source='db',base_url='https://model.invalid/v1',model_name='test-model'")
+        conn.execute("UPDATE model_providers SET api_key='opaque-provider-credential',api_key_source='db',base_url='https://model.invalid/v1'")
+        conn.execute("UPDATE model_configs SET model_name='test-model'")
     async def post(client, url, **kwargs):
         messages=json.loads(kwargs['content'])['messages'];system=messages[0]['content']
         reply=content

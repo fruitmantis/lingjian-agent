@@ -6,12 +6,12 @@ import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from pydantic import ValidationError, BaseModel, Field, StrictBool
+from pydantic import ValidationError, BaseModel, Field, StrictBool, ConfigDict
 from backend.business.common import ModelOutput
 
 from ..database import get_db
 from ..auth import require_admin, require_active_user, record_audit
-from ..model_resolver import _resolve_api_key, model_endpoint_origin, ModelConfigurationError
+from ..model_resolver import _resolve_api_key, model_endpoint_origin, ModelConfigurationError, MODEL_SELECT, model_record
 from ..ai_client import ModelResponseError, model_error_message
 from .. import development_model, agent_settings
 from .. import model_timeout_settings
@@ -30,7 +30,7 @@ def read_timeout_policy(response: Response, agent_id: str = "processing"):
     return model_timeout_settings.get_settings(agent_id=agent_id).model_dump()
 
 
-_MC_COLS = "id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at"
+provider_router = APIRouter(prefix="/admin/model-providers", tags=["model-providers"], dependencies=[Depends(require_admin)])
 
 
 def _validated_base_url(value):
@@ -46,10 +46,8 @@ def _validated_base_url(value):
 class ModelConfigOut(BaseModel):
     id: str
     name: str
-    provider: str | None
-    baseUrl: str | None
-    apiKeyConfigured: bool
-    apiKeySource: str | None
+    providerId: str
+    providerName: str
     modelName: str | None
     temperature: float
     topP: float
@@ -63,26 +61,24 @@ class ModelConfigOut(BaseModel):
 
 
 class ModelConfigCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     userSelectable: StrictBool = False
     enabled: StrictBool = True
-    name: str
-    provider: str = "OpenAI Compatible"
-    baseUrl: str | None = None
-    apiKey: str | None = None
-    modelName: str | None = None
+    name: str = Field(min_length=1, max_length=120)
+    providerId: str
+    modelName: str = Field(min_length=1)
     temperature: float = Field(default=0.2, ge=0, allow_inf_nan=False)
     topP: float = Field(default=1.0, ge=0, le=1, allow_inf_nan=False)
     maxTokens: int = Field(default=131072, gt=0)
 
 
 class ModelConfigUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     userSelectable: StrictBool | None = None
     enabled: StrictBool | None = None
-    name: str | None = None
-    provider: str | None = None
-    baseUrl: str | None = None
-    apiKey: str | None = None
-    modelName: str | None = None
+    name: str | None = Field(default=None,min_length=1,max_length=120)
+    providerId: str | None = None
+    modelName: str | None = Field(default=None,min_length=1)
     temperature: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     topP: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
     maxTokens: int | None = Field(default=None, gt=0)
@@ -122,9 +118,7 @@ def save_timeout_settings(payload: TimeoutSettings, response: Response):
 
 def _to_out(r) -> ModelConfigOut:
     return ModelConfigOut(
-        id=r["id"], name=r["name"], provider=r["provider"], baseUrl=r["base_url"],
-        apiKeyConfigured=bool(_resolve_api_key(r)),
-        apiKeySource=r["api_key_source"], modelName=r["model_name"],
+        id=r["id"], name=r["name"], providerId=r["provider_id"], providerName=r["provider"], modelName=r["model_name"],
         temperature=r["temperature"], topP=r["top_p"], maxTokens=r["max_tokens"],
         enabled=bool(r["enabled"]), isDefault=bool(r["is_default"]),
         createdAt=r["created_at"], updatedAt=r["updated_at"], **agent_settings.connection_usage(r["id"])
@@ -134,73 +128,45 @@ def _to_out(r) -> ModelConfigOut:
 @router.get("", response_model=list[ModelConfigOut])
 def list_configs():
     with get_db() as conn:
-        rows = conn.execute(f"SELECT {_MC_COLS} FROM model_configs ORDER BY is_default DESC, created_at ASC").fetchall()
+        rows = conn.execute(MODEL_SELECT + " ORDER BY m.is_default DESC, m.created_at ASC").fetchall()
     return [_to_out(r) for r in rows]
 
 
 @router.post("", response_model=ModelConfigOut, status_code=status.HTTP_201_CREATED)
 def create_config(payload: ModelConfigCreate) -> ModelConfigOut:
-    base_url = _validated_base_url(payload.baseUrl)
     now = datetime.now(timezone.utc).isoformat()
     mc_id = str(uuid.uuid4())
     with get_db() as conn:
         conn.lock_writer()
-        conn.execute(
-            "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'db', NULL, ?, ?, ?, ?, ?, 0, ?, ?)",
-            (mc_id, payload.name, payload.provider, base_url, payload.apiKey, payload.modelName, payload.temperature, payload.topP, payload.maxTokens, int(payload.enabled), now, now)
-        )
+        _require_provider(conn,payload.providerId)
+        conn.execute("""INSERT INTO model_configs
+            (id,name,provider_id,model_name,temperature,top_p,max_tokens,enabled,is_default,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,?,?,0,?,?)""",
+            (mc_id,payload.name,payload.providerId,payload.modelName,payload.temperature,payload.topP,
+             payload.maxTokens,int(payload.enabled),now,now))
         agent_settings.set_selectable(conn,mc_id,payload.userSelectable)
-        row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
+        row=model_record(conn,mc_id)
     return _to_out(row)
 
 
 @router.put("/{mc_id}", response_model=ModelConfigOut)
 def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
-    now = datetime.now(timezone.utc).isoformat()
+    now=datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
         conn.lock_writer()
-        row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
-        if row is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
-        base_url = _validated_base_url(payload.baseUrl if payload.baseUrl is not None else row['base_url'])
-        new_key = payload.apiKey if payload.apiKey is not None and payload.apiKey.strip() else None
-        if payload.baseUrl is not None:
-            try:
-                previous_origin = model_endpoint_origin(row['base_url'] or os.getenv('LLM_BASE_URL', 'https://api.deepseek.com'))
-            except ModelConfigurationError:
-                previous_origin = None
-            if (model_endpoint_origin(base_url) != previous_origin
-                    and (row['api_key'] or row['api_key_source'] == 'env') and new_key is None):
-                raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
-                                    detail='模型接口目标已变化，请重新填写该目标的 API Key，不能沿用旧凭据')
+        if model_record(conn,mc_id) is None:raise HTTPException(404,"配置不存在")
+        if payload.providerId is not None:_require_provider(conn,payload.providerId)
         if payload.userSelectable is not None:agent_settings.set_selectable(conn,mc_id,payload.userSelectable)
-        updates = []
-        if payload.enabled is not None:updates.append("enabled = ?"); params_enabled=int(payload.enabled)
-        params = [params_enabled] if payload.enabled is not None else []
-        if payload.name is not None:
-            updates.append("name = ?"); params.append(payload.name)
-        if payload.provider is not None:
-            updates.append("provider = ?"); params.append(payload.provider)
-        if payload.baseUrl is not None:
-            updates.append("base_url = ?"); params.append(base_url)
-        if payload.modelName is not None:
-            updates.append("model_name = ?"); params.append(payload.modelName)
-        if payload.temperature is not None:
-            updates.append("temperature = ?"); params.append(payload.temperature)
-        if payload.topP is not None:
-            updates.append("top_p = ?"); params.append(payload.topP)
-        if payload.maxTokens is not None:
-            updates.append("max_tokens = ?"); params.append(payload.maxTokens)
-        # Only update api_key if explicitly provided and non-empty
-        if new_key is not None:
-            updates.append("api_key = ?"); params.append(new_key)
-            updates.append("api_key_source = 'db'")
-            updates.append("api_key_env_name = NULL")
-        updates.append("updated_at = ?"); params.append(now)
-        params.append(mc_id)
-        if len(updates) > 1:
-            conn.execute(f"UPDATE model_configs SET {', '.join(updates)} WHERE id = ?", params)
-        row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
+        fields={'name':'name','providerId':'provider_id','modelName':'model_name','temperature':'temperature',
+                'topP':'top_p','maxTokens':'max_tokens','enabled':'enabled'}
+        updates=[];params=[]
+        for field,column in fields.items():
+            value=getattr(payload,field)
+            if value is not None:
+                updates.append(column+'=?');params.append(int(value) if field=='enabled' else value)
+        if updates:
+            conn.execute("UPDATE model_configs SET "+','.join(updates)+",updated_at=? WHERE id=?",[*params,now,mc_id])
+        row=model_record(conn,mc_id)
     return _to_out(row)
 
 
@@ -208,7 +174,7 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
 def delete_config(mc_id: str, admin: dict = Depends(require_admin)) -> None:
     with get_db() as conn:
         conn.lock_writer()
-        row = conn.execute("SELECT name, provider, model_name, is_default FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
+        row = model_record(conn,mc_id)
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
         usages = conn.execute(
@@ -233,11 +199,11 @@ def toggle_enable(mc_id: str, enabled: bool = True) -> ModelConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_db() as conn:
         conn.lock_writer()
-        row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
+        row = model_record(conn,mc_id)
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
         conn.execute("UPDATE model_configs SET enabled = ?, updated_at = ? WHERE id = ?", (1 if enabled else 0, now, mc_id))
-        row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
+        row = model_record(conn,mc_id)
     return _to_out(row)
 
 
@@ -249,7 +215,7 @@ def set_default(mc_id: str) -> ModelConfigOut:
 @router.post("/{mc_id}/test", response_model=TestResult)
 def test_connection(mc_id: str) -> TestResult:
     with get_db() as conn:
-        row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
+        row = model_record(conn,mc_id)
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="配置不存在")
 
@@ -283,3 +249,85 @@ def list_usage_configs():
 @router.put("/usage/{scene_key}", response_model=UsageConfigOut)
 def update_usage_config(scene_key: str, payload: UsageConfigUpdate) -> UsageConfigOut:
     raise HTTPException(410,"请在智能体管理中配置模型和请求超时")
+
+
+class ProviderCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1,max_length=120)
+    baseUrl: str
+    apiKey: str | None = None
+
+class ProviderUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None,min_length=1,max_length=120)
+    baseUrl: str | None = None
+    apiKey: str | None = None
+
+class ProviderOut(BaseModel):
+    id: str
+    name: str
+    baseUrl: str | None
+    protocol: str
+    apiKeyConfigured: bool
+    apiKeySource: str | None
+    modelCount: int
+    createdAt: str
+    updatedAt: str
+
+def _require_provider(conn,provider_id):
+    row=conn.execute('SELECT * FROM model_providers WHERE id=?',(provider_id,)).fetchone()
+    if row is None:raise HTTPException(404,"提供商不存在")
+    return row
+
+def _provider_out(conn,row):
+    return ProviderOut(id=row['id'],name=row['name'],baseUrl=row['base_url'],protocol=row['protocol'],
+        apiKeyConfigured=bool(_resolve_api_key(row)),apiKeySource=row['api_key_source'],
+        modelCount=conn.execute('SELECT count(*) FROM model_configs WHERE provider_id=?',(row['id'],)).fetchone()[0],
+        createdAt=row['created_at'],updatedAt=row['updated_at'])
+
+@provider_router.get("",response_model=list[ProviderOut])
+def list_providers():
+    with get_db() as conn:
+        return [_provider_out(conn,row) for row in conn.execute('SELECT * FROM model_providers ORDER BY created_at,id')]
+
+@provider_router.post("",response_model=ProviderOut,status_code=201)
+def create_provider(payload:ProviderCreate):
+    base_url=_validated_base_url(payload.baseUrl)
+    now=datetime.now(timezone.utc).isoformat();provider_id=str(uuid.uuid4())
+    with get_db() as conn:
+        conn.execute("""INSERT INTO model_providers
+            (id,name,base_url,protocol,api_key,api_key_source,api_key_env_name,created_at,updated_at)
+            VALUES (?,?,?,'openai_chat_completions',?,'db',NULL,?,?)""",
+            (provider_id,payload.name,base_url,payload.apiKey,now,now))
+        return _provider_out(conn,_require_provider(conn,provider_id))
+
+@provider_router.put("/{provider_id}",response_model=ProviderOut)
+def update_provider(provider_id:str,payload:ProviderUpdate):
+    with get_db() as conn:
+        conn.lock_writer();row=_require_provider(conn,provider_id)
+        base_url=_validated_base_url(payload.baseUrl if payload.baseUrl is not None else row['base_url'])
+        new_key=payload.apiKey if payload.apiKey is not None and payload.apiKey.strip() else None
+        if payload.baseUrl is not None:
+            try:previous_origin=model_endpoint_origin(row['base_url'] or os.getenv('LLM_BASE_URL','https://api.deepseek.com'))
+            except ModelConfigurationError:previous_origin=None
+            if (model_endpoint_origin(base_url)!=previous_origin
+                    and (row['api_key'] or row['api_key_source']=='env') and new_key is None):
+                raise HTTPException(422,'模型接口目标已变化，请重新填写该目标的 API Key，不能沿用旧凭据')
+        updates=[];params=[]
+        for field,column in [('name','name'),('baseUrl','base_url')]:
+            if getattr(payload,field) is not None:
+                updates.append(column+'=?');params.append(base_url if field=='baseUrl' else payload.name)
+        if new_key is not None:
+            updates.extend(['api_key=?',"api_key_source='db'",'api_key_env_name=NULL']);params.append(new_key)
+        if updates:
+            conn.execute('UPDATE model_providers SET '+','.join(updates)+',updated_at=? WHERE id=?',
+                         [*params,datetime.now(timezone.utc).isoformat(),provider_id])
+        return _provider_out(conn,_require_provider(conn,provider_id))
+
+@provider_router.delete("/{provider_id}",status_code=204)
+def delete_provider(provider_id:str):
+    with get_db() as conn:
+        conn.lock_writer();_require_provider(conn,provider_id)
+        if conn.execute('SELECT count(*) FROM model_configs WHERE provider_id=?',(provider_id,)).fetchone()[0]:
+            raise HTTPException(409,'请先处理所属模型，再删除提供商')
+        conn.execute('DELETE FROM model_providers WHERE id=?',(provider_id,))

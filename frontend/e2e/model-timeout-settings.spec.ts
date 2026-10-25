@@ -11,7 +11,8 @@ async function setup(page: Page, failSave = false) {
     const path = url.pathname.replace(/^\/api/, '');
     if (path === '/auth/me') return route.fulfill({ json: { id: 'admin', role: 'admin', status: 'active', must_change_password: false } });
     if (path === '/health') return route.fulfill({ json: { status: 'ok' } });
-    if (path === '/admin/model-configs') return route.fulfill({ json: [{id:'model-1',name:'合成连接',modelName:'synthetic',enabled:true,maxTokens:1024,temperature:.3,provider:'Synthetic',baseUrl:'https://model.invalid',apiKeyConfigured:true}] });
+    if (path === '/admin/model-providers') return route.fulfill({json:[]});
+  if (path === '/admin/model-configs') return route.fulfill({ json: [{id:'model-1',name:'合成连接',modelName:'synthetic',enabled:true,maxTokens:1024,temperature:.3,provider:'Synthetic',baseUrl:'https://model.invalid',apiKeyConfigured:true}] });
     if (path === '/admin/agents') return route.fulfill({json:settings()});
     if (path === '/admin/agents/processing') {
       if (route.request().method() === 'PUT') {

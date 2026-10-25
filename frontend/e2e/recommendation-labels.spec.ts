@@ -30,6 +30,7 @@ async function setup(page:Page){
   if(path==='/health')return route.fulfill({json:{status:'ok'}});
   if(path==='/agents')return route.fulfill({json:Object.entries(settings.agents).map(([id,a])=>({id,name:a.name,description:a.description,icon:a.icon,enabled:a.enabled}))});
   if(path==='/admin/agents')return route.fulfill({json:settings});
+  if (path === '/admin/model-providers') return route.fulfill({json:[]});
   if(path==='/admin/model-configs')return route.fulfill({json:[{id:'naming-model',name:'合成连接',modelName:'deepseek-flash',enabled:true,provider:'OpenAI Compatible',baseUrl:'https://example.invalid',apiKeyConfigured:true,maxTokens:384000,temperature:.3,isDefault:true}]});
   if(path==='/agent/tasks'||path==='/admin/tasks'){
    const type=url.searchParams.get('task_type'),items=[match,development].filter(x=>!type||x.task_type===type);

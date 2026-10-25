@@ -57,9 +57,9 @@ def supplier(scenario,monkeypatch):
             except (BrokenPipeError,ConnectionResetError):pass
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler);server.daemon_threads=True
     worker=threading.Thread(target=server.serve_forever,daemon=True);worker.start()
-    with get_db() as conn:config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
+    with get_db() as conn:config=dict(conn.execute('SELECT m.*,p.base_url,p.api_key,p.api_key_source,p.api_key_env_name FROM model_configs m JOIN model_providers p ON p.id=m.provider_id LIMIT 1').fetchone())
     with get_db() as conn:
-        conn.execute('UPDATE model_configs SET base_url=?,api_key=? WHERE id=?',(f'http://127.0.0.1:{server.server_port}/v1','synthetic-only',config['id']))
+        conn.execute('UPDATE model_providers SET base_url=?,api_key=? WHERE id=(SELECT provider_id FROM model_configs WHERE id=?)',(f'http://127.0.0.1:{server.server_port}/v1','synthetic-only',config['id']))
     from backend.app.model_resolver import resolve_model_record
     monkeypatch.setattr(model,'configuration',lambda **kwargs:resolve_model_record('partner_development',**kwargs))
     monkeypatch.setattr(model,'completion',REAL_COMPLETION)

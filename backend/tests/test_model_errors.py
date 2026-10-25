@@ -1,3 +1,4 @@
+from .support.models import create_model
 import json
 """Public model failures must not expose upstream diagnostics or content."""
 import httpx
@@ -29,7 +30,7 @@ def test_text_content_parts_remain_supported():
 @pytest.mark.parametrize("failure", ["timeout", "http401", "http429", "http500", "exception", "empty", "truncated", "missing", "wrong_schema", "success"])
 def test_manual_connection_test_validates_content_and_sanitizes_errors(client, monkeypatch, failure):
     admin = make_user("connection_admin", role="admin")
-    config = model_config.create_config(model_config.ModelConfigCreate(name="synthetic", apiKey="synthetic-private-key", modelName="test", baseUrl="https://model.invalid/private-path",temperature=.4,maxTokens=131072))
+    config = create_model(name="synthetic", apiKey="synthetic-private-key", modelName="test", baseUrl="https://model.invalid/private-path",temperature=.4,maxTokens=131072)
     marker = "synthetic-private-key Authorization Bearer synthetic-token private-customer-data"
     class FakeClient:
         def __init__(self, **kwargs): assert kwargs['timeout']==300

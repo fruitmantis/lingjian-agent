@@ -1,21 +1,25 @@
 import {test,expect} from '@playwright/test';
 import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
-import {match, plan} from './coze-fixtures';
+import {match, plan, agents, agentSettings, modelProvider, modelConfig, modelMenu} from './coze-fixtures';
+import {mockDeviceSession} from './device-session-fixture';
 
 // Browser-only fixtures: no authentication, resource mutation or model request reaches the API.
 for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`,async({page})=>{
   await page.setViewportSize({width,height:width===1366?768:1080});
   await page.addInitScript(()=>{localStorage.setItem('banfei:user:token','synthetic-user');localStorage.setItem('banfei:admin:token','synthetic-admin');});
-  let writes=0;
+  let writes=0;const identityRestores:boolean[]=[];
+  page.on('request',request=>{if(new URL(request.url()).pathname==='/api/auth/identity/session'&&request.method()==='POST')identityRestores.push(request.postDataJSON()?.create??false);});
   await page.route('**/*',route=>{
     const u=new URL(route.request().url());
     if(u.port!=='8000'&&!u.pathname.startsWith('/api/'))return ['localhost','127.0.0.1'].includes(u.hostname)?route.continue():route.abort();
     const p=u.pathname.replace(/^\/api/,'');
     if(route.request().method()!=='GET'){writes++;return route.abort();}
     let json:unknown={items:[],total:0,page:1,pageSize:20,totalPages:0};
-    const partner={id:'ui-preview',name:'合成视觉伙伴',capabilities:'数据库 · 系统集成',industries:'金融',service_areas:'广东',intro:'用于界面验证的合成数据。',ai_profile:'数据库交付及应用集成基础。',created_at:'2026-09-01',case_count:1,deliverable_count:1};
-    if(p==='/auth/me')json={id:'ui-admin',username:'ui-admin',role:route.request().headers().authorization==='Bearer synthetic-admin'?'admin':'user',status:'active',must_change_password:false};
+    const partner={id:'ui-preview',name:'合成视觉伙伴',capabilities:'数据库 · 系统集成',industries:'金融',service_areas:'广东',intro:'用于界面验证的合成数据。',ai_profile:'数据库交付及应用集成基础。',created_at:'2026-09-01',status:'active',case_count:1,deliverable_count:1};
+    if(p==='/auth/me')json={id:route.request().headers().authorization==='Bearer synthetic-admin'?'ui-admin':'ui-user',username:'ui-preview',role:route.request().headers().authorization==='Bearer synthetic-admin'?'admin':'user',status:'active',must_change_password:false};
+    else if(p==='/agents')json=agents;
+    else if(p==='/admin/agents')json=agentSettings;
     else if(p==='/partners'||p==='/partners/profiles')json=[partner];
     else if(p.startsWith('/partners/'))json=partner;
     else if(p==='/agent/tasks/coze-match')json=match;
@@ -29,9 +33,12 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
     else if(p.startsWith('/enablement/resources/'))json={source_type:p.split('/')[3],source_id:'ui-resource',source_version:1,title:'用于布局验证的合成资源',summary:'仅用于界面测试。',capabilities:[],roles:[],zones:[],level:'advanced',source_url:'https://example.com/resource',category:'技术案例',subcategory:'架构设计',contributor_id:partner.id,contributor_name:partner.name};
     else if(p==='/admin/reports')json={overview:{totalDemands:1,thisMonthDemands:1,totalPartners:1,partnersWithProfile:1,activePartners:1,noPartnerDemands:0,partialDemands:0,pendingSuggestions:0},capabilityDist:[],industryDist:[],regionDist:[],deliveryTypeDist:[],supplyGaps:[],activePartnerCount:0,activePartnerRatio:0,topRecommendedPartners:[],inactivePartners:[],topFormalTags:[],uncoveredClues:0,pendingSuggestions:0};
     else if(p==='/admin/dashboard')json={users:8,tasks:20};
-    else if(p==='/admin/model-configs'||p==='/admin/model-configs/usage')json=[];
+    else if(p==='/admin/model-providers')json=[modelProvider];
+    else if(p==='/admin/model-configs')json=[modelConfig];
     return route.fulfill({json});
   });
+  await mockDeviceSession(page);
+  await page.route('**/api/agents/*/models',route=>route.fulfill({json:modelMenu}));
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   const directory=path.resolve(process.env.UI_SYSTEM_EVIDENCE_DIR||'/tmp/lingjian-ui-system');await mkdir(directory,{recursive:true});
   const shadows:string[]=[],hoverShadows:string[]=[];
@@ -74,7 +81,7 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
   }
   expect(new Set(shadows).size).toBe(1);expect(shadows[0]).not.toBe('none');expect(hoverShadows).toEqual(shadows);
   for(const [url,selector,href] of [
-    ['/tasks/coze-match','.recommendation-item','/partners/coze-partner'],
+    ['/tasks/coze-match','.recommendation-item','/partners/coze-partner?returnTo=%2Ftasks%2Fcoze-match%23recommendation-coze-partner'],
     ['/tasks/coze-plan','.advisor-resource','/resources/lab/lab-0?source_version=1'],
     ['/partners/ui-preview','.case-item','/resources/case/ui-resource'],
   ]){
@@ -99,27 +106,35 @@ for (const width of [1366,1920]) test(`shared UI surfaces and controls ${width}`
   for(const selector of ['.development-context-row','.development-composer>.development-form']){
     const surface=page.locator(selector);await expect(surface).toBeVisible();await surface.hover();await expect(surface).toHaveCSS('transform','none');await expect(surface).toHaveCSS('border-top-width','0px');
   }
-  await expect(page.getByLabel('发展方向',{exact:true})).toHaveCSS('height','140px');
+  // Existing unified composer rule predates this provider refactor; retain an exact size contract.
+  const direction=page.getByLabel('发展方向',{exact:true});
+  await expect(direction).toHaveCSS('height','104px');
+  await expect(direction).toBeEditable();await direction.click();await expect(direction).toBeFocused();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   await expect(page.getByLabel('关联已有伙伴资料（可选）',{exact:true})).toHaveCSS('height','40px');
   await expect(page.getByRole('tab',{name:'促发展',exact:true})).toHaveAttribute('aria-selected','true');
-  await page.getByLabel('发展方向',{exact:true}).fill('希望具备 Agent 项目交付能力');
+  await direction.fill('希望具备 Agent 项目交付能力');await expect(direction).toHaveValue('希望具备 Agent 项目交付能力');
   await expect(page.getByRole('button',{name:'开始',exact:true})).toHaveCSS('background-color','rgb(199, 0, 11)');
   await page.screenshot({path:path.join(directory,`development-${width}.png`),fullPage:true});
-  await page.goto('/admin/partners');await expect(page.getByPlaceholder('伙伴名称',{exact:true})).toHaveCSS('height','40px');
+  await page.goto('/admin/partners');await page.locator('.partner-admin-disclosure > summary').filter({hasText:'新增伙伴'}).click();await expect(page.getByPlaceholder('伙伴名称',{exact:true})).toHaveCSS('height','40px');
   const groups=page.getByRole('group');await expect(groups.getByRole('checkbox')).toHaveCount(52);
   await page.getByLabel('金融',{exact:true}).check();await page.getByLabel('广东',{exact:true}).check();await page.getByLabel('欧洲',{exact:true}).check();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
   const overseas=page.locator('[data-region-type=overseas] .classification-options label');
   for(const item of await overseas.all())await expect(item).toHaveCSS('height','20px');
   await page.screenshot({path:path.join(directory,`admin-partners-${width}.png`),fullPage:true});
-  await page.goto('/admin/models');await page.getByRole('button',{name:'新增配置',exact:true}).click();
-  await expect(page.getByPlaceholder('配置名称',{exact:true})).toHaveCSS('height','32px');
-  await expect(page.getByRole('button',{name:'保存',exact:true})).toHaveCSS('height','32px');
+  await page.goto('/admin/models');await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+  await page.getByRole('button',{name:'＋ 添加提供商',exact:true}).click();
+  // The approved provider editor replaces the retired 32px inline-table controls with normal 40px form controls.
+  await expect(page.getByLabel('提供商名称',{exact:true})).toHaveCSS('height','40px');
+  await expect(page.getByRole('button',{name:'保存提供商',exact:true})).toHaveCSS('height','40px');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
-  await page.getByRole('button',{name:'取消',exact:true}).click();await expect(page.getByPlaceholder('配置名称',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'取消',exact:true}).click();await expect(page.getByLabel('提供商名称',{exact:true})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:modelProvider.name,exact:true})).toBeVisible();
   await page.goto('/admin/reports');await expect(page.locator('.ui-report-metrics .ui-metric')).toHaveCount(8);
   const rows=await page.locator('.ui-report-metrics .ui-metric').evaluateAll(elements=>elements.map(e=>Math.round(e.getBoundingClientRect().y)));
   expect(new Set(rows.slice(0,4)).size).toBe(1);expect(new Set(rows.slice(4)).size).toBe(1);expect(rows[4]).toBeGreaterThan(rows[0]);
   await page.screenshot({path:path.join(directory,`admin-reports-${width}.png`),fullPage:true});
+  expect(identityRestores.length).toBeGreaterThan(0);expect(identityRestores.every(create=>create===false)).toBe(true);
   expect(writes).toBe(0);expect(errors).toEqual([]);
 });

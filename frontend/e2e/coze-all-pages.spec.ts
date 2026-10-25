@@ -1,7 +1,7 @@
 import {test, expect, type Page} from '@playwright/test';
 import {mkdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
-import {fixture, partner, match} from './coze-fixtures';
+import {fixture, partner, match, agents, agentSettings, modelProvider, modelConfig} from './coze-fixtures';
 
 const phase=process.env.COZE_ALL_PHASE || 'after';
 const root=path.resolve(process.env.COZE_ALL_EVIDENCE_DIR || '../artifacts/coze-all-pages');
@@ -19,11 +19,14 @@ async function allPagesFixture(page:Page){
   const base=await fixture(page);
   const writes:string[]=[],unhandled:string[]=[];
   await page.addInitScript(admin=>{localStorage.setItem('banfei:admin:token','synthetic-admin');localStorage.setItem('banfei:admin:user',JSON.stringify(admin));},admin);
-  await page.route(/https?:\/\/(localhost|127\.0\.0\.1):8000\//,async route=>{
-    const req=route.request(),u=new URL(req.url()),p=u.pathname;
+  await page.route('**/api/**',async route=>{
+    const req=route.request(),u=new URL(req.url()),p=u.pathname.replace(/^\/api/,'');
+    if(p==='/auth/identity/session')return route.fallback(); // Existing helper permits restoration, never creation.
     if(req.method()!=='GET'){writes.push(p);return route.abort();}
     let json:any;
     if(p==='/auth/me')json=req.headers().authorization==='Bearer synthetic-admin'?admin:member;
+    else if(p==='/agents')json=agents;
+    else if(p==='/admin/agents')json=agentSettings;
     else if(p==='/auth/identity/key')json={key:'SYNTHETIC-NOT-A-CREDENTIAL'};
     else if(p==='/partners/profiles'||p==='/partners')json=[{...partner,status:'active',created_at:stamp,case_count:1,deliverable_count:1}];
     else if(p===`/partners/${partner.id}`)json={...partner,status:'active',created_at:stamp};
@@ -34,7 +37,8 @@ async function allPagesFixture(page:Page){
     else if(p==='/admin/demand-profiles')json={profiles:[demand],overview:{totalDemands:1,thisMonthDemands:1,gapDemandCount:1,avgPartnerCount:1,topCapabilityTags:'数据库'},industryDistribution:{金融:1},capabilityDistribution:{数据库:1},regionDistribution:{广东:1},deliveryTypeDistribution:{实施:1}};
     else if(p==='/admin/opportunities')json=[opportunity];
     else if(p==='/admin/reports')json={overview:{totalDemands:1,thisMonthDemands:1,totalPartners:12,partnersWithProfile:9,activePartners:8,noPartnerDemands:0,partialDemands:1,pendingSuggestions:0},capabilityDist:[{name:'数据库',count:1}],industryDist:[],regionDist:[],deliveryTypeDist:[],supplyGaps:[],activePartnerCount:8,activePartnerRatio:0.67,topRecommendedPartners:[],inactivePartners:[],topFormalTags:[],uncoveredClues:0,pendingSuggestions:0};
-    else if(p==='/admin/model-configs')json=[{id:'model-1',name:'界面验收配置',provider:'合成供应商',modelName:'example-model',maxTokens:8192,baseUrl:'https://example.com/v1',apiKeyConfigured:true,enabled:true,isDefault:true}];
+    else if(p==='/admin/model-providers')json=[modelProvider];
+    else if(p==='/admin/model-configs')json=[modelConfig];
     else if(p==='/admin/model-configs/timeout-settings')json={timeoutSeconds:300,timeoutRetries:3};
     else if(p==='/admin/model-configs/usage')json=[{sceneKey:'partner_matching',sceneName:'伙伴匹配',modelConfigId:'model-1',modelConfigName:'界面验收配置'}];
     else if(p==='/admin/enablement/resources')json=[resource];
@@ -59,7 +63,7 @@ async function allPagesFixture(page:Page){
 
 const routes=[
 ['home','/','.assistant-composer'],['development','/?mode=development','.development-composer'],['scenes','/scenes','.scene-gallery-card'],['partners','/partners','.partner-insight-card'],['partner-detail','/partners/coze-partner','.card'],['tasks','/tasks','.data-table'],['task-answer','/tasks/coze-plan','.advisor-answer'],['task-match','/tasks/coze-match','.recommendation-item'],['resources','/resources','.learning-card'],['resource-detail','/resources/course/course-0','.learning-content'],['account','/account','.card'],['feedback','/feedback','.feedback-form'],
-['admin-home','/admin','.admin-metric-grid'],['admin-tasks','/admin/tasks','.data-table'],['admin-task-detail','/admin/tasks/coze-match','.recommendation-item'],['admin-partners','/admin/partners','.card'],['admin-partner-detail','/admin/partners/coze-partner','.card'],['admin-materials','/admin/partner-materials','.ui-catalog-card'],['admin-demands','/admin/demands','.card'],['admin-opportunities','/admin/opportunities','.data-table'],['admin-reports','/admin/reports','.ui-report-metrics'],['admin-resources','/admin/resources','.card'],['admin-tags','/admin/tags','.data-table'],['admin-users','/admin/users','.data-table'],['admin-user-detail','/admin/users/ui-member','.card'],['admin-models','/admin/models','.data-table'],['admin-system','/admin/system','.card'],['admin-feedback','/admin/feedback','.feedback-table-wrap'],['admin-feedback-detail','/admin/feedback/feedback-1','.feedback-form'],['admin-account','/admin/account','.card'],
+['admin-home','/admin','.admin-metric-grid'],['admin-tasks','/admin/tasks','.data-table'],['admin-task-detail','/admin/tasks/coze-match','.recommendation-item'],['admin-partners','/admin/partners','.admin-partners-page>section.card'],['admin-partner-detail','/admin/partners/coze-partner','.card'],['admin-materials','/admin/partner-materials','.ui-catalog-card'],['admin-demands','/admin/demands','.card'],['admin-opportunities','/admin/opportunities','.data-table'],['admin-reports','/admin/reports','.ui-report-metrics'],['admin-resources','/admin/resources','.card'],['admin-tags','/admin/tags','.data-table'],['admin-users','/admin/users','.data-table'],['admin-user-detail','/admin/users/ui-member','.card'],['admin-models','/admin/models','[role=tabpanel][aria-label="模型提供商"]'],['admin-system','/admin/system','.card'],['admin-feedback','/admin/feedback','.feedback-table-wrap'],['admin-feedback-detail','/admin/feedback/feedback-1','.feedback-form'],['admin-account','/admin/account','.card'],
 ];
 for(const [width,height] of [[1366,768],[1920,1080],[390,844]])test(`all page visual coverage ${width}`,async({page,context})=>{
   await page.setViewportSize({width,height});await page.clock.setFixedTime(new Date(stamp));
@@ -83,7 +87,14 @@ for(const [width,height] of [[1366,768],[1920,1080],[390,844]])test(`all page vi
   }
   for(const [name,url,crop] of routes){
     if(process.env.COZE_ROUTE_FILTER && name!==process.env.COZE_ROUTE_FILTER)continue;
-    await page.goto(url);await capture(name,crop);
+    await page.goto(url);
+    if(name==='admin-models'){
+      await capture('admin-agent-settings','[role=tabpanel][aria-label="智能体设置"]');
+      await page.getByRole('tab',{name:'模型提供商',exact:true}).click();
+      await expect(page.getByRole('heading',{name:modelProvider.name,exact:true})).toBeVisible();
+      await expect(page.getByRole('article',{name:modelConfig.name,exact:true})).toBeVisible();
+    }
+    await capture(name,crop);
     if(name==='admin-materials'){
       await page.getByRole('button',{name:'查看与管理',exact:true}).first().click();await capture('material-dialog','[role=dialog]');if(phase==='after'){const close=await page.getByRole('button',{name:'关闭',exact:true}).boundingBox();expect(close!.height).toBeLessThanOrEqual(44);}await page.getByRole('button',{name:'关闭',exact:true}).click();
       await page.getByRole('button',{name:'新增资料',exact:true}).click();await capture('material-editor','[role=dialog]');await page.getByRole('button',{name:'关闭',exact:true}).click();
@@ -98,8 +109,9 @@ for(const [width,height] of [[1366,768],[1920,1080],[390,844]])test(`all page vi
   }
   // Standalone pages use a signed-out synthetic browser state. No identity creation.
   await page.addInitScript(()=>{localStorage.clear();localStorage.setItem('banfei:user:signed-out','1');if(location.pathname==='/403'){localStorage.removeItem('banfei:user:signed-out');localStorage.setItem('banfei:user:token','synthetic-ui-only');}});
-  await page.route('**/auth/identity/session',r=>r.fulfill({status:401,json:{detail:'合成未登录状态'}}));
-  for(const [name,url,crop] of [['login','/login?method=key','.login-card'],['admin-login','/admin/login','.login-card'],['forbidden','/403','.public-state-card']]){await page.goto(url);await capture(name,crop);}
+  await page.route('**/auth/identity/session',route=>new URL(route.request().headers().referer||page.url()).pathname==='/403'?route.fallback():route.fulfill({status:404,json:{detail:{code:'identity_missing',message:'当前浏览器尚未登录，请使用保存的登录链接或开始使用。'}}}));
+  for(const [name,url,crop] of [['login','/login?method=key','.identity-entry-card'],['admin-login','/admin/login','.login-card'],['forbidden','/403','.public-state-card']]){await page.goto(url);await capture(name,crop);}
+  expect(base.identityRestores.length).toBeGreaterThan(0);expect(base.identityRestores.every(create=>create===false)).toBe(true);
   expect(errors).toEqual([]);expect(writes).toEqual([]);expect(base.requests.filter(r=>r.method!=='GET')).toEqual([]);expect(base.unexpected).toEqual([]);
   await writeFile(path.join(dir,`summary-${process.env.COZE_ROUTE_FILTER ? "targeted-" : ""}${width}.json`),JSON.stringify(measurements,null,2));
 });

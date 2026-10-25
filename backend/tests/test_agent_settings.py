@@ -1,3 +1,4 @@
+from .support.models import create_model
 """Bounded fixed-agent configuration and lifecycle regressions on isolated PostgreSQL."""
 import json
 import uuid
@@ -22,7 +23,7 @@ def configure(agent_id,**changes):
 
 
 def another_model():
-    return model_config.create_config(model_config.ModelConfigCreate(name='另一合成连接',baseUrl='https://api.deepseek.com',modelName='deepseek-flash',apiKey='synthetic-only')).id
+    return create_model(name='另一合成连接',baseUrl='https://api.deepseek.com',modelName='deepseek-flash',apiKey='synthetic-only').id
 
 
 def test_metadata_migration_atomic_idempotent_preserves_connections_and_unrelated_settings():

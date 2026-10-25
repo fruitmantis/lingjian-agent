@@ -105,6 +105,7 @@ app.include_router(demand.admin_router)
 app.include_router(capability_tags.router)
 app.include_router(system.router)
 app.include_router(model_config.router)
+app.include_router(model_config.provider_router)
 app.include_router(model_config.policy_router)
 from .routers import agents
 app.include_router(agents.router)

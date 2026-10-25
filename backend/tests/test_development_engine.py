@@ -1,3 +1,5 @@
+from backend.app import model_resolver
+from .support.models import create_model
 import copy,json
 import pytest
 from backend.app import development_engine as engine,development_lifecycle as life,development_model as model,enablement
@@ -19,7 +21,7 @@ def scenario(prepared,monkeypatch):
     with get_db() as conn:
         conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('secret-case','partner-1','内部案例',?,'2026')",(CANARY,))
         conn.execute("UPDATE partners SET ai_profile=? WHERE id='partner-1'",(CANARY,))
-        config=dict(conn.execute('SELECT * FROM model_configs LIMIT 1').fetchone())
+        config=dict(conn.execute(model_resolver.MODEL_SELECT+' LIMIT 1').fetchone())
     monkeypatch.setattr(model,'configuration',lambda **kwargs:config)
     captures=[]
     def mock(config,messages,schema):
@@ -42,9 +44,9 @@ def test_deleting_current_model_between_stages_stops_remaining_calls(scenario,mo
     from backend.app.routers import model_config
     admin=scenario[0][2]
     old=REAL_CONFIGURATION()['id']
-    replacement=model_config.create_config(model_config.ModelConfigCreate(
+    replacement=create_model(
         name='replacement',modelName='replacement',baseUrl='https://replacement.invalid/v1',apiKey='synthetic-only',
-    )).id
+    ).id
     monkeypatch.setattr(model,'configuration',REAL_CONFIGURATION)
     original=scenario[2];used=[]
     def complete(config,messages,schema):

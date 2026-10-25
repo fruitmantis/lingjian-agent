@@ -7,7 +7,7 @@ from contextlib import contextmanager
 import httpx
 import pytest
 
-from backend.app import database
+from backend.app import database,model_resolver
 from backend.app.database import get_db, get_readonly_db
 from backend.app.routers import system
 from .conftest import auth_headers, make_user
@@ -18,7 +18,8 @@ def synthetic_configuration(client, monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "")
     with get_db() as conn:
         conn.execute("UPDATE model_usage_configs SET model_config_id = NULL")
-        conn.execute("UPDATE model_configs SET api_key = 'synthetic-db-key', api_key_source = 'db', base_url = 'http://127.0.0.1:18180/v1', model_name = 'synthetic-model', enabled = 1")
+        conn.execute("UPDATE model_providers SET api_key = 'synthetic-db-key', api_key_source = 'db', base_url = 'http://127.0.0.1:18180/v1'")
+        conn.execute("UPDATE model_configs SET model_name='synthetic-model',enabled=1")
     def must_not_call(*args, **kwargs):
         pytest.fail("read-only system status called a model")
     monkeypatch.setattr(httpx.Client, "post", must_not_call)
@@ -95,25 +96,55 @@ def test_default_binding_error_and_database_error_are_sanitized(client, monkeypa
 
 
 def test_connection_address_omits_credentials_path_and_query(client):
+    """Valid base URLs may contain a private path; status exposes only the origin."""
     admin = make_user("address_admin", role="admin")
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET base_url = 'https://synthetic-user:synthetic-password@model.invalid/v1/private?token=synthetic-query'")
+        conn.execute("UPDATE model_providers SET base_url = 'https://model.invalid/v1/private'")
+    before = db_snapshot()
     response = client.get("/admin/system/status", headers=auth_headers(admin))
     assert response.status_code == 200
-    assert "https://model.invalid" in response.text
-    for marker in ("synthetic-user", "synthetic-password", "synthetic-query", "/v1/private"):
+    data = response.json()
+    endpoint = next(item for item in data["llm"] if item["name"] == "模型接口地址")
+    assert endpoint["status"] == "normal"
+    assert endpoint["message"] == "https://model.invalid"
+    assert data["overallStatus"] == "unknown"  # Configured, never actively probed.
+    for marker in ("synthetic-db-key", "synthetic-user", "synthetic-password", "synthetic-query", "/v1/private"):
         assert marker not in response.text
+    assert db_snapshot() == before
 
 
-@pytest.mark.parametrize("url", ["malformed-synthetic-secret", "https://model.invalid:bad/private-key", "file:///private/secret"])
+@pytest.mark.parametrize("url", [
+    "malformed-synthetic-secret", "https://model.invalid:bad/private-key", "file:///private/secret",
+    "https://synthetic-user:synthetic-password@model.invalid/v1/private?token=synthetic-query",
+    "https://synthetic-user:synthetic-password@model.invalid/v1/private",
+    "https://model.invalid/v1/private?token=synthetic-query",
+    "https://model.invalid/v1/private#synthetic-fragment",
+])
 def test_invalid_url_is_reported_without_echoing_configuration(client, url):
+    """Invalid legacy URLs fail resolution; APIs reject new ones without writing or inference."""
     admin = make_user("invalid_url_admin", role="admin")
+    headers = auth_headers(admin)
     with get_db() as conn:
-        conn.execute("UPDATE model_configs SET base_url = ?", (url,))
-    response = client.get("/admin/system/status", headers=auth_headers(admin))
+        conn.execute("UPDATE model_providers SET base_url = ?", (url,))
+        record = dict(conn.execute(model_resolver.MODEL_SELECT + " LIMIT 1").fetchone())
+    before = db_snapshot()
+    with pytest.raises(model_resolver.ModelConfigurationError, match="HTTP"):
+        model_resolver.model_config_from_record(record)
+    response = client.get("/admin/system/status", headers=headers)
     assert response.status_code == 200
-    assert response.json()["overallStatus"] == "partial"
-    assert url not in response.text
+    data = response.json()
+    assert data["overallStatus"] == "partial"
+    config = next(item for item in data["llm"] if item["name"] == "模型配置")
+    assert config["status"] == "error"
+    assert "暂无可用模型" in config["message"]
+    rejected = client.post("/admin/model-providers", headers=headers,
+        json={"name": "invalid-synthetic-provider", "baseUrl": url, "apiKey": "synthetic-rejected-key"})
+    assert rejected.status_code == 422
+    for marker in (url, "synthetic-db-key", "synthetic-rejected-key", "synthetic-user",
+                   "synthetic-password", "synthetic-query", "synthetic-fragment", "/v1/private", "/private/secret"):
+        assert marker not in response.text
+        assert marker not in rejected.text
+    assert db_snapshot() == before
 
 
 def test_status_remains_admin_only(client):

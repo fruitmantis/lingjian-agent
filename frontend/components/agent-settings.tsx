@@ -27,7 +27,7 @@ export function AgentBadge({id}:{id:AgentId}){
 type ModelOptions={modelConfigId:string|null;thinking:boolean;timeoutSeconds:number;timeoutRetries:number};
 type AgentOptions=ModelOptions&{name:string;description:string;icon:IconName;enabled:boolean};
 type Settings={agents:Record<AgentId,AgentOptions>;processing:ModelOptions};
-type Model={id:string;name:string;modelName:string|null;enabled:boolean};
+type Model={id:string;name:string;modelName:string|null;enabled:boolean;providerName?:string};
 const icons:IconName[]=["users","trend","search","puzzle","building","toolbox","spark"];
 
 function AgentEditor({id,initial,models,onSaved}:{id:AgentId|"processing";initial:AgentOptions|ModelOptions;models:Model[];onSaved:(settings:Settings)=>void}){
@@ -48,7 +48,7 @@ function AgentEditor({id,initial,models,onSaved}:{id:AgentId|"processing";initia
    {agent&&<><label className="enablement-field">展示名称<input maxLength={60} value={agent.name} onChange={e=>update({name:e.target.value})}/></label>
     <label className="enablement-field">图标<select value={agent.icon} onChange={e=>update({icon:e.target.value as IconName})}>{icons.map(icon=><option key={icon} value={icon}>{({users:"伙伴",trend:"发展",search:"搜索",puzzle:"能力",building:"行业",toolbox:"工具",spark:"灵感"})[icon as "users"]}</option>)}</select></label>
     <label className="enablement-field agent-description">简介<textarea maxLength={300} rows={2} value={agent.description} onChange={e=>update({description:e.target.value})}/></label></>}
-   <label className="enablement-field">模型<select value={draft.modelConfigId||""} onChange={e=>update({modelConfigId:e.target.value||null})}><option value="">请选择模型连接</option>{draft.modelConfigId&&!models.some(m=>m.id===draft.modelConfigId&&m.enabled)&&<option value={draft.modelConfigId}>原模型已停用或删除，请重新选择</option>}{models.filter(m=>m.enabled).map(m=><option key={m.id} value={m.id}>{m.name} · {m.modelName==="deepseek-v4-flash"?"deepseek-flash":m.modelName}</option>)}</select></label>
+   <label className="enablement-field">模型<select value={draft.modelConfigId||""} onChange={e=>update({modelConfigId:e.target.value||null})}><option value="">请选择模型</option>{draft.modelConfigId&&!models.some(m=>m.id===draft.modelConfigId&&m.enabled)&&<option value={draft.modelConfigId}>原模型已停用或删除，请重新选择</option>}{models.filter(m=>m.enabled).map(m=><option key={m.id} value={m.id}>{m.name}{m.providerName?" · "+m.providerName:""} · {m.modelName==="deepseek-v4-flash"?"deepseek-flash":m.modelName}</option>)}</select></label>
    <label className="enablement-field">请求超时（秒）<input type="number" min={0.1} step="any" value={draft.timeoutSeconds} onChange={e=>update({timeoutSeconds:Number(e.target.value)})}/></label>
    <label><input type="checkbox" checked={draft.thinking} onChange={e=>update({thinking:e.target.checked})}/> 开启思考（模型支持时）</label>
    {agent&&<label><input type="checkbox" checked={agent.enabled} onChange={e=>update({enabled:e.target.checked})}/> 启用智能体</label>}

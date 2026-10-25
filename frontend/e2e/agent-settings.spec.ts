@@ -15,6 +15,7 @@ test('fixed agents save independently and keep existing entry and task ownership
  await page.route('**/api/**',async route=>{
   const request=route.request(),path=new URL(request.url()).pathname.replace(/^\/api/,'');
   if(path==='/auth/me')return route.fulfill({json:request.headers().authorization?.includes('synthetic')&&(await page.url()).includes('/admin')?admin:user});
+  if (path === '/admin/model-providers') return route.fulfill({json:[]});
   if(path==='/admin/model-configs')return route.fulfill({json:[1,2].map(i=>({id:`model-${i}`,name:i===1?'DeepSeek 主连接':'DeepSeek 备用连接',modelName:'deepseek-flash',baseUrl:'https://api.deepseek.com',provider:'OpenAI Compatible',enabled:true,apiKeyConfigured:true,maxTokens:384000,temperature:.3,isDefault:false}))});
   if(path==='/admin/agents')return route.fulfill({json:settings});
   if(path==='/admin/agents/partner_match'&&request.method()==='PUT'){settings.agents.partner_match=request.postDataJSON();return route.fulfill({json:settings});}

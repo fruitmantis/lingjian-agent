@@ -32,7 +32,8 @@ def main():
     from backend.app import development_model, development_engine
     from backend.app.development_types import Understanding, AdviceOutput
     with get_readonly_db() as conn:
-        row=conn.execute('SELECT * FROM model_configs WHERE id=? AND enabled=1',(args.model_config_id,)).fetchone()
+        from backend.app.model_resolver import model_record
+        row=model_record(conn,args.model_config_id,enabled_only=True)
         if not row:raise SystemExit('Selected model is not enabled')
         config=dict(row)
     report={'kind':'real-provider-synthetic-smoke','max_calls':2,'calls':[],'business_acceptance':'NOT RUN'}

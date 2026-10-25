@@ -39,11 +39,16 @@ def seed_defaults(connection):
                 (str(uuid.uuid4()), name, category, "", now, now)
             )
 
-    connection.execute("INSERT INTO app_metadata(key,value) VALUES ('schema_version','21')")
+    connection.execute("INSERT INTO app_metadata(key,value) VALUES ('schema_version','22')")
+    provider_id = str(uuid.uuid4())
+    connection.execute("""INSERT INTO model_providers
+        (id,name,base_url,protocol,api_key_source,api_key_env_name,created_at,updated_at)
+        VALUES (?,'OpenAI Compatible',?,'openai_chat_completions','env','LLM_API_KEY',?,?)""",
+        (provider_id,os.getenv('LLM_BASE_URL','https://api.deepseek.com'),now,now))
     connection.execute("""INSERT INTO model_configs
-        (id,name,provider,base_url,api_key_source,api_key_env_name,model_name,temperature,top_p,max_tokens,enabled,is_default,created_at,updated_at)
-        VALUES (?,?,'OpenAI Compatible',?,'env','LLM_API_KEY',?,0.2,1.0,131072,1,1,?,?)""",
-        (str(uuid.uuid4()),'当前默认模型配置',os.getenv('LLM_BASE_URL','https://api.deepseek.com'),os.getenv('LLM_MODEL','deepseek-flash'),now,now))
+        (id,name,provider_id,model_name,temperature,top_p,max_tokens,enabled,is_default,created_at,updated_at)
+        VALUES (?,?,?, ?,0.2,1.0,131072,1,1,?,?)""",
+        (str(uuid.uuid4()),'当前默认模型配置',provider_id,os.getenv('LLM_MODEL','deepseek-flash'),now,now))
     for key,name in [('partner_profile','伙伴画像生成'),('partner_match','智能匹配'),('demand_profile','需求画像分析'),('tag_suggestion','AI 标签建议'),('recommendation_summary','推荐说明生成'),('partner_development','伙伴能力发展'),('default','系统默认')]:
         connection.execute("INSERT INTO model_usage_configs(scene_key,scene_name,model_config_id,description,updated_at) VALUES (?,?,NULL,'',?)",(key,name,now))
     from .resource_categories import initialize

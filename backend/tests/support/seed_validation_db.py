@@ -106,9 +106,10 @@ def seed() -> None:
         if not fake_base_url:
             conn.execute("UPDATE model_configs SET enabled=0,is_default=0")
             return
+        conn.execute("UPDATE model_configs SET model_name='validation-fake',enabled=1,is_default=1")
         conn.execute(
-            """UPDATE model_configs SET base_url = ?, api_key = 'validation-only-key',
-                      api_key_source = 'db', model_name = 'validation-fake', enabled = 1, is_default = 1""",
+            """UPDATE model_providers SET base_url = ?, api_key = 'validation-only-key',
+                      api_key_source = 'db'""",
             (fake_base_url,),
         )
 

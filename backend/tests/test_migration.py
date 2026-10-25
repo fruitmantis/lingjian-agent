@@ -12,8 +12,8 @@ def test_empty_pg_schema_initializes_current_version_in_subprocess():
         subprocess.run([sys.executable, 'scripts/initialize_postgres.py'], env=env, check=True, capture_output=True)
         with engine_for(url).connect() as conn:
             before = snapshot(conn)
-            assert len(before) == 36
-            assert conn.exec_driver_sql("SELECT value FROM app_metadata WHERE key='schema_version'").scalar() == '21'
+            assert len(before) == 37
+            assert conn.exec_driver_sql("SELECT value FROM app_metadata WHERE key='schema_version'").scalar() == '22'
         for _ in range(2):
             subprocess.run([sys.executable, '-c', 'from backend.app.database import initialize_storage; initialize_storage()'], env=env, check=True, capture_output=True)
         with engine_for(url).connect() as conn: assert snapshot(conn) == before
