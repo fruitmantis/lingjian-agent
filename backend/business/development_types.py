@@ -39,10 +39,12 @@ class DevelopmentRequest(StrictModel):
     partner_goal_allowed: bool=False
 
 class Submit(StrictModel):
+    modelConfigId: str | None=Field(default=None,min_length=1,max_length=128)
     submission_id: str=Field(min_length=8,max_length=128)
     request: DevelopmentRequest
 
 class Revise(StrictModel):
+    modelConfigId: str | None=Field(default=None,min_length=1,max_length=128)
     submission_id: str=Field(min_length=8,max_length=128)
     based_on_version_id: str | None
     instruction: RawInput=Field(min_length=1,max_length=2000)
@@ -146,6 +148,7 @@ class AdviceOutput(ModelOutput):
     next_steps: list[str]=Field(default_factory=list,max_length=10)
 
 class Conversation(StrictModel):
+    modelConfigId: str | None=Field(default=None,min_length=1,max_length=128)
     submission_id: str=Field(min_length=8,max_length=128)
     based_on_version_id: str
     message: RawInput=Field(min_length=1,max_length=2000)

@@ -51,6 +51,7 @@ def _to_str(val) -> str:
 
 
 class MatchRequest(BaseModel):
+    modelConfigId: str | None = Field(default=None,min_length=1,max_length=128)
     requirement: str = Field(..., min_length=1, description="项目需求描述")
 
 
@@ -116,6 +117,7 @@ class TaskListResponse(BaseModel):
 
 
 class MatchRecordDetail(BaseModel):
+    modelSelection: dict | None = None
     progress: dict | None = None
     understanding: dict | None = None
     scopeMessage: str | None = None
@@ -372,7 +374,7 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
                 labels.extend(hidden_labels(sources(conn,partner_id)))
         answer=redact_sources(answer,labels)
         recs=[{k:redact_sources(v,labels) if k in ("recommendationReason","riskNotes","evidenceCases","evidenceDeliverables") and isinstance(v,str) else v for k,v in rec.items()} for rec in recs]
-    return MatchRecordDetail(progress=(snapshot or {}).get("progress"),understanding=(snapshot or {}).get("understanding",{}).get("facts") if (snapshot or {}).get("understanding",{}).get("in_scope") else None,scopeMessage=(snapshot or {}).get("scope_message"),answer=answer,id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=public_demand, opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
+    return MatchRecordDetail(modelSelection=agent_settings.public_selection((snapshot or {}).get("agent_execution")),progress=(snapshot or {}).get("progress"),understanding=(snapshot or {}).get("understanding",{}).get("facts") if (snapshot or {}).get("understanding",{}).get("in_scope") else None,scopeMessage=(snapshot or {}).get("scope_message"),answer=answer,id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=public_demand, opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
 
 
 def _model_value(item: dict, field: str):
@@ -786,7 +788,10 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
         finally:
             match_context.log_stage('detailed_review', len(selected), chars, tokens, prepared,
                                     round((perf_counter() - call_start) * 1000), last_retry_count())
-        output, parse_rejections = matching.parse_answer(raw)
+        try:output, parse_rejections = matching.parse_answer(raw)
+        except Exception as error:
+            error.model_call_failure=True
+            raise
         snapshot['model_output'] = output
         snapshot['detail_rows'] = [[{key:row[0].get(key) for key in ('id','name','capabilities','industries','service_areas')},row[1],row[2],row[3]] for row in rows]
         partners = [row[0] for row in rows]
@@ -911,7 +916,7 @@ def _claim_task_retry(record_id: str, current_status: str, next_status: str, use
         if cursor.rowcount != 1:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="任务状态已变化，请刷新后再试")
         cached = understanding.load(conn, record_id) or {}
-        cached['agent_execution'] = agent_settings.execution(conn,'partner_match',accept=True)
+        cached['agent_execution'] = agent_settings.execution(conn,'partner_match',accept=True,model_config_id=(cached.get('agent_execution') or {}).get('modelConfigId'))
         cached['progress'] = task_progress.new('partner_match', run_id)
         understanding.save(conn, record_id, cached)
 
@@ -989,7 +994,7 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
                    VALUES (?, ?, '[]', ?, ?, ?, 'matching', NULL, ?)""",
                 (record_id, req.requirement, now, user["username"], user["id"], now),
             )
-            understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True),'progress':task_progress.new('partner_match',run_id,now)})
+            understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True,model_config_id=req.modelConfigId),'requested_model_config_id':req.modelConfigId,'progress':task_progress.new('partner_match',run_id,now)})
     except HTTPException:
         raise
     except Exception as error:
@@ -1018,6 +1023,7 @@ def _execute_match_inner(record_id: str, requirement: str, created_at: str, run_
         prepared = understanding.prepare(requirement, cached)
         reusable = prepared is cached and bool(cached.get('outcome')) and cached.get('candidate_stamp') == _candidate_stamp()
         if prepared is not cached:
+            prepared['requested_model_config_id'] = cached.get('requested_model_config_id')
             prepared['agent_execution'] = cached.get('agent_execution')
             prepared['progress'] = cached.get('progress')
             prepared['visible_answer'] = cached.get('visible_answer','')
@@ -1080,10 +1086,11 @@ def create_task(req: TaskCreateRequest, user: dict = Depends(require_active_user
                 if existing['owner_user_id'] != user['id']: raise HTTPException(404,'任务不存在')
                 if existing['requirement'] != requirement: raise HTTPException(409,'该提交标识已用于其他需求，请重新发起任务')
                 saved = understanding.load(conn,record_id) or {}
+                if saved.get('requested_model_config_id') != req.modelConfigId:raise HTTPException(409,'同一提交标识不能用于不同模型，请重新发起任务')
                 return TaskAccepted(recordId=record_id,runId=saved.get('progress',{}).get('run_id'),taskStatus=existing['task_status'])
             conn.execute("""INSERT INTO match_records(id,requirement,recommendations_json,created_at,created_by,owner_user_id,task_status,updated_at)
                 VALUES (?,?,'[]',?,?,?,'matching',?)""",(record_id,requirement,stamp,user['username'],user['id'],stamp))
-            understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True),'progress':task_progress.new('partner_match',run_id,stamp)})
+            understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True,model_config_id=req.modelConfigId),'requested_model_config_id':req.modelConfigId,'progress':task_progress.new('partner_match',run_id,stamp)})
     except HTTPException:raise
     except Exception as error:
         record_error(error,'submission',task_id=record_id,request_id=record_id)

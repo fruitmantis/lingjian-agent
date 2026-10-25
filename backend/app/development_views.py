@@ -113,7 +113,8 @@ def detail(plan_id,user,version_id=None):
                     interim={key:understood['analysis'].get(key) for key in ('interpretation','partner_assessment','priorities','basis_limitations')}
             except HTTPException:
                 pass
-        return {'progress':latest_snapshot.get('progress'),'analysis':interim,'scopeMessage':latest_snapshot.get('scope_message'),
+        from .agent_settings import public_selection
+        return {'modelSelection':public_selection(latest_snapshot.get('agent_execution')),'failedInput':None if hidden or not latest_failure else latest_snapshot.get('instruction'),'progress':latest_snapshot.get('progress'),'analysis':interim,'scopeMessage':latest_snapshot.get('scope_message'),
                 'executionInput':None if hidden else latest_snapshot.get('instruction') or request.get('raw_demand') or request.get('development_direction'),
                 'plan':plan,'presentation':presentation(conn,plan),'partner_name':partner[0] if partner else ('不可用伙伴' if plan['target_partner_id'] is not None else None),'request':request,'conversation':[] if hidden else conversation,'versions':versions,'runs':runs,'failureDetails':latest_failure,'payload':payload,'hidden':hidden,'notice':REVOKED if hidden else None}
 
@@ -183,4 +184,4 @@ def transferable(plan_id,user,expected=None,copy_event=False):
 
 def converse(plan_id,body,user):
     from .development_types import Revise
-    return life.revise(plan_id,Revise(submission_id=body.submission_id,based_on_version_id=body.based_on_version_id,instruction=body.message),user)
+    return life.revise(plan_id,Revise(submission_id=body.submission_id,based_on_version_id=body.based_on_version_id,instruction=body.message,modelConfigId=body.modelConfigId),user)

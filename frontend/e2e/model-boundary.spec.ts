@@ -5,7 +5,7 @@ test('model deletion supports cancel, success and server errors', async ({page})
   const configs = ['unused', 'referenced'].map(id => ({
     id, name: id === 'unused' ? '默认首选模型' : '待删除模型', provider: 'Synthetic',
     baseUrl: 'https://model.invalid/v1', modelName: 'synthetic', maxTokens: 1024,
-    temperature: 0.3, enabled: true, isDefault: id === 'unused', apiKeyConfigured: true,
+    temperature: 0.3, topP: 1, userSelectable: false, enabled: true, isDefault: id === 'unused', apiKeyConfigured: true,
   }));
   const deleted: string[] = [];
   const unexpected: string[] = [];
@@ -30,21 +30,24 @@ test('model deletion supports cancel, success and server errors', async ({page})
   });
   await mockDeviceSession(page);
   await page.goto('/admin/models');
-  const unused = page.getByRole('row').filter({hasText:'默认首选模型'});
+  await page.getByRole('tab',{name:'模型连接',exact:true}).click();
+  const unused = page.getByRole('button',{name:/默认首选模型/});
+  await unused.click();
   page.once('dialog', dialog => dialog.dismiss());
-  await unused.getByRole('button', {name:'删除',exact:true}).click();
+  await page.getByRole('button', {name:'删除',exact:true}).click();
   await expect(unused).toBeVisible();
   expect(deleted).toEqual([]);
   page.once('dialog', async dialog => {
     expect(dialog.message()).toContain('请先更换其模型选择');
     await dialog.accept();
   });
-  await unused.getByRole('button', {name:'删除',exact:true}).click();
+  await page.getByRole('button', {name:'删除',exact:true}).click();
   await expect(unused).toHaveCount(0);
   expect(deleted).toEqual(['unused']);
   page.once('dialog', dialog => dialog.accept());
-  const referenced = page.getByRole('row').filter({hasText:'待删除模型'});
-  await referenced.getByRole('button', {name:'删除',exact:true}).click();
+  const referenced = page.getByRole('button',{name:/待删除模型/});
+  await referenced.click();
+  await page.getByRole('button', {name:'删除',exact:true}).click();
   await expect(page.getByRole('alert').filter({hasText:'服务异常'})).toContainText('请联系管理员');
   await expect(referenced).toBeVisible();
   expect(unexpected).toEqual([]);

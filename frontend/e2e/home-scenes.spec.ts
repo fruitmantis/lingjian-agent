@@ -43,6 +43,7 @@ async function setup(page:Page,{url='/',rejectFirst=false,hold=false}={}){
  });
   await mockDeviceSession(page);
  await page.goto(url);await expect(page.locator('.home-scene-buttons button')).toHaveCount(6);
+ await expect(page.getByRole('button',{name:'选择模型：合成模型',exact:true})).toBeVisible();
  return {posts,errors,release};
 }
 
@@ -126,7 +127,7 @@ for(const width of [1366,390])test(`six compact starters use keyboard and fit ${
  const hint=page.locator('.development-form').getByTestId('composer-shortcut-hint'),actions=hint.locator('..'),start=actions.getByRole('button',{name:'开始',exact:true});
  await expect(start).toHaveText('开始');await expect(hint).toHaveText('Enter 提交；Alt+Enter / Ctrl+Enter 换行');
  const footer=await actions.evaluate(el=>{
-  const box=el.getBoundingClientRect(),button=el.querySelector('button')!.getBoundingClientRect(),hint=el.querySelector('[data-testid="composer-shortcut-hint"]')!.getBoundingClientRect();
+  const box=el.getBoundingClientRect(),button=Array.from(el.querySelectorAll('button')).find(button=>button.textContent?.trim()==='开始')!.getBoundingClientRect(),hint=el.querySelector('[data-testid="composer-shortcut-hint"]')!.getBoundingClientRect();
   return {rightGap:Math.abs(box.right-button.right),hintGap:hint.top-button.bottom,contained:button.top>=box.top&&hint.bottom<=box.bottom+1};
  });
  expect(footer.rightGap).toBeLessThanOrEqual(1);expect(footer.hintGap).toBeGreaterThanOrEqual(7);expect(footer.contained).toBe(true);
@@ -162,13 +163,13 @@ for(const width of [1366,1920,390])test('phase2 visual: compact composer and ret
  await page.goto('/?mode=development&partner_id=partner-1&task_id=source-task');
  const source=page.getByTestId('source-context'),disclosure=source.locator('details'),toggle=source.locator('summary');
  await expect(toggle).toContainText('来源上下文');await expect(disclosure).not.toHaveAttribute('open','');
- await expect(source.getByText('这是原匹配提示，尚未确认能力短板，也未转化为培训需求。',{exact:true})).toBeVisible();
- await expect(source.getByRole('link',{name:'返回来源项目任务'})).toBeHidden();
+ await expect(source.getByText('这是来源推荐提示，尚未确认能力短板，也未转化为培训需求。',{exact:true})).toBeVisible();
+ await expect(source.getByRole('link',{name:'返回来源推荐任务'})).toBeHidden();
  const draft='独立视觉验收：自述基础和目标必须保留。\n'+ '长原文不可截断。'.repeat(120);
  await direction(page).fill(draft);
  await direction(page).evaluate(el=>{(window as any).phase2Input=el;});
  await toggle.focus();await page.keyboard.press('Enter');await expect(disclosure).toHaveAttribute('open','');
- await expect(source.getByRole('link',{name:'返回来源项目任务'})).toBeVisible();
+ await expect(source.getByRole('link',{name:'返回来源推荐任务'})).toBeVisible();
  await toggle.click();await expect(disclosure).not.toHaveAttribute('open','');
  await expect(direction(page)).toHaveValue(draft);
  expect(await direction(page).evaluate(el=>(window as any).phase2Input===el)).toBe(true);

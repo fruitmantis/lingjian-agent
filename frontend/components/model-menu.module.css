@@ -1,0 +1,110 @@
+.wrap {
+  position:relative;
+  flex:0 1 auto;
+  min-width:0;
+  max-width:220px;
+}
+.trigger {
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  max-width:100%;
+  margin:0!important;
+  padding:8px 14px!important;
+  min-height:34px;
+  border:0!important;
+  border-radius:22px!important;
+  background:#f4f4f2!important;
+  color:var(--text-primary)!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.trigger>span {
+  color:#888;
+}
+.menu {
+  position:absolute;
+  right:0;
+  bottom:calc(100% + 12px);
+  z-index:60;
+  min-width:240px;
+  max-width:min(320px,calc(100vw - 48px));
+  padding:8px 6px;
+  background:white;
+  border:1px solid #e6e6e3;
+  border-radius:14px;
+  box-shadow:0 10px 28px #0000000d;
+}
+.caption {
+  margin:6px 10px 8px;
+  color:#888;
+  font-size:11px;
+}
+.menu button {
+  display:flex!important;
+  align-items:center;
+  justify-content:space-between;
+  width:100%;
+  gap:12px;
+  min-height:40px;
+  margin:0;
+  padding:10px 12px!important;
+  border:0!important;
+  border-radius:8px!important;
+  background:white!important;
+  color:#171717!important;
+  text-align:left;
+  font-size:13px!important;
+  font-weight:400!important;
+}
+.menu button:hover,.menu button[aria-checked=true] {
+  background:#f5f5f3!important;
+}
+.menu small {
+  margin-left:8px;
+  font-size:10px;
+  color:#777;
+}
+.check {
+  color:#c7000b;
+}
+.empty {
+  padding:8px 12px;
+  font-size:12px;
+}
+.stamp {
+  display:inline-block;
+  color:#777;
+  font-size:12px;
+  margin:8px 12px 8px 0;
+}
+@media(max-width:600px) {
+  .wrap {
+    max-width:164px;
+  }
+  .trigger {
+    max-width:100%;
+    padding:7px 10px!important;
+  }
+  .menu {
+    min-width:220px;
+  }
+  .stamp {
+    max-width:100%;
+    overflow-wrap:anywhere;
+  }
+}
+.trigger .name {
+  color:inherit;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.trigger>span:last-child {
+  flex-shrink:0;
+}

@@ -29,6 +29,23 @@ SERVICE_CODES={'configuration','authentication','connection','provider','persist
 REASONS={code:(SERVICE_FAILURE if code in SERVICE_CODES else GENERAL_FAILURE, '') for code in LEGACY_REASONS}
 REASONS['input_budget']=(LEGACY_REASONS['input_budget'][0],LEGACY_REASONS['input_budget'][1])
 
+MODEL_REASONS={
+ 'timeout':'模型响应超时。本次分析未完成，你可以返回切换模型后重新提交。',
+ 'rate_limit':'模型服务请求受限。可以稍后重试，或返回切换模型。',
+ 'connection':'暂时无法连接模型服务，可以重试或返回切换模型。',
+ 'provider':'模型服务返回异常，可以重试或返回切换模型。',
+ 'configuration':'当前模型暂不可用。请切换模型，或联系管理员。',
+ 'authentication':'当前模型暂不可用。请切换模型，或联系管理员。',
+ 'invalid_result':'模型返回内容未能完成解析。可以重试或切换模型。',
+}
+REASONS['persistence']=('结果保存失败，已有内容已保留。','重试')
+REASONS['run_timeout']=('本次处理超过任务执行时限，已中断。','重试')
+REASONS['interrupted']=('本次处理已中断，已有内容已保留。','重试')
+
+def is_model_error(error):
+ if isinstance(error,PublicTaskError):return is_model_error(error.original_error)
+ return bool(getattr(error,'model_call_failure',False) or isinstance(error,(ModelConfigurationError,ModelResponseError)))
+
 class MatchInputBudgetError(ValueError):
  """The complete staged model input cannot fit the configured safety budget."""
 
@@ -57,12 +74,14 @@ def classify(error=None,stage=None):
  if isinstance(error,(ModelResponseError,ValueError,ValidationError)):return 'invalid_result'
  return 'unknown'
 
-def failure(stage,error=None,code=None):
+def failure(stage,error=None,code=None,model_related=None):
  if error is not None:
   from .error_diagnostics import record_error
   record_error(error,stage)
  code=code if code in REASONS else classify(error,stage)
- return {'stage':stage if stage in STAGES else 'unknown','stageLabel':STAGES.get(stage,'后续处理'),'code':code,'message':REASONS[code][0],'action':REASONS[code][1]}
+ related=is_model_error(error) if model_related is None else model_related
+ related=bool(related and code in MODEL_REASONS and stage not in ('persistence','run_timeout','interrupted'))
+ return {'stage':stage if stage in STAGES else 'unknown','stageLabel':STAGES.get(stage,'后续处理'),'code':code,'message':MODEL_REASONS[code] if related else REASONS[code][0],'action':'返回并切换模型' if related else REASONS[code][1],'modelRelated':related}
 
 def public_failures(stages,stored=None):
  stages=(stages or '').split(',');records=[]
@@ -74,5 +93,6 @@ def public_failures(stages,stored=None):
  for stage in filter(None,stages):
   code=next((r.get('code') for r in records if isinstance(r,dict) and r.get('stage')==stage),None)
   if code not in REASONS:code=next((k for k,(message,_) in LEGACY_REASONS.items() if message==stored),None)
-  result.append(failure(stage,code=code))
+  origin=next((r.get('modelRelated') is True for r in records if isinstance(r,dict) and r.get('stage')==stage),False)
+  result.append(failure(stage,code=code,model_related=origin))
  return result or [failure('unknown')]

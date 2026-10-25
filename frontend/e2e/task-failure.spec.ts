@@ -56,7 +56,7 @@ for(const width of [1366,1920])test(`partial and failed revise preserve useful r
  if(process.env.TASK_FAILURE_SCREENSHOTS)await page.screenshot({path:`${process.env.TASK_FAILURE_SCREENSHOTS}/partial-${width}.png`});
  await page.goto("/tasks/plan-fixture");await expect(page.getByRole("heading",{name:"能力发展建议",exact:true})).toBeVisible();
  await expect(page.getByTestId("advisor-status")).toContainText("建议可用");await expect(page.getByTestId("advisor-run-notice")).toContainText("本次调整失败，请重试。");
- await page.getByTestId("advisor-run-notice").getByRole("button",{name:"重试",exact:true}).click();
+ await page.getByTestId("advisor-run-notice").getByRole("button",{name:"使用原模型重试",exact:true}).click();
  await expect.poll(()=>writes.length).toBe(1);expect(writes[0].path).toBe("/development/plans/plan-fixture/retry");expect(writes[0].body.based_on_version_id).toBe("v1");expect(writes[0].body.run_id).toBe("failed-run");
  await expect(page.getByTestId("advisor-status")).toContainText("建议可用");
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBeTruthy();
@@ -126,7 +126,7 @@ for(const status of [202,502,500])test(`accepted matching timeout recovers origi
  await expect(page.locator(".pending-task")).toHaveCount(0);
  expect(await page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
  page.on("dialog",dialog=>dialog.accept());
- await page.getByRole("button",{name:"重试",exact:true}).click();
+ await page.getByRole("button",{name:"使用原模型重试",exact:true}).click();
  await expect.poll(()=>retries).toBe(1);
  await expect(page.getByRole("region",{name:"任务未完成说明"})).toContainText("项目需求已保留");
  await expect(page.locator("body")).not.toContainText(/提交未确认|核对任务/);
@@ -138,7 +138,7 @@ test("restored pending matching task resolves failed record without another subm
  await page.addInitScript(({id,stamp})=>sessionStorage.setItem("lingjian:pending-tasks:fixture-user",JSON.stringify([{id,createdAt:stamp}])),{id,stamp});
  await page.route(`**/agent/tasks/${id}`,route=>route.fulfill({json:{...summary,id,taskStatus:"failed",recommendations:[],demandProfile:null,opportunity:null}}));
  await page.goto(`/tasks/${id}`);
- await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ await expect(page.getByRole("button",{name:"使用原模型重试",exact:true})).toBeEnabled();
  await expect.poll(()=>page.evaluate(()=>sessionStorage.getItem("lingjian:pending-tasks:fixture-user"))).toBe("[]");
  await expect(page.locator("body")).not.toContainText(/提交未确认|核对任务/);
  expect(writes).toHaveLength(0);
@@ -155,7 +155,7 @@ test("accepted development timeout opens the saved failed plan with retry availa
  await page.getByRole("button",{name:"开始",exact:true}).click();
  await expect(page).toHaveURL(/tasks\/plan-fixture/);
  await expect(page.getByTestId("advisor-status")).toContainText("生成失败，可重试");
- await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ await expect(page.getByRole("button",{name:"使用原模型重试",exact:true})).toBeEnabled();
  expect(await page.evaluate(()=>sessionStorage.getItem("development:pending-create:fixture-user:fixture-partner"))).toBeNull();
  expect(posts).toBe(1);
 });
@@ -170,15 +170,15 @@ test("failed development task clears old pending marker and retries same plan on
  await page.route("**/development/plans/plan-fixture/retry",async route=>{posts++;expect(route.request().postDataJSON()).toMatchObject({run_id:"failed-run",based_on_version_id:null});await response;await route.fulfill({status:202,json:{plan_id:"plan-fixture",run_id:"retry-run",status:"failed"}});});
  await page.goto("/tasks/plan-fixture");
  await expect(page.getByTestId("advisor-status")).toContainText("生成失败，可重试");
- await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ await expect(page.getByRole("button",{name:"使用原模型重试",exact:true})).toBeEnabled();
  expect(await page.evaluate(key=>sessionStorage.getItem(key),key)).toBeNull();
- await page.getByRole("button",{name:"重试",exact:true}).click();
+ await page.getByRole("button",{name:"使用原模型重试",exact:true}).click();
  await page.waitForResponse(r=>r.url().endsWith("/development/plans/plan-fixture")&&r.request().method()==="GET");
  // A poll of the old failed Run must not clear the request still in flight.
  expect(await page.evaluate(key=>sessionStorage.getItem(key),key)).toBeTruthy();
- await expect(page.getByRole("button",{name:"重试",exact:true})).toBeDisabled();
+ await expect(page.getByRole("button",{name:"使用原模型重试",exact:true})).toBeDisabled();
  release();
- await expect(page.getByRole("button",{name:"重试",exact:true})).toBeEnabled();
+ await expect(page.getByRole("button",{name:"使用原模型重试",exact:true})).toBeEnabled();
  await expect(page.locator("body")).not.toContainText(/提交未确认|核对任务/);
  expect(posts).toBe(1);
 });
@@ -258,7 +258,7 @@ test("development service failure has no retry and no false usable advice claim"
  await expect(notice).toContainText("服务异常，请联系管理员。");
  await expect(notice).toContainText("发展诉求已保留。");
  await expect(notice).not.toContainText("当前建议仍可使用");
- await expect(notice.getByRole("button",{name:"重试",exact:true})).toHaveCount(0);
+ await expect(notice.getByRole("button",{name:"使用原模型重试",exact:true})).toHaveCount(0);
 });
 
 test("initial generation failure preserves request without claiming old advice",async({page})=>{
@@ -269,7 +269,7 @@ test("initial generation failure preserves request without claiming old advice",
  await expect(notice).toContainText("本次建议未生成，请重试。");
  await expect(notice).toContainText("发展诉求已保留。");
  await expect(notice).not.toContainText("当前建议仍可使用");
- await expect(page.getByRole("button",{name:"重试",exact:true})).toHaveCount(1);
+ await expect(page.getByRole("button",{name:"使用原模型重试",exact:true})).toHaveCount(1);
  await expect(page.getByRole("button",{name:"重新生成",exact:true})).toHaveCount(0);
 });
 
@@ -300,11 +300,11 @@ test("lost development retry response only queries original run even after reloa
  await page.route("**/development/plans/plan-fixture/retry",route=>{posts++;submission=route.request().postDataJSON().submission_id;return route.abort();});
  await page.route("**/development/plans/plan-fixture",route=>route.fulfill({json:confirmed?{...developmentDetail,plan:{...developmentDetail.plan,active_run_id:"original-run"},runs:[{...developmentDetail.runs[0],id:"original-run",submission_id:submission,status:"running"}],failureDetails:[]}:developmentDetail}));
  await page.goto("/tasks/plan-fixture");
- await page.getByRole("button",{name:"重试",exact:true}).click();
+ await page.getByRole("button",{name:"使用原模型重试",exact:true}).click();
  await expect(page.getByText("暂未确认结果，请刷新查看。",{exact:true})).toBeVisible();
  await page.reload();
  await expect(page.getByRole("button",{name:"刷新查看",exact:true})).toBeVisible();
- await expect(page.getByRole("button",{name:"重试",exact:true})).toHaveCount(0);
+ await expect(page.getByRole("button",{name:"使用原模型重试",exact:true})).toHaveCount(0);
  confirmed=true;
  await page.getByRole("button",{name:"刷新查看",exact:true}).click();
  await expect(page.getByText("伴飞正在整理建议，你可以继续查看已有内容。",{exact:true})).toBeVisible();

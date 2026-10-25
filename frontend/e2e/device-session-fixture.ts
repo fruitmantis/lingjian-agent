@@ -2,6 +2,9 @@ import type {Page} from '@playwright/test';
 
 /** Keep existing isolated business-UI mocks on the current identity handshake. */
 export async function mockDeviceSession(page:Page){
+ // Existing business-only fixtures must also supply the new authenticated options read.
+ await page.route('**/api/agents/*/models',route=>route.fulfill({json:{models:[{id:'model-1',name:'合成模型',isDefault:true}],defaultModelConfigId:'model-1',agentEnabled:true,unavailableReason:null}}));
+
  await page.route('**/api/auth/identity/session',async route=>{
   if(route.request().method()!=='POST'||route.request().postDataJSON()?.create)return route.fallback();
   const data=await page.evaluate(async()=>{

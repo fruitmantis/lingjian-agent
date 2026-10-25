@@ -1,4 +1,6 @@
 "use client";
+import {ModelStamp,type ModelSelection} from "./model-menu";
+import {saveModelDraft} from "../lib/model-draft";
 import {AgentBadge} from "./agent-settings";
 import {TaskRequest,TaskResult,TaskArrivalReadError} from "./task-transition";
 import {TaskProgress,type TaskProgressData} from "./task-progress";
@@ -12,8 +14,8 @@ import Link from "next/link";
 import { CardEntry } from "./card-entry";
 import {DevelopmentPlanDetail} from "./development-assistant";
 import { FormEvent, use, useEffect, useId, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
-import { apiFetch } from "./auth-provider";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { apiFetch,useAuth } from "./auth-provider";
 import {responseError} from "../lib/api-request";
 
 import { tasksChanged } from "./task-navigation";
@@ -32,6 +34,7 @@ type Opportunity = { classification_pending?:Record<string,string[]>;
   completenessScore: number; missingFields: string; followUpQuestions: string; updatedAt: string;
 };
 type TaskDetail = {
+  modelSelection?:ModelSelection|null;
   progress?:TaskProgressData|null; understanding?:Record<string,unknown>|null; scopeMessage?:string|null;
   answer?: string;
   task_type: string;
@@ -94,6 +97,7 @@ function TaskDetail({id}:{id:string}) {
   const opportunityFieldPrefix = useId() + "-opportunity-";
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const router=useRouter(),{user}=useAuth();
   const returnHref = pathname.startsWith("/admin") ? "/admin/tasks" : "/tasks";
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -162,8 +166,12 @@ function TaskDetail({id}:{id:string}) {
     }
   }
 
+  function returnToDraft(){
+    if(!task||!user||user.role!=="user")return;
+    saveModelDraft(user.id,"partner_match",{text:task.requirement,modelConfigId:task.modelSelection?.id||undefined,openMenu:task.failureDetails?.some(f=>f.modelRelated)===true});router.push("/");
+  }
   async function retryTask() {
-    if (!confirm("将重新执行该任务未完成的处理步骤，确定继续？")) return;
+    if (!confirm("将使用原模型重新执行该任务，已有结果保留。确定继续？")) return;
     setRetrying(true); setError(null);
     try {
       const response = await apiFetch(`/agent/tasks/${id}/retry`, { method: "POST" });
@@ -192,9 +200,10 @@ function TaskDetail({id}:{id:string}) {
   return (
     <main className="page match-detail">
       <div className="page-heading-row"><div><h1>任务详情</h1><AgentBadge id={task.task_type === "development_plan" ? "partner_development" : "partner_match"}/><p className="lead">创建于 {new Date(task.createdAt).toLocaleString("zh-CN")} · 创建人 {task.createdBy || "历史数据"}</p></div><Link href={returnHref} className="secondary-btn">返回任务列表</Link></div>
+      <ModelStamp value={task.modelSelection}/>
       {error && <div className="inline-error-actions"><p className="error-text">{error}</p><button className="secondary-btn" onClick={() => void load()}>重新加载</button></div>}
       {(task.task_type || "partner_match") === "partner_match" ? <>
-      {(task.taskStatus === "partial" || task.taskStatus === "failed") ? <FailureNotice details={task.failureDetails} stages={task.lastErrorStage} partial={task.recommendations.length>0} title={failureTitle} impact={task.recommendations.length>0?"已保存的伙伴推荐可继续查看。重试将补充未完成的步骤。":"项目需求已保留，可重新执行。"}><button onClick={()=>void retryTask()} disabled={retrying||!!task.archivedAt}>{retrying?"重试中…":"重试"}</button></FailureNotice> : task.taskStatus!=="ready" && <div className="notice-warning task-status-notice"><strong>{taskStatusText[task.taskStatus]}</strong></div>}
+      {(task.taskStatus === "partial" || task.taskStatus === "failed") ? <FailureNotice details={task.failureDetails} stages={task.lastErrorStage} partial={task.recommendations.length>0} title={failureTitle} impact={task.recommendations.length>0?"已保存的伙伴推荐可继续查看。重试将重新执行本次分析。":"项目需求已保留，可重新执行。"}>{user?.role==="user"&&<button onClick={returnToDraft} disabled={retrying||!!task.archivedAt}>{task.failureDetails?.some(f=>f.modelRelated)?"返回并切换模型":"返回编辑需求"}</button>}<button className="secondary-btn" onClick={()=>void retryTask()} disabled={retrying||!!task.archivedAt}>{retrying?"重试中…":"使用原模型重试"}</button></FailureNotice> : task.taskStatus!=="ready" && <div className="notice-warning task-status-notice"><strong>{taskStatusText[task.taskStatus]}</strong></div>}
       <TaskRequest id={id}>{task.requirement}</TaskRequest>
       <TaskProgress value={task.progress} taskId={id}/>
       {task.scopeMessage&&<TaskResult id={id} className="card task-answer" testId="scope-result"><p>{task.scopeMessage}</p></TaskResult>}

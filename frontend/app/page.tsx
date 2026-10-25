@@ -1,4 +1,7 @@
 "use client";
+import {ModelMenu,useModelChoice} from "@/components/model-menu";
+import {readModelDraft,saveModelDraft,clearModelDraft} from "@/lib/model-draft";
+import {useAuth} from "@/components/auth-provider";
 import composerStyles from "@/components/task-composer.module.css";
 import {useAgent} from "@/components/agent-settings";
 import {useComposerShortcuts,COMPOSER_KEY_HINT} from "@/lib/composer-shortcuts";
@@ -25,6 +28,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
 }) {
   const agent=useAgent("partner_match"),searchParams=useSearchParams(),router=useRouter();
   const {submit,openCreatedTask,pending}=useTaskNavigation();
+  const model=useModelChoice("partner_match");
   const [loading,setLoading]=useState(false),[error,setError]=useState<string|null>(null);
   const submitting=useRef(false),generation=useRef(0),lastPrompt=useRef<string|null>(null);
   const requirementInput=inputRef,taskStatus=loading?"submitting":"";
@@ -47,9 +51,9 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
   },[setRequirement,requirementInput]);
   function handleMatch(event:React.FormEvent){event.preventDefault();void handleMatchDirect(requirement);}
   async function handleMatchDirect(text:string){
-    if(submitting.current||loading||pending.some(task=>task.requirement===text)||!text.trim())return;
+    if(submitting.current||loading||pending.some(task=>task.requirement===text)||!text.trim()||!model.canSubmit)return;
     submitting.current=true;const current=++generation.current;setLoading(true);setError(null);
-    try{const id=await submit(text);if(current===generation.current)openCreatedTask(id,text,requirementInput.current?.closest("form")||null);}
+    try{const id=await submit(text,model.id);if(current===generation.current)openCreatedTask(id,text,requirementInput.current?.closest("form")||null);}
     catch(reason){if(current===generation.current){setError(reason instanceof Error?reason.message:"任务提交失败");setLoading(false);}}
     finally{if(current===generation.current)submitting.current=false;}
   }
@@ -60,7 +64,7 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
           <label htmlFor="requirement" className={composerStyles.field}>描述项目背景和伙伴需求
           <textarea
             ref={requirementInput}
-            {...composerKeys(setRequirement,()=>void handleMatchDirect(requirement),agent.enabled&&!loading&&!sameDraftPending&&!!requirement.trim())}
+            {...composerKeys(setRequirement,()=>void handleMatchDirect(requirement),agent.enabled&&model.canSubmit&&!loading&&!sameDraftPending&&!!requirement.trim())}
             id="requirement"
             aria-label="输入项目需求"
             value={requirement}
@@ -75,12 +79,14 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
           <div className={composerStyles.actions}>
             <div className={composerStyles.actionRow}>
               <span className={`assistant-counter ${composerStyles.counter}`}>{requirement.length}/2000</span>
-              <button type="submit" disabled={!agent.enabled || loading || sameDraftPending || !requirement.trim()} className={composerStyles.submit} aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
+              <ModelMenu choice={model} disabled={loading||sameDraftPending}/>
+              <button type="submit" disabled={!agent.enabled || !model.canSubmit || loading || sameDraftPending || !requirement.trim()} className={composerStyles.submit} aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
                 {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={18} />}<span>{loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}</span>
               </button>
             </div>
             <p className={`muted ${composerStyles.hint}`} data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p>
           </div>
+          {model.message&&<p className="muted" role="status">{model.message}</p>}
         </form>
     </section>{error&&<p className="error-text assistant-error">{error}</p>}
   </div>;
@@ -89,9 +95,27 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
 export default function HomePage() {
   const matchAgent=useAgent("partner_match"),developmentAgent=useAgent("partner_development");
   const search=useSearchParams();
+  const {user}=useAuth();
+  const [draftOwner,setDraftOwner]=useState("");
   const development=search.get("mode")==="development";
   const [drafts,setDrafts]=useState({match:"",development:""});
   const [busy,setBusy]=useState({match:false,development:false});
+  useEffect(()=>{
+    if(!user)return;
+    const match=readModelDraft(user.id,"partner_match"),dev=readModelDraft(user.id,"partner_development");
+    setDrafts({match:match.text||"",development:dev.text||""});setDraftOwner(user.id);
+    if(search.get("mode")==="development"&&dev.context&&!search.get("partner_id")){
+      const params=new URLSearchParams(search);for(const [key,value] of Object.entries(dev.context))if(value)params.set(key,value);
+      window.history.replaceState(null,"",`/?${params}`);
+    }
+  },[user?.id]);
+  useEffect(()=>{
+    if(!user||draftOwner!==user.id)return;
+    saveModelDraft(user.id,"partner_match",{text:drafts.match});
+    const context=Object.fromEntries(["partner_id","task_id","case_id","case_version"].flatMap(key=>search.get(key)?[[key,search.get(key)!]]:[]));
+    saveModelDraft(user.id,"partner_development",{text:drafts.development,...(search.get("mode")==="development"?{context}:{})});
+  },[drafts,draftOwner,user?.id,search]);
+
   const [focusRequest,setFocusRequest]=useState<{mode:HomeTaskMode;sequence:number}|null>(null);
   const matchInput=useRef<HTMLTextAreaElement>(null),developmentInput=useRef<HTMLTextAreaElement>(null);
   const changeMatch=useCallback((value:string)=>setDrafts(current=>({...current,match:value})),[]);
@@ -99,10 +123,10 @@ export default function HomePage() {
   const matchBusy=useCallback((value:boolean)=>setBusy(current=>current.match===value?current:{...current,match:value}),[]);
   const developmentBusy=useCallback((value:boolean)=>setBusy(current=>current.development===value?current:{...current,development:value}),[]);
   useEffect(()=>{
-    const reset=()=>{setDrafts({match:"",development:""});setFocusRequest(null);};
+    const reset=()=>{if(user){clearModelDraft(user.id,"partner_match");clearModelDraft(user.id,"partner_development");}setDrafts({match:"",development:""});setFocusRequest(null);};
     window.addEventListener(NEW_TASK,reset);
     return()=>window.removeEventListener(NEW_TASK,reset);
-  },[]);
+  },[user?.id]);
   function selectMode(mode:HomeTaskMode) {
     const next=new URLSearchParams(search);
     if(mode==="development")next.set("mode","development");else next.delete("mode");

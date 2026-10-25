@@ -27,7 +27,7 @@ export function AgentBadge({id}:{id:AgentId}){
 type ModelOptions={modelConfigId:string|null;thinking:boolean;timeoutSeconds:number;timeoutRetries:number};
 type AgentOptions=ModelOptions&{name:string;description:string;icon:IconName;enabled:boolean};
 type Settings={agents:Record<AgentId,AgentOptions>;processing:ModelOptions};
-type Model={id:string;name:string;modelName:string;enabled:boolean};
+type Model={id:string;name:string;modelName:string|null;enabled:boolean};
 const icons:IconName[]=["users","trend","search","puzzle","building","toolbox","spark"];
 
 function AgentEditor({id,initial,models,onSaved}:{id:AgentId|"processing";initial:AgentOptions|ModelOptions;models:Model[];onSaved:(settings:Settings)=>void}){

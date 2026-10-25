@@ -22,3 +22,7 @@ def save_processing(payload:agent_settings.ModelSettings):return agent_settings.
 def save_agent(agent_id:str,payload:agent_settings.AgentSettings):
     if agent_id not in agent_settings.AGENT_IDS:raise HTTPException(404,'智能体不存在')
     return agent_settings.save(agent_id,payload)
+
+
+@public_router.get('/agents/{agent_id}/models')
+def models(agent_id:str):return agent_settings.model_options(agent_id)

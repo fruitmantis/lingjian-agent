@@ -13,7 +13,7 @@ from ..database import get_db
 from ..auth import require_admin, require_active_user, record_audit
 from ..model_resolver import _resolve_api_key, model_endpoint_origin, ModelConfigurationError
 from ..ai_client import ModelResponseError, model_error_message
-from .. import development_model
+from .. import development_model, agent_settings
 from .. import model_timeout_settings
 from ..model_timeout_settings import TimeoutSettings
 
@@ -56,11 +56,15 @@ class ModelConfigOut(BaseModel):
     maxTokens: int
     enabled: bool
     isDefault: bool
+    userSelectable: bool = False
+    defaultBindings: list[str] = Field(default_factory=list)
     createdAt: str
     updatedAt: str
 
 
 class ModelConfigCreate(BaseModel):
+    userSelectable: StrictBool = False
+    enabled: StrictBool = True
     name: str
     provider: str = "OpenAI Compatible"
     baseUrl: str | None = None
@@ -72,6 +76,8 @@ class ModelConfigCreate(BaseModel):
 
 
 class ModelConfigUpdate(BaseModel):
+    userSelectable: StrictBool | None = None
+    enabled: StrictBool | None = None
     name: str | None = None
     provider: str | None = None
     baseUrl: str | None = None
@@ -121,7 +127,7 @@ def _to_out(r) -> ModelConfigOut:
         apiKeySource=r["api_key_source"], modelName=r["model_name"],
         temperature=r["temperature"], topP=r["top_p"], maxTokens=r["max_tokens"],
         enabled=bool(r["enabled"]), isDefault=bool(r["is_default"]),
-        createdAt=r["created_at"], updatedAt=r["updated_at"]
+        createdAt=r["created_at"], updatedAt=r["updated_at"], **agent_settings.connection_usage(r["id"])
     )
 
 
@@ -138,10 +144,12 @@ def create_config(payload: ModelConfigCreate) -> ModelConfigOut:
     now = datetime.now(timezone.utc).isoformat()
     mc_id = str(uuid.uuid4())
     with get_db() as conn:
+        conn.lock_writer()
         conn.execute(
-            "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'db', NULL, ?, ?, ?, ?, 1, 0, ?, ?)",
-            (mc_id, payload.name, payload.provider, base_url, payload.apiKey, payload.modelName, payload.temperature, payload.topP, payload.maxTokens, now, now)
+            "INSERT INTO model_configs (id, name, provider, base_url, api_key, api_key_source, api_key_env_name, model_name, temperature, top_p, max_tokens, enabled, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'db', NULL, ?, ?, ?, ?, ?, 0, ?, ?)",
+            (mc_id, payload.name, payload.provider, base_url, payload.apiKey, payload.modelName, payload.temperature, payload.topP, payload.maxTokens, int(payload.enabled), now, now)
         )
+        agent_settings.set_selectable(conn,mc_id,payload.userSelectable)
         row = conn.execute(f"SELECT {_MC_COLS} FROM model_configs WHERE id = ?", (mc_id,)).fetchone()
     return _to_out(row)
 
@@ -165,8 +173,10 @@ def update_config(mc_id: str, payload: ModelConfigUpdate) -> ModelConfigOut:
                     and (row['api_key'] or row['api_key_source'] == 'env') and new_key is None):
                 raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
                                     detail='模型接口目标已变化，请重新填写该目标的 API Key，不能沿用旧凭据')
+        if payload.userSelectable is not None:agent_settings.set_selectable(conn,mc_id,payload.userSelectable)
         updates = []
-        params = []
+        if payload.enabled is not None:updates.append("enabled = ?"); params_enabled=int(payload.enabled)
+        params = [params_enabled] if payload.enabled is not None else []
         if payload.name is not None:
             updates.append("name = ?"); params.append(payload.name)
         if payload.provider is not None:
@@ -210,6 +220,7 @@ def delete_config(mc_id: str, admin: dict = Depends(require_admin)) -> None:
         conn.execute("UPDATE development_runs SET model_config_id = NULL WHERE model_config_id = ?", (mc_id,))
         conn.execute("UPDATE model_usage_configs SET model_config_id = NULL, updated_at = ? WHERE model_config_id = ?", (datetime.now(timezone.utc).isoformat(), mc_id))
         conn.execute("DELETE FROM model_configs WHERE id = ?", (mc_id,))
+        agent_settings.set_selectable(conn,mc_id,None)
         record_audit(conn, "model_config_deleted", actor_user_id=admin["id"], summary={
             "model_config_id": mc_id, "name": row["name"], "provider": row["provider"],
             "model_name": row["model_name"], "historical_run_ids": [run["id"] for run in runs],
@@ -259,7 +270,7 @@ def test_connection(mc_id: str) -> TestResult:
     except Exception as e:
         record_error(e)
         message = '连接成功，但返回内容未通过校验' if isinstance(e,(ModelResponseError,ValidationError)) else model_error_message(e)
-        return TestResult(success=False, message=message)
+        return TestResult(success=False, message=message, latencyMs=int((time.monotonic()-start)*1000))
 
 
 # ============ Usage Configs ============

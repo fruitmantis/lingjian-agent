@@ -49,7 +49,10 @@ def prepare(requirement, cached=None):
         finally:
             match_context.log_stage('understanding',0,chars,tokens,prepared,
                                     round((perf_counter()-call_start)*1000),last_retry_count())
-        result,rejected=matching.parse_understanding(raw,requirement,tags)
+        try:result,rejected=matching.parse_understanding(raw,requirement,tags)
+        except Exception as error:
+            error.model_call_failure=True
+            raise
         if not result['in_scope']:
             return {'format_version':2,'stamp':stamp,'model':model,'understanding':result,'scope_message':MESSAGES['partner_match'],'auxiliary_rejections':rejected}
         matching.validate_understanding(result,requirement,tags)

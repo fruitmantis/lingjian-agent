@@ -168,7 +168,8 @@ def test_retries_do_not_create_runs_versions_or_overwrite_current(unified, monke
     assert len(versions) == (1 if exhausted else 2)
     assert (plan(pid)['current_version_id'] == before) is exhausted
     if exhausted:
-        assert json.loads(run['safe_error_message'])[0]['message'] == '本次处理失败，请重试。'
+        assert json.loads(run['safe_error_message'])[0]['message'] == '模型响应超时。本次分析未完成，你可以返回切换模型后重新提交。'
+        assert json.loads(run['safe_error_message'])[0]['modelRelated'] is True
         # The existing admin endpoint exposes true type + retry count; user views do not.
         errors = client.get('/admin/system/errors', headers=auth_headers(admin)).json()['items']
         assert any(row['exception_type'] == 'TimeoutError' and row.get('retry_count') == 3 for row in errors)

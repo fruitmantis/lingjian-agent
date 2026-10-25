@@ -112,7 +112,10 @@ def call(config,stage,payload,contract,blocked):
             try:measure()
             except MatchInputBudgetError:payload['candidates'].pop()
         messages,schema=measure()
-    result=parse(model.completion(selected,messages,schema),contract,blocked)
+    try:result=parse(model.completion(selected,messages,schema),contract,blocked)
+    except Exception as error:
+        error.model_call_failure=True
+        raise
     chapters={entry['chapter'] for entry in payload.get('profile',{}).get('chapters',[])}
     refs=payload.get('candidates',[])+payload.get('profile',{}).get('shared_evidence',[])+(payload.get('current') or {}).get('resources',[])
     if not set(result.get('used_profile_chapters',[]))<=chapters:raise InvalidOutput('Unsent profile chapter')

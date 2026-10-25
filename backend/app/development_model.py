@@ -58,5 +58,6 @@ def completion(config,messages,schema):
         return retry_model_timeout(lambda: asyncio.run(send()), policy=policy,
                                    before_retry=lambda: validate_model_retry(config))
     except Exception as error:
+        error.model_call_failure = True
         record_error(error)
         raise

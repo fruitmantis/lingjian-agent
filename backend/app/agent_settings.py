@@ -10,6 +10,7 @@ from .database import get_db, get_readonly_db
 
 KEY = 'agent_settings_v1'
 LEGACY_KEY = 'agent_settings_legacy_v1'
+SELECTABLE_KEY = 'model_user_selectable_v1'
 AGENT_IDS = ('partner_match', 'partner_development')
 OLD_SCENES = (*AGENT_IDS, 'default', 'partner_profile', 'demand_profile', 'tag_suggestion', 'recommendation_summary')
 _EXECUTION = ContextVar('agent_execution', default=None)
@@ -97,11 +98,56 @@ def save(agent_id,payload):
     return _display_settings(settings)
 
 
-def execution(conn,agent_id,*,accept=False):
+def selectable(conn):
+    row=conn.execute('SELECT value FROM app_metadata WHERE key=?',(SELECTABLE_KEY,)).fetchone()
+    return json.loads(row[0]) if row else {}
+
+
+def set_selectable(conn,model_id,value):
+    values=selectable(conn)
+    if value is None:values.pop(model_id,None)
+    else:values[model_id]=value
+    conn.execute('INSERT INTO app_metadata(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',(SELECTABLE_KEY,json.dumps(values)))
+
+
+def model_options(agent_id,conn=None):
+    if agent_id not in AGENT_IDS:raise HTTPException(404,'智能体不存在')
+    if conn is None:
+        with get_readonly_db() as connection:return model_options(agent_id,connection)
+    agent=read(conn)['agents'][agent_id];allowed=selectable(conn)
+    rows=conn.execute('SELECT id,name FROM model_configs WHERE enabled=1 ORDER BY created_at,id').fetchall()
+    models=[{'id':r['id'],'name':r['name'],'isDefault':r['id']==agent['modelConfigId']} for r in rows if r['id']==agent['modelConfigId'] or allowed.get(r['id']) is True]
+    return {'models':models,'defaultModelConfigId':agent['modelConfigId'],'agentEnabled':agent['enabled'],
+            'unavailableReason':'该智能体已停用' if not agent['enabled'] else ('没有可用模型，请联系管理员。' if not models else None)}
+
+
+def connection_usage(model_id,conn=None):
+    if conn is None:
+        with get_readonly_db() as connection:return connection_usage(model_id,connection)
+    settings=read(conn)
+    bindings=[key for key,value in settings['agents'].items() if value['modelConfigId']==model_id]
+    if settings['processing']['modelConfigId']==model_id:bindings.append('processing')
+    return {'userSelectable':selectable(conn).get(model_id) is True,'defaultBindings':bindings}
+
+
+def execution(conn,agent_id,*,accept=False,model_config_id=None):
     settings=migrate(conn) if accept else read(conn)
     selected=settings['processing'] if agent_id=='processing' else settings['agents'][agent_id]
-    if accept and not selected['enabled']:raise HTTPException(409,'该智能体已停用，暂不能发起新的执行；历史结果仍可查看')
-    return {'agentId':agent_id,**ModelSettings.model_validate({k:selected[k] for k in ModelSettings.model_fields}).model_dump()}
+    if accept and agent_id!='processing' and not selected['enabled']:raise HTTPException(409,'该智能体已停用，暂不能发起新的执行；历史结果仍可查看')
+    snapshot={'agentId':agent_id,**ModelSettings.model_validate({k:selected[k] for k in ModelSettings.model_fields}).model_dump()}
+    if model_config_id is not None:
+        if not any(m['id']==model_config_id for m in model_options(agent_id,conn)['models']):
+            raise HTTPException(422,'所选模型当前不可用，请重新选择。')
+        snapshot['modelConfigId']=model_config_id
+    if accept:
+        row=conn.execute('SELECT name FROM model_configs WHERE id=?',(snapshot['modelConfigId'],)).fetchone()
+        snapshot['modelConfigName']=row['name'] if row else None
+    return snapshot
+
+
+def public_selection(snapshot):
+    if not snapshot:return None
+    return {'id':snapshot.get('modelConfigId'),'name':snapshot.get('modelConfigName')}
 
 
 def current_execution():return _EXECUTION.get()

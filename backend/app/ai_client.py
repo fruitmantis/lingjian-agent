@@ -188,5 +188,6 @@ def chat_completion(messages: list[dict], scene: str = "default") -> str:
 
         return retry_model_timeout(send, policy=policy, before_retry=before_retry)
     except Exception as error:
+        error.model_call_failure = True
         record_error(error, stage)
         raise

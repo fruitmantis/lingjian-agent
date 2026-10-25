@@ -54,7 +54,10 @@ def checked_request(payload,user):
     return data
 
 
-def fingerprint(payload):return hashlib.sha256(dump(payload).encode()).hexdigest()
+def fingerprint(payload):
+    # Preserve legacy submission hashes when the optional selection is absent.
+    if payload.get('modelConfigId') is None:payload={k:v for k,v in payload.items() if k!='modelConfigId'}
+    return hashlib.sha256(dump(payload).encode()).hexdigest()
 
 def duplicate(conn,user,submission_id,request_hash):
     row=conn.execute('SELECT * FROM development_runs WHERE owner_user_id=? AND submission_id=?',(user['id'],submission_id)).fetchone()
@@ -63,10 +66,10 @@ def duplicate(conn,user,submission_id,request_hash):
         return {'plan_id':row['plan_id'],'run_id':row['id'],'task_type':'development_plan','replayed':True}
 
 
-def insert_run(conn,plan_id,user,submission_id,base,payload,run_type,request_hash):
+def insert_run(conn,plan_id,user,submission_id,base,payload,run_type,request_hash,model_config_id=None):
     ensure_account_active(conn,user['id'])
     run_id=uid();stamp=now()
-    payload={**payload,'agent_execution':agent_settings.execution(conn,'partner_development',accept=True),'progress':task_progress.new('development_plan',run_id,stamp)}
+    payload={**payload,'agent_execution':agent_settings.execution(conn,'partner_development',accept=True,model_config_id=model_config_id),'progress':task_progress.new('development_plan',run_id,stamp)}
     bind_context(task_id=plan_id, run_id=run_id, request_id=submission_id, stage='submission')
     conn.execute('''INSERT INTO development_runs(id,plan_id,owner_user_id,run_type,submission_id,request_hash,based_on_version_id,status,input_snapshot,created_at)
                     VALUES (?,?,?,?,?,?,?,'pending',?,?)''',(run_id,plan_id,user['id'],run_type,submission_id,request_hash,base,dump(payload),stamp))
@@ -90,7 +93,7 @@ def create(payload,user):
         request_id=uid();plan_id=uid();stamp=now()
         conn.execute('INSERT INTO development_requests VALUES (?,?,?,?,?,?)',(request_id,user['id'],data['target_partner_id'],dump(data),stamp,user['id']))
         conn.execute('''INSERT INTO development_plans(id,owner_user_id,request_id,target_partner_id,status,created_at,updated_at) VALUES (?,?,?,?,'active',?,?)''',(plan_id,user['id'],request_id,data['target_partner_id'],stamp,stamp))
-        result=insert_run(conn,plan_id,user,payload.submission_id,None,{'request':data,'instruction':'','understanding':None},'generate',digest)
+        result=insert_run(conn,plan_id,user,payload.submission_id,None,{'request':data,'instruction':'','understanding':None},'generate',digest,payload.modelConfigId)
     # Leaving get_db commits before the router submits background execution.
     return result
 
@@ -127,7 +130,7 @@ def revise(plan_id,payload,user):
         replay=duplicate(conn,user,payload.submission_id,digest)
         if replay:return {'kind':'revise',**replay}
         writable(plan,payload.based_on_version_id)
-        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':payload.instruction,'understanding':None},'revise',digest)
+        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':payload.instruction,'understanding':None},'revise',digest,payload.modelConfigId)
     return {'kind':'revise',**result}
 
 
@@ -328,5 +331,5 @@ def retry(plan_id,payload,user):
         latest=conn.execute('SELECT * FROM development_runs WHERE plan_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(plan_id,)).fetchone()
         if latest['id']!=payload.run_id or latest['status'] not in ('failed','partial','interrupted'):fail(409,'运行状态已变化，请重新载入')
         if latest['based_on_version_id']!=payload.based_on_version_id:fail(409,'版本冲突：请基于当前建议重新提出调整')
-        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction'],'understanding':snapshot.get('understanding')},latest['run_type'],digest)
+        result=insert_run(conn,plan_id,user,payload.submission_id,payload.based_on_version_id,{'request':data,'instruction':snapshot['instruction'],'understanding':snapshot.get('understanding')},latest['run_type'],digest,(snapshot.get('agent_execution') or {}).get('modelConfigId'))
     return result

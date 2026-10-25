@@ -1,4 +1,6 @@
 "use client";
+import {ModelMenu,ModelStamp,useModelChoice,type ModelSelection} from "./model-menu";
+import {readModelDraft,saveModelDraft,type DraftContext} from "../lib/model-draft";
 import composerStyles from "./task-composer.module.css";
 import {useComposerShortcuts,COMPOSER_KEY_HINT} from "../lib/composer-shortcuts";
 import {useAgent,AgentBadge} from "./agent-settings";
@@ -21,7 +23,7 @@ type Item={item_id?:string;source_type:string;source_id:string;source_version:nu
 type Stage={title:string;items:Item[]};
 type Analysis={intent:string;interpretation:string;partner_assessment?:string;reusable_basis:string[];priorities:{name:string;reason:string;reusable_basis?:string[]}[];basis_limitations:string[]};
 type Payload={analysis?:Analysis;answer?:string;next_steps?:string[];overview:{development_direction?:string;development_goal?:string};stages:Stage[];resource_gaps:string[]};
-type Detail={progress?:TaskProgressData|null;analysis?:Analysis|null;scopeMessage?:string|null;executionInput?:string|null;failureDetails?:FailureDetail[];presentation:PlanPresentation;plan:{id:string;current_version_id:string|null;status:string;active_run_id:string|null};partner_name:string|null;request:{development_direction?:string;development_goal?:string;raw_demand?:string};conversation:{submission_id:string;message:string;answer:string;resources?:Item[]}[];payload:Payload|null;hidden:boolean;notice:string|null;versions:{id:string;version_no:number}[];runs:{id:string;submission_id:string;run_type:string;status:string;created_at:string;safe_error_message:string|null}[]};
+type Detail={modelSelection?:ModelSelection|null;failedInput?:string|null;progress?:TaskProgressData|null;analysis?:Analysis|null;scopeMessage?:string|null;executionInput?:string|null;failureDetails?:FailureDetail[];presentation:PlanPresentation;plan:{id:string;current_version_id:string|null;status:string;active_run_id:string|null};partner_name:string|null;request:{development_direction?:string;development_goal?:string;raw_demand?:string;target_partner_id?:string|null;source_task_id?:string|null;source_case_id?:string|null;source_case_version?:number|null};conversation:{submission_id:string;message:string;answer:string;resources?:Item[]}[];payload:Payload|null;hidden:boolean;notice:string|null;versions:{id:string;version_no:number}[];runs:{id:string;submission_id:string;run_type:string;status:string;created_at:string;safe_error_message:string|null}[]};
 const names:Record<string,string>={course:"课程",lab:"实验",case:"共享案例",unknown:"未知",free:"免费",paid:"付费",pending:"等待处理",running:"正在处理",ready:"已完成",failed:"失败",partial:"部分完成",interrupted:"已中断"};
 const display=(v?:string|number)=>names[String(v)]||v||"未知";
 function ResourceAdvice({item:i,position}:{item:Item;position?:number}){
@@ -42,6 +44,7 @@ function settleCreate(key:string,id:string,error="") {
 export type DevelopmentDraftProps={direction:string;onDirectionChange:(value:string)=>void;inputRef:RefObject<HTMLTextAreaElement|null>;onBusyChange:(busy:boolean)=>void};
 export function DevelopmentRequestForm({partnerId,sourceTask=null,sourceCase=null,sourceVersion=null,direction,onDirectionChange,inputRef,onBusyChange}:DevelopmentDraftProps&{partnerId:string|null;sourceTask?:string|null;sourceCase?:string|null;sourceVersion?:number|null}){
  const agent=useAgent("partner_development");
+ const model=useModelChoice("partner_development");
  const {user}=useAuth(),router=useRouter();
  const {openCreatedTask}=useTaskNavigation();
  const form=useRef<HTMLElement>(null),generation=useRef(0);
@@ -51,7 +54,7 @@ export function DevelopmentRequestForm({partnerId,sourceTask=null,sourceCase=nul
  const composerKeys=useComposerShortcuts();
  useEffect(()=>{onBusyChange(busy||!!pending);return()=>onBusyChange(false);},[busy,pending,onBusyChange]);
  const submission=useRef(newTaskId()),storageKey=`development:pending-create:${user?.id}:${partnerId}`;
- useEffect(()=>{if(!pending&&!inFlight.current)submission.current=newTaskId();},[direction,pending]);
+ useEffect(()=>{if(!pending&&!inFlight.current)submission.current=newTaskId();},[direction,pending,model.id,partnerId,sourceTask,sourceCase,sourceVersion]);
  useEffect(()=>{
   const saved=sessionStorage.getItem(storageKey)||"";
   submission.current=saved||newTaskId();setPending(saved);setError(saved?uncertainResult:"");
@@ -74,12 +77,12 @@ export function DevelopmentRequestForm({partnerId,sourceTask=null,sourceCase=nul
   finally{setBusy(false);}
  }
  async function submit(){
-  if(!agent.enabled||pending||busy||inFlight.current)return;
+  if(!agent.enabled||!model.canSubmit||pending||busy||inFlight.current)return;
   setError("");if(!direction.trim()){setError("请描述发展需求。");return;}
   const current=++generation.current,id=submission.current;
   inFlight.current=true;setBusy(true);sessionStorage.setItem(storageKey,id);
   try{
-   const result=await request<{plan_id:string}>("/development/plans",{submission_id:id,request:{target_partner_id:partnerId,development_direction:direction,source_task_id:sourceTask,source_case_id:sourceCase,source_case_version:sourceVersion,model_input_allowed:true}});
+   const result=await request<{plan_id:string}>("/development/plans",{submission_id:id,modelConfigId:model.id,request:{target_partner_id:partnerId,development_direction:direction,source_task_id:sourceTask,source_case_id:sourceCase,source_case_version:sourceVersion,model_input_allowed:true}});
    settleCreate(storageKey,id);
    if(current!==generation.current){tasksChanged();return;}
    tasksChanged({id:result.plan_id,requirement:direction,createdAt:new Date().toISOString(),taskStatus:"matching",task_type:"development_plan"});openCreatedTask(result.plan_id,direction,form.current);
@@ -91,14 +94,17 @@ export function DevelopmentRequestForm({partnerId,sourceTask=null,sourceCase=nul
   }finally{inFlight.current=false;setBusy(false);}
  }
 
- return <section ref={form} className="card development-form" data-task-composer><label className={`enablement-field ${composerStyles.field}`}>描述当前情况和发展需求<textarea {...composerKeys(onDirectionChange,()=>void submit(),agent.enabled&&!busy&&!pending&&error!==serviceFailure)} ref={inputRef} aria-label="发展方向" disabled={busy||!!pending} rows={5} maxLength={2000} value={direction} onChange={e=>onDirectionChange(e.target.value)} placeholder="例如：目前有基本的上云迁移能力，希望向 AI Agent 开发方向发展，请推荐适合的课程和实验。"/></label>{error&&<FailureNotice message={error} partial={false}>{pending&&<button className="secondary-btn" disabled={busy} onClick={()=>void check()}>刷新查看</button>}</FailureNotice>}<div className={composerStyles.actions}><div className={composerStyles.actionRow}><span className={`assistant-counter ${composerStyles.counter}`}>{direction.length}/2000</span><button className={composerStyles.submit} disabled={!agent.enabled||busy||!!pending||error===serviceFailure||!direction.trim()} onClick={()=>void submit()}>{busy?<span className="assistant-loading-dot"/>:<UiIcon name="send" size={18}/>}<span>{busy?"提交中":error==="本次建议未生成，请重试。"?"重试":"开始"}</span></button></div><p className={`muted ${composerStyles.hint}`} data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p></div></section>;
+ return <section ref={form} className="card development-form" data-task-composer><label className={`enablement-field ${composerStyles.field}`}>描述当前情况和发展需求<textarea {...composerKeys(onDirectionChange,()=>void submit(),agent.enabled&&model.canSubmit&&!busy&&!pending)} ref={inputRef} aria-label="发展方向" disabled={busy||!!pending} rows={5} maxLength={2000} value={direction} onChange={e=>onDirectionChange(e.target.value)} placeholder="例如：目前有基本的上云迁移能力，希望向 AI Agent 开发方向发展，请推荐适合的课程和实验。"/></label>{error&&<FailureNotice message={error} partial={false}>{pending&&<button className="secondary-btn" disabled={busy} onClick={()=>void check()}>刷新查看</button>}</FailureNotice>}<div className={composerStyles.actions}><div className={composerStyles.actionRow}><span className={`assistant-counter ${composerStyles.counter}`}>{direction.length}/2000</span><ModelMenu choice={model} disabled={busy||!!pending}/><button className={composerStyles.submit} disabled={!agent.enabled||!model.canSubmit||busy||!!pending||!direction.trim()} onClick={()=>void submit()}>{busy?<span className="assistant-loading-dot"/>:<UiIcon name="send" size={18}/>}<span>{busy?"提交中":error==="本次建议未生成，请重试。"?"重试":"开始"}</span></button></div><p className={`muted ${composerStyles.hint}`} data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p>{model.message&&<p className="muted" role="status">{model.message}</p>}</div></section>;
 }
 
 export function DevelopmentPlanDetail({id}:{id:string}){
  const agent=useAgent("partner_development");
- const pathname=usePathname(),{user}=useAuth();
+ const pathname=usePathname(),router=useRouter(),{user}=useAuth();
  const [data,setData]=useState<Detail|null>(null),[error,setError]=useState(""),[selected,setSelected]=useState(""),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[preview,setPreview]=useState<{text:string;version_id:string}|null>(null);
  const [panel,setPanel]=useState<"history"|"runs"|null>(null);
+ const model=useModelChoice("partner_development",`followup:${id}`,data?.modelSelection?.id,!!data);
+ const chatInput=useRef<HTMLTextAreaElement>(null),recoveredRun=useRef("");
+ const [chatOwner,setChatOwner]=useState("");
  const more=useRef<HTMLDetailsElement>(null);
  const composerKeys=useComposerShortcuts();
  function closeMore(restoreFocus=false){const node=more.current;if(!node?.open)return;node.removeAttribute("open");if(restoreFocus)node.querySelector("summary")?.focus({preventScroll:true});}
@@ -122,6 +128,14 @@ export function DevelopmentPlanDetail({id}:{id:string}){
  }
  useEffect(()=>{const saved=sessionStorage.getItem(storageKey)||"";pendingRef.current=saved;setPending(saved);void load();const timer=setInterval(()=>void load(),2000);return()=>{clearInterval(timer);sequence.current++;};},[id,selected,storageKey]);
  useEffect(()=>{setPreview(null);},[data?.plan.current_version_id,data?.hidden,selected]);
+ useEffect(()=>{if(!user)return;const saved=readModelDraft(user.id,"partner_development",`followup:${id}`);setMessage(saved.text||"");setChatOwner(user.id+id);},[user?.id,id]);
+ useEffect(()=>{if(user&&chatOwner===user.id+id)saveModelDraft(user.id,"partner_development",{text:message},`followup:${id}`);},[message,user?.id,id,chatOwner]);
+ useEffect(()=>{
+  const latest=data?.runs[0];
+  if(!latest||data?.hidden||latest.run_type==="generate"||!["failed","partial","interrupted"].includes(latest.status)||recoveredRun.current===latest.id)return;
+  recoveredRun.current=latest.id;if(!message.trim())setMessage(data.failedInput||data.executionInput||"");
+ },[data?.runs[0]?.id,data?.runs[0]?.status,data?.hidden]);
+
  useEffect(()=>{if(!preview)return;let live=true;async function refresh(){try{const r=await request<{text:string;version_id:string}>(`/development/plans/${id}/transferable`);if(live)setPreview(r);}catch{if(live)setPreview(null);}}const t=setInterval(()=>void refresh(),10000);window.addEventListener("focus",refresh);return()=>{live=false;clearInterval(t);window.removeEventListener("focus",refresh);};},[id,!!preview]);
  async function action(fn:()=>Promise<void>,operation="处理",submissionId?:string){
   if(busy||pendingRef.current)return;
@@ -137,21 +151,35 @@ export function DevelopmentPlanDetail({id}:{id:string}){
  const {plan,payload}=data,analysis=payload?.analysis,running=!!plan.active_run_id,locked=busy||running||!!pending||plan.status==="archived",historical=!!selected&&selected!==plan.current_version_id;
  const currentAvailable=!!plan.current_version_id&&data.presentation.current_available&&!error;
  const impact=["发展诉求已保留。",currentAvailable?"当前建议仍可使用。":""].filter(Boolean).join("");
- async function chat(){await action(async()=>{await request(`/development/plans/${id}/conversation`,{submission_id:submission.current,based_on_version_id:plan.current_version_id,message});submission.current=newTaskId();setMessage("");setSelected("");},"回答",submission.current);}
+ async function chat(){if(!model.canSubmit)return;await action(async()=>{await request(`/development/plans/${id}/conversation`,{submission_id:submission.current,based_on_version_id:plan.current_version_id,message,modelConfigId:model.id});submission.current=newTaskId();setMessage("");setSelected("");},"回答",submission.current);}
  const legacyAnswer=analysis?[analysis.interpretation,...analysis.priorities.map((p,i)=>`${i+1}. ${p.name}：${p.reason}`)].filter(Boolean).join("\n\n"):"";
  const items=payload?.stages.flatMap(s=>s.items)||[];
  const latest=data.runs[0],failed=latest&&["failed","partial","interrupted"].includes(latest.status);
+ const modelFailure=data.failureDetails?.some(f=>f.modelRelated)===true;
  const summary=data.presentation.state==="archived"?"已归档":data.hidden?"部分内容已受限":data.scopeMessage?"处理完成":payload?"建议可用":running?"正在整理建议":failed?"生成失败，可重试":"暂未生成建议";
  function suggest(text:string){if(locked||historical)return;setActionError(null);setMessage(text);submission.current=newTaskId();document.getElementById("advisor-chat")?.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"center"});}
+ function restoreFailed(){
+  if(!user||data!.hidden||pending||running)return;
+  if(latest.run_type==="generate"&&!plan.current_version_id){
+   const request=data!.request,context:DraftContext={};
+   if(request.target_partner_id)context.partner_id=request.target_partner_id;if(request.source_task_id)context.task_id=request.source_task_id;if(request.source_case_id)context.case_id=request.source_case_id;if(request.source_case_version)context.case_version=String(request.source_case_version);
+   saveModelDraft(user.id,"partner_development",{text:data!.executionInput||request.raw_demand||request.development_direction||"",modelConfigId:data!.modelSelection?.id||undefined,context,openMenu:modelFailure});
+   const params=new URLSearchParams({mode:"development",...context});router.push(`/?${params}`);
+  }else{
+   setMessage(data!.failedInput||data!.executionInput||"");submission.current=newTaskId();setActionError(null);model.setOpen(modelFailure);chatInput.current?.focus();chatInput.current?.scrollIntoView({block:"center"});
+  }
+ }
  return <div className="page development-detail advisor-detail"><Link href={pathname.startsWith("/admin") ? "/admin/tasks" : "/tasks"}>← 全部任务</Link>
  <header className="advisor-heading"><div>{data.partner_name&&<p className="eyebrow">{data.partner_name}</p>}<h1>能力发展建议</h1><AgentBadge id="partner_development"/><p className="advisor-status" data-testid="advisor-status">{summary}</p></div><details ref={more} className="advisor-more" onKeyDown={e=>{if(e.key==="Escape"&&e.currentTarget.open){e.preventDefault();e.stopPropagation();closeMore(true);}}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))closeMore();}}><summary>更多</summary><div className="advisor-menu" onClick={e=>{if((e.target as HTMLElement).closest("button"))closeMore(true);}}><button className="secondary-btn" onClick={()=>setPanel(panel==="history"?null:"history")}>历史版本</button><button className="secondary-btn" disabled={busy||historical||!plan.current_version_id||data.hidden||plan.status==="archived"} onClick={()=>void action(async()=>{setPreview(await request<{text:string;version_id:string}>(`/development/plans/${id}/transferable`));})}>伙伴可传递视图预览</button><button className="secondary-btn" onClick={()=>setPanel(panel==="runs"?null:"runs")}>运行记录</button><button className="secondary-btn" disabled={busy||running||!!pending} onClick={()=>void action(async()=>{await request(`/agent/tasks/${id}/${plan.status==="archived"?"restore":"archive"}`,{},"PATCH");})}>{plan.status==="archived"?"恢复方案":"归档方案"}</button></div></details></header>
+ <ModelStamp value={data.modelSelection}/>
  {error&&!pending&&<div role="alert"><FailureNotice message={error} partial={false}>{error===uncertainResult&&<button className="secondary-btn" disabled={busy} onClick={()=>void load()}>刷新查看</button>}</FailureNotice></div>}
  {running&&<p role="status" className="notice-neutral">{currentAvailable?"伴飞正在整理建议，你可以继续查看已有内容。":"伴飞正在整理建议。"}</p>}
  {(pending||actionError)&&<FailureNotice message={pending?uncertainResult:actionError?.text} partial={currentAvailable} impact={currentAvailable?"当前建议仍可使用。":undefined}>
   {pending?<button className="secondary-btn" disabled={busy} onClick={()=>void load()}>刷新查看</button>:actionError?.text===uncertainResult?<button className="secondary-btn" disabled={busy} onClick={()=>{setActionError(null);void load();}}>刷新查看</button>:actionError?.text.includes("失败，请重试。")&&<button className="secondary-btn" disabled={!agent.enabled||locked||historical||!!error} onClick={()=>void actionError.retry()}>重试</button>}
  </FailureNotice>}
  {failed&&!pending&&!actionError&&<div data-testid="advisor-run-notice"><FailureNotice details={data.failureDetails} operation={latest.run_type==="generate"?"建议":"调整"} partial={currentAvailable} impact={impact}>
-  {!running&&failureMessage(data.failureDetails)!==serviceFailure&&<button className="secondary-btn" disabled={!agent.enabled||locked||historical||!!error} onClick={()=>void action(async()=>{await request(`/development/plans/${id}/retry`,{submission_id:submission.current,based_on_version_id:plan.current_version_id,run_id:latest.id});submission.current=newTaskId();},latest.run_type==="generate"?"建议":"调整",submission.current)}>重试</button>}
+  {user?.role==="user"&&!data.hidden&&!running&&<button disabled={locked||historical} onClick={restoreFailed}>{latest.run_type==="generate"&&!plan.current_version_id?(modelFailure?"返回并切换模型":"返回编辑需求"):(modelFailure?"返回续问并切换模型":"返回续问")}</button>}
+  {!running&&!data.hidden&&(data.failureDetails?.some(f=>f.modelRelated)||failureMessage(data.failureDetails)!==serviceFailure)&&<button className="secondary-btn" disabled={!agent.enabled||locked||historical||!!error} onClick={()=>void action(async()=>{await request(`/development/plans/${id}/retry`,{submission_id:submission.current,based_on_version_id:plan.current_version_id,run_id:latest.id});submission.current=newTaskId();},latest.run_type==="generate"?"建议":"调整",submission.current)}>使用原模型重试</button>}
  </FailureNotice></div>}{data.notice&&<p className="notice-neutral">{data.notice}</p>}
 
  {data.hidden&&<TaskArrivalReadError id={id} keepInput={false}/>}
@@ -166,7 +194,7 @@ export function DevelopmentPlanDetail({id}:{id:string}){
  <TaskResult id={id} testId="stages" className="card advisor-priorities"><h2>引用资源</h2>{items.length?items.map((item,index)=><ResourceAdvice key={item.item_id||index} item={item} position={index+1}/>):<p className="muted">本次答复没有引用资源。</p>}</TaskResult>
  {(payload.resource_gaps.length>0)&&<TaskResult id={id} className="card" testId="gaps"><h2>使用提示</h2>{payload.resource_gaps.map((v,i)=><p key={i}>{v}</p>)}</TaskResult>}
  </>}
- {!data.hidden&&<section id="advisor-chat" className="card advisor-chat" data-testid="conversation"><h2>继续问伴飞</h2><p className="muted">问问原因、比较资源，或告诉我你想怎样调整。</p>{data.conversation?.map(m=><div key={m.submission_id} className="advisor-exchange"><p className="advisor-question"><strong>你</strong><br/>{m.message}</p><AdvisorAnswer text={m.answer}/>{m.resources?.map((item,i)=><ResourceAdvice key={i} item={item}/>)}</div>)}<div className="advisor-composer"><div className="advisor-prompts">{["为什么优先推荐这个方向？","这两个实验有什么区别？","有没有更进阶一点的实验？","不要基础课，多给实验。","系统集成优先，RAG 放后面。"].map(text=><button key={text} className="secondary-btn" disabled={locked||historical} onClick={()=>suggest(text)}>{text}</button>)}</div><label className="enablement-field">消息<textarea {...composerKeys(changeMessage,()=>void chat(),agent.enabled&&!locked&&!historical&&!!plan.current_version_id&&!!message.trim())} disabled={locked} rows={3} maxLength={2000} value={message} onChange={e=>changeMessage(e.target.value)} placeholder="继续问伴飞，或说说希望如何调整…"/></label><p className="muted" data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p><div className="enablement-actions"><button disabled={!agent.enabled||locked||!message.trim()||historical||!plan.current_version_id} onClick={()=>void chat()}>{busy?"正在回复…":"发送"}</button>{!plan.current_version_id&&!running&&!failed&&!pending&&!actionError&&<button className="secondary-btn" disabled={!agent.enabled||busy||plan.status==="archived"} onClick={()=>void action(async()=>{await request(`/development/plans/${id}/revise`,{submission_id:submission.current,based_on_version_id:null,instruction:"重新生成能力发展建议"});submission.current=newTaskId();},"建议",submission.current)}>重新生成</button>}</div></div></section>}
+ {!data.hidden&&<section id="advisor-chat" className="card advisor-chat" data-testid="conversation"><h2>继续问伴飞</h2><p className="muted">问问原因、比较资源，或告诉我你想怎样调整。</p>{data.conversation?.map(m=><div key={m.submission_id} className="advisor-exchange"><p className="advisor-question"><strong>你</strong><br/>{m.message}</p><AdvisorAnswer text={m.answer}/>{m.resources?.map((item,i)=><ResourceAdvice key={i} item={item}/>)}</div>)}<div className="advisor-composer"><div className="advisor-prompts">{["为什么优先推荐这个方向？","这两个实验有什么区别？","有没有更进阶一点的实验？","不要基础课，多给实验。","系统集成优先，RAG 放后面。"].map(text=><button key={text} className="secondary-btn" disabled={locked||historical} onClick={()=>suggest(text)}>{text}</button>)}</div><label className="enablement-field">消息<textarea {...composerKeys(changeMessage,()=>void chat(),agent.enabled&&model.canSubmit&&!locked&&!historical&&!!plan.current_version_id&&!!message.trim())} ref={chatInput} disabled={locked} rows={3} maxLength={2000} value={message} onChange={e=>changeMessage(e.target.value)} placeholder="继续问伴飞，或说说希望如何调整…"/></label><p className="muted" data-testid="composer-shortcut-hint">{COMPOSER_KEY_HINT}</p><div className="enablement-actions"><ModelMenu choice={{...model,choose:value=>{model.choose(value);submission.current=newTaskId();setActionError(null);}}} disabled={locked||historical}/><button disabled={!agent.enabled||!model.canSubmit||locked||!message.trim()||historical||!plan.current_version_id} onClick={()=>void chat()}>{busy?"正在回复…":"发送"}</button>{model.message&&<span className="muted" role="status">{model.message}</span>}{!plan.current_version_id&&!running&&!failed&&!pending&&!actionError&&<button className="secondary-btn" disabled={!agent.enabled||busy||plan.status==="archived"} onClick={()=>void action(async()=>{await request(`/development/plans/${id}/revise`,{submission_id:submission.current,based_on_version_id:null,instruction:"重新生成能力发展建议"});submission.current=newTaskId();},"建议",submission.current)}>重新生成</button>}</div></div></section>}
  {preview&&<section id="transfer-preview" className="card" data-testid="transfer-preview"><h2>伙伴可传递视图</h2><pre className="development-text">{preview.text}</pre><button disabled={busy} onClick={()=>void action(async()=>{const r=await request<{text:string;version_id:string}>(`/development/plans/${id}/copy`,{version_id:preview.version_id});if (!await copyText(r.text,document.querySelector<HTMLElement>("#transfer-preview pre"))) throw new Error("复制失败，内容已选中，请按 Ctrl+C 手动复制。");setPreview(r);})}>复制内容</button><button className="secondary-btn" onClick={()=>setPreview(null)}>关闭预览</button></section>}
  {panel==="runs"&&<section className="card advisor-secondary" id="advisor-runs" data-testid="run-records"><h2>运行记录</h2>{data.runs.map(r=><p key={r.id}>{r.run_type==="generate"?"生成":"调整"} · {names[r.status]||r.status} · {new Date(r.created_at).toLocaleString("zh-CN")}</p>)}</section>}</div>;
 }
