@@ -1,11 +1,14 @@
 """Shared model routing and guarded OpenAI-compatible adapter for Phase C."""
 import asyncio
 import os
+import json
+from pydantic import ValidationError
+from backend.business.common import ModelJSONError
 from .model_timeout_settings import get_settings
 from urllib.parse import urlsplit
 import httpx
 from .model_resolver import ModelConfigurationError,model_config_from_record,resolve_model_record,validate_model_retry
-from .ai_client import _completion_content, prepared_completion, log_request_metrics, retry_model_timeout
+from .ai_client import _completion_content, prepared_completion, log_request_metrics, retry_model_timeout, ModelResponseError
 
 
 def configuration(*, read_only=False, connection=None):
@@ -44,7 +47,7 @@ def completion(config,messages,schema):
         endpoint=request_base_url(config, selected).rstrip('/')+'/chat/completions'
         body, metrics=prepared_completion(config,messages,schema)
         log_request_metrics(metrics,schema)
-        policy=get_settings(execution=config.get('_agent_execution'))
+        policy=config.get('_single_attempt_policy') or get_settings(execution=config.get('_agent_execution'))
         limit=policy.timeoutSeconds
         async def send():
             # Wall-clock cancellation also bounds slow/chunked responses that keep resetting read timeouts.
@@ -55,9 +58,27 @@ def completion(config,messages,schema):
                     response.raise_for_status()
                     return _completion_content(response.json())
         # Development execution already runs in the existing worker threads, outside the API event loop.
+        if config.get('_single_attempt_policy'):return asyncio.run(send())
         return retry_model_timeout(lambda: asyncio.run(send()), policy=policy,
                                    before_retry=lambda: validate_model_retry(config))
     except Exception as error:
         error.model_call_failure = True
+        if not config.get('_single_attempt_policy'):record_error(error)
+        raise
+
+
+def validated_completion(config,messages,schema,parse):
+    """Only matching and saved-connection probes opt into a content retry."""
+    from .error_diagnostics import record_error
+    policy=get_settings(execution=config.get('_agent_execution'))
+    # The outer loop owns both counters; inner transport sends exactly once
+    # with the same frozen policy, so retries add instead of multiplying.
+    single={**config,'_single_attempt_policy':policy}
+    try:
+        return retry_model_timeout(lambda:parse(completion(single,messages,schema)),
+            policy=policy,before_retry=lambda:validate_model_retry(config),
+            content_errors=(ModelResponseError,ModelJSONError,json.JSONDecodeError,ValidationError))
+    except Exception as error:
+        error.model_call_failure=True
         record_error(error)
         raise

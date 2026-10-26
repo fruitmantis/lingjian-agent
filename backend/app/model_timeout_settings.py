@@ -10,16 +10,16 @@ class TimeoutSettings(BaseModel):
     timeoutSeconds: float = Field(default=300, gt=0, allow_inf_nan=False, strict=True)
     timeoutRetries: int = Field(default=3, ge=0, strict=True)
 
-    def call_budget(self):
-        return self.timeoutSeconds * (self.timeoutRetries + 1)
+    def call_budget(self, *, content_retry=False):
+        return self.timeoutSeconds * (self.timeoutRetries + 1 + int(content_retry))
 
     def run_budget(self):
         # Understanding + answer, including retries and persistence headroom.
         return max(600, 2 * self.call_budget() + 60)
 
     def match_run_budget(self):
-        # Understanding and detailed review, with existing persistence headroom.
-        return max(900, 2 * self.call_budget() + 90)
+        # Matching alone allows one content retry per stage; development stays unchanged.
+        return max(900, 2 * self.call_budget(content_retry=True) + 90)
 
 
 def get_settings(connection=None, *, agent_id=None, execution=None) -> TimeoutSettings:

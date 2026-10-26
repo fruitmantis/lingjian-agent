@@ -784,14 +784,11 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
         call_start = perf_counter()
         reset_retry_count()
         try:
-            raw = development_model.completion({**config, '_match_request': True}, detail_messages, schema)
+            output,parse_rejections=development_model.validated_completion(
+                {**config,'_match_request':True},detail_messages,schema,matching.parse_answer)
         finally:
             match_context.log_stage('detailed_review', len(selected), chars, tokens, prepared,
                                     round((perf_counter() - call_start) * 1000), last_retry_count())
-        try:output, parse_rejections = matching.parse_answer(raw)
-        except Exception as error:
-            error.model_call_failure=True
-            raise
         snapshot['model_output'] = output
         snapshot['detail_rows'] = [[{key:row[0].get(key) for key in ('id','name','capabilities','industries','service_areas')},row[1],row[2],row[3]] for row in rows]
         partners = [row[0] for row in rows]

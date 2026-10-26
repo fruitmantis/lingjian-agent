@@ -1,5 +1,34 @@
 """Strict contracts shared by the existing business modules."""
 from pydantic import BaseModel, ConfigDict
+import json
+import re
+
+
+class ModelJSONError(ValueError):
+    """A model response has no unambiguous complete top-level JSON object."""
+
+
+def model_json_object(raw):
+    """Unwrap BOM/fences or prose around one object; never repair JSON syntax."""
+    if not isinstance(raw,str):raise ModelJSONError('Model JSON response must be text')
+    text=raw.strip().removeprefix('\ufeff').strip()
+    fenced=re.fullmatch(r'```(?:json)?[ \t]*\r?\n(.*?)\r?\n?```',text,re.I|re.S)
+    if fenced:text=fenced.group(1).strip()
+    try:
+        value=json.loads(text)
+    except json.JSONDecodeError:
+        # Start at the first structural opener only. A broken enclosing object
+        # must fail, rather than searching inside it for a convenient nested one.
+        first=re.search(r'[\{\[]',text)
+        if not first or first[0]!='{' or text.startswith(('"',"'")):
+            raise
+        try:value,end=json.JSONDecoder().raw_decode(text,first.start())
+        except json.JSONDecodeError as error:raise error from None
+        outside=text[:first.start()]+text[end:]
+        if re.search(r'[{}\[\]]',outside) or text[end:].lstrip().startswith(('"',"'")):
+            raise ModelJSONError('Ambiguous model JSON envelope') from None
+    if not isinstance(value,dict):raise ModelJSONError('Model JSON root must be an object')
+    return value
 
 
 class StrictModel(BaseModel):

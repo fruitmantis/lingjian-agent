@@ -45,14 +45,11 @@ def prepare(requirement, cached=None):
         call_start=perf_counter()
         reset_retry_count()
         try:
-            raw=development_model.completion({**config, '_match_request': True},messages,schema)
+            result,rejected=development_model.validated_completion({**config, '_match_request': True},messages,schema,
+                lambda raw:matching.parse_understanding(raw,requirement,tags))
         finally:
             match_context.log_stage('understanding',0,chars,tokens,prepared,
                                     round((perf_counter()-call_start)*1000),last_retry_count())
-        try:result,rejected=matching.parse_understanding(raw,requirement,tags)
-        except Exception as error:
-            error.model_call_failure=True
-            raise
         if not result['in_scope']:
             return {'format_version':2,'stamp':stamp,'model':model,'understanding':result,'scope_message':MESSAGES['partner_match'],'auxiliary_rejections':rejected}
         matching.validate_understanding(result,requirement,tags)

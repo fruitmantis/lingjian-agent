@@ -8,7 +8,7 @@ from backend.app.task_failures import MatchInputBudgetError
 from .conftest import make_partner, recommendation
 
 CONFIG = {'base_url':'https://api.deepseek.com','model_name':'deepseek-v4-flash',
-          'api_key':'offline-only','max_tokens':4096,'temperature':0.3,'top_p':1}
+          'api_key':'offline-only','max_tokens':4096,'context_window_tokens':1048576,'temperature':0.3,'top_p':1}
 
 def raw_row(partner, texts):
     pid = partner['id']

@@ -98,8 +98,11 @@ def test_malformed_response_keeps_actual_parse_failure(client, monkeypatch):
     model_reply(monkeypatch,'{not valid json')
     result=client.post('/agent/match',headers=auth_headers(user),json={'requirement':'需要AI伙伴，格式验证'})
     assert result.status_code==502
-    assert saved_errors()[0]['exception_type']=='JSONDecodeError'
-    assert '{not valid json' in saved_errors()[0]['response_excerpt']
+    errors=saved_errors()
+    assert len(errors)==2 and len({error['id'] for error in errors})==2
+    assert all(error['exception_type']=='JSONDecodeError' for error in errors)
+    assert all('{not valid json' in error['response_excerpt'] for error in errors)
+    assert all('line 1 column 2' in error['message'] for error in errors)
 
 
 def test_database_failure_still_records_task_and_stack(client, monkeypatch, caplog):

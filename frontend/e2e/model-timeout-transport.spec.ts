@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import http from 'node:http';
 import { once } from 'node:events';
 import { GET, POST } from '../app/api/[...path]/route';
-import { fetchWithTimeout, responseError, submissionIsUncertain } from '../lib/api-request';
+import { fetchWithTimeout, modelRequestBudgetMs, responseError, submissionIsUncertain } from '../lib/api-request';
 
 test('asynchronous task creation sends directly and only lost acknowledgement is uncertain', async () => {
   expect(submissionIsUncertain(await responseError(Response.json({detail:'本次处理失败，请重试。',failureCode:'timeout'},{status:502})))).toBe(false);
@@ -40,13 +40,37 @@ test('model request reads current saved policy every time and never retries busi
     await fetchWithTimeout('http://app.test/api/admin/model-configs/id/test', options);
     policy = { timeoutSeconds:420, timeoutRetries:0 };
     await fetchWithTimeout('http://app.test/api/admin/model-configs/id/test', options);
-    expect(budgets).toEqual([30_000,1_230_000,30_000,450_000]);
+    expect(budgets).toEqual([30_000,1_530_000,30_000,870_000]);
     expect(calls).toEqual(Array(2).fill(['http://app.test/api/model-timeout-settings?agent_id=processing','http://app.test/api/admin/model-configs/id/test']).flat());
     globalThis.fetch = async () => new Response(null, {status:401});
     const rejected = await fetchWithTimeout('http://app.test/api/partners/id/profile', options);
     expect(rejected.status).toBe(401);
     expect((await rejected.json()).submissionAccepted).toBe(false);
   } finally { globalThis.fetch = originalFetch; AbortSignal.timeout = originalTimeout; }
+});
+
+test('only matching and connection probes include one content retry in their wait budget', async () => {
+  const originalFetch = globalThis.fetch, originalTimeout = AbortSignal.timeout;
+  const budgets: number[] = [], posts: string[] = [];
+  const policy = { timeoutSeconds:300, timeoutRetries:3 };
+  try {
+    AbortSignal.timeout = ms => { budgets.push(ms); return new AbortController().signal; };
+    globalThis.fetch = async (input, init) => {
+      const url=String(input);
+      if (new URL(url).pathname.endsWith('/model-timeout-settings')) return Response.json(policy);
+      expect(init?.method).toBe('POST'); expect(init?.body).toBe('{"original":"unchanged"}');
+      posts.push(url); return Response.json({ok:true});
+    };
+    for (const path of ['/agent/match','/agent/tasks/synthetic/retry','/admin/model-configs/synthetic/test','/partners/synthetic/profile','/development/synthetic']) {
+      await fetchWithTimeout('http://app.test/api'+path,{method:'POST',body:'{"original":"unchanged"}',
+        ...(path.startsWith('/development/')?{modelCalls:2}:{})});
+    }
+    expect(budgets).toEqual([30_000,3_030_000,30_000,3_030_000,30_000,1_530_000,30_000,1_230_000,30_000,2_430_000]);
+    expect(posts).toHaveLength(5); expect(new Set(posts).size).toBe(5);
+    expect(modelRequestBudgetMs(policy)).toBe(1_230_000);
+    expect(modelRequestBudgetMs({...policy,timeoutRetries:0},2,true)).toBe(1_230_000);
+    expect(modelRequestBudgetMs({...policy,timeoutRetries:0},2)).toBe(630_000);
+  } finally { globalThis.fetch=originalFetch; AbortSignal.timeout=originalTimeout; }
 });
 
 test('proxy preserves request data, Origin, authorization, multiple cookies and redirects', async () => {

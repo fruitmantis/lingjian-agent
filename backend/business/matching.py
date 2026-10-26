@@ -1,6 +1,7 @@
 """Matching stage prompts and candidate/fact validation, without database access."""
 import json
 import re
+from .common import model_json_object, ModelJSONError
 
 
 MATCHING_RULES_VERSION = "20261013-reviewed-v3"
@@ -117,12 +118,12 @@ def parse_understanding(raw, requirement, tags):
     from .matching_types import MatchUnderstanding, TagSuggestion
     from .development import guard
     from pydantic import ValidationError
-    data = json.loads(raw)
+    data = model_json_object(raw)
     if not isinstance(data, dict):
         raise ValueError('Understanding must be an object')
     facts = data.get('facts', {})
     if not isinstance(facts, dict):
-        raise ValueError('Facts must be an object')
+        raise ModelJSONError('Facts must be an object')
     facts = dict(facts)
     proposed = facts.get('capabilityTags', [])
     valid_tags=list(dict.fromkeys(tag for tag in proposed if isinstance(tag,str) and tag in tags)) if isinstance(proposed,list) else []
@@ -153,9 +154,9 @@ def parse_answer(raw):
     from .matching_types import MatchAnswer, Candidate, AnalysisReference
     from .development import guard, InvalidOutput
     from pydantic import ValidationError
-    data = json.loads(raw)
+    data = model_json_object(raw)
     if not isinstance(data,dict) or not isinstance(data.get('recommendations'),list):
-        raise ValueError('Invalid matching result root')
+        raise ModelJSONError('Invalid matching result root')
     rejected = []
     try:
         result = MatchAnswer.model_validate({**data,'recommendations':[],'analysisRefs':[]}).model_dump()

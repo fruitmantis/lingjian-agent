@@ -143,7 +143,7 @@ def test_whole_group_budget_loss_retains_other_candidate_and_model_gap(setup):
             'source_version':'synthetic','path':'/text','start':0,'end':len(body),'text':body}}}
     bad=(other,bad_context,[],[])
     config={'base_url':'https://api.deepseek.com','model_name':'deepseek-v4-flash',
-            'api_key':'offline-only','max_tokens':4096,'temperature':0.3,'top_p':1}
+            'api_key':'offline-only','max_tokens':4096,'context_window_tokens':1048576,'temperature':0.3,'top_p':1}
     partner_match_context.assemble_details([row,bad],config,
         lambda rows:match._detail_content('需要NovelVision视觉检测',{'understanding':{'facts':{}}},rows),
         match_understanding.MatchAnswer.model_json_schema())

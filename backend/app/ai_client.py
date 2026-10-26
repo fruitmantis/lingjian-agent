@@ -133,27 +133,40 @@ def _completion_content(data: dict) -> str:
     return content
 
 
-def retry_model_timeout(send, *, policy, before_retry):
-    """Retry only the transport request, never the enclosing business operation."""
+def retry_model_timeout(send, *, policy, before_retry, content_errors=()):
+    """One request loop: saved timeout retries plus at most one opt-in content retry."""
     from .error_diagnostics import record_error
-    retries = policy.timeoutRetries
-    for retry_count in range(retries + 1):
+    import logging
+    retries=policy.timeoutRetries
+    timeout_retries=content_retries=retry_count=0
+    while True:
         _LAST_RETRY_COUNT.set(retry_count)
-        if retry_count:
-            before_retry()
+        if retry_count:before_retry()
         try:
             return send()
-        except (TimeoutError, httpx.TimeoutException) as error:
-            # Keep the original exception class, message and traceback for administrators.
-            if retry_count and hasattr(error, '_banfei_diagnostic_id'):
+        except (TimeoutError,httpx.TimeoutException) as error:
+            if retry_count and hasattr(error,'_banfei_diagnostic_id'):
                 del error._banfei_diagnostic_id
-            error.model_timeout_details = {
-                'timeout_seconds': policy.timeoutSeconds, 'retry_count': retry_count,
-                'attempt_count': retry_count + 1, 'max_retries': retries,
+            error.model_timeout_details={
+                'timeout_seconds':policy.timeoutSeconds,'retry_count':timeout_retries,
+                'attempt_count':retry_count+1,'max_retries':retries,
             }
             record_error(error)
-            if retry_count == retries:
-                raise
+            if timeout_retries==retries:raise
+            timeout_retries+=1
+        except content_errors as error:
+            if retry_count and hasattr(error,'_banfei_diagnostic_id'):
+                del error._banfei_diagnostic_id
+            error_id=record_error(error)
+            logging.getLogger('uvicorn.error').warning('MODEL_CONTENT_RETRY %s',json.dumps({
+                'error_id':error_id,'error_type':type(error).__name__,
+                'attempt_count':retry_count+1,'timeout_retries':timeout_retries,
+                'content_retries':content_retries,'max_attempts':retries+2,
+                'retrying':content_retries==0,
+            }))
+            if content_retries:raise
+            content_retries=1
+        retry_count+=1
 
 
 def chat_completion(messages: list[dict], scene: str = "default") -> str:

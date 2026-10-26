@@ -2,8 +2,8 @@ export type ApiRequestInit = RequestInit & { timeoutMs?: number; modelCalls?: nu
 
 export type ModelTimeoutSettings = { timeoutSeconds: number; timeoutRetries: number };
 
-export function modelRequestBudgetMs(policy: ModelTimeoutSettings, calls = 1): number {
-  return Math.ceil((calls * policy.timeoutSeconds * (policy.timeoutRetries + 1) + 30) * 1000);
+export function modelRequestBudgetMs(policy: ModelTimeoutSettings, calls = 1, contentRetry = false): number {
+  return Math.ceil((calls * policy.timeoutSeconds * (policy.timeoutRetries + 1 + Number(contentRetry)) + 30) * 1000);
 }
 
 function requestPath(input: RequestInfo | URL): string {
@@ -47,7 +47,10 @@ export async function fetchWithTimeout(input: RequestInfo | URL, init: ApiReques
         if (!Number.isFinite(policy.timeoutSeconds) || policy.timeoutSeconds <= 0 || !Number.isSafeInteger(policy.timeoutRetries) || policy.timeoutRetries < 0) {
           throw new Error("Invalid model timeout policy");
         }
-        budget = modelRequestBudgetMs(policy, calls);
+        const path = requestPath(input);
+        const contentRetry = path === "/agent/match" || /^\/agent\/tasks\/[^/]+\/retry$/.test(path)
+          || /^\/admin\/model-configs\/[^/]+\/test$/.test(path);
+        budget = modelRequestBudgetMs(policy, calls, contentRetry);
       }
       signal = AbortSignal.timeout(budget);
     }

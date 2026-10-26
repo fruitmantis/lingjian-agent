@@ -1,13 +1,14 @@
 """Model configuration CRUD router."""
 
 import uuid
+import json
 import time
 import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import ValidationError, BaseModel, Field, StrictBool, ConfigDict, field_validator
-from backend.business.common import ModelOutput
+from backend.business.common import ModelOutput, model_json_object, ModelJSONError
 
 from ..database import get_db
 from ..auth import require_admin, require_active_user, record_audit
@@ -239,14 +240,17 @@ def test_connection(mc_id: str) -> TestResult:
 
     try:
         start = time.monotonic()
-        raw = development_model.completion(dict(row), [{"role": "user", "content": '请只返回 JSON：{"ok": true}。'}], _ConnectionProbe.model_json_schema())
-        if not _ConnectionProbe.model_validate_json(raw).ok:
-            raise ModelResponseError("Connection probe did not return ok=true")
+        def check_probe(raw):
+            if not _ConnectionProbe.model_validate(model_json_object(raw)).ok:
+                raise ModelResponseError("Connection probe did not return ok=true")
+        development_model.validated_completion(dict(row),
+            [{"role":"user","content":'请只返回 JSON：{"ok": true}。'}],
+            _ConnectionProbe.model_json_schema(),check_probe)
         elapsed = int((time.monotonic() - start) * 1000)
         return TestResult(success=True, message="连接及 JSON 格式校验通过", latencyMs=elapsed)
     except Exception as e:
         record_error(e)
-        message = '连接成功，但返回内容未通过校验' if isinstance(e,(ModelResponseError,ValidationError)) else model_error_message(e)
+        message = '连接成功，但返回内容未通过校验' if isinstance(e,(ModelResponseError,ModelJSONError,json.JSONDecodeError,ValidationError)) else model_error_message(e)
         return TestResult(success=False, message=message, latencyMs=int((time.monotonic()-start)*1000))
 
 
