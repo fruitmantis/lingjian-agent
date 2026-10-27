@@ -12,6 +12,6 @@
 .options .option { display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; min-height:36px; margin:0; padding:8px; border:0; border-radius:6px; background:transparent; color:var(--text-primary); font:inherit; text-align:left; box-shadow:none; white-space:normal; overflow-wrap:anywhere; cursor:pointer; }
 .option span:first-child { min-width:0; }
 .option span + span { flex-shrink:0; }
-.options .option:hover,.options .highlighted { background:var(--bg-hover); }
+.options .option:hover,.options .highlighted { background:var(--bg-hover); color:var(--text-primary); }
 .options .option:active { background:var(--bg-selected); }
 .empty { margin:8px; color:var(--text-secondary); font-size:13px; }

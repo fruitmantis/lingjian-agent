@@ -129,3 +129,35 @@ test('material create and edit submit selected ID, never typed search text',asyn
   await expect.poll(()=>state.writes.length).toBe(2);expect(state.writes[1]).toMatchObject({path:'/cases/case-fixture',body:{partner_id:'partner-498'}});
   expect(state.errors).toEqual([]);expect(state.unexpected).toEqual([]);
 });
+
+for (const width of [1366,390]) test('keeps partner option text readable across hover focus and selection '+width,async({page},testInfo)=>{
+  await page.setViewportSize({width,height:900});
+  const state=await fixture(page);await page.goto('/?mode=development&partner_id=partner-1');
+  const picker=page.getByRole('combobox',{name:'关联已有伙伴资料（可选）',exact:true});
+  await expect(picker).toHaveValue(partners[1].name);await picker.click();
+  const selected=page.getByRole('option',{name:partners[1].name,exact:true});
+  const hovered=page.getByRole('option',{name:partners[2].name,exact:true});
+  await hovered.hover();await page.evaluate(()=>document.fonts.ready);
+  await page.screenshot({path:testInfo.outputPath('partner-options-hover-'+width+'.png'),fullPage:true});
+  await expect(hovered).toHaveCSS('background-color','rgb(244, 244, 243)');
+  await expect(hovered.locator('span').first()).toHaveCSS('color','rgb(38, 38, 38)');
+  await expect(selected).toHaveAttribute('aria-selected','true');
+  await expect(selected).toHaveCSS('background-color','rgb(244, 244, 243)');
+  await expect(selected.locator('span').first()).toHaveCSS('color','rgb(38, 38, 38)');
+  await expect(selected.locator('span').last()).toHaveText('✓');
+  await expect(selected.locator('span').last()).toHaveCSS('color','rgb(38, 38, 38)');
+  await expect(selected).toHaveCSS('font-size','14px');
+  expect((await selected.boundingBox())!.height).toBe(37);
+  await expect(picker).toHaveCSS('height','40px');
+  await selected.hover();await expect(selected.locator('span').first()).toHaveCSS('color','rgb(38, 38, 38)');
+  await page.mouse.move(4,4);await picker.press('ArrowDown');
+  await expect(picker).toHaveAttribute('aria-activedescendant',(await hovered.getAttribute('id'))!);
+  await expect(hovered).toHaveCSS('background-color','rgb(244, 244, 243)');
+  await expect(hovered.locator('span').first()).toHaveCSS('color','rgb(38, 38, 38)');
+  await hovered.focus();await expect(hovered).toBeFocused();
+  expect(await hovered.evaluate(el=>el.matches(':focus-visible'))).toBe(true);
+  await expect(hovered.locator('span').first()).toHaveCSS('color','rgb(38, 38, 38)');
+  await page.screenshot({path:testInfo.outputPath('partner-options-focus-'+width+'.png'),fullPage:true});
+  await hovered.click();await expect(picker).toHaveAttribute('data-partner-id','partner-2');
+  expect(state.writes).toEqual([]);expect(state.errors).toEqual([]);expect(state.unexpected).toEqual([]);
+});
