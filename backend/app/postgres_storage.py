@@ -105,10 +105,13 @@ def verify_schema(url):
         found=set(inspect(conn).get_table_names())
         if set(metadata.tables)-found:
             raise RuntimeError('PostgreSQL schema is incomplete; explicit migration required')
-        if 'last_error_details' not in {c['name'] for c in inspect(conn).get_columns('match_records')}:
+        match_columns = {c['name'] for c in inspect(conn).get_columns('match_records')}
+        if 'last_error_details' not in match_columns:
             raise RuntimeError('Task failure detail column missing; run explicit additive migration')
+        if not {'attachment_name', 'attachment_text'} <= match_columns:
+            raise RuntimeError('Task attachment columns missing; run explicit schema-24 migration')
         if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='24':
-            raise RuntimeError('PostgreSQL schema version is not 23; refusing automatic changes')
+            raise RuntimeError('PostgreSQL schema version is not 24; refusing automatic changes')
 
         if 'profile_chapter_meta' not in {c['name'] for c in inspect(conn).get_columns('partners')}:
             raise RuntimeError('Profile chapter association column missing; explicit additive migration required')
