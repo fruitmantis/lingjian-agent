@@ -13,7 +13,7 @@ def _version(conn):
 
 def _columns(conn, table):
     rows = conn.execute(
-        "SELECT column_name FROM information_schema.columns WHERE table_name=? AND table_schema='public'",
+        "SELECT column_name FROM information_schema.columns WHERE table_name=? AND table_schema=current_schema()",
         (table,),
     ).fetchall()
     return {row[0] for row in rows}
