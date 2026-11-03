@@ -66,3 +66,48 @@
 .field:global(.enablement-field) textarea::placeholder {
   color: #a3a3a3;
 }
+
+.attachButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.attachButton:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.attachmentBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.attachmentBar svg {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+.attachmentName {
+  font-weight: var(--font-weight-body);
+}
+.attachmentRemove {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+.attachmentRemove:hover {
+  text-decoration: underline;
+}

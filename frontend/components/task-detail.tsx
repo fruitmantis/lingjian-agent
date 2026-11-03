@@ -38,7 +38,7 @@ type TaskDetail = {
   progress?:TaskProgressData|null; understanding?:Record<string,unknown>|null; scopeMessage?:string|null;
   answer?: string;
   task_type: string;
-  id: string; requirement: string; recommendations: Recommendation[]; createdAt: string;
+  id: string; requirement: string; attachmentName?: string | null; recommendations: Recommendation[]; createdAt: string;
   createdBy: string | null; archivedAt: string | null; demandProfile: Record<string, string | number | null> | null;
   opportunity: Opportunity | null; taskStatus: "matching" | "enriching" | "ready" | "partial" | "failed";
   lastErrorStage: string | null; failureDetails?: FailureDetail[];
@@ -205,6 +205,7 @@ function TaskDetail({id}:{id:string}) {
       {(task.task_type || "partner_match") === "partner_match" ? <>
       {(task.taskStatus === "partial" || task.taskStatus === "failed") ? <FailureNotice details={task.failureDetails} stages={task.lastErrorStage} partial={task.recommendations.length>0} title={failureTitle} impact={task.recommendations.length>0?"已保存的伙伴推荐可继续查看。重试将重新执行本次分析。":"项目需求已保留，可重新执行。"}>{user?.role==="user"&&<button onClick={returnToDraft} disabled={retrying||!!task.archivedAt}>{task.failureDetails?.some(f=>f.modelRelated)?"返回并切换模型":"返回编辑需求"}</button>}<button className="secondary-btn" onClick={()=>void retryTask()} disabled={retrying||!!task.archivedAt}>{retrying?"重试中…":"使用原模型重试"}</button></FailureNotice> : task.taskStatus!=="ready" && <div className="notice-warning task-status-notice"><strong>{taskStatusText[task.taskStatus]}</strong></div>}
       <TaskRequest id={id}>{task.requirement}</TaskRequest>
+      {task.attachmentName&&<p className="muted" data-testid="task-attachment-name">附件：{task.attachmentName}</p>}
       <TaskProgress value={task.progress} taskId={id}/>
       {task.scopeMessage&&<TaskResult id={id} className="card task-answer" testId="scope-result"><p>{task.scopeMessage}</p></TaskResult>}
       {task.understanding&&<TaskResult id={id} className="card" testId="task-understanding"><h2>需求理解</h2><div className="detail-grid">{Object.entries({"业务需求":task.understanding.businessNeeds,"技术需求":task.understanding.technicalNeeds,"交付要求":task.understanding.deliveryNeeds,"行业":task.understanding.industry,"区域":task.understanding.region,"时间要求":task.understanding.timelineRequirement}).filter(([,value])=>value&&value!=="未知").map(([label,value])=><div key={label as string}><span>{label as string}</span><strong>{String(value)}</strong></div>)}</div></TaskResult>}
