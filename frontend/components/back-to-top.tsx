@@ -55,34 +55,14 @@ export function BackToTop() {
   }, []);
 
   const toTop = useCallback(() => {
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-    const behavior: ScrollBehavior = reduce ? "auto" : "smooth";
     const finish = () => {
       if (poll.current !== null) { window.cancelAnimationFrame(poll.current); poll.current = null; }
       if (window.scrollY > 0) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       for (const element of pageScrollers()) if (element.scrollTop > 0) element.scrollTop = 0;
     };
-    const distance = Math.max(window.scrollY, ...scrollers.current.map(element => element.scrollTop));
-    // Animating thousands of pixels over a heavy page is what reads as a stutter,
-    // so long jumps land immediately; only short ones keep the smooth motion.
-    if (reduce || distance > window.innerHeight * 2) { finish(); return; }
-    window.scrollTo({ top: 0, left: 0, behavior });
-    for (const element of scrollers.current) element.scrollTo({ top: 0, left: 0, behavior });
-    // Wait for the animation to actually stop instead of cutting it off with a fixed timer,
-    // which is what read as a stutter on tall pages.
-    if (poll.current !== null) window.cancelAnimationFrame(poll.current);
-    const deadline = performance.now() + MAX_SETTLE_MS;
-    let previous = -1;
-    let still = 0;
-    const step = () => {
-      const y = window.scrollY;
-      if (y === 0 || performance.now() > deadline) { finish(); return; }
-      still = y === previous ? still + 1 : 0;
-      previous = y;
-      if (still > STUCK_FRAMES) { finish(); return; }
-      poll.current = window.requestAnimationFrame(step);
-    };
-    poll.current = window.requestAnimationFrame(step);
+    // Always land immediately: animating this jump stutters on the heavier admin pages
+    // and the instant landing is what users actually want from a back-to-top control.
+    finish();
   }, []);
 
   return <button
