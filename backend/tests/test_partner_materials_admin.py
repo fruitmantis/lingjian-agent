@@ -355,3 +355,19 @@ def test_catalogue_empty_preview_error_preserves_native_status(client,access,doc
     failed=client.get('/admin/partner-materials',headers=admin,params={'partner_id':pid,'status':'failed'}).json()
     assert failed['total']==1
     assert [row['id'] for row in failed['items']]==['empty-preview-failed']
+
+
+def test_catalogue_visibility_filter_covers_cases_only(client,access):
+    """The display switch exists on cases; legacy documents must not match either side."""
+    admin,_,pid=access
+    shown=add_case(client,admin,pid,'可见性已展示')
+    hidden=add_case(client,admin,pid,'可见性未展示')
+    legacy=add_document(client,admin,pid,'可见性旧资料.txt',b'legacy body')
+    assert client.patch(f'/cases/{shown}/visibility',headers=admin,json={'visible':True}).status_code==200
+    base={row['id'] for row in client.get('/admin/partner-materials',headers=admin,params={'partner_id':pid,'page_size':50}).json()['items']}
+    assert {shown,hidden,legacy}<=base
+    on={row['id'] for row in client.get('/admin/partner-materials',headers=admin,params={'partner_id':pid,'visible':'true','page_size':50}).json()['items']}
+    off={row['id'] for row in client.get('/admin/partner-materials',headers=admin,params={'partner_id':pid,'visible':'false','page_size':50}).json()['items']}
+    assert on=={shown} and off=={hidden}
+    assert legacy not in on and legacy not in off
+    assert client.get('/admin/partner-materials',headers=admin,params={'visible':'maybe'}).status_code==422

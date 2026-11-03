@@ -27,7 +27,7 @@ export function PartnerMaterialsManager(){
   const params=useSearchParams(),router=useRouter();
   const partnerId=params.get('partner_id')||'',group=params.get('category_group')||'',category=params.get('category_id')||'';
   const page=Math.max(1,Number(params.get('page'))||1),query=params.toString(),savedQuery=params.get('q')||'';
-  const requestedSize=Number(params.get('page_size')),pageSize=pageSizes.find(n=>n===requestedSize)||10,status=params.get('status')||'';
+  const requestedSize=Number(params.get('page_size')),pageSize=pageSizes.find(n=>n===requestedSize)||10,status=params.get('status')||'',visible=params.get('visible')||'';
   const [data,setData]=useState<Catalogue>({items:[],total:0,partners:[]}),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const [q,setQ]=useState(params.get('q')||''),[revision,setRevision]=useState(0);
   const [selected,setSelected]=useState<Entry|null>(null),[creating,setCreating]=useState(false),[notice,setNotice]=useState<Partner|null>(null);
@@ -61,6 +61,7 @@ export function PartnerMaterialsManager(){
       <label>一级分类<select aria-label="筛选一级分类" value={group} onChange={e=>filter({category_group:e.target.value,category_id:null})}><option value="">全部分类</option>{groups.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
       <label>二级分类<select aria-label="筛选二级分类" value={category} disabled={!group||group==='unclassified'} onChange={e=>filter({category_id:e.target.value})}><option value="">全部</option>{contract.categories.find(g=>g.id===group)?.children.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       <label>状态<select aria-label="状态" value={status} onChange={e=>filter({status:e.target.value})}><option value="">全部资料</option><option value="failed">处理失败</option></select></label>
+      <label>展示<select aria-label="展示状态" value={visible} onChange={e=>filter({visible:e.target.value})}><option value="">全部</option><option value="true">已展示</option><option value="false">未展示</option></select></label>
       <label className={styles.search}>名称搜索<div><input aria-label="资料名称" value={q} maxLength={200} placeholder="搜索资料名称" onChange={e=>setQ(e.target.value)}/><button className="secondary-btn" type="submit">搜索</button></div></label>
     </form>
     {notice&&<div role="status" className={styles.notice}><span>资料已保存，{notice.name}的画像按有效来源更新；附件处理结果请在详情中查看。</span><div className="table-actions"><Link href={`/admin/partners/${encodeURIComponent(notice.id)}#profile`} className="secondary-btn">查看画像和处理状态</Link><button className="secondary-btn" onClick={()=>setNotice(null)}>关闭提示</button></div></div>}
