@@ -62,9 +62,12 @@ export function BackToTop() {
       if (window.scrollY > 0) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       for (const element of pageScrollers()) if (element.scrollTop > 0) element.scrollTop = 0;
     };
+    const distance = Math.max(window.scrollY, ...scrollers.current.map(element => element.scrollTop));
+    // Animating thousands of pixels over a heavy page is what reads as a stutter,
+    // so long jumps land immediately; only short ones keep the smooth motion.
+    if (reduce || distance > window.innerHeight * 2) { finish(); return; }
     window.scrollTo({ top: 0, left: 0, behavior });
     for (const element of scrollers.current) element.scrollTo({ top: 0, left: 0, behavior });
-    if (reduce) { finish(); return; }
     // Wait for the animation to actually stop instead of cutting it off with a fixed timer,
     // which is what read as a stutter on tall pages.
     if (poll.current !== null) window.cancelAnimationFrame(poll.current);
