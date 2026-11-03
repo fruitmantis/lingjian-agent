@@ -5,8 +5,10 @@ import styles from "./back-to-top.module.css";
 
 /** Show the control only after the reader has scrolled past roughly one screen of content. */
 const SHOW_AFTER = 480;
-/** Give the smooth animation time to finish before forcing the real top. */
-const SETTLE_MS = 600;
+/** Never chase a smooth scroll for longer than this. */
+const MAX_SETTLE_MS = 1500;
+/** Consecutive frames without movement that count as "the animation is done". */
+const STUCK_FRAMES = 20;
 
 /** Every element that can actually hold the page scroll position in this layout. */
 function pageScrollers(): HTMLElement[] {
@@ -23,43 +25,61 @@ function pageScrollers(): HTMLElement[] {
 export function BackToTop() {
   const [visible, setVisible] = useState(false);
   const frame = useRef<number | null>(null);
-  const settle = useRef<number | null>(null);
+  const poll = useRef<number | null>(null);
+  // Cached once per layout: querying and measuring on every scroll frame forces a reflow.
+  const scrollers = useRef<HTMLElement[]>([]);
 
   useEffect(() => {
+    const measure = () => { scrollers.current = pageScrollers(); };
     const update = () => {
       frame.current = null;
-      const top = Math.max(window.scrollY, ...pageScrollers().map(element => element.scrollTop));
+      const top = Math.max(window.scrollY, ...scrollers.current.map(element => element.scrollTop));
       setVisible(top > SHOW_AFTER);
     };
     const schedule = () => {
       if (frame.current === null) frame.current = window.requestAnimationFrame(update);
     };
+    const onResize = () => { measure(); schedule(); };
+    measure();
     update();
     window.addEventListener("scroll", schedule, { passive: true });
-    window.addEventListener("resize", schedule);
+    window.addEventListener("resize", onResize);
+    const remeasure = window.setTimeout(measure, 1000);
     return () => {
       window.removeEventListener("scroll", schedule);
-      window.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", onResize);
+      window.clearTimeout(remeasure);
       if (frame.current !== null) window.cancelAnimationFrame(frame.current);
-      if (settle.current !== null) window.clearTimeout(settle.current);
+      if (poll.current !== null) window.cancelAnimationFrame(poll.current);
     };
   }, []);
 
   const toTop = useCallback(() => {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     const behavior: ScrollBehavior = reduce ? "auto" : "smooth";
-    const scrollers = pageScrollers();
-    window.scrollTo({ top: 0, left: 0, behavior });
-    for (const element of scrollers) element.scrollTo({ top: 0, left: 0, behavior });
-    if (reduce) return;
-    // A smooth scroll can stop short when content above finishes loading mid-animation,
-    // so settle on the real top once it has had time to run.
-    if (settle.current !== null) window.clearTimeout(settle.current);
-    settle.current = window.setTimeout(() => {
-      settle.current = null;
+    const finish = () => {
+      if (poll.current !== null) { window.cancelAnimationFrame(poll.current); poll.current = null; }
       if (window.scrollY > 0) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       for (const element of pageScrollers()) if (element.scrollTop > 0) element.scrollTop = 0;
-    }, SETTLE_MS);
+    };
+    window.scrollTo({ top: 0, left: 0, behavior });
+    for (const element of scrollers.current) element.scrollTo({ top: 0, left: 0, behavior });
+    if (reduce) { finish(); return; }
+    // Wait for the animation to actually stop instead of cutting it off with a fixed timer,
+    // which is what read as a stutter on tall pages.
+    if (poll.current !== null) window.cancelAnimationFrame(poll.current);
+    const deadline = performance.now() + MAX_SETTLE_MS;
+    let previous = -1;
+    let still = 0;
+    const step = () => {
+      const y = window.scrollY;
+      if (y === 0 || performance.now() > deadline) { finish(); return; }
+      still = y === previous ? still + 1 : 0;
+      previous = y;
+      if (still > STUCK_FRAMES) { finish(); return; }
+      poll.current = window.requestAnimationFrame(step);
+    };
+    poll.current = window.requestAnimationFrame(step);
   }, []);
 
   return <button
