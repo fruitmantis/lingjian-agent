@@ -6,7 +6,7 @@
 - 正式工作目录：`/home/yuan/project/lingjian-agent-enablement`；当前开发分支：`main`。
 - 该目录已升格为正式 main 工作区，不再是独立功能试验环境。legacy 目录、旧 feature 分支和其他历史 worktree 均不得作为正式开发环境；不修改或启动 legacy 服务。
 - WSL Ubuntu 24.04；前端 Next.js 15 / React 19 / TypeScript，端口 **3000**；后端 FastAPI / Python，端口 **8000**。
-- 正式数据库：**PostgreSQL 16，代码要求 schema version 24（任务需求附件；现有库须先显式备份迁移，启动不自动迁移）**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
+- 正式数据库：**PostgreSQL 16，代码要求 schema version 25（伙伴身份；现有库须先显式备份迁移，启动不自动迁移）**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
 - 连接由私有 `.isolation/runtime/dev/environment.json` 中 `DATABASE_URL` 指定，缺失或失败直接报错，不自动回退其他数据库。
 - 上传目录 `.isolation/runtime/dev/uploads`，日志 `.isolation/logs/`；旧数据库文件仅在核验无独有数据和有效引用后删除；未能确认的私有备份保留并记录，不参与运行。
 - 工程、模块、API、字段及 `LINGJIAN_*` 技术标识不因产品更名而重命名。
@@ -95,6 +95,12 @@
 - 后台导航的“后台概览”只在 `/admin` 精确选中；其他栏目可匹配自身详情子路由，不让概览因 `/admin` 前缀而持续高亮。
 - 当前未接入 Chroma、Embedding、向量检索或 RAG 基础设施；资源主题出现 RAG 不代表系统使用 RAG。
 - 未经明确要求不引入 Redis、队列、微服务、复杂 RBAC、LMS、Planner、Multi-Agent、新数据库迁移框架或其他架构扩展。
+
+## 伙伴身份
+
+- 六类身份唯一来源为 `shared/partner-identities.json`，管理员在伙伴基础信息多选维护；普通目录和详情展示全部身份，旧空值显示“暂未维护”。不从资料或画像自动推断，不修改画像正文，不接入推荐或模型流程。
+- `scripts/migrate_partner_identities.py` 在校验私有完整 PG 备份后显式执行 schema 24→25，只新增 nullable `partners.identities`；旧行不回填，启动不自动迁移。需要回退时先在独立数据库验证迁移前备份，不自动删除已维护身份。
+- Excel 新列支持六类身份多选；空列清空，旧模板没有该列时保留已有身份。
 
 ## Git、数据与执行约束
 

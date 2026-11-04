@@ -14,6 +14,7 @@ from .business_taxonomy import INDUSTRIES, REGION_TYPES, classify, project_partn
 from .database import get_db
 from .enablement import fail, now
 from .models import PartnerCreate
+from .partner_identities import IDENTITIES, read_identities, stored_identities
 from .resource_transfer import MAX_ROWS, append_text, read_workbook, text
 
 COLUMNS = {
@@ -22,6 +23,7 @@ COLUMNS = {
     'pending_industries': '待确认行业', 'pending_regions': '待确认区域',
     'status': '状态', 'ai_profile': '完整画像', 'profile_pending': '画像待更新',
     'created_at': '创建时间（参考）', 'updated_at': '更新时间（参考）', 'profile_updated_at': '画像更新时间（参考）',
+    'identities': '伙伴身份（多选）',
 }
 LONG_FIELDS = ('intro', 'capabilities', 'industries', 'service_areas', 'pending_industries', 'pending_regions', 'ai_profile')
 CONTINUATION = ['伙伴ID（新增可留空）', '伙伴名称', '字段', '段号（从2开始）', '续文']
@@ -44,6 +46,7 @@ def export_workbook(*, template=False):
         with get_db() as conn:
             for row in conn.execute('SELECT * FROM partners ORDER BY created_at,id'):
                 data = project_partner(dict(row))
+                data['identities'] = ','.join(read_identities(row['identities']))
                 data.update(pending_industries=','.join(data['classification_pending']['industries']),
                             pending_regions=','.join(data['classification_pending']['regions']),
                             status='启用' if row['status'] == 'active' else '停用',
@@ -56,7 +59,7 @@ def export_workbook(*, template=False):
                 append_text(sheet, [data.get(key) for key in COLUMNS])
     dictionary = book.create_sheet('行业区域参考')
     append_text(dictionary, ['分类', '标准值'])
-    for kind, values in [('行业', INDUSTRIES), ('国内区域', REGION_TYPES['domestic']), ('海外区域', REGION_TYPES['overseas'])]:
+    for kind, values in [('行业', INDUSTRIES), ('国内区域', REGION_TYPES['domestic']), ('海外区域', REGION_TYPES['overseas']), ('伙伴身份', IDENTITIES)]:
         for value in values:
             append_text(dictionary, [kind, value])
     notes = book.create_sheet('使用说明')
@@ -65,6 +68,7 @@ def export_workbook(*, template=False):
         'ID相同则更新；ID未匹配时按唯一的完整公司名称匹配，仍未匹配才新增。不合并、不删除任何已有伙伴。',
         '导入按表格更新基础信息和完整画像；空白可选字段表示清空，请先导出留存再编辑。时间列仅供参考，由目标系统记录本次更新时间。',
         '行业和区域从参考表选择，多选用逗号分隔；待确认列只保留未确认的旧分类，不作为正式分类。已有待确认内容保留。',
+        '伙伴身份从参考表选择，可多选，用逗号分隔；有此列时空白清空身份，旧模板无此列时保留已有身份，新伙伴暂未维护。不自动推断身份。',
         '长文本超过32000字时自动分到“长文本续文”，导入按伙伴ID（无ID用名称）、字段和段号拼接，不截断。请保留续文工作表。',
         '模板中不带现有伙伴数据。导出包括启用和停用伙伴；案例、附件原件、任务与历史记录不在此表格中。',
         '画像直接采用表格文字，不调用模型、不改正式能力标签字典。导入失败整批回滚，并提示错误行号。',
@@ -89,8 +93,15 @@ def export_workbook(*, template=False):
 
 
 def read_rows(content):
-    sheets = read_workbook(content, [('伙伴信息', list(COLUMNS.values()), MAX_ROWS), ('长文本续文', CONTINUATION, 10000)])
-    rows = [(line, dict(zip(COLUMNS, values))) for line, values in sheets['伙伴信息']]
+    columns = COLUMNS
+    try:
+        sheets = read_workbook(content, [('伙伴信息', list(columns.values()), MAX_ROWS), ('长文本续文', CONTINUATION, 10000)])
+    except HTTPException as error:
+        if error.status_code != 422 or error.detail != '“伙伴信息”表头不匹配，请使用导出的模板':
+            raise
+        columns = {key: label for key, label in COLUMNS.items() if key != 'identities'}
+        sheets = read_workbook(content, [('伙伴信息', list(columns.values()), MAX_ROWS), ('长文本续文', CONTINUATION, 10000)])
+    rows = [(line, dict(zip(columns, values))) for line, values in sheets['伙伴信息']]
     if not rows:
         fail(422, '表格中没有伙伴信息')
     def key(data):
@@ -140,9 +151,12 @@ def import_workbook(content, actor):
                 if partner_id in seen:
                     fail(422, '同一家伙伴只能导入一行')
                 seen.add(partner_id)
-                payload = PartnerImport(name=name, status={'启用': 'active', '停用': 'disabled', '': 'active'}.get(text(data['status']), ''),
+                identity_fields = {'identities': tokens(data['identities'])} if 'identities' in data else {}
+                payload = PartnerImport(name=name, **identity_fields, status={'启用': 'active', '停用': 'disabled', '': 'active'}.get(text(data['status']), ''),
                     **{field: None if data[field] in (None, '') else str(data[field]) for field in ('intro', 'capabilities', 'industries', 'service_areas', 'ai_profile')})
                 fields = {field: getattr(payload, field) for field in ('name', 'intro', 'capabilities', 'industries', 'service_areas', 'status', 'ai_profile')}
+                if 'identities' in data:
+                    fields['identities'] = stored_identities(payload.identities)
                 for column, field, kind in [('pending_industries', 'industries', 'industry'), ('pending_regions', 'service_areas', 'region')]:
                     pending = tokens(data[column])
                     if any(classify(value, kind)[0] for value in pending):

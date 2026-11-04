@@ -5,7 +5,8 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, status, File, UploadFile, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+from ..partner_identities import read_identities, stored_identities, validate_identities
 
 from ..auth import require_active_user, require_admin, record_audit
 from ..database import get_db
@@ -16,6 +17,8 @@ from ..resource_transfer import MAX_BYTES
 
 
 class PartnerUpdate(ClassificationInput):
+    identities: list[str] | None = None
+    _identities = field_validator("identities")(validate_identities)
     name: str | None = None
     intro: str | None = None
     capabilities: str | None = None
@@ -25,10 +28,12 @@ class PartnerUpdate(ClassificationInput):
 
 
 router = APIRouter(prefix="/partners", tags=["partners"], dependencies=[Depends(require_active_user)])
-_COLUMNS = "id, name, intro, capabilities, service_areas, industries, ai_profile, status, created_at, updated_at"
+_COLUMNS = "id, name, intro, capabilities, service_areas, industries, ai_profile, status, created_at, updated_at, identities"
 
 
 class PartnerProfileCard(ClassificationOutput):
+    identities: list[str] = Field(default_factory=list)
+    _identities = field_validator("identities", mode="before")(read_identities)
     id: str
     name: str
     capabilities: str | None
@@ -80,7 +85,7 @@ def list_profiles(user: dict = Depends(require_active_user)) -> list[PartnerProf
             case_count = conn.execute("SELECT COUNT(*) as cnt FROM cases WHERE partner_id = ?", (pd["id"],)).fetchone()["cnt"]
             deliverable_count = conn.execute("SELECT COUNT(*) as cnt FROM deliverables WHERE case_id IN (SELECT id FROM cases WHERE partner_id = ?)", (pd["id"],)).fetchone()["cnt"]
             hs, hl, hr = calculate_partner_health(pd["ai_profile"] if pd["profile_status"]=="ready" else None, p["capabilities"], p["service_areas"], p["industries"], case_count, deliverable_count)
-            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), profile_status=pd["profile_status"], case_count=case_count, deliverable_count=deliverable_count, classification_pending=pd["classification_pending"], healthScore=hs, healthLevel=hl, healthReason=hr))
+            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], identities=pd["identities"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), profile_status=pd["profile_status"], case_count=case_count, deliverable_count=deliverable_count, classification_pending=pd["classification_pending"], healthScore=hs, healthLevel=hl, healthReason=hr))
     return result
 
 
@@ -130,9 +135,9 @@ def get_partner(partner_id: str, user: dict = Depends(require_active_user)) -> P
 @router.post("", response_model=PartnerOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 def create_partner(payload: PartnerCreate) -> PartnerOut:
     now = datetime.now(timezone.utc).isoformat()
-    partner = PartnerOut(id=str(uuid.uuid4()), name=payload.name, intro=payload.intro, capabilities=payload.capabilities, service_areas=payload.service_areas, industries=payload.industries, ai_profile=None, status="active", created_at=now, updated_at=now)
+    partner = PartnerOut(id=str(uuid.uuid4()), name=payload.name, identities=payload.identities, intro=payload.intro, capabilities=payload.capabilities, service_areas=payload.service_areas, industries=payload.industries, ai_profile=None, status="active", created_at=now, updated_at=now)
     with get_db() as conn:
-        conn.execute(f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (partner.id, partner.name, partner.intro, partner.capabilities, partner.service_areas, partner.industries, partner.ai_profile, partner.status, partner.created_at, partner.updated_at))
+        conn.execute(f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (partner.id, partner.name, partner.intro, partner.capabilities, partner.service_areas, partner.industries, partner.ai_profile, partner.status, partner.created_at, partner.updated_at, stored_identities(partner.identities)))
     return partner
 
 
@@ -145,6 +150,8 @@ def update_partner(partner_id: str, payload: PartnerUpdate) -> PartnerOut:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="伙伴不存在")
         updates = []
         params = []
+        if payload.identities is not None:
+            updates.append("identities = ?"); params.append(stored_identities(payload.identities))
         if payload.name is not None:
             updates.append("name = ?"); params.append(payload.name)
         if payload.intro is not None:

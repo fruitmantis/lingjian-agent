@@ -110,8 +110,8 @@ def verify_schema(url):
             raise RuntimeError('Task failure detail column missing; run explicit additive migration')
         if not {'attachment_name', 'attachment_text'} <= match_columns:
             raise RuntimeError('Task attachment columns missing; run explicit schema-24 migration')
-        if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='24':
-            raise RuntimeError('PostgreSQL schema version is not 24; refusing automatic changes')
+        if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='25':
+            raise RuntimeError('PostgreSQL schema version is not 25; refusing automatic changes')
 
         if 'profile_chapter_meta' not in {c['name'] for c in inspect(conn).get_columns('partners')}:
             raise RuntimeError('Profile chapter association column missing; explicit additive migration required')
@@ -132,6 +132,8 @@ def verify_schema(url):
 
         if 'employee_number' not in {c['name'] for c in inspect(conn).get_columns('users')}:
             raise RuntimeError('Employee number column missing; run explicit schema-21 migration')
+        if 'identities' not in {c['name'] for c in inspect(conn).get_columns('partners')}:
+            raise RuntimeError('Partner identity column missing; run explicit schema-25 migration')
 
 
 def initialize_empty_schema(url):

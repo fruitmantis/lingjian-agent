@@ -2,11 +2,14 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from .partner_identities import read_identities, validate_identities
 from .business_taxonomy import ClassificationInput, ClassificationOutput
 
 
 class PartnerCreate(ClassificationInput):
+    identities: list[str] = Field(default_factory=list)
+    _identities = field_validator("identities")(validate_identities)
     name: str = Field(..., min_length=1, max_length=200)
     intro: str | None = None
     capabilities: str | None = Field(None, description="能力标签，逗号分隔")
@@ -15,6 +18,8 @@ class PartnerCreate(ClassificationInput):
 
 
 class PartnerOut(ClassificationOutput):
+    identities: list[str] = Field(default_factory=list)
+    _identities = field_validator("identities", mode="before")(read_identities)
     id: str
     name: str
     intro: str | None

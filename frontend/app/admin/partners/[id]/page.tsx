@@ -1,4 +1,5 @@
 "use client";
+import {PartnerIdentityFields} from "@/components/partner-identities";
 import Link from "next/link";
 import {FormEvent,use,useCallback,useEffect,useRef,useState} from "react";
 import {adminApiFetch as apiFetch} from "@/components/auth-provider";
@@ -7,17 +8,18 @@ import {MaterialFiles,uploadMaterials} from "@/components/material-files";
 import {PartnerProfileReport} from "@/components/partner-profile-report";
 import {responseError} from "@/lib/api-request";
 
-type Partner={id:string;name:string;intro:string|null;capabilities:string|null;industries:string|null;service_areas:string|null;ai_profile:string|null;profile_needs_update:boolean;profile_status:string;profile_sources?:{source_kind:string;source_id:string;state:string;error?:string;label?:string}[];classification_pending?:Record<string,string[]>};
+type Partner={id:string;name:string;identities?:string[];intro:string|null;capabilities:string|null;industries:string|null;service_areas:string|null;ai_profile:string|null;profile_needs_update:boolean;profile_status:string;profile_sources?:{source_kind:string;source_id:string;state:string;error?:string;label?:string}[];classification_pending?:Record<string,string[]>};
 const capabilityNames=(value:string)=>value.split(/[,，;；\n]+/).map(name=>name.trim()).filter(Boolean);
 async function request(path:string,method='GET',body?:unknown){const r=await apiFetch(path,{method,headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});if(!r.ok)throw await responseError(r);return r.status===204?null:r.json();}
 
 export default function AdminPartnerDetailPage({params}:{params:Promise<{id:string}>}){
   const {id}=use(params);const [partner,setPartner]=useState<Partner|null>(null);
+  const [identities,setIdentities]=useState<string[]>([]);
   const [form,setForm]=useState<Record<string,string>>({}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [refresh,setRefresh]=useState(0),[originalsOpen,setOriginalsOpen]=useState(false);
   const [tags,setTags]=useState<string[]>([]),[tagError,setTagError]=useState('');
   const initial=useRef(false),importing=useRef(false);
-  const load=useCallback(async()=>{const p=await request(`/partners/${id}`);setPartner(p);if(!initial.current){setForm({name:p.name,capabilities:p.capabilities||'',industries:p.industries||'',service_areas:p.service_areas||''});initial.current=true;}},[id]);
+  const load=useCallback(async()=>{const p=await request(`/partners/${id}`);setPartner(p);if(!initial.current){setForm({name:p.name,capabilities:p.capabilities||'',industries:p.industries||'',service_areas:p.service_areas||''});setIdentities(p.identities||[]);initial.current=true;}},[id]);
   useEffect(()=>{initial.current=false;void load().catch(e=>setError(e.message));},[load]);
   const loadTags=useCallback(async()=>{setTagError('');try{const items:{name:string;enabled:boolean}[]=await request('/admin/capability-tags');setTags(items.filter(tag=>tag.enabled).map(tag=>tag.name));}catch{setTagError('可选能力标签加载失败，已有标签仍可维护。');}},[]);
   useEffect(()=>{void loadTags();},[loadTags]);
@@ -31,10 +33,10 @@ export default function AdminPartnerDetailPage({params}:{params:Promise<{id:stri
   function changed(){void load().catch(e=>setError(e.message));}
   function processed(){changed();if(importing.current){importing.current=false;setNotice('画像原件已处理，请查看当前正文与待整理状态。');}}
   async function updateProfile(){await action(async()=>{await request(`/partners/${id}/profile`,'POST');setNotice('本次画像整理已结束，请查看当前正文及资料状态。');});}
-  async function save(e:FormEvent){e.preventDefault();await action(async()=>{await request(`/partners/${id}`,'PUT',form);setNotice('伙伴信息已保存。');});}
+  async function save(e:FormEvent){e.preventDefault();await action(async()=>{await request(`/partners/${id}`,'PUT',{...form,identities});setNotice('伙伴信息已保存。');});}
   return <main className="page"><div className="page-heading-row"><div><p className="eyebrow">Partner</p><h1>{partner?.name||'伙伴资料'}</h1><p className="lead">维护伙伴基本信息与画像。案例资料在统一页面管理。</p></div><Link href="/admin/partners" className="secondary-btn">返回伙伴列表</Link></div>
     {error&&<p role="alert" className="error-text">{error}</p>}{notice&&<p role="status">{notice}</p>}
-    {partner&&<><section className="card"><h2>基础信息</h2><form onSubmit={save} className="form-grid"><label className="form-row">伙伴名称<input required value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></label><ClassificationFields industries={form.industries||''} regions={form.service_areas||''} onIndustries={industries=>setForm(f=>({...f,industries}))} onRegions={service_areas=>setForm(f=>({...f,service_areas}))}/><div className="form-span-two"><ClassificationNotice pending={partner.classification_pending}/></div>
+    {partner&&<><section className="card"><h2>基础信息</h2><form onSubmit={save} className="form-grid"><label className="form-row">伙伴名称<input required value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></label><PartnerIdentityFields value={identities} onChange={setIdentities} disabled={busy}/><ClassificationFields industries={form.industries||''} regions={form.service_areas||''} onIndustries={industries=>setForm(f=>({...f,industries}))} onRegions={service_areas=>setForm(f=>({...f,service_areas}))}/><div className="form-span-two"><ClassificationNotice pending={partner.classification_pending}/></div>
       <fieldset className="classification-options partner-capability-options form-span-two" disabled={busy}>
         <legend>能力标签（多选）</legend>
         <div className="capability-choice-list">{capabilityOptions.map(name=><label key={name}><input type="checkbox" checked={selectedCapabilities.includes(name)} onChange={e=>setForm(f=>({...f,capabilities:(e.target.checked?[...new Set([...capabilityNames(f.capabilities||''),name])]:capabilityNames(f.capabilities||'').filter(value=>value!==name)).join(',')}))}/><span>{name}</span></label>)}</div>

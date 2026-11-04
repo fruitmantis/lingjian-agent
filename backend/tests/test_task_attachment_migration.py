@@ -22,6 +22,9 @@ def test_attachment_schema_rollback_and_migrate_are_reversible(client):
     task_id = make_task(user, 'ATTACHMENT-SCHEMA')
     engine = engine_for(os.environ['DATABASE_URL'])
     with engine.begin() as raw:
+        # Recreate schema 24 before testing the historical attachment migration.
+        raw.exec_driver_sql("ALTER TABLE partners DROP COLUMN identities")
+        raw.exec_driver_sql("UPDATE app_metadata SET value='24' WHERE key='schema_version'")
         raw.execute(text('UPDATE match_records SET attachment_name=:name,attachment_text=:body WHERE id=:id'),
                     {'name': '需求.txt', 'body': '附件正文', 'id': task_id})
 
