@@ -10,14 +10,14 @@ from time import perf_counter
 from typing import Literal
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, status, UploadFile
 from pydantic import field_validator, BaseModel, Field
 
 from backend.business import matching
 from .. import match_understanding as understanding
 from .. import partner_match_context as match_context
 from ..model_resolver import pinned_configuration
-from .. import development_model, task_progress, agent_settings
+from .. import development_model, task_attachment, task_progress, agent_settings
 from ..error_diagnostics import diagnostic_scope, bind_context, record_error
 from ..task_failures import failure, public_failures, PublicTaskError, MatchInputBudgetError
 from ..opportunity_extraction import normalize_opportunity
@@ -55,9 +55,21 @@ class MatchRequest(BaseModel):
     requirement: str = Field(..., min_length=1, description="项目需求描述")
 
 
+class AttachmentInput(BaseModel):
+    """Text extracted by POST /tasks/attachment; the uploaded file itself is never stored."""
+    name: str = Field(..., min_length=1, max_length=255)
+    text: str = Field(..., min_length=1, max_length=task_attachment.MAX_TEXT)
+
+
+class TaskAttachmentText(AttachmentInput):
+    charCount: int
+    truncated: bool
+
+
 class TaskCreateRequest(MatchRequest):
     requirement: str = Field(..., min_length=1, max_length=2000, description="项目需求描述")
     requestId: uuid.UUID
+    attachment: AttachmentInput | None = None
 
 
 class TaskAccepted(BaseModel):
@@ -126,6 +138,8 @@ class MatchRecordDetail(BaseModel):
     task_type: Literal["partner_match", "development_plan"] = "partner_match"
     id: str
     requirement: str
+    attachmentName: str | None = None
+    attachmentText: str | None = None
     recommendations: list[PartnerRecommendation]
     createdAt: str
     createdBy: str | None
@@ -343,7 +357,7 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
         return MatchRecordDetail(planPresentation=summary.planPresentation,task_type='development_plan',id=record_id,requirement=summary.requirement,recommendations=[],createdAt=summary.createdAt,createdBy=summary.ownerName,archivedAt=summary.archivedAt,demandProfile=None,opportunity=None,taskStatus=summary.taskStatus,lastErrorStage=summary.lastErrorStage,failureDetails=summary.failureDetails)
     _recover_accessible_task(record_id, user)
     with get_db() as conn:
-        row = conn.execute("""SELECT mr.id, mr.requirement, mr.recommendations_json, mr.created_at, mr.archived_at,
+        row = conn.execute("""SELECT mr.id, mr.requirement, mr.attachment_name, mr.attachment_text, mr.recommendations_json, mr.created_at, mr.archived_at,
                                      mr.task_status, mr.last_error_stage, mr.last_error_details,
                                      mr.owner_user_id, CASE WHEN u.status='deleted' THEN '已删除用户' ELSE u.display_name END AS owner_name
                               FROM match_records mr LEFT JOIN users u ON u.id = mr.owner_user_id
@@ -374,7 +388,7 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
                 labels.extend(hidden_labels(sources(conn,partner_id)))
         answer=redact_sources(answer,labels)
         recs=[{k:redact_sources(v,labels) if k in ("recommendationReason","riskNotes","evidenceCases","evidenceDeliverables") and isinstance(v,str) else v for k,v in rec.items()} for rec in recs]
-    return MatchRecordDetail(modelSelection=agent_settings.public_selection((snapshot or {}).get("agent_execution")),progress=(snapshot or {}).get("progress"),understanding=(snapshot or {}).get("understanding",{}).get("facts") if (snapshot or {}).get("understanding",{}).get("in_scope") else None,scopeMessage=(snapshot or {}).get("scope_message"),answer=answer,id=row["id"], requirement=row["requirement"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=public_demand, opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
+    return MatchRecordDetail(modelSelection=agent_settings.public_selection((snapshot or {}).get("agent_execution")),progress=(snapshot or {}).get("progress"),understanding=(snapshot or {}).get("understanding",{}).get("facts") if (snapshot or {}).get("understanding",{}).get("in_scope") else None,scopeMessage=(snapshot or {}).get("scope_message"),answer=answer,id=row["id"], requirement=row["requirement"], attachmentName=row["attachment_name"], attachmentText=row["attachment_text"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=public_demand, opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
 
 
 def _model_value(item: dict, field: str):
@@ -1002,12 +1016,17 @@ def match_partners(req: MatchRequest, user: dict = Depends(require_active_user))
 
 
 def _execute_match(record_id: str, requirement: str, created_at: str, run_id: str) -> MatchResponse:
-    with get_db() as conn:snapshot=understanding.load(conn,record_id) or {}
+    with get_db() as conn:
+        snapshot=understanding.load(conn,record_id) or {}
+        row=conn.execute('SELECT attachment_text FROM match_records WHERE id=?',(record_id,)).fetchone()
+    # The attachment body belongs to the model input only; the requirement keeps its typed text.
+    # A retry rebuilds the same input from the stored column instead of resending the file.
+    model_input = task_attachment.merged(requirement, row['attachment_text'] if row else None)
     with diagnostic_scope(task_id=record_id, stage='partner_match'), agent_settings.execution_scope(snapshot.get('agent_execution')):
-        return _execute_match_inner(record_id, requirement, created_at, run_id)
+        return _execute_match_inner(record_id, requirement, model_input, created_at, run_id)
 
 
-def _execute_match_inner(record_id: str, requirement: str, created_at: str, run_id: str) -> MatchResponse:
+def _execute_match_inner(record_id: str, requirement: str, model_input: str, created_at: str, run_id: str) -> MatchResponse:
     stage = 'understanding'
     with get_db() as conn:
         cached = _require_match_run(conn, record_id, run_id, ('matching',))
@@ -1017,7 +1036,7 @@ def _execute_match_inner(record_id: str, requirement: str, created_at: str, run_
     saved_recommendations = json.loads(row['recommendations_json'])
     try:
         _match_stage(record_id, snapshot, 'understanding', 'running')
-        prepared = understanding.prepare(requirement, cached)
+        prepared = understanding.prepare(model_input, cached)
         reusable = prepared is cached and bool(cached.get('outcome')) and cached.get('candidate_stamp') == _candidate_stamp()
         if prepared is not cached:
             prepared['requested_model_config_id'] = cached.get('requested_model_config_id')
@@ -1031,7 +1050,7 @@ def _execute_match_inner(record_id: str, requirement: str, created_at: str, run_
             _set_task_state(record_id,'ready',expected_run_id=run_id)
             return MatchResponse(requirement=requirement,recommendations=[],recordId=record_id,taskStatus='ready')
         stage = 'partner_match';bind_context(stage=stage,run_id=(snapshot.get('progress') or {}).get('run_id'))
-        recs = [PartnerRecommendation.model_validate(item) for item in saved_recommendations] if reusable else _perform_partner_match(requirement,snapshot)
+        recs = [PartnerRecommendation.model_validate(item) for item in saved_recommendations] if reusable else _perform_partner_match(model_input,snapshot)
         _set_task_state(record_id, 'enriching', recommendations=recs, snapshot=snapshot)
         saved_recommendations = recs
         stage = 'persistence';bind_context(stage=stage)
@@ -1065,12 +1084,27 @@ def _process_created_task(record_id: str, requirement: str, created_at: str, run
         print(f"[WARN] background processing failed for task {record_id}", flush=True)
 
 
+@router.post("/tasks/attachment", response_model=TaskAttachmentText)
+def extract_task_attachment(
+    file: UploadFile = File(...), _: dict = Depends(require_active_user),
+) -> TaskAttachmentText:
+    """Extract attachment text before the task exists; the raw upload is not kept on disk."""
+    filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+    data = file.file.read(task_attachment.MAX_BYTES + 1)
+    try:
+        return TaskAttachmentText.model_validate(task_attachment.normalize(filename, data))
+    except task_attachment.AttachmentError as error:
+        raise HTTPException(422, detail=str(error)) from error
+
+
 @router.post("/tasks", response_model=TaskAccepted, status_code=status.HTTP_202_ACCEPTED)
 def create_task(req: TaskCreateRequest, user: dict = Depends(require_active_user)) -> TaskAccepted:
     bind_context(task_id=str(req.requestId), request_id=str(req.requestId), stage="submission")
     requirement = req.requirement
     if not requirement.strip():
         raise HTTPException(422, detail="请输入项目需求")
+    attachment_name = req.attachment.name if req.attachment else None
+    attachment_text = req.attachment.text if req.attachment else None
     record_id = str(req.requestId)
     stamp = task_progress.now()
     run_id = str(uuid.uuid4())
@@ -1078,15 +1112,17 @@ def create_task(req: TaskCreateRequest, user: dict = Depends(require_active_user
         with get_db() as conn:
             conn.lock_writer()
             ensure_account_active(conn,user['id'])
-            existing = conn.execute('SELECT owner_user_id,requirement,task_status FROM match_records WHERE id=?',(record_id,)).fetchone()
+            existing = conn.execute('SELECT owner_user_id,requirement,attachment_name,attachment_text,task_status FROM match_records WHERE id=?',(record_id,)).fetchone()
             if existing:
                 if existing['owner_user_id'] != user['id']: raise HTTPException(404,'任务不存在')
-                if existing['requirement'] != requirement: raise HTTPException(409,'该提交标识已用于其他需求，请重新发起任务')
+                if (existing['requirement'] != requirement or (existing['attachment_name'] or None) != attachment_name
+                        or (existing['attachment_text'] or None) != attachment_text):
+                    raise HTTPException(409,'该提交标识已用于其他需求，请重新发起任务')
                 saved = understanding.load(conn,record_id) or {}
                 if saved.get('requested_model_config_id') != req.modelConfigId:raise HTTPException(409,'同一提交标识不能用于不同模型，请重新发起任务')
                 return TaskAccepted(recordId=record_id,runId=saved.get('progress',{}).get('run_id'),taskStatus=existing['task_status'])
-            conn.execute("""INSERT INTO match_records(id,requirement,recommendations_json,created_at,created_by,owner_user_id,task_status,updated_at)
-                VALUES (?,?,'[]',?,?,?,'matching',?)""",(record_id,requirement,stamp,user['username'],user['id'],stamp))
+            conn.execute("""INSERT INTO match_records(id,requirement,recommendations_json,created_at,created_by,owner_user_id,task_status,updated_at,attachment_name,attachment_text)
+                VALUES (?,?,'[]',?,?,?,'matching',?,?,?)""",(record_id,requirement,stamp,user['username'],user['id'],stamp,attachment_name,attachment_text))
             understanding.save(conn,record_id,{'agent_execution':agent_settings.execution(conn,'partner_match',accept=True,model_config_id=req.modelConfigId),'requested_model_config_id':req.modelConfigId,'progress':task_progress.new('partner_match',run_id,stamp)})
     except HTTPException:raise
     except Exception as error:

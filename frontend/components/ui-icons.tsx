@@ -4,6 +4,7 @@ export type IconName =
   | "add"
   | "apps"
   | "archive"
+  | "arrow-up"
   | "building"
   | "puzzle"
   | "trend"
@@ -29,6 +30,7 @@ function iconContent(name: IconName): ReactNode {
     case "add": return <><path d="M12 5v14M5 12h14" /></>;
     case "apps": return <><rect x="4" y="4" width="6" height="6" rx="1.4" /><rect x="14" y="4" width="6" height="6" rx="1.4" /><rect x="4" y="14" width="6" height="6" rx="1.4" /><rect x="14" y="14" width="6" height="6" rx="1.4" /></>;
     case "archive": return <><path d="M4 8h16M5 8v11h14V8M3 4h18v4H3zM9 12h6" /></>;
+    case "arrow-up": return <><path d="M12 19V5M6 11l6-6 6 6" /></>;
     case "building": return <><rect x="4" y="3" width="11" height="18" rx="1.5" /><path d="M15 8h5v13h-5M8 7h3M8 11h3M8 15h3M8 21v-2h3v2M17 12h.1M17 16h.1" /></>;
     case "puzzle": return <><path d="M11 4a2.5 2.5 0 1 1 5 0h4v5a2.5 2.5 0 1 0 0 5v6h-6a2.5 2.5 0 1 0-5 0H4v-6a2.5 2.5 0 1 0 0-5V4z" /></>;
     case "trend": return <><path d="m3 17 6-6 4 4 8-9M15 6h6v6" /></>;

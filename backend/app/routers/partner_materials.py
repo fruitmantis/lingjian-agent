@@ -78,7 +78,7 @@ WITH native_files AS (
 @router.get('')
 def catalogue(partner_id: str | None = None, category_group: str | None = None,
               category_id: str | None = None, q: str = Query('', max_length=200),
-              status: Literal['failed'] | None = None,
+              status: Literal['failed'] | None = None, visible: bool | None = None,
               page: int = Query(1, ge=1), page_size: int = Query(10, ge=1, le=60)):
     where, args = [], []
     if partner_id:
@@ -100,6 +100,9 @@ def catalogue(partner_id: str | None = None, category_group: str | None = None,
         where.append("LOWER(title) ILIKE ? ESCAPE '\\'"); args.append('%'+needle+'%')
     if status:
         where.append('processing_status=?'); args.append(status)
+    if visible is not None:
+        # Only cases carry a display switch; legacy unclassified documents never do.
+        where.append("kind='case' AND visible=?"); args.append(1 if visible else 0)
     clause=' WHERE '+' AND '.join(where) if where else ''
     with get_db() as conn:
         partners=[dict(r) for r in conn.execute('SELECT id,name FROM partners ORDER BY name,id')]

@@ -17,6 +17,7 @@ import {PlanStatus,type PlanPresentation} from "./plan-status";
 
 export type NavigationTask = { planPresentation?: PlanPresentation | null; task_type?: string; id: string; requirement: string; createdAt: string; taskStatus: string; archivedAt?: string | null };
 type PendingTask = NavigationTask & { taskStatus: "submitting" | "unconfirmed" };
+export type RequirementAttachment = { name: string; text: string };
 export function tasksChanged(task?: NavigationTask) {
   window.dispatchEvent(new CustomEvent(TASKS_CHANGED, { detail: task }));
 }
@@ -31,7 +32,7 @@ export function newTaskId(): string {
 }
 const NavigationContext = createContext<ReturnType<typeof useTaskTransitionState> & {
   pending: PendingTask[];
-  submit: (requirement: string, modelConfigId?:string) => Promise<string>;
+  submit: (requirement: string, modelConfigId?:string, attachment?:RequirementAttachment) => Promise<string>;
   confirm: (id: string) => Promise<void>;
 } | null>(null);
 export function useTaskNavigation() {
@@ -88,14 +89,14 @@ function UserTaskNavigation({ userId, children }: { userId?: string; children: R
     return () => { alive.current = false; };
   }, [key]);
 
-  async function submit(requirement: string, modelConfigId?:string) {
+  async function submit(requirement: string, modelConfigId?:string, attachment?:RequirementAttachment) {
     if (!key || !alive.current) throw new Error("请先登录。");
     const id = newTaskId();
     const task: PendingTask = { id, requirement, createdAt: new Date().toISOString(), taskStatus: "submitting" };
     update([task, ...pendingRef.current]);
     let rejected = false;
     try {
-      const response = await apiFetch("/agent/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: id, requirement: task.requirement,modelConfigId }) });
+      const response = await apiFetch("/agent/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requestId: id, requirement: task.requirement,modelConfigId,...(attachment?{attachment}: {}) }) });
       if (!response.ok) {
         rejected = response.status >= 400 && response.status < 500 && response.status !== 408;
         const error = await responseError(response);

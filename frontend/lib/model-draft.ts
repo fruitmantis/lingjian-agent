@@ -1,5 +1,5 @@
 export type DraftContext={partner_id?:string;task_id?:string;case_id?:string;case_version?:string};
-export type ModelDraft={text?:string;modelConfigId?:string;context?:DraftContext;openMenu?:boolean};
+export type ModelDraft={text?:string;modelConfigId?:string;context?:DraftContext;attachment?:{name:string;text:string}|null;openMenu?:boolean};
 export const draftKey=(userId:string,agent:string,scope="draft")=>`banfei:model-draft:${userId}:${agent}:${scope}`;
 export function readModelDraft(userId:string,agent:string,scope="draft"):ModelDraft{
  try{const value=JSON.parse(sessionStorage.getItem(draftKey(userId,agent,scope))||"{}");return value&&typeof value==="object"&&!Array.isArray(value)?value:{};}catch{return {};}

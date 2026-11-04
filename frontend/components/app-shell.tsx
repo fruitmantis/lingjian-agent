@@ -7,6 +7,7 @@ import { PASSWORD_CHANGE_PATH, useAuth } from "./auth-provider";
 import { LingjianMark, UiIcon, type IconName } from "./ui-icons";
 
 import { TaskTransitionLayer } from "./task-transition";
+import { BackToTop } from "./back-to-top";
 import { NEW_TASK, TaskSidebar, useTaskNavigation } from "./task-navigation";
 
 type NavItem = { label: string; href: string; icon: IconName };
@@ -108,7 +109,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link href={isAdmin ? "/admin/account" : "/account"} className="topbar-user"><UiIcon name="user" size={17} /><span>{user?.display_name || user?.username || "账号"}</span></Link>
           </div>
         </header>
-        <main className="page-content"><div className="task-route-content" style={arrival?.phase === "waiting" ? {visibility:"hidden"} : undefined}>{children}</div><TaskTransitionLayer/></main>
+        <main className="page-content"><div className="task-route-content" style={arrival?.phase === "waiting" ? {visibility:"hidden"} : undefined}>{children}</div><TaskTransitionLayer/></main><BackToTop/>
       </div>
     </div>
   );

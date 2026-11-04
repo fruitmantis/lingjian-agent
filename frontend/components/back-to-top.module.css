@@ -1,0 +1,66 @@
+/* Global "back to top" control. Fixed to the viewport so it works on every page. */
+.button {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 150;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: var(--border-card-width) solid var(--border-card);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-overlay);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s,
+              color .18s ease, border-color .18s ease, background-color .18s ease;
+}
+
+.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+.button:hover {
+  color: var(--brand-primary);
+  border-color: var(--brand-primary);
+  background: var(--brand-primary-light);
+}
+
+.button:active {
+  background: var(--bg-selected);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .button {
+    right: 16px;
+    bottom: 16px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+}
+
+@media print {
+  .button {
+    display: none;
+  }
+}

@@ -1,7 +1,8 @@
 "use client";
 import {ModelMenu,useModelChoice} from "@/components/model-menu";
 import {readModelDraft,saveModelDraft,clearModelDraft} from "@/lib/model-draft";
-import {useAuth} from "@/components/auth-provider";
+import {useAuth,userApiFetch as apiFetch} from "@/components/auth-provider";
+import {responseError} from "@/lib/api-request";
 import composerStyles from "@/components/task-composer.module.css";
 import {useAgent} from "@/components/agent-settings";
 import {useComposerShortcuts,COMPOSER_KEY_HINT} from "@/lib/composer-shortcuts";
@@ -22,14 +23,20 @@ const homeSceneIcons: Record<string, IconName> = {
   "home-project-readiness": "toolbox",
 };
 
-function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChange}:{
+type TaskAttachment = { name: string; text: string; charCount?: number; truncated?: boolean };
+const ATTACHMENT_ACCEPT = ".pdf,.docx,.txt,.md,.markdown";
+
+function ProjectMatchTask({active,requirement,setRequirement,attachment,setAttachment,inputRef,onBusyChange}:{
   active:boolean;requirement:string;setRequirement:(value:string)=>void;
+  attachment:TaskAttachment|null;setAttachment:(value:TaskAttachment|null)=>void;
   inputRef:RefObject<HTMLTextAreaElement|null>;onBusyChange:(busy:boolean)=>void;
 }) {
   const agent=useAgent("partner_match"),searchParams=useSearchParams(),router=useRouter();
   const {submit,openCreatedTask,pending}=useTaskNavigation();
   const model=useModelChoice("partner_match");
   const [loading,setLoading]=useState(false),[error,setError]=useState<string|null>(null);
+  const [attaching,setAttaching]=useState(false),[attachmentError,setAttachmentError]=useState<string|null>(null);
+  const attachmentInput=useRef<HTMLInputElement>(null);
   const submitting=useRef(false),generation=useRef(0),lastPrompt=useRef<string|null>(null);
   const requirementInput=inputRef,taskStatus=loading?"submitting":"";
   const sameDraftPending=pending.some(task=>task.requirement===requirement);
@@ -42,18 +49,29 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
     const prompt=searchParams.get("prompt");
     if(!prompt)lastPrompt.current=null;
     if(prompt&&prompt!==lastPrompt.current){lastPrompt.current=prompt;setRequirement(prompt);}
-    if(!active){generation.current++;submitting.current=false;setLoading(false);}
+    if(!active){generation.current++;submitting.current=false;setLoading(false);setAttaching(false);}
   },[searchParams,router,setRequirement,active]);
   useEffect(()=>{
-    const reset=()=>{generation.current++;submitting.current=false;setLoading(false);setError(null);setRequirement("");requirementInput.current?.focus();};
+    const reset=()=>{generation.current++;submitting.current=false;setLoading(false);setError(null);setAttachment(null);setAttaching(false);setAttachmentError(null);setRequirement("");requirementInput.current?.focus();};
     window.addEventListener(NEW_TASK,reset);
     return()=>{generation.current++;window.removeEventListener(NEW_TASK,reset);};
-  },[setRequirement,requirementInput]);
+  },[setRequirement,setAttachment,requirementInput]);
+  async function attach(file:File){
+    const current=generation.current;setAttaching(true);setAttachmentError(null);
+    try{
+      const body=new FormData();body.append("file",file);
+      const response=await apiFetch("/agent/tasks/attachment",{method:"POST",body,timeoutMs:120_000});
+      if(!response.ok)throw await responseError(response);
+      const result=await response.json() as TaskAttachment;
+      if(current===generation.current)setAttachment(result);
+    }catch(reason){if(current===generation.current)setAttachmentError(reason instanceof Error?reason.message:"附件解析失败，请重试。");}
+    finally{if(current===generation.current)setAttaching(false);}
+  }
   function handleMatch(event:React.FormEvent){event.preventDefault();void handleMatchDirect(requirement);}
   async function handleMatchDirect(text:string){
-    if(submitting.current||loading||pending.some(task=>task.requirement===text)||!text.trim()||!model.canSubmit)return;
+    if(submitting.current||loading||attaching||pending.some(task=>task.requirement===text)||!text.trim()||!model.canSubmit)return;
     submitting.current=true;const current=++generation.current;setLoading(true);setError(null);
-    try{const id=await submit(text,model.id);if(current===generation.current)openCreatedTask(id,text,requirementInput.current?.closest("form")||null);}
+    try{const id=await submit(text,model.id,attachment??undefined);if(current===generation.current){setAttachment(null);openCreatedTask(id,text,requirementInput.current?.closest("form")||null);}}
     catch(reason){if(current===generation.current){setError(reason instanceof Error?reason.message:"任务提交失败");setLoading(false);}}
     finally{if(current===generation.current)submitting.current=false;}
   }
@@ -76,11 +94,22 @@ function ProjectMatchTask({active,requirement,setRequirement,inputRef,onBusyChan
             placeholder="例如：寻找有金融行业数据库迁移经验、能够完成实施交付的伙伴…"
           />
           </label>
+          {attachment&&<div className={composerStyles.attachmentBar} data-testid="attachment-chip">
+            <UiIcon name="file" size={16}/>
+            <span className={composerStyles.attachmentName}>{attachment.name}</span>
+            <span className="muted">{attachment.truncated?`已截取前 ${attachment.charCount} 字`:`已提取 ${attachment.charCount??attachment.text.length} 字`}</span>
+            <button type="button" className={composerStyles.attachmentRemove} onClick={()=>setAttachment(null)} aria-label={`移除附件 ${attachment.name}`}>移除</button>
+          </div>}
+          {attachmentError&&<p className="error-text" role="alert">{attachmentError}</p>}
+          <input ref={attachmentInput} type="file" hidden accept={ATTACHMENT_ACCEPT} aria-label="选择需求附件" onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)void attach(file);}}/>
           <div className={composerStyles.actions}>
             <div className={composerStyles.actionRow}>
               <span className={`assistant-counter ${composerStyles.counter}`}>{requirement.length}/2000</span>
+              <button type="button" className={`secondary-btn ${composerStyles.attachButton}`} title="支持 PDF、DOCX、TXT、Markdown，不超过 10MB" disabled={loading||attaching||sameDraftPending} onClick={()=>attachmentInput.current?.click()}>
+                <UiIcon name="file" size={16}/><span>{attaching?"解析中…":"添加附件"}</span>
+              </button>
               <ModelMenu choice={model} disabled={loading||sameDraftPending}/>
-              <button type="submit" disabled={!agent.enabled || !model.canSubmit || loading || sameDraftPending || !requirement.trim()} className={composerStyles.submit} aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
+              <button type="submit" disabled={!agent.enabled || !model.canSubmit || loading || attaching || sameDraftPending || !requirement.trim()} className={composerStyles.submit} aria-label={loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}>
                 {loading ? <span className="assistant-loading-dot" /> : <UiIcon name="send" size={18} />}<span>{loading ? (taskStatus === "submitting" ? "提交中" : "分析中") : "开始"}</span>
               </button>
             </div>
@@ -99,11 +128,12 @@ export default function HomePage() {
   const [draftOwner,setDraftOwner]=useState("");
   const development=search.get("mode")==="development";
   const [drafts,setDrafts]=useState({match:"",development:""});
+  const [attachment,setAttachment]=useState<TaskAttachment|null>(null);
   const [busy,setBusy]=useState({match:false,development:false});
   useEffect(()=>{
     if(!user)return;
     const match=readModelDraft(user.id,"partner_match"),dev=readModelDraft(user.id,"partner_development");
-    setDrafts({match:match.text||"",development:dev.text||""});setDraftOwner(user.id);
+    setDrafts({match:match.text||"",development:dev.text||""});setAttachment(match.attachment??null);setDraftOwner(user.id);
     if(search.get("mode")==="development"&&dev.context&&!search.get("partner_id")){
       const params=new URLSearchParams(search);for(const [key,value] of Object.entries(dev.context))if(value)params.set(key,value);
       window.history.replaceState(null,"",`/?${params}`);
@@ -111,10 +141,10 @@ export default function HomePage() {
   },[user?.id]);
   useEffect(()=>{
     if(!user||draftOwner!==user.id)return;
-    saveModelDraft(user.id,"partner_match",{text:drafts.match});
+    saveModelDraft(user.id,"partner_match",{text:drafts.match,attachment});
     const context=Object.fromEntries(["partner_id","task_id","case_id","case_version"].flatMap(key=>search.get(key)?[[key,search.get(key)!]]:[]));
     saveModelDraft(user.id,"partner_development",{text:drafts.development,...(search.get("mode")==="development"?{context}:{})});
-  },[drafts,draftOwner,user?.id,search]);
+  },[drafts,attachment,draftOwner,user?.id,search]);
 
   const [focusRequest,setFocusRequest]=useState<{mode:HomeTaskMode;sequence:number}|null>(null);
   const matchInput=useRef<HTMLTextAreaElement>(null),developmentInput=useRef<HTMLTextAreaElement>(null);
@@ -159,7 +189,7 @@ export default function HomePage() {
         <button type="button" id="development-tab" role="tab" aria-selected={development} aria-controls="development-panel" onClick={()=>selectMode("development")} className={development?"active":""}><UiIcon name={developmentAgent.icon} size={18}/>促发展</button>
       </nav>
     </header>
-    <ProjectMatchTask active={!development} requirement={drafts.match} setRequirement={changeMatch} inputRef={matchInput} onBusyChange={matchBusy}/>
+    <ProjectMatchTask active={!development} requirement={drafts.match} setRequirement={changeMatch} attachment={attachment} setAttachment={setAttachment} inputRef={matchInput} onBusyChange={matchBusy}/>
     {development&&<div role="tabpanel" id="development-panel" aria-labelledby="development-tab"><DevelopmentEntry direction={drafts.development} onDirectionChange={changeDevelopment} inputRef={developmentInput} onBusyChange={developmentBusy}/></div>}
     {!search.get("task")&&<section className="home-scenes" aria-label="需求场景">
       {/【[^】]+】/.test(currentDraft)&&<p className="home-template-hint" role="status">请将【】中的提示替换为实际需求，也可以直接改写。</p>}

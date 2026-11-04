@@ -94,7 +94,8 @@ def load(request, user, *, plan_id=None, base=None, message='', connection=None)
     if request.get('model_input_allowed'):
         source = context(user, request['target_partner_id'], request.get('source_task_id'), request.get('source_case_id'), request.get('source_case_version'))
         if source.get('project'):
-            profile['source_project'] = {k:engine.safe_text(source['project'].get(k), blocked) for k in ('requirement','risk_notes','risk_status')}
+            profile['source_project'] = {k:engine.safe_text(source['project'].get(k), blocked) for k in ('risk_notes','risk_status')}
+            profile['source_project']['requirement'] = engine.safe_text(source['project'].get('requirement'), blocked, limit=None)
     data = {'request': engine.request_projection(effective), 'constraints': effective.get('constraints', {}),
             'profile': {k:v for k,v in profile.items() if not k.startswith('_')}, 'formal_tags': tags, 'current': current, 'recent_exchanges': history, 'message': message}
     engine.guard(data, blocked)

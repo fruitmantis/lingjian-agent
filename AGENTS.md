@@ -6,7 +6,7 @@
 - 正式工作目录：`/home/yuan/project/lingjian-agent-enablement`；当前开发分支：`main`。
 - 该目录已升格为正式 main 工作区，不再是独立功能试验环境。legacy 目录、旧 feature 分支和其他历史 worktree 均不得作为正式开发环境；不修改或启动 legacy 服务。
 - WSL Ubuntu 24.04；前端 Next.js 15 / React 19 / TypeScript，端口 **3000**；后端 FastAPI / Python，端口 **8000**。
-- 正式数据库：**PostgreSQL 16，代码要求 schema version 23（独立总上下文容量；现有库须先显式备份迁移，启动不自动迁移）**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
+- 正式数据库：**PostgreSQL 16，代码要求 schema version 24（任务需求附件；现有库须先显式备份迁移，启动不自动迁移）**；本机数据库 `banfei_agent`，应用用户 `banfei_app`，SQLAlchemy Core / psycopg。当前无 Alembic。
 - 连接由私有 `.isolation/runtime/dev/environment.json` 中 `DATABASE_URL` 指定，缺失或失败直接报错，不自动回退其他数据库。
 - 上传目录 `.isolation/runtime/dev/uploads`，日志 `.isolation/logs/`；旧数据库文件仅在核验无独有数据和有效引用后删除；未能确认的私有备份保留并记录，不参与运行。
 - 工程、模块、API、字段及 `LINGJIAN_*` 技术标识不因产品更名而重命名。
@@ -98,7 +98,7 @@
 
 ## Git、数据与执行约束
 
-- 单人直接在 `main` 迭代，不新建/切换分支或 worktree，不擅自合并、rebase、reset、revert、clean 或丢弃已有改动。
+- 功能改动在 `feat/<主题>` 分支上进行，本地验证后推送并开 PR；`main` 只通过合并进入，不直接提交。仍不擅自 rebase、reset、revert、clean 或丢弃已有改动，禁止 force push。
 - 只有用户明确要求时才 commit、push 或部署；授权不互相推导，禁止 force push。远端冲突或分支保护阻止时报告，不绕过。
 - 只读分析不修改文件；实施采用最小范围，UI/文案不顺带改业务。保留历史资料但不把归档命令当运行规范。
 - 不删除、清空、重建、重新 seed 或替换现有数据库，不清理上传、私有快照、忽略文件、legacy 目录或备份。必要数据修改须明确范围、事务化；结构变化先说明影响、备份及回退。
