@@ -1,5 +1,6 @@
 "use client";
 import {PartnerIdentityList} from "@/components/partner-identities";
+import partnerIdentityOptions from "../../../shared/partner-identities.json";
 
 
 import { CardEntry } from "../../components/card-entry";
@@ -18,6 +19,7 @@ export default function PartnersPage() {
   const [partners, setPartners] = useState<PartnerCard[]>([]);
   const [keyword, setKeyword] = useState("");
   const [capabilities, setCapabilities] = useState<string[]>([]);
+  const [selectedIdentities,setSelectedIdentities]=useState<string[]>([]);
   const [industries, setIndustries] = useState("");
   const [regions, setRegions] = useState("");
   const [loading, setLoading] = useState(true);
@@ -36,12 +38,13 @@ export default function PartnersPage() {
     return partners.filter(partner =>
       (!key || [partner.name, partner.capabilities, partner.service_areas, partner.industries].some(value => value?.toLowerCase().includes(key))) &&
       matches(capabilities, splitPartnerTags(partner.capabilities)) &&
+      matches(selectedIdentities, partner.identities || []) &&
       matches(selectedIndustries, standardValues(partner.industries || "", "industry")) &&
       matches(selectedRegions, standardValues(partner.service_areas || "", "region"))
     );
-  }, [keyword, partners, capabilities, industries, regions]);
-  const hasFilters = !!(capabilities.length || industries || regions);
-  function clearFilters() { setCapabilities([]); setIndustries(""); setRegions(""); }
+  }, [keyword, partners, capabilities, selectedIdentities, industries, regions]);
+  const hasFilters = !!(capabilities.length || selectedIdentities.length || industries || regions);
+  function clearFilters() { setCapabilities([]); setSelectedIdentities([]); setIndustries(""); setRegions(""); }
   return (
     <main className="page">
       <p className="eyebrow">Partner Insights</p><h1>伙伴洞察</h1><p className="lead">浏览经过平台整理的伙伴能力、行业经验和案例信息。</p>
@@ -50,6 +53,7 @@ export default function PartnersPage() {
         <MultiSelectFilter label="能力标签" selected={capabilities} groups={[{name: "能力标签", values: capabilityOptions}]} onChange={setCapabilities} searchable compact/>
         <OpportunityFilter kind="industry" value={industries} onChange={setIndustries} compact/>
         <OpportunityFilter kind="region" value={regions} onChange={setRegions} compact/>
+        <MultiSelectFilter label="伙伴身份" selected={selectedIdentities} groups={[{name:"伙伴身份",values:partnerIdentityOptions}]} onChange={setSelectedIdentities} compact/>
         {hasFilters && <button type="button" className="partner-filter-clear" onClick={clearFilters}>清除筛选</button>}
       </section>}
       {loading ? <section className="card"><p>加载中...</p></section> : error ? <section className="card"><p className="error-text">{error}</p></section> : (

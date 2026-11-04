@@ -10,5 +10,6 @@ export function PartnerIdentityFields({value,onChange,disabled=false}:{value:str
 }
 
 export function PartnerIdentityList({value}:{value?:string[]}){
-  return <div data-testid="partner-identities"><PartnerTagList value={(value||[]).join(',')} label="伙伴身份" emptyText="暂未维护"/></div>;
+  if(!value?.length)return null;
+  return <div data-testid="partner-identities"><PartnerTagList value={value.join(',')} label="伙伴身份" emptyText=""/></div>;
 }
