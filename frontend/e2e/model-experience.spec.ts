@@ -39,7 +39,7 @@ async function fixture(page:Page,admin=false,shared=false,grouped=false){
   if(path.endsWith('/conversation')&&req.method()==='POST'){state.followups.push(req.postDataJSON());return route.fulfill({status:202,json:{kind:'revise',plan_id:'existing-plan',run_id:'followup-'+state.followups.length}});}
   if(path.startsWith('/development/plans/'))return route.fulfill({json:plan(path.split('/')[3])});
   if(path==='/agent/tasks')return route.fulfill({json:{items:[...state.records.entries()].map(([id,r])=>summary(id,r)),total:state.records.size,page:1,pageSize:10,totalPages:1}});
-  if(path.startsWith('/agent/tasks/')){const id=path.split('/')[3],record=state.records.get(id);if(!record&&id!=='existing-plan')return route.fulfill({status:404,json:{detail:'尚未创建'}});return route.fulfill({json:{...summary(id,record||{kind:'development'}),taskStatus:state.partial?'partial':'failed',recommendations:[],answer:state.partial?'已保存的推荐说明。':'',understanding:null,progress:null,opportunity:null,demandProfile:null,lastErrorStage:state.partial?'persistence':'understanding',failureDetails:fail(),modelSelection:{id:record?.body.modelConfigId||'b',name:names[record?.body.modelConfigId||'b']}}});}
+  if(path.startsWith('/agent/tasks/')){const id=path.split('/')[3],record=state.records.get(id);if(!record&&id!=='existing-plan')return route.fulfill({status:404,json:{detail:'尚未创建'}});return route.fulfill({json:{...summary(id,record||{kind:'development'}),taskStatus:state.partial?'partial':'failed',attachmentName:record?.body.attachment?.name??null,attachmentText:record?.body.attachment?.text??null,recommendations:[],answer:state.partial?'已保存的推荐说明。':'',understanding:null,progress:null,opportunity:null,demandProfile:null,lastErrorStage:state.partial?'persistence':'understanding',failureDetails:fail(),modelSelection:{id:record?.body.modelConfigId||'b',name:names[record?.body.modelConfigId||'b']}}});}
   if(path==='/model-timeout-settings')return route.fulfill({json:{timeoutSeconds:300,timeoutRetries:3}});
   state.errors.push(req.method()+' '+path);return route.fulfill({status:404,json:{detail:'未定义合成接口'}});
  });
@@ -401,4 +401,56 @@ test.describe('compact provider touch targets',()=>{
   expect((await page.getByRole('menuitemradio',{name:names.b,exact:true}).boundingBox())!.height).toBe(44);
   await page.screenshot({path:test.info().outputPath('compact-touch-menu.png'),fullPage:true});
  });
+});
+
+
+const attachment={name:'需求附件.txt',text:'附件中的资格与交付要求',charCount:12,truncated:false};
+
+test('failed match restores attachment when changing model, and removal stays removed',async({page})=>{
+ const s=await fixture(page);
+ await page.route('**/api/agent/tasks/attachment',route=>route.fulfill({json:attachment}));
+ await page.goto('/');await page.locator('#requirement').fill(raw);
+ await page.getByLabel('选择需求附件',{exact:true}).setInputFiles({name:attachment.name,mimeType:'text/plain',buffer:Buffer.from(attachment.text)});
+ await expect(page.getByTestId('attachment-chip')).toContainText(attachment.name);
+ await page.getByRole('button',{name:'开始',exact:true}).click();
+ await page.getByRole('button',{name:'返回并切换模型',exact:true}).click();
+ await expect(page.locator('#requirement')).toHaveValue(raw);
+ await expect(page.getByTestId('attachment-chip')).toContainText(attachment.name);
+ await page.getByRole('menuitemradio',{name:new RegExp(names.b)}).click();
+ await page.getByRole('tab',{name:'促发展',exact:true}).click();
+ await page.getByRole('tab',{name:'找伙伴',exact:true}).click();await page.reload();
+ await expect(page.getByTestId('attachment-chip')).toContainText(attachment.name);
+ await page.getByRole('button',{name:'开始',exact:true}).click();
+ await expect.poll(()=>s.posts.length).toBe(2);
+ expect(s.posts[1].body).toMatchObject({requirement:raw,modelConfigId:'b',attachment:{name:attachment.name,text:attachment.text}});
+ expect(s.posts[1].body.requestId).not.toBe(s.posts[0].body.requestId);
+ await page.getByRole('button',{name:'返回并切换模型',exact:true}).click();
+ await page.getByRole('menuitemradio',{name:new RegExp(names.c)}).click();
+ await page.getByRole('button',{name:'移除附件 '+attachment.name,exact:true}).click();await page.reload();
+ await expect(page.getByTestId('attachment-chip')).toHaveCount(0);
+ await page.getByRole('button',{name:'开始',exact:true}).click();await expect.poll(()=>s.posts.length).toBe(3);
+ expect(s.posts[2].body.attachment).toBeUndefined();expect(s.errors).toEqual([]);
+});
+
+for(const failure of [false,true])test(`new task ignores stale attachment ${failure?'failure':'success'} while its own upload is pending`,async({page})=>{
+ const s=await fixture(page);let oldRelease!:()=>void,newRelease!:()=>void,uploads=0;
+ const oldGate=new Promise<void>(resolve=>oldRelease=resolve),newGate=new Promise<void>(resolve=>newRelease=resolve);
+ await page.route('**/api/agent/tasks/attachment',async route=>{
+  uploads++;if(uploads===1){await oldGate;return route.fulfill(failure?{status:422,json:{detail:'旧任务附件解析失败'}}:{json:{...attachment,name:'旧附件.txt'}});}
+  await newGate;return route.fulfill({json:{...attachment,name:'新附件.txt'}});
+ });
+ await page.goto('/');await page.locator('#requirement').fill('旧需求');
+ const upload=()=>page.getByLabel('选择需求附件',{exact:true}).setInputFiles({name:attachment.name,mimeType:'text/plain',buffer:Buffer.from(attachment.text)});
+ await upload();await expect.poll(()=>uploads).toBe(1);
+ await page.getByRole('link',{name:'开启新任务',exact:true}).click();
+ await expect(page.locator('#requirement')).toHaveValue('');await expect(page.getByRole('button',{name:'添加附件',exact:true})).toBeEnabled();
+ await page.locator('#requirement').fill('新需求');await upload();await expect.poll(()=>uploads).toBe(2);
+ const oldDone=page.waitForResponse(r=>r.url().endsWith('/agent/tasks/attachment'));oldRelease();await oldDone;
+ await expect(page.getByRole('button',{name:'解析中…',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'开始',exact:true})).toBeDisabled();
+ await expect(page.getByTestId('attachment-chip')).toHaveCount(0);
+ await expect(page.getByText('旧任务附件解析失败',{exact:true})).toHaveCount(0);
+ newRelease();await expect(page.getByTestId('attachment-chip')).toContainText('新附件.txt');
+ await page.getByRole('button',{name:'开始',exact:true}).click();await expect.poll(()=>s.posts.length).toBe(1);
+ expect(s.posts[0].body).toMatchObject({requirement:'新需求',attachment:{name:'新附件.txt',text:attachment.text}});expect(s.errors).toEqual([]);
 });

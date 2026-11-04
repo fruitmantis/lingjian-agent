@@ -139,6 +139,7 @@ class MatchRecordDetail(BaseModel):
     id: str
     requirement: str
     attachmentName: str | None = None
+    attachmentText: str | None = None
     recommendations: list[PartnerRecommendation]
     createdAt: str
     createdBy: str | None
@@ -356,7 +357,7 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
         return MatchRecordDetail(planPresentation=summary.planPresentation,task_type='development_plan',id=record_id,requirement=summary.requirement,recommendations=[],createdAt=summary.createdAt,createdBy=summary.ownerName,archivedAt=summary.archivedAt,demandProfile=None,opportunity=None,taskStatus=summary.taskStatus,lastErrorStage=summary.lastErrorStage,failureDetails=summary.failureDetails)
     _recover_accessible_task(record_id, user)
     with get_db() as conn:
-        row = conn.execute("""SELECT mr.id, mr.requirement, mr.attachment_name, mr.recommendations_json, mr.created_at, mr.archived_at,
+        row = conn.execute("""SELECT mr.id, mr.requirement, mr.attachment_name, mr.attachment_text, mr.recommendations_json, mr.created_at, mr.archived_at,
                                      mr.task_status, mr.last_error_stage, mr.last_error_details,
                                      mr.owner_user_id, CASE WHEN u.status='deleted' THEN '已删除用户' ELSE u.display_name END AS owner_name
                               FROM match_records mr LEFT JOIN users u ON u.id = mr.owner_user_id
@@ -387,7 +388,7 @@ def get_match_record(record_id: str, user: dict = Depends(require_active_user)) 
                 labels.extend(hidden_labels(sources(conn,partner_id)))
         answer=redact_sources(answer,labels)
         recs=[{k:redact_sources(v,labels) if k in ("recommendationReason","riskNotes","evidenceCases","evidenceDeliverables") and isinstance(v,str) else v for k,v in rec.items()} for rec in recs]
-    return MatchRecordDetail(modelSelection=agent_settings.public_selection((snapshot or {}).get("agent_execution")),progress=(snapshot or {}).get("progress"),understanding=(snapshot or {}).get("understanding",{}).get("facts") if (snapshot or {}).get("understanding",{}).get("in_scope") else None,scopeMessage=(snapshot or {}).get("scope_message"),answer=answer,id=row["id"], requirement=row["requirement"], attachmentName=row["attachment_name"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=public_demand, opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
+    return MatchRecordDetail(modelSelection=agent_settings.public_selection((snapshot or {}).get("agent_execution")),progress=(snapshot or {}).get("progress"),understanding=(snapshot or {}).get("understanding",{}).get("facts") if (snapshot or {}).get("understanding",{}).get("in_scope") else None,scopeMessage=(snapshot or {}).get("scope_message"),answer=answer,id=row["id"], requirement=row["requirement"], attachmentName=row["attachment_name"], attachmentText=row["attachment_text"], recommendations=recs, createdAt=row["created_at"], createdBy=row["owner_name"], archivedAt=row["archived_at"], demandProfile=public_demand, opportunity=_opportunity_dict(opportunity), taskStatus=row["task_status"], lastErrorStage=row["last_error_stage"],failureDetails=public_failures(row["last_error_stage"],row["last_error_details"]) if row["task_status"] in ("partial","failed") else [])
 
 
 def _model_value(item: dict, field: str):
@@ -1084,12 +1085,12 @@ def _process_created_task(record_id: str, requirement: str, created_at: str, run
 
 
 @router.post("/tasks/attachment", response_model=TaskAttachmentText)
-async def extract_task_attachment(
+def extract_task_attachment(
     file: UploadFile = File(...), _: dict = Depends(require_active_user),
 ) -> TaskAttachmentText:
     """Extract attachment text before the task exists; the raw upload is not kept on disk."""
     filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
-    data = await file.read(task_attachment.MAX_BYTES + 1)
+    data = file.file.read(task_attachment.MAX_BYTES + 1)
     try:
         return TaskAttachmentText.model_validate(task_attachment.normalize(filename, data))
     except task_attachment.AttachmentError as error:

@@ -2,7 +2,7 @@
 import json
 import uuid
 from fastapi import HTTPException
-from . import enablement as service, profile_sources
+from . import enablement as service, profile_sources, task_attachment
 from .business_taxonomy import project_partner
 from .database import get_db
 
@@ -104,12 +104,12 @@ def context(user,partner_id=None,task_id=None,case_id=None,case_version=None):
         conn.begin_read()
         result={'partner':None,'evidence':[],'project':None,'shared_case':None}
         if task_id:
-            task=conn.execute('SELECT id,owner_user_id,requirement,recommendations_json FROM match_records WHERE id=?',(task_id,)).fetchone()
+            task=conn.execute('SELECT id,owner_user_id,requirement,attachment_text,recommendations_json FROM match_records WHERE id=?',(task_id,)).fetchone()
             if not task or (user['role']!='admin' and task['owner_user_id']!=user['id']):
                 raise HTTPException(404,'来源任务不存在或无权访问')
             recommendation=next((r for r in json.loads(task['recommendations_json']) if r.get('partnerId')==partner_id),None)
             if not partner_id or recommendation is None: raise HTTPException(404,'来源任务中无此推荐伙伴')
-            result['project']={'task_id':task_id,'requirement':task['requirement'],'risk_notes':recommendation.get('riskNotes',''),
+            result['project']={'task_id':task_id,'requirement':task_attachment.merged(task['requirement'],task['attachment_text']),'risk_notes':recommendation.get('riskNotes',''),
                                'risk_status':'待能力发展流程复核'}
         if case_id:
             result['shared_case']=public_detail(conn,'case',case_id,case_version)

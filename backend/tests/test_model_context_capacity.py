@@ -12,6 +12,7 @@ from sqlalchemy import inspect
 from backend.app import ai_client, agent_settings, development_model, model_resolver, partner_match_context as context
 from backend.app.database import get_db, initialize_storage
 from backend.app.model_context_schema import migrate
+from backend.app.task_attachment_schema import migrate as migrate_attachments
 from backend.app.postgres_storage import initialize_empty_schema, verify_schema, connect
 from backend.app.routers import model_config, match
 from backend.app.task_failures import MatchInputBudgetError, failure, public_failures
@@ -34,7 +35,7 @@ def test_new_initialization_leaves_capacity_unknown_without_guessing():
         initialize_empty_schema(url)
         verify_schema(url)
         with connect(url, readonly=True) as conn:
-            assert conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0] == '23'
+            assert conn.execute("SELECT value FROM app_metadata WHERE key='schema_version'").fetchone()[0] == '24'
             rows = conn.execute('SELECT context_window_tokens,max_tokens FROM model_configs').fetchall()
             assert rows and all(r['context_window_tokens'] is None and r['max_tokens'] == 131072 for r in rows)
             column = next(c for c in inspect(conn.connection).get_columns('model_configs') if c['name'] == 'context_window_tokens')
@@ -59,6 +60,7 @@ def test_explicit_migration_preserves_every_old_row_binding_and_stamp(client):
         assert {k:current[k] for k in old} == old
         col = next(c for c in inspect(conn.connection).get_columns('model_configs') if c['name']=='context_window_tokens')
         assert col['nullable'] and col['default'] is None
+        assert migrate_attachments(conn)['schema_version'] == 24
     verify_schema(os.environ['DATABASE_URL'])
 
 
@@ -92,9 +94,9 @@ def test_startup_refuses_old_or_incomplete_schema_without_migration(client, curr
     with get_db() as conn:
         schema22(conn)
         if current_stamp:
-            conn.execute("UPDATE app_metadata SET value='23' WHERE key='schema_version'")
+            conn.execute("UPDATE app_metadata SET value='24' WHERE key='schema_version'")
         before = snapshot(conn)
-    expected = 'explicit schema-23 migration' if current_stamp else 'schema version is not 23; refusing automatic changes'
+    expected = 'explicit schema-23 migration' if current_stamp else 'schema version is not 24; refusing automatic changes'
     with pytest.raises(RuntimeError, match=expected):
         initialize_storage()
     with get_db() as conn:
@@ -274,6 +276,7 @@ def test_explicit_cli_backs_up_and_verifies_entire_dump_before_migration(client,
         after=snapshot(conn,{'model_configs':['context_window_tokens']})
         assert {k:v for k,v in after.items() if k!='app_metadata'}=={k:v for k,v in before.items() if k!='app_metadata'}
         assert conn.execute('SELECT count(*) FROM model_configs WHERE context_window_tokens IS NOT NULL').fetchone()[0]==0
+        assert migrate_attachments(conn)['schema_version'] == 24
     verify_schema(os.environ['DATABASE_URL'])
 
 

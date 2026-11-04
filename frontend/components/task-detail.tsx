@@ -38,7 +38,7 @@ type TaskDetail = {
   progress?:TaskProgressData|null; understanding?:Record<string,unknown>|null; scopeMessage?:string|null;
   answer?: string;
   task_type: string;
-  id: string; requirement: string; attachmentName?: string | null; recommendations: Recommendation[]; createdAt: string;
+  id: string; requirement: string; attachmentName?: string | null; attachmentText?: string | null; recommendations: Recommendation[]; createdAt: string;
   createdBy: string | null; archivedAt: string | null; demandProfile: Record<string, string | number | null> | null;
   opportunity: Opportunity | null; taskStatus: "matching" | "enriching" | "ready" | "partial" | "failed";
   lastErrorStage: string | null; failureDetails?: FailureDetail[];
@@ -168,7 +168,7 @@ function TaskDetail({id}:{id:string}) {
 
   function returnToDraft(){
     if(!task||!user||user.role!=="user")return;
-    saveModelDraft(user.id,"partner_match",{text:task.requirement,modelConfigId:task.modelSelection?.id||undefined,openMenu:task.failureDetails?.some(f=>f.modelRelated)===true});router.push("/");
+    saveModelDraft(user.id,"partner_match",{text:task.requirement,attachment:task.attachmentName&&task.attachmentText?{name:task.attachmentName,text:task.attachmentText}:null,modelConfigId:task.modelSelection?.id||undefined,openMenu:task.failureDetails?.some(f=>f.modelRelated)===true});router.push("/");
   }
   async function retryTask() {
     if (!confirm("将使用原模型重新执行该任务，已有结果保留。确定继续？")) return;
