@@ -119,10 +119,10 @@ def test_original_bq03_same_source_title_reaches_actual_bounded_request(prepared
 
 def test_original_bq24_replaces_condition_clause_and_keeps_explicit_requirement(original):
     root,fixture=original;frame=fixture['bq24_before_input'];messages=matching.detail_messages(json.dumps(frame,ensure_ascii=False));prompt=messages[0]['content']
-    assert '用户要求相关服务经历时，结合每家拟承担的服务判断' in prompt
-    assert '只有用户明确要求单家包办，才按单家覆盖全部工作理解' in prompt
-    assert '用户其他明确必备条件、资格和排除条件' in prompt
-    assert prompt.count('允许伙伴按各自能力分工')==1
+    assert '逐家针对完整需求独立评估' in prompt
+    assert '即使用户主动要求合作，也不生成伙伴间分工、牵头、总集或责任安排' in prompt
+    assert '用户明确必备条件、资格和排除条件须由该候选对应资料支持' in prompt
+    assert '允许伙伴按各自能力分工' not in prompt
     assert '项目工作允许分工；用户明确限定合作方本身的经验' not in prompt
     assert json.loads(messages[-1]['content'])==frame
     (root/'BQ24-CONDITION-REQUEST.json').write_text(json.dumps({'messages':messages,'requirement_unchanged':True,'provider_calls':0},ensure_ascii=False,indent=2))

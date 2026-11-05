@@ -28,7 +28,7 @@ def fixture_result(ctx,complete=True,risk=''):
     fact='某项目仅限平面图像，不能判断立体尺寸。'
     row=canonical_row(partner,fact);row[1]['inputCoverage']['complete']=complete
     item={**recommendation(),'partnerId':partner['id'],'partnerName':partner['name'],
-        'recommendationReason':'建议联系该伙伴承担平面视觉检测环节。'+fact,
+        'recommendationReason':'该伙伴具备平面视觉检测相关资料依据。'+fact,
         'matchedCapabilities':'不存在的正式标签','matchedIndustries':'','matchedRegions':'',
         'riskNotes':risk,'evidenceCases':[],'evidenceDeliverables':[],
         'evidenceType':'current_capability',
@@ -38,7 +38,7 @@ def fixture_result(ctx,complete=True,risk=''):
 
 @pytest.mark.parametrize('complete',[True,False])
 @pytest.mark.parametrize('risk',['','确认部署环境和接口版本。'])
-def test_fixed_output_preserves_roles_facts_and_diagnostics_without_automatic_copy(setup,complete,risk):
+def test_fixed_output_preserves_facts_and_diagnostics_without_automatic_copy(setup,complete,risk):
     partner,row,item=fixture_result(setup,complete,risk)
     recs=match._validated_recommendations([item],[partner],{partner['id']:[]},{partner['id']:[]})
     result=match._validated_outcome(recs,{'recommendations':[item],'supplyStatus':'sufficient','gapAnalysis':'','analysisRefs':[],'_analysis_shape_valid':True},False,[row])
@@ -83,7 +83,7 @@ def test_actual_prompt_and_gap_contract_use_direct_facts_and_keep_explicit_condi
     assert '明确必备条件、资格和排除条件' in prompt and '实际主体' in prompt
     assert '实际主体、集团关系、日期与业务性质' in prompt and '保留真实否定、规划及范围' in prompt
     assert '直接陈述事实与建议' in prompt and '不补通用免责段' in prompt
-    assert 'riskNotes只写与该对象相关的必要事项' in prompt and 'gapAnalysis说明整体分工' in prompt
+    assert 'riskNotes只写与该对象相关的必要事项' in prompt and 'gapAnalysis说明逐家独立适配' in prompt
     assert 'analysisRefs列这段分析实际使用的伙伴及引用' in prompt
     parsed=MatchAnswer.model_validate({'recommendations':[],'supplyStatus':'unknown','analysisRefs':[]})
     assert 'answer' not in MatchAnswer.model_json_schema()['properties']
@@ -93,14 +93,15 @@ def test_actual_prompt_and_gap_contract_use_direct_facts_and_keep_explicit_condi
 
 
 
-def test_source_ids_keep_native_layout_cards_and_overall_division(setup):
+def test_source_ids_keep_native_layout_historical_roles_and_independent_comparison(setup):
     partner,_,item=fixture_result(setup)
-    fact='该项目以小程序为入口，接入会员系统。\n指标包括活动报\n名数；效果未独立验证。'
+    fact='历史项目由该伙伴牵头，作为总集负责会员系统，责任范围仅限该历史项目。\n指标包括活动报\n名数；效果未独立验证。'
     row=canonical_row(partner,fact)
     key=row[1]['profilePassages'][0]['source']
     item['profileEvidence']=[key]
+    item['recommendationReason']=fact
     output={'recommendations':[item],'supplyStatus':'partial',
-            'gapAnalysis':'建议由验证伙伴负责会员场景，仍需寻找数据治理协作方。','analysisRefs':[],'_analysis_shape_valid':True}
+            'gapAnalysis':'验证伙伴有会员系统项目资料，本次数据治理适配情况资料未说明。','analysisRefs':[],'_analysis_shape_valid':True}
     rejected=[]
     assert match._source_assessment(item,row)=='current_capability'
     recs=match._validated_recommendations([item],[partner],{partner['id']:[]},{partner['id']:[]},rejected)
@@ -108,12 +109,13 @@ def test_source_ids_keep_native_layout_cards_and_overall_division(setup):
     assert not rejected and len(final['recommendations'])==1
     assert final['answer']==final['gapAnalysis']==output['gapAnalysis']
     assert item['_resolvedProfileEvidence']==[{'source':key,'quote':fact}]
+    assert final['recommendations'][0]['recommendationReason']==fact
 
 
 def test_detail_prompt_keeps_group_subject_and_card_field_responsibilities():
     prompt=matching.detail_messages('')[0]['content']
     assert '主体、集团关系' in prompt and '实际主体' in prompt
-    assert 'recommendationReason说明伙伴事实和建议角色' in prompt
-    assert 'riskNotes只写与该对象相关的必要事项' in prompt and 'gapAnalysis说明整体分工' in prompt
+    assert 'recommendationReason说明伙伴事实和对完整需求的适配依据' in prompt
+    assert 'riskNotes只写与该对象相关的必要事项' in prompt and 'gapAnalysis说明逐家独立适配' in prompt
     assert 'profileEvidence只选该伙伴已发送的短source编号数组' in prompt
     assert '程序还原原文' in prompt
