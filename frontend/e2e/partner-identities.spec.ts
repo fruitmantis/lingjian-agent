@@ -133,3 +133,95 @@ for(const width of [1440,390])test(`identity filtering uses stored identities an
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:info.outputPath(`identity-filter-${width}.png`),fullPage:true});expect(unexpected).toEqual([]);
 });
+
+
+const adminLongCapability='容器（云原生）架构规划与实施及企业级应用现代化迁移交付正式能力';
+const adminSlashCapability='华为云 Stack 数据库/迁移（正式能力）';
+async function adminFiltersFixture(page:Page){
+ const admin={id:'admin-filter-user',username:'admin-filter',role:'admin',status:'active',must_change_password:false};
+ const common={intro:null,industries:null,service_areas:null,ai_profile:null,created_at:'2026-11-05',status:'active'};
+ const rows=[
+  {...common,id:'multi',name:'筛选多身份伙伴',identities:identities.slice(0,2),capabilities:'数据库，AI应用、数据库迁移'},
+  {...common,id:'empty',name:'筛选空身份伙伴',identities:null,capabilities:'数据库'},
+  {...common,id:'disabled',name:'筛选停用伙伴',status:'disabled',identities:[identities[1]],capabilities:'容器;'+adminLongCapability+'\n系统集成'},
+  {...common,id:'no-caps',name:'筛选空能力伙伴',identities:[identities[1]],capabilities:null},
+  {...common,id:'legacy',name:'筛选历史空值伙伴',capabilities:''},
+  {...common,id:'cloud',name:'筛选云方案伙伴',identities:[identities[3]],capabilities:adminSlashCapability},
+  {...common,id:'substring',name:'筛选完整标签伙伴',identities:[identities[0]],capabilities:'数据库迁移'},
+ ];
+ const unexpected:string[]=[],exports:string[]=[],queries:string[]=[],errors:string[]=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.addInitScript(user=>{localStorage.setItem('banfei:admin:token','synthetic-admin-filters');localStorage.setItem('banfei:admin:user',JSON.stringify(user));},admin);
+ await page.route('**/api/**',route=>{
+  const req=route.request(),url=new URL(req.url()),path=url.pathname.slice(4);
+  if(req.method()!=='GET'){unexpected.push(req.method()+' '+path);return route.fulfill({status:409,json:{detail:'Unexpected isolated write'}});}
+  if(path==='/auth/me')return route.fulfill({json:admin});
+  if(path==='/health')return route.fulfill({json:{status:'ok'}});
+  if(path==='/agents')return route.fulfill({json:[]});
+  if(path==='/partners'){queries.push(url.search);return route.fulfill({json:rows});}
+  if(path==='/partners/export'){exports.push(url.search);return route.fulfill({body:'Synthetic export only',contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
+  unexpected.push(path);return route.fulfill({status:404,json:{detail:'Unexpected isolated read'}});
+ });
+ await mockDeviceSession(page);
+ return {rows,unexpected,exports,queries,errors};
+}
+
+for(const width of [1440,390])test(`admin partner filters use maintained identities and complete capabilities without changing operation scope ${width}`,async({page},info)=>{
+ const fixture=await adminFiltersFixture(page);await page.setViewportSize({width,height:900});await page.goto('/admin/partners');
+ const body=page.locator('.data-table tbody'),rows=body.getByRole('row');
+ const toolbar=page.getByRole('region',{name:'伙伴筛选',exact:true});
+ const identityTrigger=toolbar.getByRole('button',{name:'伙伴身份筛选',exact:true});
+ const capabilityTrigger=toolbar.getByRole('button',{name:'能力标签筛选',exact:true});
+ const count=page.locator('.result-count');
+ await expect(rows).toHaveCount(7);await expect(count).toHaveText('共 7 家');
+ await identityTrigger.click();const identityGroup=page.getByRole('group',{name:'伙伴身份选项',exact:true});
+ await expect(identityGroup.getByRole('checkbox')).toHaveCount(6);
+ await identityGroup.getByRole('checkbox',{name:identities[1],exact:true}).check();
+ await expect(rows).toHaveCount(3);await expect(body.getByRole('cell',{name:'筛选空身份伙伴',exact:true})).toHaveCount(0);
+ await expect(body.getByRole('cell',{name:'筛选停用伙伴',exact:true})).toBeVisible();
+ await identityGroup.getByRole('checkbox',{name:identities[0],exact:true}).check();await expect(rows).toHaveCount(4);
+ await page.keyboard.press('Escape');await capabilityTrigger.click();
+ const capabilityGroup=page.getByRole('group',{name:'能力标签选项',exact:true});
+ await expect(capabilityGroup.getByRole('checkbox',{name:'数据库',exact:true})).toHaveCount(1);
+ await capabilityGroup.getByRole('checkbox',{name:'数据库',exact:true}).check();
+ await expect(rows).toHaveCount(1);await expect(body.getByRole('cell',{name:'筛选多身份伙伴',exact:true})).toBeVisible();
+ await expect(body.getByRole('cell',{name:'筛选完整标签伙伴',exact:true})).toHaveCount(0);
+ await capabilityGroup.getByRole('checkbox',{name:'容器',exact:true}).check();await expect(rows).toHaveCount(2);
+ await page.keyboard.press('Escape');await identityTrigger.click();
+ await identityGroup.getByRole('button',{name:'清除',exact:true}).click();await expect(rows).toHaveCount(3);
+ await identityGroup.getByRole('checkbox',{name:identities[3],exact:true}).check();
+ await expect(count).toHaveText('共 0 家');await expect(body.getByText('暂无符合条件的伙伴',{exact:true})).toBeVisible();
+ await expect(identityGroup.getByRole('checkbox')).toHaveCount(6);await page.keyboard.press('Escape');
+ await toolbar.getByRole('button',{name:'清除筛选',exact:true}).click();await expect(rows).toHaveCount(7);
+ await capabilityTrigger.click();await capabilityGroup.getByRole('textbox',{name:'搜索能力标签选项',exact:true}).fill('Stack');
+ await expect(capabilityGroup.getByRole('checkbox')).toHaveCount(1);
+ await capabilityGroup.getByRole('checkbox',{name:adminSlashCapability,exact:true}).check();await expect(rows).toHaveCount(1);
+ await expect(body.getByRole('cell',{name:'筛选云方案伙伴',exact:true})).toBeVisible();
+ await capabilityGroup.getByRole('textbox',{name:'搜索能力标签选项',exact:true}).fill('');
+ await capabilityGroup.getByRole('button',{name:'清除',exact:true}).click();await expect(rows).toHaveCount(7);
+ await capabilityGroup.getByRole('checkbox',{name:adminLongCapability,exact:true}).check();await expect(rows).toHaveCount(1);
+ await expect(body.getByRole('cell',{name:'筛选停用伙伴',exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.screenshot({path:info.outputPath(`admin-partner-filter-long-${width}.png`),fullPage:true});
+ await page.keyboard.press('Escape');await toolbar.getByRole('button',{name:'清除筛选',exact:true}).click();
+ await identityTrigger.click();await identityGroup.getByRole('checkbox',{name:identities[1],exact:true}).check();await page.keyboard.press('Escape');
+ const editor=page.locator('.partner-admin-disclosure').filter({has:page.locator('summary').filter({hasText:'新增伙伴'})});
+ await editor.locator('summary').click();const fields=editor.getByRole('group',{name:'伙伴身份（多选）',exact:true});
+ for(const label of identities)await expect(fields.getByRole('checkbox',{name:label,exact:true})).not.toBeChecked();
+ await editor.getByRole('textbox',{name:'伙伴名称',exact:true}).fill('未提交的筛选测试草稿');
+ await fields.getByRole('checkbox',{name:identities[0],exact:true}).check();await editor.getByRole('button',{name:'取消',exact:true}).click();
+ await expect(rows).toHaveCount(3);await toolbar.getByRole('button',{name:'清除筛选',exact:true}).click();await expect(rows).toHaveCount(7);
+ await editor.locator('summary').click();await expect(editor.getByRole('textbox',{name:'伙伴名称',exact:true})).toHaveValue('未提交的筛选测试草稿');
+ await expect(fields.getByRole('checkbox',{name:identities[0],exact:true})).toBeChecked();await editor.getByRole('button',{name:'取消',exact:true}).click();
+ await capabilityTrigger.click();await capabilityGroup.getByRole('checkbox',{name:adminLongCapability,exact:true}).check();await page.keyboard.press('Escape');
+ const transfer=page.locator('.partner-admin-disclosure').filter({has:page.locator('summary').filter({hasText:'Excel 导入导出'})});
+ await transfer.locator('summary').click();const download=page.waitForEvent('download');
+ await transfer.getByRole('button',{name:'导出全部 Excel',exact:true}).click();await download;expect(fixture.exports).toEqual(['']);
+ await transfer.locator('summary').click();
+ let batchMessage='';page.once('dialog',async dialog=>{batchMessage=dialog.message();await dialog.dismiss();});
+ const operations=page.locator('.partner-list-menu');await operations.locator('summary').click();
+ await operations.getByRole('button',{name:'批量刷新状态画像',exact:true}).click();expect(batchMessage).toContain('将为 6 家启用伙伴');
+ await expect(rows).toHaveCount(1);await expect(count).toHaveText('共 1 家');
+ await page.screenshot({path:info.outputPath(`admin-partner-filter-selected-${width}.png`),fullPage:true});
+ expect(fixture.queries.length).toBeGreaterThan(0);expect([...new Set(fixture.queries)]).toEqual(['?include_disabled=true']);expect(fixture.unexpected).toEqual([]);expect(fixture.errors).toEqual([]);
+});
