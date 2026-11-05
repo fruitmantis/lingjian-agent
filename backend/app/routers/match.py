@@ -78,7 +78,15 @@ class TaskAccepted(BaseModel):
     taskStatus: str
 
 
+class CertificationSnapshot(BaseModel):
+    capabilityTags: list[str]
+    relatedCapabilityTags: list[str]
+    servicePartnerBasis: Literal['capability_tag','identity'] | None
+    identities: list[str]
+
+
 class PartnerRecommendation(BaseModel):
+    certification: CertificationSnapshot | None = None
     partnerId: str
     partnerName: str
     matchScore: str
@@ -423,7 +431,7 @@ def _verified_references(value, rows: list[dict], label_field: str) -> list[dict
     return list(selected.values())
 
 
-def _validated_recommendations(items: list, partners: list[dict], cases: dict, deliverables: dict, rejections: list[str] | None = None) -> list[PartnerRecommendation]:
+def _validated_recommendations(items: list, partners: list[dict], cases: dict, deliverables: dict, rejections: list[str] | None = None, *, certifications=None) -> list[PartnerRecommendation]:
     by_id = {partner["id"]: partner for partner in partners}
     by_name: dict[str, list[dict]] = {}
     for partner in partners:
@@ -487,6 +495,7 @@ def _validated_recommendations(items: list, partners: list[dict], cases: dict, d
         risk = _model_value(item, "riskNotes")
         risk = risk.strip() if isinstance(risk, str) else ""
         valid.append(PartnerRecommendation(
+            certification=(certifications or {}).get(pid),
             partnerId=pid, partnerName=partner["name"], matchScore=f"{score:g}",
             **matched, recommendationReason=reason.strip(),
             evidenceCases="；".join(row["title"] for row in case_rows),
@@ -546,6 +555,8 @@ def _source_assessment(item, row, requirement="", facts=None):
     kind=item.get('evidenceType','current_capability')
     if kind not in ('current_capability','delivered_project','planning_only','unrelated'):
         return None
+    if kind == 'delivered_project' and not (refs or item['evidenceCases'] or item['evidenceDeliverables']):
+        return None
     item['_resolvedProfileEvidence']=quotes
     return kind
 
@@ -568,6 +579,9 @@ def _current_reference_valid(conn, item, row):
     partner,context,cases,files=row; pid=partner['id']
     current=conn.execute("SELECT * FROM partners WHERE id=? AND status='active'",(pid,)).fetchone()
     if not current:
+        return False
+    certification = context.get('certification')
+    if certification is not None and certification != match_context.certification_snapshot(dict(current), certification['relatedCapabilityTags']):
         return False
     source_index={(s['kind'],s['id']):s for s in sources(conn,pid)}
     for ref in item['profileEvidence']:
@@ -750,7 +764,7 @@ def _detail_content(requirement, snapshot, rows):
     fact_fields = ('customerName','projectName','industry','region','projectStage',
                    'businessNeeds','technicalNeeds','deliveryNeeds','qualificationRequirements',
                    'caseRequirements','onsiteRequirement','timelineRequirement',
-                   'cloudPlatformPreference','deliveryTypeTags')
+                   'cloudPlatformPreference','deliveryTypeTags','partnerRequirements')
     extracted = snapshot['understanding']['facts']
     facts = {key:extracted[key] for key in fact_fields
              if key in extracted and extracted[key] != requirement}
@@ -784,6 +798,8 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
             rows = [match_context.detailed_candidate(conn, item['partnerId'], item['verificationFocus'],
                     requirement, recall_terms=item.get('recallTerms',[]),
                     facts=snapshot['understanding']['facts'], hits=item['hits']) for item in selected]
+            if any(row[1]['certification'] != item['certification'] for row,item in zip(rows,selected)):
+                raise ValueError('候选伙伴认证或身份已变化，请重新执行推荐')
         schema = understanding.MatchAnswer.model_json_schema()
         try:
             config, chars, tokens = match_context.assemble_details(
@@ -804,7 +820,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
             match_context.log_stage('detailed_review', len(selected), chars, tokens, prepared,
                                     round((perf_counter() - call_start) * 1000), last_retry_count())
         snapshot['model_output'] = output
-        snapshot['detail_rows'] = [[{key:row[0].get(key) for key in ('id','name','capabilities','industries','service_areas')},row[1],row[2],row[3]] for row in rows]
+        snapshot['detail_rows'] = [[{key:row[0].get(key) for key in ('id','name','capabilities','identities','industries','service_areas')},row[1],row[2],row[3]] for row in rows]
         partners = [row[0] for row in rows]
         cases = {row[0]['id']: row[2] for row in rows}
         deliverables = {row[0]['id']: row[3] for row in rows}
@@ -816,7 +832,8 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
                 rejections.append('推荐含不属于实际已发送来源范围的引用')
             else:
                 legal_items.append(item)
-        recs = _validated_recommendations(legal_items,partners,cases,deliverables,rejections)
+        recs = _validated_recommendations(legal_items,partners,cases,deliverables,rejections,
+            certifications={row[0]['id']:row[1]['certification'] for row in rows})
         snapshot['rejection_codes']=rejections
         evidence_filtered = bool(rejections)
         if output['_raw_recommendation_count'] and not recs and not (output['_analysis_shape_valid'] and output['gapAnalysis']):
@@ -842,7 +859,7 @@ def _candidate_stamp(connection=None):
         return fingerprint({
             'matching_rules': matching.MATCHING_RULES_VERSION,
             'source_versions': [(p['id'],s['kind'],s['id'],stamp(s)) for p in conn.execute('SELECT id FROM partners ORDER BY id') for s in sources(conn,p['id'])],
-            'partners': [dict(r) for r in conn.execute('SELECT id,status,name,capabilities,industries,service_areas,materials_revision,profile_materials_revision,profile_updated_at,updated_at FROM partners ORDER BY id')],
+            'partners': [dict(r) for r in conn.execute('SELECT id,status,name,capabilities,identities,industries,service_areas,materials_revision,profile_materials_revision,profile_updated_at,updated_at FROM partners ORDER BY id')],
             'cases': [dict(r) for r in conn.execute('SELECT id,partner_id,title,visible,updated_at FROM cases ORDER BY id')],
             'deliverables': [dict(r) for r in conn.execute('SELECT id,case_id,filename,processed_at FROM deliverables ORDER BY id')],
             'contributions': [dict(r) for r in conn.execute('SELECT partner_id,source_kind,source_id,source_fingerprint,state,sections_json FROM partner_profile_sources ORDER BY partner_id,source_kind,source_id')],

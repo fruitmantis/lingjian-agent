@@ -21,6 +21,7 @@ import {responseError} from "../lib/api-request";
 import { tasksChanged } from "./task-navigation";
 
 type Recommendation = {
+  certification?: { capabilityTags: string[]; relatedCapabilityTags: string[]; servicePartnerBasis: "capability_tag" | "identity" | null; identities: string[] } | null;
   partnerId: string; partnerName: string; matchScore: string; matchedCapabilities: string;
   matchedIndustries: string; matchedRegions: string; recommendationReason: string;
   evidenceCases: string; evidenceDeliverables: string; riskNotes: string;
@@ -213,7 +214,12 @@ function TaskDetail({id}:{id:string}) {
       {!task.scopeMessage&&<TaskResult id={id} className="card"><h2>推荐伙伴</h2>{task.recommendations.length === 0 ? <p className="placeholder-text">{task.taskStatus==="ready"||task.taskStatus==="partial"?"本次暂无推荐伙伴，请参考上方分析说明。":"暂未生成推荐结果。"}</p> : <div className="recommendation-stack">{task.recommendations.map((item, index) => (
         <TaskResult as="article" id={id} className={`recommendation-item ${recommendationStyles.recommendation}`} key={item.partnerId}>
           <div id={`recommendation-${item.partnerId}`} className={`recommendation-title ${recommendationStyles.title}`}><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>推荐分 {item.matchScore}</span></div><CardEntry href={`/partners/${item.partnerId}?returnTo=${encodeURIComponent(`${pathname}#recommendation-${item.partnerId}`)}`}>查看伙伴</CardEntry></div>
-          <dl className={recommendationStyles.summary}>{Object.entries({"相关能力":item.matchedCapabilities,"行业经验":item.matchedIndustries,"覆盖区域":item.matchedRegions}).filter(([,value])=>value&&value!=="未核实").map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+          {item.certification&&<dl className={recommendationStyles.summary} data-testid="recommendation-certification">
+            <div><dt>相关能力认证</dt><dd>{item.certification.relatedCapabilityTags.join("、")||"未记录本次相关能力认证"}</dd></div>
+            {item.certification.servicePartnerBasis&&<div><dt>服务伙伴依据</dt><dd>{item.certification.servicePartnerBasis==="capability_tag"?`正式能力认证：${item.certification.capabilityTags.join("、")}`:"已维护服务合作伙伴身份"}</dd></div>}
+            {!!item.certification.identities.length&&<div><dt>伙伴身份</dt><dd>{item.certification.identities.join("、")}</dd></div>}
+          </dl>}
+          <dl className={recommendationStyles.summary}>{Object.entries({"相关能力":item.certification?"":item.matchedCapabilities,"行业经验":item.matchedIndustries,"覆盖区域":item.matchedRegions}).filter(([,value])=>value&&value!=="未核实").map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
           {item.recommendationReason&&item.recommendationReason!=="未核实"&&<section className={recommendationStyles.section}><h4>推荐理由</h4><div className={recommendationStyles.prose}><AdvisorProse text={item.recommendationReason}/></div></section>}
           {!![item.evidenceCases,item.evidenceDeliverables].some(value=>value&&!["未核实","未提供可核实的支撑案例","未提供可核实的支撑交付物"].includes(value))&&<div className={recommendationStyles.evidence}>{Object.entries({"支撑案例":item.evidenceCases,"支撑交付物":item.evidenceDeliverables}).filter(([,value])=>value&&!["未核实","未提供可核实的支撑案例","未提供可核实的支撑交付物"].includes(value)).map(([label,value])=><section className={recommendationStyles.section} key={label}><h4>{label}</h4><div className={recommendationStyles.prose}><AdvisorProse text={value}/></div></section>)}</div>}
           {item.riskNotes&&<div className={`risk-note ${recommendationStyles.prose}`}><strong>风险与条件</strong><AdvisorProse text={item.riskNotes}/></div>}

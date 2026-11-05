@@ -10,6 +10,7 @@ import re
 from .ai_client import completion_payload, last_retry_count, reset_retry_count
 from .development_engine import terms
 from .business_taxonomy import project_partner
+from .partner_identities import read_identities
 from .model_resolver import model_config_from_record, resolve_model_record, ModelContextCapacityError
 from .task_failures import MatchInputBudgetError
 from backend.business import matching
@@ -237,7 +238,7 @@ def select_passages(value: str, query: str, limit: int, *, facts=None) -> list[s
 
 def _partner_values(partner):
     version = hashlib.sha256(json.dumps(
-        {key: partner.get(key) for key in ('id','name','capabilities','industries','service_areas',
+        {key: partner.get(key) for key in ('id','name','capabilities','identities','industries','service_areas',
                                           'materials_revision','updated_at')},
         ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     return [{'sourceRef': 'partner:' + partner['id'], 'source_version': version,
@@ -254,7 +255,7 @@ def _candidate_values(conn, partner):
 def provider_context(context):
     # Explicit business projection; engineering coverage and positions stay private.
     return {key: context[key] for key in (
-        'partnerId', 'name', 'capabilities', 'industries', 'regions',
+        'partnerId', 'name', 'capabilities', 'industries', 'regions', 'certification',
         'profilePassages', 'visibleCases', 'deliverables')
         if key in context}
 
@@ -300,16 +301,45 @@ def log_stage(stage: str, partner_count: int, chars: int, estimated_tokens: int,
     }, separators=(',', ':')))
 
 
+def _related_capability_tags(requirement, facts):
+    mapped = [tag for tag in facts.get('capabilityTags', [])
+              if facts.get('capabilityEvidence', {}).get(tag, '').strip()
+              and facts['capabilityEvidence'][tag] in requirement]
+    # Validated positive certification conditions are explicit tag targets.
+    explicit = [tag for condition in facts.get('partnerRequirements', [])
+                if condition['mode'] in ('required','preferred') for tag in condition['capabilityTags']]
+    return list(dict.fromkeys(mapped + explicit))
+
+
+def certification_snapshot(partner, related_tags=()):
+    tags = list(dict.fromkeys(t.strip() for t in re.split(r'[,，、;；\n]+', partner.get('capabilities') or '') if t.strip()))
+    identities = read_identities(partner.get('identities'))
+    return {'capabilityTags':tags, 'relatedCapabilityTags':[t for t in tags if t in related_tags],
+            'servicePartnerBasis':'capability_tag' if tags else 'identity' if '服务合作伙伴' in identities else None,
+            'identities':identities}
+
+
+def _condition_matches(condition, certification):
+    tests = [tag in certification['capabilityTags'] for tag in condition['capabilityTags']]
+    tests += [(bool(certification['servicePartnerBasis']) if identity == '服务合作伙伴'
+               else identity in certification['identities']) for identity in condition['identities']]
+    return (all(tests) if condition['match'] == 'all' else any(tests)) if tests else False
+
+
 def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
                       *, diagnostics: dict | None = None) -> list[dict]:
-    """Rank original grounded term hits in PG without a conjunctive phrase gate."""
+    """Merge grounded work hits and related formal tags before the 12-partner cut."""
     query_terms, _ = matching.recall_query(requirement, facts)
     info = diagnostics if diagnostics is not None else {}
     info.update(rules_version=matching.MATCHING_RULES_VERSION,
                 keyword_count=len(query_terms),
                 keyword_fingerprint=hashlib.sha256(json.dumps(query_terms,ensure_ascii=False,separators=(',', ':')).encode()).hexdigest(),
                 candidate_order=[])
-    if not query_terms:
+    standard_tags = {r['name'] for r in conn.execute('SELECT name FROM capability_tags WHERE enabled=1')}
+    related_tags = [tag for tag in _related_capability_tags(requirement, facts) if tag in standard_tags]
+    conditions = facts.get('partnerRequirements', [])
+    identity_only = not query_terms and any(c['identities'] for c in conditions if c['mode'] != 'excluded')
+    if not query_terms and not related_tags and not identity_only:
         return []
     # Normalize the same controlled capability expressions in query and corpus.
     body = "body"
@@ -319,7 +349,7 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
         parameters += [pattern, canonical]
     partners = [dict(r) for r in conn.execute("SELECT * FROM partners WHERE status='active' ORDER BY id")]
     values = {p['id']: _candidate_values(conn, p) for p in partners}
-    valid_corpus = [{'id': p['id'], 'body': ' '.join(v['text'] for v in values[p['id']]).lower()} for p in partners]
+    valid_corpus = [{'id': p['id'], 'body': ' '.join(v['text'] for v in values[p['id']] if v['path'] not in ('/industries','/service_areas')).lower()} for p in partners]
     corpus = """WITH raw_corpus AS (
         SELECT * FROM jsonb_to_recordset(CAST(? AS jsonb)) AS x(id text,body text)
     ), corpus AS (SELECT id,""" + body + """ AS body FROM raw_corpus),
@@ -330,10 +360,24 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
     ranked AS (SELECT h.id,sum((1+ln(1+(SELECT count(*) FROM corpus)::float/w.frequency))*least(length(h.token),12)) AS score,
          jsonb_agg(h.token ORDER BY (1+ln(1+(SELECT count(*) FROM corpus)::float/w.frequency))*least(length(h.token),12) DESC,h.token) AS matched_terms
         FROM hits h JOIN weights w USING(token) GROUP BY h.id)
-    SELECT id,score,matched_terms FROM ranked ORDER BY score DESC,id LIMIT ?"""
+    SELECT id,score,matched_terms FROM ranked ORDER BY score DESC,id"""
     rows = list(conn.execute(corpus, (json.dumps(valid_corpus,ensure_ascii=False), *parameters,
-                                     json.dumps(query_terms,ensure_ascii=False),
-                                     min(limit, 12))))
+                                     json.dumps(query_terms,ensure_ascii=False))))
+    lexical = {r['id']:dict(r) for r in rows}
+    ranked = []
+    for partner in partners:
+        certification = certification_snapshot(partner, related_tags)
+        if any((c['mode']=='required' and not _condition_matches(c,certification)) or
+               (c['mode']=='excluded' and _condition_matches(c,certification)) for c in conditions):
+            continue
+        row = lexical.get(partner['id'], {'id':partner['id'],'score':0,'matched_terms':[]})
+        if not (certification['relatedCapabilityTags'] or row['matched_terms'] or identity_only):
+            continue
+        row['certification'] = certification
+        tier = 0 if certification['relatedCapabilityTags'] else 1 if certification['servicePartnerBasis'] else 2
+        preferred = any(_condition_matches(c,certification) for c in conditions if c['mode']=='preferred')
+        ranked.append((tier,not preferred,-row['score'],partner['id'],row))
+    rows = [entry[-1] for entry in sorted(ranked,key=lambda entry:entry[:4])[:min(limit,12)]]
     info['candidate_order'] = [r['id'] for r in rows]
     selected = []
     for row in rows:
@@ -345,7 +389,7 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
                 if hit not in hits:
                     hits.append(hit)
         selected.append({'partnerId': row['id'], 'verificationFocus': '依据本次完整需求评估',
-                         'recallTerms': row['matched_terms'], 'hits': hits})
+                         'recallTerms': row['matched_terms'], 'hits': hits, 'certification':row['certification']})
     return selected
 
 
@@ -477,6 +521,7 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
                'capabilities':partner.get('capabilities') or '',
                'industries':partner.get('industries') or '',
                'regions':partner.get('service_areas') or '',
+               'certification':certification_snapshot(original_partner, _related_capability_tags(requirement, facts or {})),
                'profilePassages':passages,
                'visibleCases':[{'id':c['id'],'title':c['title'],
                                 'relevantDescription':c.get('description') or ''} for c in cases],

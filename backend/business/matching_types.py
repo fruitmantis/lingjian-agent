@@ -4,6 +4,14 @@ from pydantic import Field, StrictBool
 from .common import ModelOutput, StrictModel
 
 
+class PartnerRequirement(ModelOutput):
+    mode: Literal['required','preferred','excluded']
+    match: Literal['all','any'] = 'all'
+    capabilityTags: list[str] = Field(default_factory=list, max_length=30)
+    identities: list[str] = Field(default_factory=list, max_length=6)
+    evidenceText: str = Field(min_length=2)
+
+
 class ProjectFacts(ModelOutput):
     customerName: str='未知'
     projectName: str='未知'
@@ -19,6 +27,9 @@ class ProjectFacts(ModelOutput):
     timelineRequirement: str='未知'
     cloudPlatformPreference: str='未知'
     capabilityTags: list[str]=Field(default_factory=list,max_length=30)
+    capabilityEvidence: dict[str,str] = Field(default_factory=dict, description='每个相关标准能力标签对应的需求原文；仅正向工作，不将明确排除的能力作为目标。')
+    workEvidence: list[str] | None = Field(default=None, description='本次正向工作主题的连续需求原文，不含单独的行业、区域、身份、排除条件或追问；无工作主题返回空数组。')
+    partnerRequirements: list[PartnerRequirement] = Field(default_factory=list, description='仅用户明确提出、可由正式标签或六类身份直接判断的条件；保留必须/优先/排除及或/同时。复杂条件原文交给详评，不生成嵌套规则。')
     deliveryTypeTags: str=''
     complexityLevel: Literal['高','中','低','未知']='未知'
     urgencyLevel: Literal['高','中','低','未知']='未知'
