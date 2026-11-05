@@ -9,7 +9,7 @@ import re
 
 from .ai_client import completion_payload, last_retry_count, reset_retry_count
 from .development_engine import terms
-from .business_taxonomy import project_partner
+from .business_taxonomy import canonical as canonical_values, project_partner
 from .partner_identities import read_identities
 from .model_resolver import model_config_from_record, resolve_model_record, ModelContextCapacityError
 from .task_failures import MatchInputBudgetError
@@ -330,6 +330,9 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
                       *, diagnostics: dict | None = None) -> list[dict]:
     """Merge grounded work hits and related formal tags before the 12-partner cut."""
     query_terms, _ = matching.recall_query(requirement, facts)
+    industry_terms = canonical_values(facts.get('industry'), 'industry').split(',') if facts.get('workEvidence') == [] else []
+    industry_terms = [term for term in industry_terms if term]
+    query_terms = sorted(set(query_terms) | set(industry_terms))
     info = diagnostics if diagnostics is not None else {}
     info.update(rules_version=matching.MATCHING_RULES_VERSION,
                 keyword_count=len(query_terms),
@@ -349,7 +352,8 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
         parameters += [pattern, canonical]
     partners = [dict(r) for r in conn.execute("SELECT * FROM partners WHERE status='active' ORDER BY id")]
     values = {p['id']: _candidate_values(conn, p) for p in partners}
-    valid_corpus = [{'id': p['id'], 'body': ' '.join(v['text'] for v in values[p['id']] if v['path'] not in ('/industries','/service_areas')).lower()} for p in partners]
+    valid_corpus = [{'id': p['id'], 'body': (' '.join(v['text'] for v in values[p['id']] if v['path'] not in ('/industries','/service_areas'))
+        + (' ' + canonical_values(p.get('industries'), 'industry') if industry_terms else '')).lower()} for p in partners]
     corpus = """WITH raw_corpus AS (
         SELECT * FROM jsonb_to_recordset(CAST(? AS jsonb)) AS x(id text,body text)
     ), corpus AS (SELECT id,""" + body + """ AS body FROM raw_corpus),

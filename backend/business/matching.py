@@ -7,7 +7,7 @@ PARTNER_IDENTITIES = json.loads((Path(__file__).resolve().parents[2] / "shared/p
 from .common import model_json_object, ModelJSONError
 
 
-MATCHING_RULES_VERSION = "20261105-independent-partner-v8"
+MATCHING_RULES_VERSION = "20261105-industry-only-v9"
 DIRECT_EVIDENCE = "直接项目证据："
 RELATED_EVIDENCE = "相关能力自述（待核实）："
 INSUFFICIENT_EVIDENCE = "泛 IT 能力不足："
