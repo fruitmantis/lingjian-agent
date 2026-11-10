@@ -68,9 +68,12 @@ def test_retry_saves_grouped_regions_and_preserves_existing_results(client, monk
     with get_db() as conn:
         conn.execute("INSERT INTO demand_profiles(id,match_record_id,requirement_text,created_at) VALUES ('kept-demand',?,'合成医疗项目','2026')", (task,))
     from .support.matching import install,snapshot
-    from backend.app import match_understanding
+    from backend.app import match_understanding, agent_settings
     calls=install(monkeypatch)
-    saved=snapshot('合成医疗项目',user,task)
+    # A real run prepares facts under the accepted execution snapshot that a retry re-accepts.
+    with get_db() as conn:accepted=agent_settings.execution(conn,'partner_match',accept=True)
+    with agent_settings.execution_scope(accepted):saved=snapshot('合成医疗项目',user,task)
+    saved['agent_execution']=accepted
     # The existing facts snapshot is the source for missing derivative records.
     saved['understanding']['facts']=dict(BASE)
     saved['outcome']={'answer':'已有推荐','supplyStatus':'partial','gapAnalysis':'待核实'}

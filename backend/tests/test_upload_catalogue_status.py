@@ -77,5 +77,6 @@ def test_additional_source_projection_is_limited_to_returned_page(client,access,
   seen.append(row['id']);return project(row,*args,**kwargs)
  monkeypatch.setattr(files,'public_file',spy)
  before=snapshot(access[2]);result=entry(client,access,eid,page_size=1)
- assert result['id']==eid and seen==[fid] and other not in seen
+ # Current file states are derived in SQL before count/paging; no per-file Python projection remains.
+ assert result['id']==eid and seen==[] and fid not in seen and other not in seen
  assert snapshot(access[2])==before

@@ -41,7 +41,9 @@ def test_actual_model_failure_list_detail_owner_and_success_clear(client,monkeyp
  monkeypatch.setattr(development_model,'completion',timeout)
  response=client.post('/agent/match',headers=auth_headers(a),json={'requirement':'合成故障场景'})
  assert response.status_code==502 and SECRET not in response.text
- assert calls==[True]
+ # The patched function is one transport attempt; only the saved timeout retries repeat it.
+ from backend.app.model_timeout_settings import get_settings
+ assert calls==[True]*(get_settings(agent_id='partner_match').timeoutRetries+1)
  with get_db() as conn:task=conn.execute('SELECT id,last_error_details FROM match_records').fetchone();assert SECRET not in task['last_error_details']
  for actor in (a,admin):
   detail=client.get('/agent/tasks/'+task['id'],headers=auth_headers(actor));assert detail.status_code==200

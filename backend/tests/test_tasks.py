@@ -202,16 +202,23 @@ def test_stale_matching_and_enriching_tasks_become_retryable(client, monkeypatch
 
 
 def test_matching_uses_two_call_recovery_budget_without_delaying_enrichment(client):
+    from backend.app.model_timeout_settings import get_settings
     user = make_user('stage_budget_user')
-    age = (datetime.now(timezone.utc) - timedelta(minutes=50)).isoformat()
-    matching_id = make_task(user, 'STAGE-MATCHING', task_status='matching', recommendations=[], updated_at=age)
-    enriching_id = make_task(user, 'STAGE-ENRICHING', task_status='enriching', updated_at=age)
+    policy = get_settings(agent_id='partner_match')
+    # Matching includes one content retry per stage; enrichment keeps the shorter run budget.
+    assert policy.run_budget() + 60 < policy.match_run_budget()
+    now = datetime.now(timezone.utc)
+    beyond_enrichment = (now - timedelta(seconds=policy.run_budget() + 60)).isoformat()
+    beyond_matching = (now - timedelta(seconds=policy.match_run_budget() + 60)).isoformat()
+    running_id = make_task(user, 'STAGE-MATCHING-RUNNING', task_status='matching', recommendations=[], updated_at=beyond_enrichment)
+    matching_id = make_task(user, 'STAGE-MATCHING', task_status='matching', recommendations=[], updated_at=beyond_matching)
+    enriching_id = make_task(user, 'STAGE-ENRICHING', task_status='enriching', updated_at=beyond_enrichment)
     response = client.get('/agent/tasks?pageSize=100', headers=auth_headers(user))
     assert response.status_code == 200
     with get_db() as conn:
         statuses = {row['id']: row['task_status'] for row in conn.execute(
-            'SELECT id,task_status FROM match_records WHERE id IN (?,?)', (matching_id, enriching_id))}
-    assert statuses == {matching_id: 'failed', enriching_id: 'failed'}
+            'SELECT id,task_status FROM match_records WHERE id IN (?,?,?)', (running_id, matching_id, enriching_id))}
+    assert statuses == {running_id: 'matching', matching_id: 'failed', enriching_id: 'failed'}
 
 
 def test_empty_partial_recommendations_force_rematch(client, monkeypatch):

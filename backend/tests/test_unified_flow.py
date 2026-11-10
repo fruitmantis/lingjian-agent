@@ -203,12 +203,15 @@ def test_equivalent_search_phrases_use_same_tokenization(unified):
 
 
 def test_match_retry_reuses_successful_facts_after_generation_failure(unified,monkeypatch):
+    from backend.app.model_timeout_settings import get_settings
+    # The patched function is one transport attempt: exhaust the saved timeout retries of the first run.
+    attempts=get_settings(agent_id='partner_match').timeoutRetries+1
     calls=[]
     def complete(config,messages,schema):
         calls.append(schema['title'])
         if schema['title']=='MatchUnderstanding':return '{"in_scope":true,"facts":{"technicalNeeds":"数据库迁移"}}'
         assert schema['title']=='MatchAnswer'
-        if calls.count('MatchAnswer')==1:raise TimeoutError('synthetic second-stage failure')
+        if calls.count('MatchAnswer')<=attempts:raise TimeoutError('synthetic second-stage failure')
         return '{"recommendations":[],"analysisRefs":[],"supplyStatus":"unknown","gapAnalysis":"待补充交付证据"}'
     monkeypatch.setattr(model,'completion',complete)
     with pytest.raises(HTTPException):match.match_partners(match.MatchRequest(requirement='需要数据库迁移伙伴'),unified[0][0])
@@ -216,7 +219,7 @@ def test_match_retry_reuses_successful_facts_after_generation_failure(unified,mo
     assert match.get_match_record(task,unified[0][0]).answer==''
     result=match.retry_match_record(task,unified[0][0])
     assert result.taskStatus=='ready'
-    assert calls==['MatchUnderstanding','MatchAnswer','MatchAnswer']
+    assert calls==['MatchUnderstanding']+['MatchAnswer']*(attempts+1)
     detail=match.get_match_record(task,unified[0][0])
     assert detail.demandProfile['supplyStatus']=='unknown'
     assert detail.answer=='本次暂无推荐伙伴。\n\n待补充交付证据'
