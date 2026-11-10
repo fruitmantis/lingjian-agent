@@ -5,6 +5,7 @@ import logging
 import hashlib
 import math
 import re
+from functools import lru_cache
 
 
 from .ai_client import completion_payload, last_retry_count, reset_retry_count
@@ -27,18 +28,33 @@ def _heading(text):
     return bool(text and len(text) <= 60 and not re.search(r'[。！？；;|\t]', text))
 
 
-def _line_ranges(value):
+# Layout depends only on the source string. Each hit re-reads the same source,
+# so parse it once and hand callers fresh lists of the cached ranges.
+_LAYOUT_CACHE_SIZE = 128
+
+
+@lru_cache(maxsize=_LAYOUT_CACHE_SIZE)
+def _cached_line_ranges(value):
     offset = 0
     rows = []
     for line in value.splitlines(keepends=True):
         rows.append((offset, offset + len(line), line))
         offset += len(line)
-    return rows
+    return tuple(rows)
+
+
+def _line_ranges(value):
+    return list(_cached_line_ranges(value))
 
 
 def _native_blocks(value):
+    return list(_cached_native_blocks(value))
+
+
+@lru_cache(maxsize=_LAYOUT_CACHE_SIZE)
+def _cached_native_blocks(value):
     """Original paragraph/table ranges; PDF soft wraps stay within one fact."""
-    lines = _line_ranges(value)
+    lines = _cached_line_ranges(value)
     blocks, left = [], None
     def page(text):
         return bool(re.fullmatch(r'第\s*\d+\s*页', text))
@@ -67,7 +83,7 @@ def _native_blocks(value):
         if not table and re.search(r'[。！？.!?][”"’\')）]*$', text):
             finish(i+1)
     finish(len(lines))
-    return blocks
+    return tuple(blocks)
 
 
 def _group_ranges(value, start, end):
@@ -116,11 +132,17 @@ def _group_ranges(value, start, end):
 
 def _source_layout(value):
     """Recognize the saved webpage wrapper; no business-word or disclaimer filter."""
-    lines = _line_ranges(value)
+    start, end = _cached_source_layout(value)
+    return start, end, []
+
+
+@lru_cache(maxsize=_LAYOUT_CACHE_SIZE)
+def _cached_source_layout(value):
+    lines = _cached_line_ranges(value)
     archive = any(re.match(r'原始\s*URL\s*[:：]', text.strip(), re.I)
                   for _,_,text in lines[:12])
     if not archive:
-        return 0,len(value),[]
+        return 0,len(value)
     # The archive format has operation metadata and navigation before its article.
     # Business context comes from that article's untouched native body.
     dates = [i for i,(_,_,text) in enumerate(lines)
@@ -128,7 +150,7 @@ def _source_layout(value):
     publication = [i for i,(_,_,text) in enumerate(lines)
                    if re.search(r'(?:信息来源\s*[:：].*信息提供[日⽇]期|发布(?:时间|[日⽇]期))\s*[:：]\s*\d{4}-\d{1,2}-\d{1,2}',text)]
     if not dates and not publication:
-        return 0,len(value),[]  # Unrecognized layout is retained, never cleaned.
+        return 0,len(value)  # Unrecognized layout is retained, never cleaned.
     first = min(dates+publication)
     start = lines[max(0,first-1)][0]
     if first in publication:
@@ -148,7 +170,7 @@ def _source_layout(value):
         if previous is not None and lines[previous][2].strip() in ('推荐阅读','相关阅读','相关推荐'):
             end = min(end,lines[previous][0])
             break  # An in-article date is a fact, not a footer boundary.
-    return start,end,[]
+    return start,end
 
 
 def _intro_ranges(value):
