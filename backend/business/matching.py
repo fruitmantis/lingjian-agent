@@ -7,7 +7,7 @@ PARTNER_IDENTITIES = json.loads((Path(__file__).resolve().parents[2] / "shared/p
 from .common import model_json_object, ModelJSONError
 
 
-MATCHING_RULES_VERSION = "20261122-explicit-mandatory-v10"
+MATCHING_RULES_VERSION = "20261122-balanced-recall-v11"
 DIRECT_EVIDENCE = "直接项目证据："
 RELATED_EVIDENCE = "相关能力自述（待核实）："
 INSUFFICIENT_EVIDENCE = "泛 IT 能力不足："
@@ -69,7 +69,24 @@ def recall_query(requirement, facts):
     # Old snapshots/callers lack workEvidence. New understanding supplies only
     # literal positive work fragments, so region/industry alone cannot qualify.
     work = facts.get('workEvidence')
-    original = normalize_recall_text(' '.join(work) if work is not None else requirement)
+    if isinstance(work, list) and work:
+        extra_quotes = []
+        cap_ev = facts.get('capabilityEvidence') if isinstance(facts.get('capabilityEvidence'), dict) else {}
+        for tag in facts.get('capabilityTags') or []:
+            quote = cap_ev.get(tag)
+            if isinstance(quote, str) and quote.strip() and quote in requirement:
+                extra_quotes.append(quote)
+        sub_ev = facts.get('subCapabilityEvidence') if isinstance(facts.get('subCapabilityEvidence'), dict) else {}
+        for sub in facts.get('subCapabilityTags') or []:
+            if isinstance(sub, dict) and sub.get('parent') and sub.get('name'):
+                quote = sub_ev.get(f"{sub['parent']}/{sub['name']}")
+                if isinstance(quote, str) and quote.strip() and quote in requirement:
+                    extra_quotes.append(quote)
+        original = normalize_recall_text(' '.join([*work, *extra_quotes]))
+    elif work is None:
+        original = normalize_recall_text(requirement)
+    else:
+        original = ''
     for identity in PARTNER_IDENTITIES:
         original = original.replace(identity, ' ')
     clean = re.sub("|".join(re.escape(s) for s in sorted(_FILLER, key=lambda s: (-len(s), s))), " ", original)
@@ -102,7 +119,7 @@ def understanding_messages(requirement,tags,taxonomy,hierarchy=None):
             '完整提取项目工作与用户实际限定对象。仅当用户明确将某项资质或案例设为合作方硬性准入门槛（如“必须具备XX资质/案例”“硬性要求”“至少具备XX案例”“无XX案例不予考虑”）时，才提取到qualificationRequirements或caseRequirements；常规“请推荐/寻找/想找/希望找/需要具备XX能力、细分能力或行业经验的伙伴”属于项目工作与适配方向（保留在businessNeeds/technicalNeeds/deliveryNeeds），未明示硬性门槛时这两项保持未知。一般工作不转成每家必备认证或资格。后续逐家针对完整需求独立评估，不拆成多家各自负责的部分；即使用户主动要求合作，也不生成伙伴间分工、牵头、总集或责任安排。'
             'evidenceText、capabilityEvidence中的引用和workEvidence每项，都只复制requirement中的一段连续原文；取最短足够说明该条件的一处，禁止拼接多处、调序、改写或自行增添标点。交付上下文保留在deliveryNeeds，不拼入条件引用。'
             'workEvidence逐字引用本次正向工作主题原文；行业、区域、合作身份、否定排除内容不算工作主题。没有工作主题返回空数组。'
-            'capabilityTags为与本次工作相关的标准能力标签，用于认证优先召回，不表示用户要求伙伴持有认证；capabilityEvidence逐项提供对应需求原文。用户明确列出的并列或“或”标准认证逐项保留，多标签可以引用同一段连续原文。允许按语义映射标准标签，但不得将用户排除的能力列为正向目标，也不得虚构专业扩词；本地部署等环境要求不推导为指定产品平台或其专项认证。'
+            'capabilityTags为与本次工作相关的标准能力标签，用于认证优先召回，不表示用户要求伙伴持有认证；capabilityEvidence逐项提供对应需求原文。用户明确列出的并列或“或”标准认证逐项保留，多标签可以引用同一段连续原文。允许按语义映射标准标签，但不得将用户排除的能力列为正向目标，也不得虚构专业扩词；通用“数据分析/学习分析/会员分析”未指明单一产品时可并列映射大数据与数据管理分析与流通；本地部署等环境要求不推导为指定产品平台或其专项认证。'
             'partnerRequirements只提取用户明确提出的正式认证、正式标签或六类身份条件，不能把相关工作标签直接复制为条件；必须、优先或排除须限定持有认证、正式标签或身份，而非要完成的工作或部署环境。仅当用户使用明确强制、优先或排他限定词（如“必须持有/要求必须/务必具备/仅限/优先具备/排除……认证/正式标签/身份”）时才提取；常规推荐句（如“请推荐/寻找/想找/需要具备XX能力、细分能力或相关能力认证的伙伴”）只映射进capabilityTags和subCapabilityTags用于认证优先召回，partnerRequirements必须返回空数组[]。用户明确硬性或优先要求某一级下的具体二级认证（如“必须具备盘古大模型/数据工程认证”）时，放入条件字段 subCapabilityTags（{"parent": 一级, "name": 二级}），不得降级放宽成只要求宽泛一级标签。evidenceText复制一段能体现该认证或身份条件的连续原文。mode区分required/preferred/excluded，match区分all/any；软件伙伴或服务伙伴是any，同时具备两种身份是all。普通工作不等于必须认证，优先不等于必须。没有明确认证或身份条件时返回空数组，业务工作及部署硬要求仍保留在对应facts及完整requirement交给详评，不得丢弃。例如“需要数据库迁移与容器部署，必须支持本地部署”：相关capabilityTags为数据库、容器，partnerRequirements为空，不推导HCS认证；“请推荐具备数据库相关认证和容器能力的伙伴”：capabilityTags为数据库、容器，partnerRequirements为空；“必须具备数据库认证”：提取required数据库认证条件。复杂或有歧义的条件保留qualificationRequirements原文交给详评，不拆成程序规则。'
             '正式能力标签必然属于服务合作伙伴，但服务合作伙伴不必有专项能力标签；其他五类身份不推导。'
             '标准能力无法覆盖的明确诉求放 tag_suggestions，evidenceText 必须引用本次需求原文。无新诉求返回空数组。'

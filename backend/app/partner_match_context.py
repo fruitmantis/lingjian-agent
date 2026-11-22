@@ -25,6 +25,7 @@ from backend.business import matching
 
 DETAIL_CHAR_LIMIT = 25_000
 _LOG = logging.getLogger('uvicorn.error')
+_SYNONYM_L1_GROUPS = (frozenset({'大数据', '数据管理分析与流通'}),)
 
 
 _QUALIFIER = re.compile(r'集团口径|企业自述|待核实|规划|尚未|未交付|未实施|未落地|未覆盖|不支持|不能|仅限|未来|计划|拟开发|self.report|planned|planning|not yet', re.I)
@@ -393,6 +394,31 @@ def _effective_related_targets(requirement, facts, enabled_l1: set[str], enabled
     rel_l1_raw = _related_capability_tags(requirement, facts)
     # Keep L1 if enabled directly, OR if an enabled L2 parent wasn't independently disabled.
     rel_l1 = [tag for tag in rel_l1_raw if tag in enabled_l1]
+    constrained_l1 = {
+        tag
+        for condition in (facts or {}).get('partnerRequirements', [])
+        if isinstance(condition, dict) and condition.get('mode') in ('required', 'preferred', 'excluded')
+        for tag in condition.get('capabilityTags', [])
+    } | {
+        item['parent']
+        for condition in (facts or {}).get('partnerRequirements', [])
+        if isinstance(condition, dict) and condition.get('mode') in ('required', 'preferred', 'excluded')
+        for item in read_sub_capabilities(condition.get('subCapabilityTags'))
+    }
+    l2_parents = {parent for parent, _ in rel_l2}
+    req_text = requirement or ''
+    rel_set = set(rel_l1)
+    for group in _SYNONYM_L1_GROUPS:
+        if (
+            (group & rel_set)
+            and not (group & constrained_l1)
+            and not (group & l2_parents)
+            and not any(name in req_text for name in group)
+        ):
+            for sibling in sorted(group - rel_set):
+                if sibling in enabled_l1:
+                    rel_l1.append(sibling)
+                    rel_set.add(sibling)
     return rel_l1, rel_l2
 
 
@@ -493,7 +519,19 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
         tier = 0 if has_related else 1 if certification['servicePartnerBasis'] else 2
         preferred = any(_condition_matches(c,certification) for c in conditions if c['mode']=='preferred')
         ranked.append((tier,not preferred,-row['score'],partner['id'],row))
-    rows = [entry[-1] for entry in sorted(ranked,key=lambda entry:entry[:4])[:min(limit,12)]]
+    limit_base = min(limit, 12)
+    sorted_ranked = sorted(ranked, key=lambda entry: entry[:4])
+    has_required_gate = any(c['mode'] == 'required' for c in conditions)
+    tier0 = [entry for entry in sorted_ranked if entry[0] == 0]
+    if not has_required_gate and limit >= 12 and len(tier0) > 8:
+        tier0_selected = tier0[:limit_base]
+        non_tier0_exp = sorted(
+            (entry for entry in sorted_ranked if entry[0] > 0 and entry[-1]['score'] > 0),
+            key=lambda entry: (entry[1], -entry[-1]['score'], entry[0], entry[3]),
+        )[:4]
+        rows = [entry[-1] for entry in tier0_selected + non_tier0_exp]
+    else:
+        rows = [entry[-1] for entry in sorted_ranked[:limit_base]]
     info['candidate_order'] = [r['id'] for r in rows]
     selected = []
     for row in rows:

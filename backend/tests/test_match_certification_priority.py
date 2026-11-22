@@ -49,9 +49,9 @@ def test_certified_union_happens_before_cut_and_overflow_uses_only_first_tier():
         conn.execute("UPDATE partners SET name='Oracle搬家相关团队' WHERE id='cert-14'")
         selected=context.recall_candidates(conn,requirement,understood,limit=100)
     ids=[x['partnerId'] for x in selected]
-    assert len(ids)==12 and ids[0]=='cert-14'
-    assert ids[1:]==[f'cert-{i:02}' for i in range(11)]
-    assert not any(pid.startswith('plain-') for pid in ids)
+    assert len(ids)==16 and ids[0]=='cert-14'
+    assert ids[1:12]==[f'cert-{i:02}' for i in range(11)]
+    assert ids[12:]==[f'plain-{i:02}' for i in range(4)]
 
 
 def test_tiers_do_not_double_count_tags_or_fill_irrelevant_partners():
@@ -377,3 +377,188 @@ def test_required_service_can_use_formal_certification_without_manual_identity(m
         rec=json.loads(record['recommendations_json'])[0]
         assert rec['certification']['identities']==[] and rec['certification']['servicePartnerBasis']=='capability_tag'
         assert conn.execute("SELECT identities FROM partners WHERE id='service-from-cert'").fetchone()[0] is None
+
+
+def test_elastic_recall_adds_four_lexical_candidates_only_when_no_required_gate_and_tier0_exceeds_8():
+    from backend.business.matching_types import MatchAnswer
+    from backend.app.capability_hierarchy import l1_l2_hierarchy_map
+
+    for i in range(8):
+        partner(f'tier0-{i:02}', '数据库', name=f'持证伙伴{i:02}')
+    partner('zero-hit-plain', '', name='无关公司')
+    partner('tier1-low', '', ['服务合作伙伴'], name='Oracle伙伴')
+    for i in range(4):
+        partner(f'tier2-high-{i:02}', '', name='Oracle搬家微服务改造部署交付专家')
+
+    requirement = '需要Oracle搬家与微服务改造部署交付'
+    understood = facts(requirement, 'Oracle搬家与微服务改造部署交付')
+
+    # len(tier0) == 8 -> standard 12 cap (8 tier0 + 4 highest-score non-tier0).
+    with get_db() as conn:
+        selected8 = context.recall_candidates(conn, requirement, understood)
+    assert len(selected8) == 12
+
+    # len(tier0) == 9 (> 8, no required gate) -> 9 tier0 + 4 highest-score non-tier0 = 13, and high-score Tier 2 beats lower-score Tier 1.
+    partner('tier0-08', '数据库', name='持证伙伴08')
+    with get_db() as conn:
+        selected9 = context.recall_candidates(conn, requirement, understood)
+    ids9 = [item['partnerId'] for item in selected9]
+    assert len(ids9) == 13
+    assert ids9[:9] == [f'tier0-{i:02}' for i in range(9)]
+    assert ids9[9:] == [f'tier2-high-{i:02}' for i in range(4)]
+    assert 'zero-hit-plain' not in ids9 and 'tier1-low' not in ids9
+
+    # Preferred non-tier0 partner with lower lexical hit ranks first inside the 4 extra slots.
+    partner('tier2-pref-dealer', '', ['云经销商'], name='Oracle伙伴')
+    pref_req = requirement + '，优先云经销商'
+    pref_facts = facts(
+        pref_req,
+        'Oracle搬家与微服务改造部署交付',
+        conditions=[condition(mode='preferred', identities=['云经销商'], quote='优先云经销商')],
+    )
+    with get_db() as conn:
+        selected_pref = context.recall_candidates(conn, pref_req, pref_facts)
+        ids_pref = [item['partnerId'] for item in selected_pref]
+        assert len(ids_pref) == 13
+        assert ids_pref[9] == 'tier2-pref-dealer'
+        assert ids_pref[10:] == [f'tier2-high-{i:02}' for i in range(3)]
+        conn.execute("DELETE FROM partners WHERE id='tier2-pref-dealer'")
+
+    # Add 5 more certified partners (total tier0 == 14):
+    # Without required gate -> 12 tier0 + 4 non-tier0 = 16, and Stage 2 production _detail_content trims excess case payload <= 25,000 chars while giving every extra candidate case evidence.
+    for i in range(9, 14):
+        partner(f'tier0-{i:02}', '数据库', name=f'持证伙伴{i:02}')
+    with get_db() as conn:
+        selected14 = context.recall_candidates(conn, requirement, understood)
+        assert len(selected14) == 16
+        for item in selected14:
+            pid = item['partnerId']
+            conn.execute(
+                "INSERT INTO cases (id, partner_id, category_id, visible, title, description, created_at) VALUES (?, ?, 'technical-1', 1, ?, ?, '2026-11-22T00:00:00Z')",
+                (f'c1-{pid}', pid, f'{pid}主案例', 'Oracle搬家微服务交付实例。' + '案例正文' * 25),
+            )
+            conn.execute(
+                "INSERT INTO cases (id, partner_id, category_id, visible, title, description, created_at) VALUES (?, ?, 'technical-1', 1, ?, ?, '2026-11-22T00:00:00Z')",
+                (f'c2-{pid}', pid, f'{pid}扩展超长案例', '扩展补充说明：' + '详尽项目细节与验收记录。' * 160),
+            )
+        rows = [
+            context.detailed_candidate(conn, item['partnerId'], item['verificationFocus'], requirement, facts=understood, hits=item['hits'])
+            for item in selected14
+        ]
+        cfg = {'api_key': 'offline-only', 'base_url': 'http://127.0.0.1:1/v1', 'model_name': 'synthetic',
+               'max_tokens': 4096, 'context_window_tokens': 1048576, 'temperature': 0.2, 'top_p': 1}
+        schema = MatchAnswer.model_json_schema()
+        snapshot_stub = {'understanding': {'facts': understood}}
+        build = lambda items: match._detail_content(requirement, snapshot_stub, items)
+        context.assemble_details(rows, cfg, build, schema)
+        chars, _ = context.input_metrics(cfg, matching.detail_messages(build(rows)), schema)
+        assert chars <= context.DETAIL_CHAR_LIMIT
+        assert all(len(r[1]['visibleCases']) >= 1 for r in rows[12:])
+        assert any(len(r[1]['visibleCases']) < 2 for r in rows)
+
+        # With explicit required gate -> strictly 12 certified partners only.
+        req_with_gate = requirement + '，必须具备数据库认证'
+        gated = facts(req_with_gate, 'Oracle搬家与微服务改造部署交付', conditions=[condition(tags=['数据库'], quote='必须具备数据库认证')])
+        selected_gated = context.recall_candidates(conn, req_with_gate, gated)
+        assert len(selected_gated) == 12
+        assert all(item['partnerId'].startswith('tier0-') for item in selected_gated)
+
+        # When tier0 > 8 but zero non-tier0 partners match lexical terms -> do NOT pad zero-hit partners.
+        conn.execute("UPDATE partners SET name='无关联文本' WHERE id='tier1-low' OR id LIKE 'tier2-high-%'")
+        selected_no_lex = context.recall_candidates(conn, requirement, understood)
+        assert len(selected_no_lex) == 12
+        assert 'zero-hit-plain' not in [item['partnerId'] for item in selected_no_lex]
+
+
+def test_synonymous_l1_tags_expand_symmetrically_only_for_generic_queries():
+    from backend.app.capability_hierarchy import l1_l2_hierarchy_map
+
+    partner('p-bd', '大数据', name='大数据专精伙伴')
+    partner('p-dm', '数据管理分析与流通', name='数据治理专精伙伴')
+    partner('p-unrelated', '安全', name='安全伙伴')
+
+    generic_req = '希望寻找具备学习分析和数据分析能力的合作伙伴'
+    tags = ['大数据', '数据管理分析与流通']
+    with get_db() as conn:
+        _, hierarchy = l1_l2_hierarchy_map(conn)
+
+    u_bd, _ = matching.parse_understanding(
+        json.dumps({'in_scope': True, 'facts': {
+            'capabilityTags': ['大数据'], 'capabilityEvidence': {'大数据': '学习分析和数据分析'},
+            'workEvidence': ['学习分析和数据分析'], 'partnerRequirements': [],
+        }}, ensure_ascii=False),
+        generic_req, tags, hierarchy=hierarchy,
+    )
+    u_dm, _ = matching.parse_understanding(
+        json.dumps({'in_scope': True, 'facts': {
+            'capabilityTags': ['数据管理分析与流通'], 'capabilityEvidence': {'数据管理分析与流通': '学习分析和数据分析'},
+            'workEvidence': ['学习分析和数据分析'], 'partnerRequirements': [],
+        }}, ensure_ascii=False),
+        generic_req, tags, hierarchy=hierarchy,
+    )
+    with get_db() as conn:
+        rec_bd = context.recall_candidates(conn, generic_req, u_bd['facts'])
+        rec_dm = context.recall_candidates(conn, generic_req, u_dm['facts'])
+
+    assert [item['partnerId'] for item in rec_bd] == ['p-dm', 'p-bd']
+    assert rec_bd == rec_dm
+    assert {item['partnerId']: item['certification']['relatedCapabilityTags'] for item in rec_bd} == {
+        'p-dm': ['数据管理分析与流通'],
+        'p-bd': ['大数据'],
+    }
+
+    # Literal L1 name, explicit L2 child, or partnerRequirements constraint must NOT expand to the sibling.
+    literal_req = '需要大数据平台能力'
+    u_lit, _ = matching.parse_understanding(
+        json.dumps({'in_scope': True, 'facts': {
+            'capabilityTags': ['大数据'], 'capabilityEvidence': {'大数据': '大数据平台能力'},
+            'workEvidence': ['大数据平台能力'], 'partnerRequirements': [],
+        }}, ensure_ascii=False),
+        literal_req, tags, hierarchy=hierarchy,
+    )
+    l2_req = '需要分布式批量计算能力'
+    u_l2, _ = matching.parse_understanding(
+        json.dumps({'in_scope': True, 'facts': {
+            'capabilityTags': ['大数据'], 'capabilityEvidence': {'大数据': '分布式批量计算能力'},
+            'subCapabilityTags': [{'parent': '大数据', 'name': '大数据开发支持能力'}],
+            'subCapabilityEvidence': {'大数据/大数据开发支持能力': '分布式批量计算能力'},
+            'workEvidence': ['分布式批量计算能力'], 'partnerRequirements': [],
+        }}, ensure_ascii=False),
+        l2_req, tags, hierarchy=hierarchy,
+    )
+    cond_req = '希望具备数据分析能力，必须具备正式大数据认证'
+    u_cond, _ = matching.parse_understanding(
+        json.dumps({'in_scope': True, 'facts': {
+            'capabilityTags': ['大数据'], 'capabilityEvidence': {'大数据': '数据分析能力'},
+            'workEvidence': ['数据分析能力'],
+            'partnerRequirements': [{'mode': 'required', 'match': 'all', 'capabilityTags': ['大数据'], 'evidenceText': '必须具备正式大数据认证'}],
+        }}, ensure_ascii=False),
+        cond_req, tags, hierarchy=hierarchy,
+    )
+    with get_db() as conn:
+        lit_res = context.recall_candidates(conn, literal_req, u_lit['facts'])
+        assert lit_res[0]['partnerId'] == 'p-bd'
+        assert lit_res[0]['certification']['relatedCapabilityTags'] == ['大数据']
+        assert all(i['certification']['relatedCapabilityTags'] == [] for i in lit_res if i['partnerId'] == 'p-dm')
+        assert [i['partnerId'] for i in context.recall_candidates(conn, l2_req, u_l2['facts'])] == ['p-bd']
+        assert [i['partnerId'] for i in context.recall_candidates(conn, cond_req, u_cond['facts'])] == ['p-bd']
+
+
+def test_recall_query_merges_grounded_capability_evidence_without_polluting_empty_work():
+    requirement = '需要在线教学、学习分析与容器云运维，不要硬件采购。'
+    facts_partial = {
+        'workEvidence': ['在线教学'],
+        'capabilityTags': ['大数据', '容器'],
+        'capabilityEvidence': {'大数据': '学习分析', '安全': '硬件采购', '未选': '虚构片段'},
+        'subCapabilityTags': [{'parent': '容器', 'name': '容器（云原生）运维'}],
+        'subCapabilityEvidence': {'容器/容器（云原生）运维': '容器云运维'},
+    }
+    terms_partial, _ = matching.recall_query(requirement, facts_partial)
+    assert {'教学', '学习', '分析', '运维'} <= set(terms_partial)
+    assert '硬件' not in terms_partial and '采购' not in terms_partial and '虚构' not in terms_partial
+
+    assert matching.recall_query(requirement, {
+        'workEvidence': [],
+        'capabilityTags': ['大数据'],
+        'capabilityEvidence': {'大数据': '学习分析'},
+    }) == ([], [])
