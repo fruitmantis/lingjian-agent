@@ -55,14 +55,21 @@ capability_tags = Table('capability_tags', metadata,
     Column('id', Text, primary_key=True, nullable=False),
     Column('name', Text, primary_key=False, nullable=False),
     Column('category', Text, primary_key=False, nullable=False),
+    Column('level', Integer, primary_key=False, nullable=False, server_default=text('1')),
+    Column('parent_id', Text, primary_key=False, nullable=True),
     Column('description', Text, primary_key=False, nullable=True),
     Column('enabled', Integer, primary_key=False, nullable=True, server_default=text('1')),
     Column('sort_order', Integer, primary_key=False, nullable=True, server_default=text('0')),
     Column('is_preset', Integer, primary_key=False, nullable=True, server_default=text('0')),
     Column('created_at', Text, primary_key=False, nullable=False),
     Column('updated_at', Text, primary_key=False, nullable=False),
-    UniqueConstraint('name', name='uq_capability_tags_0'),
+    CheckConstraint('level IN (1, 2)', name='ck_capability_tags_level'),
+    CheckConstraint('(level = 1 AND parent_id IS NULL) OR (level = 2 AND parent_id IS NOT NULL)', name='ck_capability_tags_hierarchy'),
+    ForeignKeyConstraint(['parent_id'], ['capability_tags.id'], name='fk_capability_tags_parent', ondelete='RESTRICT'),
 )
+
+Index('uq_capability_tags_l1_name', capability_tags.c.name, unique=True, postgresql_where=text('level = 1'))
+Index('uq_capability_tags_l2_parent_name', capability_tags.c.parent_id, capability_tags.c.name, unique=True, postgresql_where=text('level = 2'))
 
 
 
@@ -380,6 +387,7 @@ partners = Table('partners', metadata,
     Column('intro', Text, primary_key=False, nullable=True),
     Column('created_at', Text, primary_key=False, nullable=False),
     Column('capabilities', Text, primary_key=False, nullable=True),
+    Column('sub_capabilities', Text, primary_key=False, nullable=True),
     Column('service_areas', Text, primary_key=False, nullable=True),
     Column('industries', Text, primary_key=False, nullable=True),
     Column('ai_profile', Text, primary_key=False, nullable=True),

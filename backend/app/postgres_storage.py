@@ -98,42 +98,50 @@ def connect(url,readonly=False):
             raw.rollback();raise
 
 
-def verify_schema(url):
+def verify_schema_connection(conn):
     from .storage_models import metadata
     from sqlalchemy import inspect
+    found=set(inspect(conn).get_table_names())
+    if set(metadata.tables)-found:
+        raise RuntimeError('PostgreSQL schema is incomplete; explicit migration required')
+    match_columns = {c['name'] for c in inspect(conn).get_columns('match_records')}
+    if 'last_error_details' not in match_columns:
+        raise RuntimeError('Task failure detail column missing; run explicit additive migration')
+    if not {'attachment_name', 'attachment_text'} <= match_columns:
+        raise RuntimeError('Task attachment columns missing; run explicit schema-24 migration')
+    if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='26':
+        raise RuntimeError('PostgreSQL schema version is not 26; refusing automatic changes')
+
+    if 'profile_chapter_meta' not in {c['name'] for c in inspect(conn).get_columns('partners')}:
+        raise RuntimeError('Profile chapter association column missing; explicit additive migration required')
+
+    from .development_partner_schema import verify_optional_partner
+    verify_optional_partner(Connection(conn))
+
+    model_columns = {c['name'] for c in inspect(conn).get_columns('model_configs')}
+    if 'provider_id' not in model_columns or model_columns & {'provider','base_url','api_key','api_key_source','api_key_env_name'}:
+        raise RuntimeError('Model providers require explicit schema-22 migration')
+    if 'context_window_tokens' not in model_columns:
+        raise RuntimeError('Model context capacity column missing; explicit schema-23 migration required')
+    if 'timeout_seconds' in {c['name'] for c in inspect(conn).get_columns('model_configs')}:
+        raise RuntimeError('Obsolete per-model timeout column remains; explicit cleanup required')
+
+    if 'last_active_at' not in {c['name'] for c in inspect(conn).get_columns('users')}:
+        raise RuntimeError('User activity column missing; explicit migration required')
+
+    if 'employee_number' not in {c['name'] for c in inspect(conn).get_columns('users')}:
+        raise RuntimeError('Employee number column missing; run explicit schema-21 migration')
+    partner_columns = {c['name'] for c in inspect(conn).get_columns('partners')}
+    if 'identities' not in partner_columns:
+        raise RuntimeError('Partner identity column missing; run explicit schema-25 migration')
+    tag_columns = {c['name'] for c in inspect(conn).get_columns('capability_tags')}
+    if not {'level', 'parent_id'} <= tag_columns or 'sub_capabilities' not in partner_columns:
+        raise RuntimeError('Capability hierarchy columns missing; run explicit schema-26 migration')
+
+
+def verify_schema(url):
     with engine_for(url).connect() as conn:
-        found=set(inspect(conn).get_table_names())
-        if set(metadata.tables)-found:
-            raise RuntimeError('PostgreSQL schema is incomplete; explicit migration required')
-        match_columns = {c['name'] for c in inspect(conn).get_columns('match_records')}
-        if 'last_error_details' not in match_columns:
-            raise RuntimeError('Task failure detail column missing; run explicit additive migration')
-        if not {'attachment_name', 'attachment_text'} <= match_columns:
-            raise RuntimeError('Task attachment columns missing; run explicit schema-24 migration')
-        if conn.execute(text("SELECT value FROM app_metadata WHERE key='schema_version'")).scalar()!='25':
-            raise RuntimeError('PostgreSQL schema version is not 25; refusing automatic changes')
-
-        if 'profile_chapter_meta' not in {c['name'] for c in inspect(conn).get_columns('partners')}:
-            raise RuntimeError('Profile chapter association column missing; explicit additive migration required')
-
-        from .development_partner_schema import verify_optional_partner
-        verify_optional_partner(Connection(conn))
-
-        model_columns = {c['name'] for c in inspect(conn).get_columns('model_configs')}
-        if 'provider_id' not in model_columns or model_columns & {'provider','base_url','api_key','api_key_source','api_key_env_name'}:
-            raise RuntimeError('Model providers require explicit schema-22 migration')
-        if 'context_window_tokens' not in model_columns:
-            raise RuntimeError('Model context capacity column missing; explicit schema-23 migration required')
-        if 'timeout_seconds' in {c['name'] for c in inspect(conn).get_columns('model_configs')}:
-            raise RuntimeError('Obsolete per-model timeout column remains; explicit cleanup required')
-
-        if 'last_active_at' not in {c['name'] for c in inspect(conn).get_columns('users')}:
-            raise RuntimeError('User activity column missing; explicit migration required')
-
-        if 'employee_number' not in {c['name'] for c in inspect(conn).get_columns('users')}:
-            raise RuntimeError('Employee number column missing; run explicit schema-21 migration')
-        if 'identities' not in {c['name'] for c in inspect(conn).get_columns('partners')}:
-            raise RuntimeError('Partner identity column missing; run explicit schema-25 migration')
+        verify_schema_connection(conn)
 
 
 def initialize_empty_schema(url):

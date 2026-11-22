@@ -4,10 +4,16 @@ from pydantic import Field, StrictBool
 from .common import ModelOutput, StrictModel
 
 
+class SubCapabilityRef(ModelOutput):
+    parent: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=100)
+
+
 class PartnerRequirement(ModelOutput):
     mode: Literal['required','preferred','excluded']
     match: Literal['all','any'] = 'all'
-    capabilityTags: list[str] = Field(default_factory=list, max_length=30, description='仅用户明确要求持有、优先或排除的正式认证或正式标签；不从工作内容、能力或部署环境推导认证条件。')
+    capabilityTags: list[str] = Field(default_factory=list, max_length=30, description='仅用户明确要求持有、优先或排除的正式一级认证或正式标签；不从工作内容、能力或部署环境推导认证条件。')
+    subCapabilityTags: list[SubCapabilityRef] = Field(default_factory=list, max_length=30, description='仅用户明确要求持有、优先或排除的二级细分正式认证，须与capability_hierarchy中一级/二级一致；不降级为宽泛一级标签。')
     identities: list[str] = Field(default_factory=list, max_length=6)
     evidenceText: str = Field(min_length=2)
 
@@ -26,8 +32,10 @@ class ProjectFacts(ModelOutput):
     onsiteRequirement: str='未知'
     timelineRequirement: str='未知'
     cloudPlatformPreference: str='未知'
-    capabilityTags: list[str]=Field(default_factory=list,max_length=30,description='本次工作相关的标准能力标签，用于认证优先召回，不表示必须持有认证；部署环境不推导为指定产品平台或其专项认证。')
-    capabilityEvidence: dict[str,str] = Field(default_factory=dict, description='每个相关标准能力标签对应的需求原文；仅正向工作，不将明确排除的能力作为目标。')
+    capabilityTags: list[str]=Field(default_factory=list,max_length=30,description='本次工作相关的标准一级能力标签，用于认证优先召回，不表示必须持有认证；部署环境不推导为指定产品平台或其专项认证。')
+    capabilityEvidence: dict[str,str] = Field(default_factory=dict, description='每个相关标准一级能力标签对应的需求原文；仅正向工作，不将明确排除的能力作为目标。')
+    subCapabilityTags: list[SubCapabilityRef]=Field(default_factory=list,max_length=30,description='本次工作明确涉及的二级细分能力认证，用于相关二级认证对照；仅填写有明确需求原文依据的二级项。')
+    subCapabilityEvidence: dict[str,str] = Field(default_factory=dict, description='每个相关二级能力标签对应的需求原文，键格式为“一级/二级”；仅正向工作。')
     workEvidence: list[str] | None = Field(default=None, description='本次正向工作主题的连续需求原文，不含单独的行业、区域、身份、排除条件或追问；无工作主题返回空数组。')
     partnerRequirements: list[PartnerRequirement] = Field(default_factory=list, description='仅用户明确提出的正式认证、正式标签或六类身份条件；必须完成的工作和部署要求不转成认证门槛，无明确认证或身份条件返回空数组，业务硬要求仍交给详评。保留必须/优先/排除及或/同时，复杂条件原文交给详评，不生成嵌套规则。')
     deliveryTypeTags: str=''
@@ -38,7 +46,7 @@ class ProjectFacts(ModelOutput):
 
 class TagSuggestion(ModelOutput):
     suggestedName: str=Field(min_length=1,max_length=100)
-    suggestedCategoryName: Literal['AI与智能体','云平台与迁移','数据与数据库','应用开发与现代化','运维与安全','咨询与项目管理','其他']='其他'
+    suggestedCategoryName: Literal['产品技术能力','场景化能力']='场景化能力'
     description: str=''
     evidenceText: str=''
     confidence: float=Field(default=0.5,ge=0,le=1)

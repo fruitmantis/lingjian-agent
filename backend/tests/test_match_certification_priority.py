@@ -139,6 +139,7 @@ def test_tag_only_detail_and_saved_snapshot_are_program_owned_and_legacy_is_not_
         assert len(data['candidates'])==1 and candidate['partnerId']=='cert'
         assert candidate['profilePassages']==[] and candidate['certification']=={
             'capabilityTags':['数据库'],'relatedCapabilityTags':['数据库'],
+            'subCapabilityTags':[],'relatedSubCapabilityTags':[],
             'servicePartnerBasis':'capability_tag','identities':['云经销商']}
         assert context.input_metrics(config,messages,schema)[0]<=25000
         assert not any(k.startswith('_') for k in candidate)

@@ -11,6 +11,14 @@ from pydantic import ValidationError
 
 from .auth import record_audit
 from .business_taxonomy import INDUSTRIES, REGION_TYPES, classify, project_partner, tokens
+from .capability_hierarchy import (
+    format_sub_capabilities,
+    load_capability_tree,
+    normalize_partner_capabilities,
+    parse_sub_capability_pairs,
+    read_sub_capabilities,
+    stored_sub_capabilities,
+)
 from .database import get_db
 from .enablement import fail, now
 from .models import PartnerCreate
@@ -24,8 +32,9 @@ COLUMNS = {
     'status': '状态', 'ai_profile': '完整画像', 'profile_pending': '画像待更新',
     'created_at': '创建时间（参考）', 'updated_at': '更新时间（参考）', 'profile_updated_at': '画像更新时间（参考）',
     'identities': '伙伴身份（多选）',
+    'sub_capabilities': '二级能力标签（格式：一级/二级，多选）',
 }
-LONG_FIELDS = ('intro', 'capabilities', 'industries', 'service_areas', 'pending_industries', 'pending_regions', 'ai_profile')
+LONG_FIELDS = ('intro', 'capabilities', 'sub_capabilities', 'industries', 'service_areas', 'pending_industries', 'pending_regions', 'ai_profile')
 CONTINUATION = ['伙伴ID（新增可留空）', '伙伴名称', '字段', '段号（从2开始）', '续文']
 CHUNK = 32000  # Excel silently truncates cells beyond 32767 characters.
 
@@ -42,11 +51,12 @@ def export_workbook(*, template=False):
     append_text(sheet, list(COLUMNS.values()))
     continuation = book.create_sheet('长文本续文')
     append_text(continuation, CONTINUATION)
-    if not template:
-        with get_db() as conn:
+    with get_db() as conn:
+        if not template:
             for row in conn.execute('SELECT * FROM partners ORDER BY created_at,id'):
                 data = project_partner(dict(row))
                 data['identities'] = ','.join(read_identities(row['identities']))
+                data['sub_capabilities'] = format_sub_capabilities(read_sub_capabilities(row['sub_capabilities']))
                 data.update(pending_industries=','.join(data['classification_pending']['industries']),
                             pending_regions=','.join(data['classification_pending']['regions']),
                             status='启用' if row['status'] == 'active' else '停用',
@@ -57,11 +67,17 @@ def export_workbook(*, template=False):
                     for offset in range(CHUNK, len(value), CHUNK):
                         append_text(continuation, [data['id'], data['name'], COLUMNS[field], offset // CHUNK + 1, value[offset:offset + CHUNK]])
                 append_text(sheet, [data.get(key) for key in COLUMNS])
+        cap_tree = load_capability_tree(conn, include_disabled=False)
     dictionary = book.create_sheet('行业区域参考')
     append_text(dictionary, ['分类', '标准值'])
     for kind, values in [('行业', INDUSTRIES), ('国内区域', REGION_TYPES['domestic']), ('海外区域', REGION_TYPES['overseas']), ('伙伴身份', IDENTITIES)]:
         for value in values:
             append_text(dictionary, [kind, value])
+    for cat in cap_tree:
+        for l1 in cat['tags']:
+            append_text(dictionary, ['一级能力标签', l1['name']])
+            for l2 in l1['children']:
+                append_text(dictionary, ['二级能力标签', f"{l1['name']}/{l2['name']}"])
     notes = book.create_sheet('使用说明')
     for line in [
         '伙伴信息每行一家；名称必填，状态填启用/停用（留空默认启用），画像待更新填是/否（留空默认否）。',
@@ -69,6 +85,7 @@ def export_workbook(*, template=False):
         '导入按表格更新基础信息和完整画像；空白可选字段表示清空，请先导出留存再编辑。时间列仅供参考，由目标系统记录本次更新时间。',
         '行业和区域从参考表选择，多选用逗号分隔；待确认列只保留未确认的旧分类，不作为正式分类。已有待确认内容保留。',
         '伙伴身份从参考表选择，可多选，用逗号分隔；有此列时空白清空身份，旧模板无此列时保留已有身份，新伙伴暂未维护。不自动推断身份。',
+        '二级能力标签从参考表按“一级/二级”填写，可多选逗号分隔，导入时自动补全对应一级标签；旧模板无此列时保留已有二级标签。',
         '长文本超过32000字时自动分到“长文本续文”，导入按伙伴ID（无ID用名称）、字段和段号拼接，不截断。请保留续文工作表。',
         '模板中不带现有伙伴数据。导出包括启用和停用伙伴；案例、附件原件、任务与历史记录不在此表格中。',
         '画像直接采用表格文字，不调用模型、不改正式能力标签字典。导入失败整批回滚，并提示错误行号。',
@@ -93,14 +110,22 @@ def export_workbook(*, template=False):
 
 
 def read_rows(content):
+    column_variants = [
+        COLUMNS,
+        {key: label for key, label in COLUMNS.items() if key != 'sub_capabilities'},
+        {key: label for key, label in COLUMNS.items() if key != 'identities'},
+        {key: label for key, label in COLUMNS.items() if key not in ('identities', 'sub_capabilities')},
+    ]
+    sheets = None
     columns = COLUMNS
-    try:
-        sheets = read_workbook(content, [('伙伴信息', list(columns.values()), MAX_ROWS), ('长文本续文', CONTINUATION, 10000)])
-    except HTTPException as error:
-        if error.status_code != 422 or error.detail != '“伙伴信息”表头不匹配，请使用导出的模板':
-            raise
-        columns = {key: label for key, label in COLUMNS.items() if key != 'identities'}
-        sheets = read_workbook(content, [('伙伴信息', list(columns.values()), MAX_ROWS), ('长文本续文', CONTINUATION, 10000)])
+    for idx, candidate in enumerate(column_variants):
+        try:
+            sheets = read_workbook(content, [('伙伴信息', list(candidate.values()), MAX_ROWS), ('长文本续文', CONTINUATION, 10000)])
+            columns = candidate
+            break
+        except HTTPException as error:
+            if error.status_code != 422 or error.detail != '“伙伴信息”表头不匹配，请使用导出的模板' or idx == len(column_variants) - 1:
+                raise
     rows = [(line, dict(zip(columns, values))) for line, values in sheets['伙伴信息']]
     if not rows:
         fail(422, '表格中没有伙伴信息')
@@ -157,6 +182,22 @@ def import_workbook(content, actor):
                 fields = {field: getattr(payload, field) for field in ('name', 'intro', 'capabilities', 'industries', 'service_areas', 'status', 'ai_profile')}
                 if 'identities' in data:
                     fields['identities'] = stored_identities(payload.identities)
+                sub_provided = 'sub_capabilities' in data
+                parsed_subs = None
+                if sub_provided:
+                    raw_subs = None if data['sub_capabilities'] in (None, '') else str(data['sub_capabilities'])
+                    parsed_subs = parse_sub_capability_pairs(raw_subs)
+                effective_caps, effective_subs = normalize_partner_capabilities(
+                    conn,
+                    fields['capabilities'],
+                    parsed_subs,
+                    existing_capabilities=current['capabilities'] if current else None,
+                    existing_sub_capabilities=current['sub_capabilities'] if current else None,
+                    sub_provided=sub_provided,
+                )
+                fields['capabilities'] = effective_caps
+                if sub_provided:
+                    fields['sub_capabilities'] = stored_sub_capabilities(effective_subs)
                 for column, field, kind in [('pending_industries', 'industries', 'industry'), ('pending_regions', 'service_areas', 'region')]:
                     pending = tokens(data[column])
                     if any(classify(value, kind)[0] for value in pending):
@@ -188,9 +229,12 @@ def import_workbook(content, actor):
             except ValidationError as exc:
                 field = str(exc.errors()[0]['loc'][0]) if exc.errors()[0]['loc'] else 'name'
                 fail(422, f'“伙伴信息”第{line}行：{COLUMNS.get(field, "内容")}无效，请检查必填项和标准值')
-            except (HTTPException, ValueError) as exc:
-                fail(exc.status_code if isinstance(exc, HTTPException) else 422,
-                     f'“伙伴信息”第{line}行：{exc.detail if isinstance(exc, HTTPException) else "分类格式无效"}')
+            except HTTPException as exc:
+                fail(exc.status_code, f'“伙伴信息”第{line}行：{exc.detail}')
+            except ValueError as exc:
+                msg = str(exc)
+                detail = msg if ('一级能力标签' in msg or '二级能力标签' in msg or '无效' in msg or '停用' in msg) else '分类格式无效'
+                fail(422, f'“伙伴信息”第{line}行：{detail}')
         if result['created'] or result['updated']:
             record_audit(conn, 'partners_imported', actor_user_id=actor, summary=result)
     return result

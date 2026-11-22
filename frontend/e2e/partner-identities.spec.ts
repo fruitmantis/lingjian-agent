@@ -73,6 +73,7 @@ async function visibilityFixture(page:Page){
   if(path==='/health')return route.fulfill({json:{status:'ok'}});
   if(path==='/agents')return route.fulfill({json:[]});
   if(path==='/agent/tasks')return route.fulfill({json:{items:[],total:0,page:1,pageSize:20,totalPages:0}});
+  if(path==='/partners/capability-tree')return route.fulfill({json:[]});
   if(path==='/partners/profiles')return route.fulfill({json:rows});
   if(path.startsWith('/partners/')){const row=rows.find(row=>row.id===path.split('/').pop());if(row)return route.fulfill({json:row});}
   if(path==='/enablement/resources')return route.fulfill({json:{items:[],total:0,page:1,pageSize:20,totalPages:0}});
@@ -158,6 +159,7 @@ async function adminFiltersFixture(page:Page){
   if(path==='/auth/me')return route.fulfill({json:admin});
   if(path==='/health')return route.fulfill({json:{status:'ok'}});
   if(path==='/agents')return route.fulfill({json:[]});
+  if(path==='/partners/capability-tree')return route.fulfill({json:[]});
   if(path==='/partners'){queries.push(url.search);return route.fulfill({json:rows});}
   if(path==='/partners/export'){exports.push(url.search);return route.fulfill({body:'Synthetic export only',contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
   unexpected.push(path);return route.fulfill({status:404,json:{detail:'Unexpected isolated read'}});

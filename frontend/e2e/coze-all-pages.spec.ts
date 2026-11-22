@@ -44,6 +44,7 @@ async function allPagesFixture(page:Page){
     else if(p==='/admin/enablement/resources')json=[resource];
     else if(p==='/admin/enablement/resources/resource-1')json=resource;
     else if(p==='/admin/enablement/resource-categories')json=[{id:'role-1',kind:'role',name:'架构师',sort_order:0},{id:'zone-1',kind:'zone',name:'人工智能',sort_order:0}];
+    else if(p==='/partners/capability-tree'||p==='/admin/capability-tags/tree')json=[{id:'category-1',name:'技术能力',code:'tech',description:null,enabled:true,sortOrder:0,isPreset:true,tags:[{id:'tag-1',name:'数据库',enabled:true,category:'技术能力',description:'数据库交付与迁移',sortOrder:1,isPreset:true,level:1,children:[]}]}];
     else if(p==='/admin/capability-tags')json=[{id:'tag-1',name:'数据库',enabled:true,category:'技术能力',description:'数据库交付与迁移',sortOrder:1}];
     else if(p==='/admin/capability-tags/categories')json=[{id:'category-1',name:'技术能力',enabled:true,sortOrder:0}];
     else if(p==='/admin/capability-tags/suggestions')json={items:[],total:0};

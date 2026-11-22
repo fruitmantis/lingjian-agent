@@ -1,6 +1,13 @@
 "use client";
 import partnerIdentityOptions from "../../../../shared/partner-identities.json";
 import {MultiSelectFilter} from "@/components/opportunity-ui";
+import {
+  buildCapabilityFilterGroups,
+  buildSubCapabilityFilterGroups,
+  CapabilityCategoryNode,
+  matchesPartnerCapabilities,
+  SubCapabilityItem,
+} from "@/components/partner-capability-fields";
 import {splitPartnerTags} from "@/components/partner-tag-list";
 import {PartnerIdentityFields} from "@/components/partner-identities";
 import {ClassificationFields} from "@/components/business-taxonomy";
@@ -10,7 +17,7 @@ import Link from "next/link";
 import { FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { adminApiFetch as apiFetch } from "../../../components/auth-provider";
 
-type Partner = { id: string; name: string; identities?: string[] | null; intro: string | null; capabilities: string | null; service_areas: string | null; industries: string | null; ai_profile: string | null; status: "active" | "disabled"; created_at: string; profile_needs_update?: boolean; profile_status?: string };
+type Partner = { id: string; name: string; identities?: string[] | null; intro: string | null; capabilities: string | null; sub_capabilities?: SubCapabilityItem[]; service_areas: string | null; industries: string | null; ai_profile: string | null; status: "active" | "disabled"; created_at: string; profile_needs_update?: boolean; profile_status?: string };
 
 function closeDisclosure(node:HTMLElement|null) {
   const details=node?.closest("details");
@@ -25,8 +32,10 @@ function disclosureKey(event:KeyboardEvent<HTMLElement>) {
 
 export default function AdminPartnersPage() {
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [capTree, setCapTree] = useState<CapabilityCategoryNode[]>([]);
   const [selectedIdentities,setSelectedIdentities]=useState<string[]>([]);
   const [selectedCapabilities,setSelectedCapabilities]=useState<string[]>([]);
+  const [selectedSubCapabilities,setSelectedSubCapabilities]=useState<string[]>([]);
   const [name, setName] = useState("");
   const [identities,setIdentities]=useState<string[]>([]);
   const [industries,setIndustries]=useState(""),[regions,setRegions]=useState("");
@@ -37,12 +46,14 @@ export default function AdminPartnersPage() {
   const [error, setError] = useState<string | null>(null);
   const [transferBusy, setTransferBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const capabilityOptions=useMemo(()=>[...new Set(partners.flatMap(partner=>splitPartnerTags(partner.capabilities)))].sort((a,b)=>a.localeCompare(b,"zh-CN")),[partners]);
+  const capabilityOptions=useMemo(()=>[...new Set(partners.flatMap(partner=>[...splitPartnerTags(partner.capabilities),...(partner.sub_capabilities||[]).map(s=>s.parent)]))].sort((a,b)=>a.localeCompare(b,"zh-CN")),[partners]);
+  const capabilityGroups=useMemo(()=>buildCapabilityFilterGroups(capTree,capabilityOptions),[capTree,capabilityOptions]);
+  const subCapabilityGroups=useMemo(()=>buildSubCapabilityFilterGroups(capTree,partners),[capTree,partners]);
   const filtered=partners.filter(partner=>
     (!selectedIdentities.length||selectedIdentities.some(value=>(partner.identities||[]).includes(value)))&&
-    (!selectedCapabilities.length||selectedCapabilities.some(value=>splitPartnerTags(partner.capabilities).includes(value))));
-  const hasFilters=selectedIdentities.length>0||selectedCapabilities.length>0;
-  function clearFilters(){setSelectedIdentities([]);setSelectedCapabilities([]);}
+    matchesPartnerCapabilities(partner.capabilities,partner.sub_capabilities,selectedCapabilities,selectedSubCapabilities));
+  const hasFilters=selectedIdentities.length>0||selectedCapabilities.length>0||selectedSubCapabilities.length>0;
+  function clearFilters(){setSelectedIdentities([]);setSelectedCapabilities([]);setSelectedSubCapabilities([]);}
   async function download(template = false) {
     setTransferBusy(true); setError(null); setMessage(null);
     try {
@@ -86,7 +97,12 @@ export default function AdminPartnersPage() {
       setLoading(false);
     }
   }
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    void apiFetch("/partners/capability-tree", { cache: "no-store" })
+      .then(async res => { if (res.ok) setCapTree(await res.json()); })
+      .catch(() => {});
+  }, []);
   async function create(event: FormEvent) {
     event.preventDefault(); setError(null);
     try {
@@ -150,7 +166,8 @@ export default function AdminPartnersPage() {
       <details className="partner-admin-disclosure" onKeyDown={disclosureKey}><summary>新增伙伴</summary><div className="card partner-admin-editor"><h2>新增伙伴</h2><form onSubmit={create} className="form-grid"><label className="enablement-field" htmlFor="new-partner-name">伙伴名称<input id="new-partner-name" value={name} onChange={event => setName(event.target.value)} placeholder="伙伴名称" required maxLength={200} /></label><PartnerIdentityFields value={identities} onChange={setIdentities}/><ClassificationFields industries={industries} regions={regions} onIndustries={setIndustries} onRegions={setRegions}/><div className="table-actions"><button>新增伙伴</button><button type="button" className="secondary-btn" onClick={event=>closeDisclosure(event.currentTarget)}>取消</button></div></form></div></details></div>
       <section className="card"><div className="section-heading-row"><h2>伙伴列表</h2><div className="table-actions"><span className="result-count">共 {filtered.length} 家</span><details className="advisor-more partner-list-menu" onKeyDown={disclosureKey}><summary>更多操作</summary><div className="advisor-menu" onClick={event=>{if((event.target as HTMLElement).closest("button"))closeDisclosure(event.currentTarget);}}><button className="secondary-btn" onClick={batchGenerate} disabled={batchLoading}>{batchLoading ? "批量刷新状态中..." : "批量刷新状态画像"}</button></div></details></div></div>{!loading&&!error&&<section className="partner-filter-toolbar" aria-label="伙伴筛选">
         <MultiSelectFilter label="伙伴身份" selected={selectedIdentities} groups={[{name:"伙伴身份",values:partnerIdentityOptions}]} onChange={setSelectedIdentities} compact/>
-        <MultiSelectFilter label="能力标签" selected={selectedCapabilities} groups={[{name:"能力标签",values:capabilityOptions}]} onChange={setSelectedCapabilities} searchable compact/>
+        <MultiSelectFilter label="能力标签" selected={selectedCapabilities} groups={capabilityGroups} onChange={setSelectedCapabilities} searchable compact/>
+        {subCapabilityGroups.length>0&&<MultiSelectFilter label="细分能力" selected={selectedSubCapabilities} groups={subCapabilityGroups} onChange={setSelectedSubCapabilities} searchable compact/>}
         {hasFilters&&<button type="button" className="partner-filter-clear" onClick={clearFilters}>清除筛选</button>}
       </section>}{transferBusy&&<p className="muted" role="status">正在处理伙伴导入或导出…</p>}{batchLoading&&<p className="muted" role="status">正在刷新伙伴画像状态…</p>}{message && <p className="success-text">{message}</p>}{error && <div className="inline-error-actions"><p className="error-text" role="alert">{error}</p><button className="secondary-btn" onClick={() => void load()}>重试</button></div>}{loading ? <p>加载中...</p> : <div className="table-wrap"><table className="data-table"><thead><tr><th>伙伴名称</th><th>能力标签</th><th>行业经验</th><th>画像状态</th><th>伙伴状态</th><th>操作</th></tr></thead><tbody>{filtered.length ? filtered.map(partner => <tr key={partner.id}><td>{partner.name}</td><td>{partner.capabilities || "-"}</td><td>{partner.industries || "-"}</td><td>{partner.profile_needs_update ? "待整理" : partner.profile_status === "missing" ? "暂无资料" : "已整理"}</td><td><span className={`status-badge ${partner.status}`}>{partner.status === "active" ? "启用" : "停用"}</span></td><td><div className="table-actions"><Link href={`/admin/partners/${partner.id}`} className="secondary-btn">维护</Link><button className="secondary-btn" onClick={() => toggle(partner)}>{partner.status === "active" ? "停用" : "启用"}</button><button className="secondary-btn danger-outline" disabled={deletingId !== null} onClick={() => remove(partner)}>{deletingId === partner.id ? "删除中..." : "删除"}</button></div></td></tr>) : <tr><td colSpan={6} className="muted">{hasFilters?"暂无符合条件的伙伴":"暂无伙伴"}</td></tr>}</tbody></table></div>}</section>
     </main>

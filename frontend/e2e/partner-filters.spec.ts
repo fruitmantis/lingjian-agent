@@ -24,6 +24,7 @@ async function fixture(page: Page, fail = false, rows = partners) {
     if (p === '/auth/me') return route.fulfill({json:{id:'filter-user',username:'筛选验收',role:'user',status:'active',must_change_password:false}});
     if (p === '/health') return route.fulfill({json:{status:'ok'}});
     if (p === '/agent/tasks') return route.fulfill({json:{items:[],total:0,page:1,pageSize:20,totalPages:0}});
+    if (p === '/partners/capability-tree') return route.fulfill({json:[]});
     if (p === '/partners/profiles') return fail ? route.fulfill({status:503,json:{detail:'伙伴加载失败'}}) : route.fulfill({json:rows});
     unexpected.push(p); return route.abort();
   });

@@ -24,6 +24,13 @@ from ..opportunity_extraction import normalize_opportunity
 from ..ai_client import model_error_message
 from ..model_resolver import ModelConfigurationError
 from ..business_taxonomy import canonical, classify, project_partner, taxonomy_prompt
+from ..capability_hierarchy import (
+    enabled_capability_sets,
+    format_sub_capabilities,
+    read_sub_capabilities,
+    split_capability_tokens,
+)
+from ..models import SubCapabilityOut
 from ..database import get_db, recover_stale_tasks
 from ..development_lifecycle import fingerprint
 from ..model_timeout_settings import get_settings
@@ -81,6 +88,8 @@ class TaskAccepted(BaseModel):
 class CertificationSnapshot(BaseModel):
     capabilityTags: list[str]
     relatedCapabilityTags: list[str]
+    subCapabilityTags: list[SubCapabilityOut] = Field(default_factory=list)
+    relatedSubCapabilityTags: list[SubCapabilityOut] = Field(default_factory=list)
     servicePartnerBasis: Literal['capability_tag','identity'] | None
     identities: list[str]
 
@@ -431,7 +440,18 @@ def _verified_references(value, rows: list[dict], label_field: str) -> list[dict
     return list(selected.values())
 
 
-def _validated_recommendations(items: list, partners: list[dict], cases: dict, deliverables: dict, rejections: list[str] | None = None, *, certifications=None) -> list[PartnerRecommendation]:
+def _validated_recommendations(
+    items: list,
+    partners: list[dict],
+    cases: dict,
+    deliverables: dict,
+    rejections: list[str] | None = None,
+    *,
+    certifications=None,
+    disabled_l1: set[str] | None = None,
+    enabled_l1: set[str] | None = None,
+    enabled_l2: set[tuple[str, str]] | None = None,
+) -> list[PartnerRecommendation]:
     by_id = {partner["id"]: partner for partner in partners}
     by_name: dict[str, list[dict]] = {}
     for partner in partners:
@@ -481,7 +501,19 @@ def _validated_recommendations(items: list, partners: list[dict], cases: dict, d
                 proposed = _reference_tokens(canonical(proposed,kind))
                 available = set(_reference_tokens(canonical(partner.get(column),kind)))
             else:
-                available = set(_reference_tokens(partner.get(column)))
+                cap_text = match_context.effective_capabilities_text(partner.get(column), disabled_l1)
+                subs = match_context._effective_sub_capabilities(
+                    partner.get("sub_capabilities"),
+                    enabled_l1=enabled_l1,
+                    enabled_l2=enabled_l2,
+                )
+                available = (
+                    set(_reference_tokens(cap_text))
+                    | set(split_capability_tokens(cap_text))
+                    | {s["parent"] for s in subs}
+                    | {s["name"] for s in subs}
+                    | {f"{s['parent']}/{s['name']}" for s in subs}
+                )
             verified = list(dict.fromkeys(token for token in proposed if token in available))
             matched[field] = ", ".join(verified)
         case_rows = _verified_references(_model_value(item, "evidenceCases"), cases.get(pid, []), "title")
@@ -572,16 +604,50 @@ def _same_generated_card(item, rec):
         return False
 
 
+def _active_certified_partner(conn, row, *, enabled_l1=None, enabled_l2=None):
+    partner, context, _, _ = row
+    pid = partner['id']
+    current = conn.execute("SELECT * FROM partners WHERE id=? AND status='active'", (pid,)).fetchone()
+    if not current:
+        return None
+    certification = context.get('certification')
+    if certification is not None:
+        if enabled_l1 is None or enabled_l2 is None:
+            enabled_l1, enabled_l2, _ = enabled_capability_sets(conn)
+        targets = context.get('_relatedTargets')
+        if targets is not None:
+            rel_l1 = targets.get('l1', [])
+            rel_l2 = [tuple(x) for x in targets.get('l2', []) if isinstance(x, (list, tuple)) and len(x) == 2]
+        else:
+            rel_l1 = certification.get('relatedCapabilityTags', [])
+            rel_l2 = [
+                (sub['parent'], sub['name'])
+                for sub in read_sub_capabilities(certification.get('relatedSubCapabilityTags'))
+            ]
+        expected = match_context.certification_snapshot(
+            dict(current),
+            rel_l1,
+            related_sub_tags=rel_l2,
+            enabled_l1=enabled_l1,
+            enabled_l2=enabled_l2,
+        )
+        if certification != expected:
+            return None
+    return current
+
+
+def _certification_current(conn, row, *, enabled_l1=None, enabled_l2=None) -> bool:
+    return _active_certified_partner(conn, row, enabled_l1=enabled_l1, enabled_l2=enabled_l2) is not None
+
+
 def _current_reference_valid(conn, item, row):
     from ..profile_sources import sources,stamp,TABLE
     if not row or _source_assessment(item,row) is None:
         return False
     partner,context,cases,files=row; pid=partner['id']
-    current=conn.execute("SELECT * FROM partners WHERE id=? AND status='active'",(pid,)).fetchone()
+    enabled_l1, enabled_l2, disabled_l1 = enabled_capability_sets(conn)
+    current = _active_certified_partner(conn, row, enabled_l1=enabled_l1, enabled_l2=enabled_l2)
     if not current:
-        return False
-    certification = context.get('certification')
-    if certification is not None and certification != match_context.certification_snapshot(dict(current), certification['relatedCapabilityTags']):
         return False
     source_index={(s['kind'],s['id']):s for s in sources(conn,pid)}
     for ref in item['profileEvidence']:
@@ -589,7 +655,13 @@ def _current_reference_valid(conn, item, row):
         kind,sid=entry['sourceRef'].split(':',1)
         if kind=='partner':
             field=entry['path'].lstrip('/')
-            value=current[field] or ''
+            if field == 'sub_capabilities':
+                subs = match_context._effective_sub_capabilities(current['sub_capabilities'], enabled_l1=enabled_l1, enabled_l2=enabled_l2)
+                value = format_sub_capabilities(subs)
+            elif field == 'capabilities':
+                value = match_context.effective_capabilities_text(current[field], disabled_l1)
+            else:
+                value=current[field] or ''
         else:
             source=source_index.get((kind,sid))
             if not source or stamp(source)!=entry['source_version'] or source['processing_status']!='ready':
@@ -694,7 +766,12 @@ def _validated_outcome(recs, output, rejected, rows, *, requirement="", facts=No
         analysis_valid=bool(output.get('_analysis_shape_valid'))
         refs=output.get('analysisRefs',[])
         if analysis_valid:
-            analysis_valid=all(_current_reference_valid(conn,ref,by_id.get(ref['partnerId'])) for ref in refs)
+            if refs:
+                analysis_valid=all(_current_reference_valid(conn,ref,by_id.get(ref['partnerId'])) for ref in refs)
+            elif rows:
+                enabled_l1, enabled_l2, _ = enabled_capability_sets(conn)
+                if any(row[1].get('certification') is not None and not _certification_current(conn, row, enabled_l1=enabled_l1, enabled_l2=enabled_l2) for row in rows):
+                    analysis_valid=False
         allowed_names={rec.partnerName for rec in accepted}|set(plans)
         if analysis_valid:
             allowed_names.update(by_id[ref['partnerId']][0]['name'] for ref in refs)
@@ -795,6 +872,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
     try:
         with get_db() as conn:
             conn.begin_read()
+            enabled_l1, enabled_l2, disabled_l1 = enabled_capability_sets(conn)
             rows = [match_context.detailed_candidate(conn, item['partnerId'], item['verificationFocus'],
                     requirement, recall_terms=item.get('recallTerms',[]),
                     facts=snapshot['understanding']['facts'], hits=item['hits']) for item in selected]
@@ -820,7 +898,7 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
             match_context.log_stage('detailed_review', len(selected), chars, tokens, prepared,
                                     round((perf_counter() - call_start) * 1000), last_retry_count())
         snapshot['model_output'] = output
-        snapshot['detail_rows'] = [[{key:row[0].get(key) for key in ('id','name','capabilities','identities','industries','service_areas')},row[1],row[2],row[3]] for row in rows]
+        snapshot['detail_rows'] = [[{key:row[0].get(key) for key in ('id','name','capabilities','sub_capabilities','identities','industries','service_areas')},row[1],row[2],row[3]] for row in rows]
         partners = [row[0] for row in rows]
         cases = {row[0]['id']: row[2] for row in rows}
         deliverables = {row[0]['id']: row[3] for row in rows}
@@ -832,8 +910,17 @@ def _perform_partner_match(requirement: str, snapshot: dict) -> list[PartnerReco
                 rejections.append('推荐含不属于实际已发送来源范围的引用')
             else:
                 legal_items.append(item)
-        recs = _validated_recommendations(legal_items,partners,cases,deliverables,rejections,
-            certifications={row[0]['id']:row[1]['certification'] for row in rows})
+        recs = _validated_recommendations(
+            legal_items,
+            partners,
+            cases,
+            deliverables,
+            rejections,
+            certifications={row[0]['id']: row[1]['certification'] for row in rows},
+            disabled_l1=disabled_l1,
+            enabled_l1=enabled_l1,
+            enabled_l2=enabled_l2,
+        )
         snapshot['rejection_codes']=rejections
         evidence_filtered = bool(rejections)
         if output['_raw_recommendation_count'] and not recs and not (output['_analysis_shape_valid'] and output['gapAnalysis']):
@@ -859,7 +946,8 @@ def _candidate_stamp(connection=None):
         return fingerprint({
             'matching_rules': matching.MATCHING_RULES_VERSION,
             'source_versions': [(p['id'],s['kind'],s['id'],stamp(s)) for p in conn.execute('SELECT id FROM partners ORDER BY id') for s in sources(conn,p['id'])],
-            'partners': [dict(r) for r in conn.execute('SELECT id,status,name,capabilities,identities,industries,service_areas,materials_revision,profile_materials_revision,profile_updated_at,updated_at FROM partners ORDER BY id')],
+            'partners': [dict(r) for r in conn.execute('SELECT id,status,name,capabilities,sub_capabilities,identities,industries,service_areas,materials_revision,profile_materials_revision,profile_updated_at,updated_at FROM partners ORDER BY id')],
+            'capability_tags': [dict(r) for r in conn.execute('SELECT id,name,level,parent_id,enabled FROM capability_tags ORDER BY id')],
             'cases': [dict(r) for r in conn.execute('SELECT id,partner_id,title,visible,updated_at FROM cases ORDER BY id')],
             'deliverables': [dict(r) for r in conn.execute('SELECT id,case_id,filename,processed_at FROM deliverables ORDER BY id')],
             'contributions': [dict(r) for r in conn.execute('SELECT partner_id,source_kind,source_id,source_fingerprint,state,sections_json FROM partner_profile_sources ORDER BY partner_id,source_kind,source_id')],
@@ -1208,7 +1296,7 @@ def _generate_tag_suggestions(requirement: str, match_record_id: str, *, items: 
                               expected_run_id: str | None = None) -> bool:
     try:
         with get_db() as conn:
-            std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
+            std_tags = {r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()}
             existing_sugs = {r["suggested_name"] for r in conn.execute("SELECT suggested_name FROM capability_tag_suggestions WHERE status = 'pending'").fetchall()}
         now = datetime.now(timezone.utc).isoformat()
         with get_db() as conn:
@@ -1226,7 +1314,7 @@ def _generate_tag_suggestions(requirement: str, match_record_id: str, *, items: 
                 else:
                     conn.execute(
                         "INSERT INTO capability_tag_suggestions (id, suggested_name, suggested_category_id, suggested_category_name, description, evidence_text, source_requirement, source_match_record_id, confidence, occurrence_count, status, created_at, updated_at, adopted_at) VALUES (?,?,?,?,?,?,?,?,?,1,'pending',?,?,NULL)",
-                        (str(uuid.uuid4()), name, None, item.get("suggestedCategoryName", "其他"), item.get("description", ""), item.get("evidenceText", ""), requirement, match_record_id, float(item.get("confidence", 0.5)), now, now)
+                        (str(uuid.uuid4()), name, None, item.get("suggestedCategoryName", "场景化能力"), item.get("description", ""), item.get("evidenceText", ""), requirement, match_record_id, float(item.get("confidence", 0.5)), now, now)
                     )
                 existing_sugs.add(name)
         return True
@@ -1252,7 +1340,7 @@ def _generate_demand_profile(
     supply_status='unknown'
     # Get enabled standard capability tags for LLM constraint
     with get_db() as conn:
-        std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1").fetchall()]
+        std_tags = [r["name"] for r in conn.execute("SELECT name FROM capability_tags WHERE enabled = 1 AND level = 1").fetchall()]
 
     try:
         industry_tags = canonical(data.get("industry", data.get("industryTags", "")), "industry")

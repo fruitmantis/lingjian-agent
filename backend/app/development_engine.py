@@ -58,7 +58,7 @@ def validate_dependencies(conn,payload,deps):
     if payload['target_partner_id'] is not None:
         partner=conn.execute('SELECT status FROM partners WHERE id=?',(payload['target_partner_id'],)).fetchone()
         if not partner or partner[0]!='active':raise InvalidOutput('Target partner unavailable')
-    tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1')}
+    tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1 AND level=1')}
     if not {d['capability_tag_id'] for d in payload.get('diagnoses',[])}<=tags:raise InvalidOutput('Target capability unavailable')
     for ref in deps:
         if ref.get('dependency_kind')=='profile_source':
@@ -138,8 +138,13 @@ def profile_context(conn,request):
     if not row:raise InvalidOutput('Partner unavailable')
     from . import profile_sources,profile_report
     from .business_taxonomy import canonical,region_groups
+    from .capability_hierarchy import format_sub_capabilities,read_sub_capabilities
     row=dict(row);blocked=blocked_fragments(conn)
     profile={k:safe_text(row.get(k),blocked,limit=None) for k in ('capabilities','industries','service_areas')}
+    sub_cap_text=format_sub_capabilities(read_sub_capabilities(row.get('sub_capabilities')))
+    if sub_cap_text:
+        safe_sub=safe_text(sub_cap_text,blocked,limit=None)
+        if safe_sub:profile['sub_capabilities']=safe_sub
     profile['industries']=canonical(profile['industries'],'industry');profile['service_areas']=canonical(profile['service_areas'],'region')
     profile['region_groups']=region_groups(profile['service_areas']);profile['chapters']=[];profile['_chapter_sources']={}
     report=profile_report.parse(profile_sources.assembled(conn,row['id'],analysis=True))

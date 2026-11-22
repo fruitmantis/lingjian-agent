@@ -1,5 +1,6 @@
 "use client";
 import {PartnerIdentityFields} from "@/components/partner-identities";
+import {CapabilityCategoryNode,PartnerCapabilityFields,SubCapabilityItem} from "@/components/partner-capability-fields";
 import Link from "next/link";
 import {FormEvent,use,useCallback,useEffect,useRef,useState} from "react";
 import {adminApiFetch as apiFetch} from "@/components/auth-provider";
@@ -8,8 +9,7 @@ import {MaterialFiles,uploadMaterials} from "@/components/material-files";
 import {PartnerProfileReport} from "@/components/partner-profile-report";
 import {responseError} from "@/lib/api-request";
 
-type Partner={id:string;name:string;identities?:string[];intro:string|null;capabilities:string|null;industries:string|null;service_areas:string|null;ai_profile:string|null;profile_needs_update:boolean;profile_status:string;profile_sources?:{source_kind:string;source_id:string;state:string;error?:string;label?:string}[];classification_pending?:Record<string,string[]>};
-const capabilityNames=(value:string)=>value.split(/[,，;；\n]+/).map(name=>name.trim()).filter(Boolean);
+type Partner={id:string;name:string;identities?:string[];intro:string|null;capabilities:string|null;sub_capabilities?:SubCapabilityItem[];industries:string|null;service_areas:string|null;ai_profile:string|null;profile_needs_update:boolean;profile_status:string;profile_sources?:{source_kind:string;source_id:string;state:string;error?:string;label?:string}[];classification_pending?:Record<string,string[]>};
 async function request(path:string,method='GET',body?:unknown){const r=await apiFetch(path,{method,headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store'});if(!r.ok)throw await responseError(r);return r.status===204?null:r.json();}
 
 export default function AdminPartnerDetailPage({params}:{params:Promise<{id:string}>}){
@@ -17,32 +17,25 @@ export default function AdminPartnerDetailPage({params}:{params:Promise<{id:stri
   const [identities,setIdentities]=useState<string[]>([]);
   const [form,setForm]=useState<Record<string,string>>({}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const [refresh,setRefresh]=useState(0),[originalsOpen,setOriginalsOpen]=useState(false);
-  const [tags,setTags]=useState<string[]>([]),[tagError,setTagError]=useState('');
+  const [capTree,setCapTree]=useState<CapabilityCategoryNode[]>([]),[subCapabilities,setSubCapabilities]=useState<SubCapabilityItem[]>([]),[tagError,setTagError]=useState('');
   const initial=useRef(false),importing=useRef(false);
-  const load=useCallback(async()=>{const p=await request(`/partners/${id}`);setPartner(p);if(!initial.current){setForm({name:p.name,capabilities:p.capabilities||'',industries:p.industries||'',service_areas:p.service_areas||''});setIdentities(p.identities||[]);initial.current=true;}},[id]);
+  const load=useCallback(async()=>{const p=await request(`/partners/${id}`);setPartner(p);if(!initial.current){setForm({name:p.name,capabilities:p.capabilities||'',industries:p.industries||'',service_areas:p.service_areas||''});setSubCapabilities(p.sub_capabilities||[]);setIdentities(p.identities||[]);initial.current=true;}},[id]);
   useEffect(()=>{initial.current=false;void load().catch(e=>setError(e.message));},[load]);
-  const loadTags=useCallback(async()=>{setTagError('');try{const items:{name:string;enabled:boolean}[]=await request('/admin/capability-tags');setTags(items.filter(tag=>tag.enabled).map(tag=>tag.name));}catch{setTagError('可选能力标签加载失败，已有标签仍可维护。');}},[]);
+  const loadTags=useCallback(async()=>{setTagError('');try{const treeResp=await apiFetch('/partners/capability-tree',{cache:'no-store'});if(treeResp.ok){setCapTree(await treeResp.json());return;}const flat:{id?:string;name:string;category?:string;description?:string|null;enabled:boolean;sortOrder?:number;isPreset?:boolean;level?:number}[]=await request('/admin/capability-tags');const byCat=new Map<string,CapabilityCategoryNode['tags']>();for(const t of flat){if(!t.enabled||t.level===2)continue;const cat=t.category||'能力标签';const list=byCat.get(cat)||[];list.push({id:t.id||t.name,name:t.name,category:cat,description:t.description||null,enabled:true,sortOrder:t.sortOrder||0,isPreset:!!t.isPreset,level:1,children:[]});byCat.set(cat,list);}setCapTree([...byCat.entries()].map(([cat,tags],idx)=>({id:cat,name:cat,code:null,description:null,enabled:true,sortOrder:idx,isPreset:false,tags})));}catch{setTagError('可选能力标签加载失败，已有标签仍可维护。');}},[]);
   useEffect(()=>{void loadTags();},[loadTags]);
   const sourceWorking=!!partner?.profile_sources?.some(source=>['pending','processing'].includes(source.state));
   const failedSources=partner?.profile_sources?.filter(source=>source.state==='failed')||[];
   useEffect(()=>{if(!partner||(!['pending','processing'].includes(partner.profile_status)&&!sourceWorking))return;const timer=setInterval(()=>void load().catch(e=>setError(e.message)),1500);return()=>clearInterval(timer);},[partner?.profile_status,sourceWorking,load]);
   useEffect(()=>{if(partner?.profile_sources?.some(source=>source.source_kind==='word'&&source.state==='failed'))setOriginalsOpen(true);},[partner?.profile_sources]);
-  const selectedCapabilities=capabilityNames(form.capabilities||'');
-  const capabilityOptions=[...new Set([...capabilityNames(partner?.capabilities||''),...tags,...selectedCapabilities])];
   async function action(fn:()=>Promise<void>){if(busy)return;setBusy(true);setError('');setNotice('');try{await fn();await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
   function changed(){void load().catch(e=>setError(e.message));}
   function processed(){changed();if(importing.current){importing.current=false;setNotice('画像原件已处理，请查看当前正文与待整理状态。');}}
   async function updateProfile(){await action(async()=>{await request(`/partners/${id}/profile`,'POST');setNotice('本次画像整理已结束，请查看当前正文及资料状态。');});}
-  async function save(e:FormEvent){e.preventDefault();await action(async()=>{await request(`/partners/${id}`,'PUT',{...form,identities});setNotice('伙伴信息已保存。');});}
+  async function save(e:FormEvent){e.preventDefault();await action(async()=>{await request(`/partners/${id}`,'PUT',{...form,identities,sub_capabilities:subCapabilities});setNotice('伙伴信息已保存。');});}
   return <main className="page"><div className="page-heading-row"><div><p className="eyebrow">Partner</p><h1>{partner?.name||'伙伴资料'}</h1><p className="lead">维护伙伴基本信息与画像。案例资料在统一页面管理。</p></div><Link href="/admin/partners" className="secondary-btn">返回伙伴列表</Link></div>
     {error&&<p role="alert" className="error-text">{error}</p>}{notice&&<p role="status">{notice}</p>}
     {partner&&<><section className="card"><h2>基础信息</h2><form onSubmit={save} className="form-grid"><label className="form-row">伙伴名称<input required value={form.name||''} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/></label><PartnerIdentityFields value={identities} onChange={setIdentities} disabled={busy}/><ClassificationFields industries={form.industries||''} regions={form.service_areas||''} onIndustries={industries=>setForm(f=>({...f,industries}))} onRegions={service_areas=>setForm(f=>({...f,service_areas}))}/><div className="form-span-two"><ClassificationNotice pending={partner.classification_pending}/></div>
-      <fieldset className="classification-options partner-capability-options form-span-two" disabled={busy}>
-        <legend>能力标签（多选）</legend>
-        <div className="capability-choice-list">{capabilityOptions.map(name=><label key={name}><input type="checkbox" checked={selectedCapabilities.includes(name)} onChange={e=>setForm(f=>({...f,capabilities:(e.target.checked?[...new Set([...capabilityNames(f.capabilities||''),name])]:capabilityNames(f.capabilities||'').filter(value=>value!==name)).join(',')}))}/><span>{name}</span></label>)}</div>
-        {tagError&&<p className="error-text" role="alert">{tagError} <button type="button" className="secondary-btn" onClick={()=>void loadTags()}>重试</button></p>}
-        <p className="muted">已选 {selectedCapabilities.length} 项；新增可选标签请前往<Link href="/admin/tags">能力标签管理</Link>。</p>
-      </fieldset>
+      <PartnerCapabilityFields tree={capTree} capabilities={form.capabilities||''} subCapabilities={subCapabilities} disabled={busy} tagError={tagError} onRetryTags={()=>void loadTags()} onChange={(capabilities,nextSubs)=>{setForm(f=>({...f,capabilities}));setSubCapabilities(nextSubs);}}/>
 <div className="form-span-two"><button disabled={busy}>保存伙伴信息</button></div></form></section>
     <section className="card"><div className="section-heading-row"><div><h2>案例与资料</h2><p className="muted">查看、上传和整理该伙伴的资料。</p></div><Link href={`/admin/partner-materials?partner_id=${encodeURIComponent(id)}`} className="secondary-btn">管理资料</Link></div></section>
     <section className="card" id="profile"><div className="section-heading-row"><div><h2>伙伴画像</h2>{partner.profile_needs_update&&<p className="muted">资料有变化，画像待整理；有效旧正文仍保留。</p>}</div><div className="table-actions"><label className="upload-btn">导入 DOCX 画像<input type="file" hidden accept=".docx" disabled={busy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void action(async()=>{if(!file.name.toLowerCase().endsWith('.docx'))throw new Error('初始化画像请上传 DOCX 文件');importing.current=true;await uploadMaterials(`/partners/${id}/documents`,[file],true);setRefresh(n=>n+1);setNotice('画像原件已保存；首次本地采用，后续变化请点击整理画像。');});}}/></label><button disabled={busy} onClick={()=>void updateProfile()}>{busy?'处理中…':'整理画像'}</button></div></div><p className="muted">导入按十章整理标题和表格；资料提炼完成后，点击“整理画像”更新受影响章节；删除或替换依赖资料会撤回对应章节。十章画像向普通用户展示，未展示来源信息仅管理员可见。</p>{failedSources.length>0&&<div role="alert" className="error-text">{failedSources.map(source=><p key={source.source_kind+source.source_id}>{source.label||'资料'}处理失败：{source.error||'处理未完成'} 请在{source.source_kind==='word'?'下方画像原件':'管理资料'}中重试。</p>)}{failedSources.some(source=>source.source_kind!=='word')&&<Link href={`/admin/partner-materials?partner_id=${encodeURIComponent(id)}`}>管理资料</Link>}</div>}{partner.ai_profile?<PartnerProfileReport text={partner.ai_profile}/>:<p className="placeholder-text">暂无画像，可导入 DOCX 或上传资料。</p>}<details style={{marginTop:24}}><summary>来源处理状态</summary>{partner.profile_sources?.map(source=><p key={source.source_kind+source.source_id}>{source.source_kind}：{source.source_id} — {source.state}{source.error&&<span className="error-text"> · {source.error}</span>}</p>)}</details><details open={originalsOpen} onToggle={e=>setOriginalsOpen(e.currentTarget.open)} style={{marginTop:24}}><summary>画像原件</summary><MaterialFiles endpoint={`/partners/${id}/documents`} admin profileOnly allowUpload={false} refresh={refresh} onChange={changed} onProcessed={processed}/></details></section>

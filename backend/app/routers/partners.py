@@ -6,11 +6,17 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends, status, File, UploadFile, Response
 from pydantic import BaseModel, Field, field_validator
+from ..capability_hierarchy import (
+    load_capability_tree,
+    normalize_partner_capabilities,
+    read_sub_capabilities,
+    stored_sub_capabilities,
+)
 from ..partner_identities import read_identities, stored_identities, validate_identities
 
 from ..auth import require_active_user, require_admin, record_audit
 from ..database import get_db
-from ..models import PartnerCreate, PartnerOut
+from ..models import PartnerCreate, PartnerOut, SubCapabilityItem, SubCapabilityOut
 from ..business_taxonomy import ClassificationInput, ClassificationOutput, preserve_pending, project_partner
 from .. import partner_transfer, profile_sources
 from ..resource_transfer import MAX_BYTES
@@ -22,13 +28,14 @@ class PartnerUpdate(ClassificationInput):
     name: str | None = None
     intro: str | None = None
     capabilities: str | None = None
+    sub_capabilities: list[SubCapabilityItem] | None = None
     service_areas: str | None = None
     industries: str | None = None
     status: str | None = None
 
 
 router = APIRouter(prefix="/partners", tags=["partners"], dependencies=[Depends(require_active_user)])
-_COLUMNS = "id, name, intro, capabilities, service_areas, industries, ai_profile, status, created_at, updated_at, identities"
+_COLUMNS = "id, name, intro, capabilities, sub_capabilities, service_areas, industries, ai_profile, status, created_at, updated_at, identities"
 
 
 class PartnerProfileCard(ClassificationOutput):
@@ -37,6 +44,8 @@ class PartnerProfileCard(ClassificationOutput):
     id: str
     name: str
     capabilities: str | None
+    sub_capabilities: list[SubCapabilityOut] = Field(default_factory=list)
+    _sub_capabilities = field_validator("sub_capabilities", mode="before")(read_sub_capabilities)
     service_areas: str | None
     industries: str | None
     ai_profile: str | None
@@ -48,13 +57,13 @@ class PartnerProfileCard(ClassificationOutput):
     healthReason: str
 
 
-def calculate_partner_health(ai_profile, capabilities, service_areas, industries, case_count, deliverable_count):
+def calculate_partner_health(ai_profile, capabilities, service_areas, industries, case_count, deliverable_count, sub_capabilities=None):
     """Lightweight rule-based partner health score (0-100)."""
     score = 60
     reasons = []
     if ai_profile:
         score += 15; reasons.append("已生成AI画像(+15)")
-    if capabilities and capabilities.strip():
+    if (capabilities and capabilities.strip()) or read_sub_capabilities(sub_capabilities):
         score += 10; reasons.append("有能力标签(+10)")
     if industries and industries.strip():
         score += 5; reasons.append("有行业经验(+5)")
@@ -75,6 +84,12 @@ def calculate_partner_health(ai_profile, capabilities, service_areas, industries
     return score, level, reason
 
 
+@router.get("/capability-tree")
+def partner_capability_tree():
+    with get_db() as conn:
+        return load_capability_tree(conn, include_disabled=False)
+
+
 @router.get("/profiles", response_model=list[PartnerProfileCard])
 def list_profiles(user: dict = Depends(require_active_user)) -> list[PartnerProfileCard]:
     with get_db() as conn:
@@ -84,8 +99,8 @@ def list_profiles(user: dict = Depends(require_active_user)) -> list[PartnerProf
             pd = project_partner(profile_sources.view(conn,p,user["role"]=="admin"))
             case_count = conn.execute("SELECT COUNT(*) as cnt FROM cases WHERE partner_id = ?", (pd["id"],)).fetchone()["cnt"]
             deliverable_count = conn.execute("SELECT COUNT(*) as cnt FROM deliverables WHERE case_id IN (SELECT id FROM cases WHERE partner_id = ?)", (pd["id"],)).fetchone()["cnt"]
-            hs, hl, hr = calculate_partner_health(pd["ai_profile"] if pd["profile_status"]=="ready" else None, p["capabilities"], p["service_areas"], p["industries"], case_count, deliverable_count)
-            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], identities=pd["identities"], capabilities=pd.get("capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), profile_status=pd["profile_status"], case_count=case_count, deliverable_count=deliverable_count, classification_pending=pd["classification_pending"], healthScore=hs, healthLevel=hl, healthReason=hr))
+            hs, hl, hr = calculate_partner_health(pd["ai_profile"] if pd["profile_status"]=="ready" else None, p["capabilities"], p["service_areas"], p["industries"], case_count, deliverable_count, p["sub_capabilities"])
+            result.append(PartnerProfileCard(id=pd["id"], name=pd["name"], identities=pd["identities"], capabilities=pd.get("capabilities"), sub_capabilities=pd.get("sub_capabilities"), service_areas=pd.get("service_areas"), industries=pd.get("industries"), ai_profile=pd.get("ai_profile"), profile_status=pd["profile_status"], case_count=case_count, deliverable_count=deliverable_count, classification_pending=pd["classification_pending"], healthScore=hs, healthLevel=hl, healthReason=hr))
     return result
 
 
@@ -135,16 +150,35 @@ def get_partner(partner_id: str, user: dict = Depends(require_active_user)) -> P
 @router.post("", response_model=PartnerOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin)])
 def create_partner(payload: PartnerCreate) -> PartnerOut:
     now = datetime.now(timezone.utc).isoformat()
-    partner = PartnerOut(id=str(uuid.uuid4()), name=payload.name, identities=payload.identities, intro=payload.intro, capabilities=payload.capabilities, service_areas=payload.service_areas, industries=payload.industries, ai_profile=None, status="active", created_at=now, updated_at=now)
+    partner_id = str(uuid.uuid4())
     with get_db() as conn:
-        conn.execute(f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (partner.id, partner.name, partner.intro, partner.capabilities, partner.service_areas, partner.industries, partner.ai_profile, partner.status, partner.created_at, partner.updated_at, stored_identities(partner.identities)))
-    return partner
+        conn.lock_writer()
+        try:
+            effective_caps, validated_subs = normalize_partner_capabilities(
+                conn,
+                payload.capabilities,
+                payload.sub_capabilities,
+                sub_provided=(payload.sub_capabilities is not None),
+            )
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from None
+        conn.execute(
+            f"INSERT INTO partners ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                partner_id, payload.name, payload.intro, effective_caps,
+                stored_sub_capabilities(validated_subs), payload.service_areas, payload.industries,
+                None, "active", now, now, stored_identities(payload.identities),
+            ),
+        )
+        row = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
+    return PartnerOut(**dict(row))
 
 
 
 @router.put("/{partner_id}", response_model=PartnerOut, dependencies=[Depends(require_admin)])
 def update_partner(partner_id: str, payload: PartnerUpdate) -> PartnerOut:
     with get_db() as conn:
+        conn.lock_writer()
         row = conn.execute(f"SELECT {_COLUMNS} FROM partners WHERE id = ?", (partner_id,)).fetchone()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="伙伴不存在")
@@ -156,8 +190,23 @@ def update_partner(partner_id: str, payload: PartnerUpdate) -> PartnerOut:
             updates.append("name = ?"); params.append(payload.name)
         if payload.intro is not None:
             updates.append("intro = ?"); params.append(payload.intro)
-        if payload.capabilities is not None:
-            updates.append("capabilities = ?"); params.append(payload.capabilities)
+        if payload.capabilities is not None or payload.sub_capabilities is not None:
+            base_caps = payload.capabilities if payload.capabilities is not None else row["capabilities"]
+            try:
+                effective_caps, validated_subs = normalize_partner_capabilities(
+                    conn,
+                    base_caps,
+                    payload.sub_capabilities,
+                    existing_capabilities=row["capabilities"],
+                    existing_sub_capabilities=row["sub_capabilities"],
+                    sub_provided=(payload.sub_capabilities is not None),
+                )
+            except ValueError as exc:
+                raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from None
+            if payload.sub_capabilities is not None:
+                updates.append("sub_capabilities = ?"); params.append(stored_sub_capabilities(validated_subs))
+            if payload.capabilities is not None or effective_caps != row["capabilities"]:
+                updates.append("capabilities = ?"); params.append(effective_caps)
         if payload.service_areas is not None:
             updates.append("service_areas = ?"); params.append(preserve_pending(row["service_areas"], payload.service_areas, "region"))
         if payload.industries is not None:

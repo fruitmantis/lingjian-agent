@@ -45,6 +45,7 @@ export async function fixture(page:Page) {
     else if(p==='/development/plans'&&req.method()==='POST')json={plan_id:'coze-plan'};
     else if(p==='/development/plans/coze-plan/conversation') {data.conversation.push({...req.postDataJSON(),answer:'建议先对照接口清单，验证异常处理与回退。当前建议仍可使用。'});json={};}
     else if(p==='/development/plans/coze-plan')json=data;
+    else if(p==='/partners/capability-tree')json=[];
     else if(p==='/partners'||p==='/partners/profiles')json=[partner];
     else if(p==='/enablement/context')json={partner:url.searchParams.get('partner_id')?partner:null,evidence:[{source_type:'case',source_id:'case-0',title:'系统集成交付案例（合成）'}],project:null,shared_case:null};
     else if(p==='/enablement/resource-filters')json={roles,zones};

@@ -26,7 +26,7 @@ router.dependencies.append(Depends(private))
 
 @router.get('/capabilities')
 def capabilities(user:dict=Depends(require_active_user)):
-    with get_db() as conn:return [dict(r) for r in conn.execute('SELECT id,name FROM capability_tags WHERE enabled=1 ORDER BY name')]
+    with get_db() as conn:return [dict(r) for r in conn.execute('SELECT id,name FROM capability_tags WHERE enabled=1 AND level=1 ORDER BY name')]
 
 @router.post('/clarify')
 def clarify(body:DevelopmentRequest,user:dict=Depends(require_active_user)):return life.clarify(body)

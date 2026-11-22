@@ -3,8 +3,20 @@
 from typing import Literal
 
 from pydantic import BaseModel, Field, ConfigDict, field_validator
+from .capability_hierarchy import read_sub_capabilities
 from .partner_identities import read_identities, validate_identities
 from .business_taxonomy import ClassificationInput, ClassificationOutput
+
+
+class SubCapabilityItem(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    parent: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=100)
+
+
+class SubCapabilityOut(BaseModel):
+    parent: str
+    name: str
 
 
 class PartnerCreate(ClassificationInput):
@@ -12,7 +24,8 @@ class PartnerCreate(ClassificationInput):
     _identities = field_validator("identities")(validate_identities)
     name: str = Field(..., min_length=1, max_length=200)
     intro: str | None = None
-    capabilities: str | None = Field(None, description="能力标签，逗号分隔")
+    capabilities: str | None = Field(None, description="一级能力标签，逗号分隔")
+    sub_capabilities: list[SubCapabilityItem] | None = Field(None, description="二级能力标签列表")
     service_areas: str | None = Field(None, description="服务区域，逗号分隔")
     industries: str | None = Field(None, description="行业经验，逗号分隔")
 
@@ -24,6 +37,8 @@ class PartnerOut(ClassificationOutput):
     name: str
     intro: str | None
     capabilities: str | None
+    sub_capabilities: list[SubCapabilityOut] = Field(default_factory=list)
+    _sub_capabilities = field_validator("sub_capabilities", mode="before")(read_sub_capabilities)
     service_areas: str | None
     industries: str | None
     ai_profile: str | None

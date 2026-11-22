@@ -8,6 +8,7 @@ from backend.app.model_provider_schema import migrate as migrate_providers
 from backend.app.model_context_schema import migrate as migrate_context
 from backend.app.task_attachment_schema import migrate as migrate_attachments
 from backend.app.partner_identity_schema import migrate as migrate_identities
+from backend.app.capability_hierarchy_schema import migrate as migrate_capabilities
 from backend.app.model_resolver import MODEL_SELECT
 from backend.app.postgres_storage import verify_schema
 from .postgres_support import snapshot
@@ -97,6 +98,7 @@ def test_additive_migration_preserves_every_business_row_key_and_owner(client):
             assert {key: model[key] for key in original} == original
         assert migrate_attachments(conn)["schema_version"] == 24
         assert migrate_identities(conn)["schema_version"] == 25
+        assert migrate_capabilities(conn)["schema_version"] == 26
     verify_schema(os.environ['DATABASE_URL'])
     assert client.get('/auth/me', headers=bearer(identity)).status_code == 200
 
@@ -137,7 +139,7 @@ def test_runtime_rejects_schema21_stamp_without_automatic_migration(client):
     with get_db() as conn:
         conn.execute("UPDATE app_metadata SET value='21' WHERE key='schema_version'")
         before = snapshot(conn)
-    with pytest.raises(RuntimeError, match='^PostgreSQL schema version is not 25; refusing automatic changes$'):
+    with pytest.raises(RuntimeError, match='^PostgreSQL schema version is not 26; refusing automatic changes$'):
         verify_schema(os.environ['DATABASE_URL'])
     with get_db() as conn:
         assert snapshot(conn) == before

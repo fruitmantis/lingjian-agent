@@ -33,6 +33,7 @@ for (const width of [1366, 1920, 390]) test(`partner pills preserve labels and n
       { ...partner, id: 'short-preview', name: '少量标签伙伴', capabilities: '云,AI' },
       { ...partner, id: 'long-preview', name: '长标签伙伴', capabilities: longTag },
     ];
+    else if (path === '/partners/capability-tree') json = [];
     else if (path === '/partners/pill-preview') json = partner;
     else if (path === '/enablement/resources') json = { items: [], total: 0 };
     else { unexpected.push(path); return route.abort(); }

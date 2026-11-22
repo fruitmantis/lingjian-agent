@@ -3,6 +3,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from ..business_taxonomy import canonical, classify, tokens, validate_standard, preserve_pending
+from ..capability_hierarchy import (
+    canonical_capability_name,
+    read_sub_capabilities,
+    split_capability_tokens,
+)
 from ..database import get_db
 from ..auth import require_active_user, require_admin
 
@@ -77,10 +82,11 @@ def _count_tags(rows, col) -> dict[str, int]:
         val = r[col] or ""
         if col in ("industry_tags","region_tags"):
             val=canonical(val,"industry" if col=="industry_tags" else "region")
-        for tag in val.split(","):
-            tag = tag.strip()
-            if tag:
-                counts[tag] = counts.get(tag, 0) + 1
+        tags_for_row = [tag.strip() for tag in val.split(",") if tag.strip()]
+        if col == "capability_tags":
+            tags_for_row = list(dict.fromkeys(canonical_capability_name(tag) for tag in tags_for_row))
+        for tag in tags_for_row:
+            counts[tag] = counts.get(tag, 0) + 1
     return counts
 
 
@@ -181,12 +187,19 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
                LEFT JOIN match_records mr ON mr.id = dp.match_record_id
                WHERE dp.created_at >= ? AND (dp.match_record_id IS NULL OR mr.archived_at IS NULL)"""
         params = [cutoff]
-        if capability:
-            q += " AND capability_tags ILIKE ?"
-            params.append(f"%{capability}%")
         q += " ORDER BY created_at DESC"
         rows = conn.execute(q, params).fetchall()
         rows = standard_filter(rows,industry,region,"industry_tags","region_tags")
+        cap_filter = canonical_capability_name(capability or "")
+        if cap_filter:
+            cap_key = cap_filter.lower()
+            rows = [
+                r for r in rows
+                if cap_key in {
+                    canonical_capability_name(t).lower()
+                    for t in split_capability_tokens(r["capability_tags"])
+                }
+            ]
 
         now_str = datetime.now(timezone.utc).strftime("%Y-%m")
         total = len(rows)
@@ -250,31 +263,41 @@ def get_report(days: int = 0, industry: str | None = None, region: str | None = 
         pending = conn.execute("SELECT COUNT(*) as cnt FROM capability_tag_suggestions WHERE status = 'pending'").fetchone()["cnt"]
         total_sugs = conn.execute("SELECT COUNT(*) as cnt FROM capability_tag_suggestions").fetchone()["cnt"]
 
-        # Formal tags distribution from partners
-        partner_rows = conn.execute("SELECT id, capabilities, status FROM partners WHERE capabilities IS NOT NULL AND capabilities != ''").fetchall()
+        # Formal tags distribution from partners (Level-1, including inferred parents from Level-2)
+        partner_rows = conn.execute(
+            "SELECT id, capabilities, sub_capabilities, status FROM partners "
+            "WHERE (capabilities IS NOT NULL AND capabilities != '') OR (sub_capabilities IS NOT NULL AND sub_capabilities != '')"
+        ).fetchall()
         formal_counts = {}
+        partner_l1_tags: dict[str, list[str]] = {}
         for pr in partner_rows:
-            for tag in {value.strip() for value in (pr["capabilities"] or "").split(",")}:
-                if tag:
-                    formal_counts[tag] = formal_counts.get(tag, 0) + 1
+            l1_tags = list(dict.fromkeys(
+                [canonical_capability_name(t) for t in split_capability_tokens(pr["capabilities"])]
+                + [canonical_capability_name(item["parent"]) for item in read_sub_capabilities(pr["sub_capabilities"])]
+            ))
+            partner_l1_tags[pr["id"]] = l1_tags
+            for tag in l1_tags:
+                formal_counts[tag] = formal_counts.get(tag, 0) + 1
         top_formal = sorted([ReportDist(label=k, count=v) for k, v in formal_counts.items()], key=lambda x: x.count, reverse=True)[:10]
 
         # Supply gaps: aggregate by capability tag
         cap_demand = {}
         for r in rows:
-            for tag in (r["capability_tags"] or "").split(","):
-                tag = tag.strip()
-                if tag:
-                    if tag not in cap_demand:
-                        cap_demand[tag] = {"demand": 0, "partners": set()}
-                    cap_demand[tag]["demand"] += 1
+            normalized_row_tags = list(dict.fromkeys(
+                canonical_capability_name(tag.strip())
+                for tag in (r["capability_tags"] or "").split(",")
+                if tag.strip()
+            ))
+            for tag in normalized_row_tags:
+                if tag not in cap_demand:
+                    cap_demand[tag] = {"demand": 0, "partners": set()}
+                cap_demand[tag]["demand"] += 1
 
         # Available supply includes only enabled partners, distinct by their real ID.
         for pr in partner_rows:
             if pr["status"] != "active":
                 continue
-            for tag in (pr["capabilities"] or "").split(","):
-                tag = tag.strip()
+            for tag in partner_l1_tags.get(pr["id"], []):
                 if tag in cap_demand:
                     cap_demand[tag]["partners"].add(pr["id"])
 

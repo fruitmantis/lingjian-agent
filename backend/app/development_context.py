@@ -52,7 +52,7 @@ def load(request, user, *, plan_id=None, base=None, message='', connection=None)
         if connection is None:conn.begin_read()
         blocked = engine.blocked_fragments(conn)
         profile = engine.profile_context(conn, request)
-        tags = [dict(t) for t in conn.execute('SELECT id,name FROM capability_tags WHERE enabled=1 ORDER BY id')]
+        tags = [dict(t) for t in conn.execute('SELECT id,name FROM capability_tags WHERE enabled=1 AND level=1 ORDER BY id')]
         current = None; payload = None; history = []; saved_dependencies=[]
         effective = copy.deepcopy(request)
         if plan_id and base:

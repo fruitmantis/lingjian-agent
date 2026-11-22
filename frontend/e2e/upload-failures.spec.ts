@@ -12,7 +12,7 @@ async function setup(page:Page,rows:(reads:number,partnerReads:number)=>FileInfo
   if(req.method()!=='GET'){unexpected.push(req.method()+' '+path);return route.fulfill({status:500,json:{detail:'Unexpected write'}});}
   if(path==='/auth/me')return route.fulfill({json:user});
   if(path==='/health')return route.fulfill({json:{status:'ok'}});
-  if(path==='/agents'||path==='/admin/capability-tags')return route.fulfill({json:[]});
+  if(path==='/agents'||path==='/admin/capability-tags'||path==='/partners/capability-tree')return route.fulfill({json:[]});
   if(path==='/agent/tasks'||path==='/admin/tasks')return route.fulfill({json:{items:[],total:0}});
   if(path==='/partners')return route.fulfill({json:[{id:'partner-1',name:'合成伙伴'}]});
   if(path==='/admin/partner-materials')return route.fulfill({json:{items:[{kind:'case',id:'case-1',partner_id:'partner-1',partner_name:'合成伙伴',title:'上传资料',description:'原资料',category_id:'delivery-1',visible:false,file_count:2,processing_status:'ready',updated_at:'2026-10-14',profile_needs_update:true}],total:1,partners:[{id:'partner-1',name:'合成伙伴'}]}});

@@ -11,6 +11,7 @@ from backend.app import development_engine, development_model, partner_transfer
 from backend.app.database import get_db
 from backend.app.partner_identities import IDENTITIES
 from backend.app.partner_identity_schema import migrate
+from backend.app.capability_hierarchy_schema import migrate as migrate_capabilities
 from backend.app.postgres_storage import verify_schema
 from .conftest import auth_headers, make_partner, make_task, make_user
 from .postgres_support import snapshot
@@ -72,7 +73,7 @@ def test_identity_excel_roundtrip_clear_and_legacy_column_omission(client):
     headers = auth_headers(make_user('identity_excel_admin', role='admin'))
     make_partner()
     selected = [IDENTITIES[0], IDENTITIES[3], IDENTITIES[5]]
-    assert client.put('/partners/partner-1', headers=headers, json={'identities': selected}).status_code == 200
+    assert client.put('/partners/partner-1', headers=headers, json={'identities': selected, 'capabilities': '数据库'}).status_code == 200
     book = load_workbook(BytesIO(client.get('/partners/export', headers=headers).content))
     index = list(partner_transfer.COLUMNS).index('identities') + 1
     assert book['伙伴信息'].cell(2, index).value == ','.join(selected)
@@ -134,6 +135,7 @@ def test_identity_schema24_to25_is_additive_atomic_and_idempotent(client):
         saved = snapshot(conn)
         assert migrate(conn) == {'schema_version': 25, 'already_current': True}
         assert snapshot(conn) == saved
+        assert migrate_capabilities(conn)['schema_version'] == 26
     verify_schema(os.environ['DATABASE_URL'])
 
 
@@ -152,8 +154,8 @@ def test_identity_migration_refuses_wrong_version_without_writes(client, version
 def test_identity_startup_never_migrates_old_or_incomplete_schema(client, old_stamp):
     with get_db() as conn:
         schema24(conn)
-        if not old_stamp: conn.execute("UPDATE app_metadata SET value='25' WHERE key='schema_version'")
+        if not old_stamp: conn.execute("UPDATE app_metadata SET value='26' WHERE key='schema_version'")
         before = snapshot(conn)
-    expected = 'version is not 25' if old_stamp else 'explicit schema-25 migration'
+    expected = 'version is not 26' if old_stamp else 'explicit schema-25 migration'
     with pytest.raises(RuntimeError, match=expected): verify_schema(os.environ['DATABASE_URL'])
     with get_db() as conn: assert snapshot(conn) == before

@@ -15,7 +15,7 @@ for(const legacy of [false,true])test(`admin profile renders ${legacy?'legacy te
     if(path==='/health')return route.fulfill({json:{status:'ok'}});
     if(path==='/auth/me')return route.fulfill({json:{id:'admin',role:'admin',status:'active',must_change_password:false}});
     if(path==='/partners/profile-ui')return route.fulfill({json:{id:'profile-ui',name:'合成伙伴',ai_profile:(legacy?'旧纯文本画像\n保留原有换行':report)+'\n\n'+injection,profile_needs_update:false}});
-    if(path==='/admin/capability-tags'||path==='/partners/profile-ui/documents')return route.fulfill({json:[]});
+    if(path==='/admin/capability-tags'||path==='/partners/capability-tree'||path==='/partners/profile-ui/documents')return route.fulfill({json:[]});
     unexpected.push(path);return route.abort();
   });
   await page.goto('/admin/partners/profile-ui');

@@ -26,7 +26,7 @@ def test_full_partner_roundtrip_preserves_long_profile_pending_and_cases(client)
     make_partner()
     profile = '=画像全文\n' + '完整画像内容。' * 10000 + '\n结尾'
     with get_db() as conn:
-        conn.execute("UPDATE partners SET ai_profile=?,intro='简介全文',capabilities='已有能力',industries='金融,待确认行业',service_areas='广东,欧洲,待确认区域',status='disabled',materials_revision=4,profile_materials_revision=3 WHERE id='partner-1'", (profile,))
+        conn.execute("UPDATE partners SET ai_profile=?,intro='简介全文',capabilities='数据库',industries='金融,待确认行业',service_areas='广东,欧洲,待确认区域',status='disabled',materials_revision=4,profile_materials_revision=3 WHERE id='partner-1'", (profile,))
         conn.execute("INSERT INTO cases (id,partner_id,title,description,created_at) VALUES ('case-kept','partner-1','不能导出或更改的案例','案例原文','2026-09-26')")
     response = client.get('/partners/export', headers=headers)
     assert response.status_code == 200

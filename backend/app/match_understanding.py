@@ -7,6 +7,7 @@ from backend.business.matching_types import (
 )
 from .database import get_db
 from .business_taxonomy import taxonomy_prompt
+from .capability_hierarchy import l1_l2_hierarchy_map
 from .model_resolver import resolve_model_record, configuration_stamp
 from . import development_model
 from . import partner_match_context as match_context
@@ -32,13 +33,13 @@ def prepare(requirement, cached=None):
     start=perf_counter()
     config=resolve_model_record('partner_match');model=configuration_stamp(config)
     with get_db() as conn:
-        tags=[r['name'] for r in conn.execute('SELECT name FROM capability_tags WHERE enabled=1 ORDER BY name')]
-    stamp=fingerprint({'requirement':requirement,'tags':tags,'rules':matching.MATCHING_RULES_VERSION})
+        tags, hierarchy = l1_l2_hierarchy_map(conn)
+    stamp=fingerprint({'requirement':requirement,'tags':tags,'hierarchy':hierarchy,'rules':matching.MATCHING_RULES_VERSION})
     if cached and cached.get('format_version')==2 and cached.get('stamp')==stamp and cached.get('model')==model:
         return cached
     bind_context(stage='understanding')
     try:
-        messages=matching.understanding_messages(requirement,tags,taxonomy_prompt())
+        messages=matching.understanding_messages(requirement,tags,taxonomy_prompt(),hierarchy=hierarchy)
         schema=MatchUnderstanding.model_json_schema()
         config,chars,tokens=match_context.checked_config(config,messages,schema,match_context.DETAIL_CHAR_LIMIT)
         prepared=round((perf_counter()-start)*1000)
@@ -46,13 +47,13 @@ def prepare(requirement, cached=None):
         reset_retry_count()
         try:
             result,rejected=development_model.validated_completion({**config, '_match_request': True},messages,schema,
-                lambda raw:matching.parse_understanding(raw,requirement,tags))
+                lambda raw:matching.parse_understanding(raw,requirement,tags,hierarchy=hierarchy))
         finally:
             match_context.log_stage('understanding',0,chars,tokens,prepared,
                                     round((perf_counter()-call_start)*1000),last_retry_count())
         if not result['in_scope']:
             return {'format_version':2,'stamp':stamp,'model':model,'understanding':result,'scope_message':MESSAGES['partner_match'],'auxiliary_rejections':rejected}
-        matching.validate_understanding(result,requirement,tags)
+        matching.validate_understanding(result,requirement,tags,hierarchy=hierarchy)
         return {'format_version':2,'stamp':stamp,'model':model,'understanding':result,'auxiliary_rejections':rejected}
     except HTTPException:raise
     except Exception as error:raise PublicTaskError(error) from error

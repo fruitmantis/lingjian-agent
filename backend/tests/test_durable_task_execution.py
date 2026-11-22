@@ -1,5 +1,6 @@
 """Task/Run commit ordering and progressive results, using isolated synthetic inputs."""
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -214,6 +215,11 @@ def test_http_acceptance_commit_concurrency_and_lost_response(client,unified,mon
     from sqlalchemy import text
     from backend.app.main import app
     from backend.app.postgres_storage import engine_for
+    logger_names = ('uvicorn', 'uvicorn.error', 'uvicorn.access')
+    saved_loggers = {
+        name: (logging.getLogger(name).level, logging.getLogger(name).propagate, logging.getLogger(name).handlers[:])
+        for name in logger_names
+    }
     port=free_port();base=f'http://127.0.0.1:{port}'
     server=uvicorn.Server(uvicorn.Config(app,host='127.0.0.1',port=port,log_level='error',lifespan='off'))
     worker=threading.Thread(target=server.run,daemon=True);worker.start()
@@ -258,6 +264,11 @@ def test_http_acceptance_commit_concurrency_and_lost_response(client,unified,mon
         record_property('durable_http_acceptance',json.dumps({'kind':kind,'seconds':[t for _,t in responses], 'tasks':1,'dispatches':1,'model_attempts':1,'independent_pg_visible':True}))
     finally:
         release.set();server.should_exit=True;worker.join(5)
+        for name, (level, propagate, handlers) in saved_loggers.items():
+            logger = logging.getLogger(name)
+            logger.setLevel(level)
+            logger.propagate = propagate
+            logger.handlers[:] = handlers
     deadline=time.monotonic()+5
     while True:
         data=detail(client,kind,accepted,headers)

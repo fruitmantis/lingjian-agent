@@ -130,7 +130,7 @@ def check_tags(conn, ids, required=False):
     if required and not ids: fail(409, '发布前至少关联一个正式能力标签')
     if len(ids) != len(set(ids)): fail(422, '能力标签不能重复')
     for tag in ids:
-        if not conn.execute('SELECT id FROM capability_tags WHERE id=? AND enabled=1',(tag,)).fetchone():
+        if not conn.execute('SELECT id FROM capability_tags WHERE id=? AND enabled=1 AND level=1',(tag,)).fetchone():
             fail(422, '能力标签不存在或已停用')
 
 
@@ -252,7 +252,7 @@ def resolve_reference(conn, source_type, source_id, source_version, purpose='sys
     row=row_for(conn,'resource',source_id)
     version=conn.execute('SELECT * FROM enablement_resource_versions WHERE source_id=? AND version=?',(source_id,source_version)).fetchone()
     from .resource_categories import read
-    tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1')}
+    tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1 AND level=1')}
     return _resource_projection(row,version,source_type,source_id,source_version,purpose,tags,read(conn))
 
 
@@ -282,7 +282,7 @@ def model_references(conn):
     from .enablement_catalog import POOL
     from .resource_categories import read
     from .case_content import case_projection
-    tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1')}
+    tags={r[0] for r in conn.execute('SELECT id FROM capability_tags WHERE enabled=1 AND level=1')}
     categories=read(conn)
     rows=conn.execute(POOL+"""SELECT visible.source_type,visible.source_id,visible.source_version,
         visible.payload_json,r.status,r.published_version,r.authorization_epoch,r.system_visible,r.model_allowed,r.partner_allowed,

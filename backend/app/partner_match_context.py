@@ -11,6 +11,12 @@ from functools import lru_cache
 from .ai_client import completion_payload, last_retry_count, reset_retry_count
 from .development_engine import terms
 from .business_taxonomy import canonical as canonical_values, project_partner
+from .capability_hierarchy import (
+    enabled_capability_sets,
+    format_sub_capabilities,
+    read_sub_capabilities,
+    split_capability_tokens,
+)
 from .partner_identities import read_identities
 from .model_resolver import model_config_from_record, resolve_model_record, ModelContextCapacityError
 from .task_failures import MatchInputBudgetError
@@ -258,20 +264,51 @@ def select_passages(value: str, query: str, limit: int, *, facts=None) -> list[s
     return [p for _, p, _ in passage_selection(value, query, limit, facts=facts)[0]]
 
 
-def _partner_values(partner):
+def effective_capabilities_text(raw: str | None, disabled_l1: set[str] | None = None) -> str:
+    if not raw:
+        return ''
+    if not disabled_l1:
+        return raw
+    tokens = split_capability_tokens(raw)
+    if not (disabled_l1 & set(tokens)):
+        return raw
+    return ','.join(token for token in tokens if token not in disabled_l1)
+
+
+def _effective_sub_capabilities(raw_subs, *, enabled_l1: set[str] | None = None, enabled_l2: set[tuple[str, str]] | None = None) -> list[dict[str, str]]:
+    subs = read_sub_capabilities(raw_subs)
+    if enabled_l1 is not None:
+        subs = [s for s in subs if s['parent'] in enabled_l1]
+    if enabled_l2 is not None:
+        subs = [s for s in subs if (s['parent'], s['name']) in enabled_l2]
+    return subs
+
+
+def _partner_values(partner, *, enabled_l1: set[str] | None = None, enabled_l2: set[tuple[str, str]] | None = None, disabled_l1: set[str] | None = None):
+    cap_text = effective_capabilities_text(partner.get('capabilities'), disabled_l1)
+    sub_caps = _effective_sub_capabilities(partner.get('sub_capabilities'), enabled_l1=enabled_l1, enabled_l2=enabled_l2)
+    sub_text = format_sub_capabilities(sub_caps)
     version = hashlib.sha256(json.dumps(
-        {key: partner.get(key) for key in ('id','name','capabilities','identities','industries','service_areas',
-                                          'materials_revision','updated_at')},
+        {
+            **{key: partner.get(key) for key in ('id', 'name', 'identities', 'industries', 'service_areas',
+                                                 'materials_revision', 'updated_at')},
+            'capabilities': cap_text,
+            'sub_capabilities': sub_caps,
+        },
         ensure_ascii=False, sort_keys=True).encode()).hexdigest()
-    return [{'sourceRef': 'partner:' + partner['id'], 'source_version': version,
-             'path': '/' + key, 'text': partner.get(key) or '', 'original': '',
-             'kind': 'field', 'background': key != 'capabilities'}
-            for key in ('name','capabilities','industries','service_areas')]
+    entries = [{'sourceRef': 'partner:' + partner['id'], 'source_version': version,
+                'path': '/' + key, 'text': cap_text if key == 'capabilities' else (partner.get(key) or ''),
+                'original': '', 'kind': 'field', 'background': key != 'capabilities'}
+               for key in ('name', 'capabilities', 'industries', 'service_areas')]
+    entries.append({'sourceRef': 'partner:' + partner['id'], 'source_version': version,
+                    'path': '/sub_capabilities', 'text': sub_text, 'original': '',
+                    'kind': 'field', 'background': False})
+    return entries
 
 
-def _candidate_values(conn, partner):
+def _candidate_values(conn, partner, *, enabled_l1: set[str] | None = None, enabled_l2: set[tuple[str, str]] | None = None, disabled_l1: set[str] | None = None):
     from .profile_sources import matching_values
-    return _partner_values(partner) + matching_values(conn, partner['id'])
+    return _partner_values(partner, enabled_l1=enabled_l1, enabled_l2=enabled_l2, disabled_l1=disabled_l1) + matching_values(conn, partner['id'])
 
 
 def provider_context(context):
@@ -323,6 +360,23 @@ def log_stage(stage: str, partner_count: int, chars: int, estimated_tokens: int,
     }, separators=(',', ':')))
 
 
+def _related_sub_capability_tags(requirement, facts) -> list[tuple[str, str]]:
+    evidence = facts.get('subCapabilityEvidence', {}) or {}
+    mapped = [
+        (item['parent'], item['name'])
+        for item in read_sub_capabilities(facts.get('subCapabilityTags'))
+        if str(evidence.get(f"{item['parent']}/{item['name']}") or '').strip()
+        and str(evidence.get(f"{item['parent']}/{item['name']}") or '') in requirement
+    ]
+    explicit = [
+        (item['parent'], item['name'])
+        for condition in facts.get('partnerRequirements', [])
+        if condition.get('mode') in ('required', 'preferred')
+        for item in read_sub_capabilities(condition.get('subCapabilityTags'))
+    ]
+    return list(dict.fromkeys(mapped + explicit))
+
+
 def _related_capability_tags(requirement, facts):
     mapped = [tag for tag in facts.get('capabilityTags', [])
               if facts.get('capabilityEvidence', {}).get(tag, '').strip()
@@ -330,21 +384,47 @@ def _related_capability_tags(requirement, facts):
     # Validated positive certification conditions are explicit tag targets.
     explicit = [tag for condition in facts.get('partnerRequirements', [])
                 if condition['mode'] in ('required','preferred') for tag in condition['capabilityTags']]
-    return list(dict.fromkeys(mapped + explicit))
+    sub_parents = [parent for parent, _ in _related_sub_capability_tags(requirement, facts)]
+    return list(dict.fromkeys(mapped + explicit + sub_parents))
 
 
-def certification_snapshot(partner, related_tags=()):
-    tags = list(dict.fromkeys(t.strip() for t in re.split(r'[,，、;；\n]+', partner.get('capabilities') or '') if t.strip()))
+def _effective_related_targets(requirement, facts, enabled_l1: set[str], enabled_l2: set[tuple[str, str]]) -> tuple[list[str], list[tuple[str, str]]]:
+    rel_l2 = [pair for pair in _related_sub_capability_tags(requirement, facts) if pair in enabled_l2]
+    rel_l1_raw = _related_capability_tags(requirement, facts)
+    # Keep L1 if enabled directly, OR if an enabled L2 parent wasn't independently disabled.
+    rel_l1 = [tag for tag in rel_l1_raw if tag in enabled_l1]
+    return rel_l1, rel_l2
+
+
+def certification_snapshot(partner, related_tags=(), *, related_sub_tags=(), enabled_l1: set[str] | None = None, enabled_l2: set[tuple[str, str]] | None = None):
+    sub_caps = _effective_sub_capabilities(partner.get('sub_capabilities'), enabled_l1=enabled_l1, enabled_l2=enabled_l2)
+    raw_l1 = split_capability_tokens(partner.get('capabilities'))
+    if enabled_l1 is not None:
+        raw_l1 = [tag for tag in raw_l1 if tag in enabled_l1]
+    tags = list(dict.fromkeys(raw_l1 + [s['parent'] for s in sub_caps]))
     identities = read_identities(partner.get('identities'))
-    return {'capabilityTags':tags, 'relatedCapabilityTags':[t for t in tags if t in related_tags],
-            'servicePartnerBasis':'capability_tag' if tags else 'identity' if '服务合作伙伴' in identities else None,
-            'identities':identities}
+    related_l1 = [t for t in tags if t in related_tags and (enabled_l1 is None or t in enabled_l1)]
+    related_sub_set = {(p, n) for p, n in related_sub_tags if (enabled_l2 is None or (p, n) in enabled_l2)}
+    related_sub = [s for s in sub_caps if (s['parent'], s['name']) in related_sub_set]
+    return {
+        'capabilityTags': tags,
+        'relatedCapabilityTags': related_l1,
+        'subCapabilityTags': sub_caps,
+        'relatedSubCapabilityTags': related_sub,
+        'servicePartnerBasis': 'capability_tag' if tags else 'identity' if '服务合作伙伴' in identities else None,
+        'identities': identities,
+    }
 
 
 def _condition_matches(condition, certification):
-    tests = [tag in certification['capabilityTags'] for tag in condition['capabilityTags']]
+    tests = [tag in certification['capabilityTags'] for tag in condition.get('capabilityTags', [])]
+    partner_subs = {(s['parent'], s['name']) for s in certification.get('subCapabilityTags', [])}
+    tests += [
+        (s['parent'], s['name']) in partner_subs
+        for s in read_sub_capabilities(condition.get('subCapabilityTags'))
+    ]
     tests += [(bool(certification['servicePartnerBasis']) if identity == '服务合作伙伴'
-               else identity in certification['identities']) for identity in condition['identities']]
+               else identity in certification['identities']) for identity in condition.get('identities', [])]
     return (all(tests) if condition['match'] == 'all' else any(tests)) if tests else False
 
 
@@ -360,11 +440,11 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
                 keyword_count=len(query_terms),
                 keyword_fingerprint=hashlib.sha256(json.dumps(query_terms,ensure_ascii=False,separators=(',', ':')).encode()).hexdigest(),
                 candidate_order=[])
-    standard_tags = {r['name'] for r in conn.execute('SELECT name FROM capability_tags WHERE enabled=1')}
-    related_tags = [tag for tag in _related_capability_tags(requirement, facts) if tag in standard_tags]
+    enabled_l1, enabled_l2, disabled_l1 = enabled_capability_sets(conn)
+    related_tags, related_sub_tags = _effective_related_targets(requirement, facts, enabled_l1, enabled_l2)
     conditions = facts.get('partnerRequirements', [])
     identity_only = not query_terms and any(c['identities'] for c in conditions if c['mode'] != 'excluded')
-    if not query_terms and not related_tags and not identity_only:
+    if not query_terms and not related_tags and not related_sub_tags and not identity_only:
         return []
     # Normalize the same controlled capability expressions in query and corpus.
     body = "body"
@@ -373,7 +453,10 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
         body = "regexp_replace(" + body + ",?,?,'g')"
         parameters += [pattern, canonical]
     partners = [dict(r) for r in conn.execute("SELECT * FROM partners WHERE status='active' ORDER BY id")]
-    values = {p['id']: _candidate_values(conn, p) for p in partners}
+    values = {
+        p['id']: _candidate_values(conn, p, enabled_l1=enabled_l1, enabled_l2=enabled_l2, disabled_l1=disabled_l1)
+        for p in partners
+    }
     valid_corpus = [{'id': p['id'], 'body': (' '.join(v['text'] for v in values[p['id']] if v['path'] not in ('/industries','/service_areas'))
         + (' ' + canonical_values(p.get('industries'), 'industry') if industry_terms else '')).lower()} for p in partners]
     corpus = """WITH raw_corpus AS (
@@ -392,15 +475,22 @@ def recall_candidates(conn, requirement: str, facts: dict, limit: int = 12,
     lexical = {r['id']:dict(r) for r in rows}
     ranked = []
     for partner in partners:
-        certification = certification_snapshot(partner, related_tags)
+        certification = certification_snapshot(
+            partner,
+            related_tags,
+            related_sub_tags=related_sub_tags,
+            enabled_l1=enabled_l1,
+            enabled_l2=enabled_l2,
+        )
         if any((c['mode']=='required' and not _condition_matches(c,certification)) or
                (c['mode']=='excluded' and _condition_matches(c,certification)) for c in conditions):
             continue
         row = lexical.get(partner['id'], {'id':partner['id'],'score':0,'matched_terms':[]})
-        if not (certification['relatedCapabilityTags'] or row['matched_terms'] or identity_only):
+        has_related = bool(certification['relatedCapabilityTags'] or certification['relatedSubCapabilityTags'])
+        if not (has_related or row['matched_terms'] or identity_only):
             continue
         row['certification'] = certification
-        tier = 0 if certification['relatedCapabilityTags'] else 1 if certification['servicePartnerBasis'] else 2
+        tier = 0 if has_related else 1 if certification['servicePartnerBasis'] else 2
         preferred = any(_condition_matches(c,certification) for c in conditions if c['mode']=='preferred')
         ranked.append((tier,not preferred,-row['score'],partner['id'],row))
     rows = [entry[-1] for entry in sorted(ranked,key=lambda entry:entry[:4])[:min(limit,12)]]
@@ -435,7 +525,9 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
         raise ValueError('Selected partner is unavailable')
     original_partner = dict(row)
     partner = project_partner(original_partner)
-    values = _candidate_values(conn, original_partner)
+    enabled_l1, enabled_l2, disabled_l1 = enabled_capability_sets(conn)
+    related_l1, related_sub = _effective_related_targets(requirement, facts or {}, enabled_l1, enabled_l2)
+    values = _candidate_values(conn, original_partner, enabled_l1=enabled_l1, enabled_l2=enabled_l2, disabled_l1=disabled_l1)
     by_position = {(v['sourceRef'],v['source_version'],v['path']):v for v in values}
     if hits is None:
         hits = []
@@ -544,10 +636,16 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
                 'omittedHitGroups':len(omissions),'selectedGroupCount':len(raw_groups),
                 'backgroundHitCount':len(background),'omissions':omissions}
     context = {'partnerId':partner_id,'name':partner['name'],
-               'capabilities':partner.get('capabilities') or '',
+               'capabilities':effective_capabilities_text(partner.get('capabilities'), disabled_l1),
                'industries':partner.get('industries') or '',
                'regions':partner.get('service_areas') or '',
-               'certification':certification_snapshot(original_partner, _related_capability_tags(requirement, facts or {})),
+               'certification':certification_snapshot(
+                   original_partner,
+                   related_l1,
+                   related_sub_tags=related_sub,
+                   enabled_l1=enabled_l1,
+                   enabled_l2=enabled_l2,
+               ),
                'profilePassages':passages,
                'visibleCases':[{'id':c['id'],'title':c['title'],
                                 'relevantDescription':c.get('description') or ''} for c in cases],
@@ -555,6 +653,7 @@ def detailed_candidate(conn, partner_id: str, focus: str, requirement: str,
                                 'caseTitle':d['case_title']} for d in evidence_deliverables],
                'inputCoverage':coverage,
                'evidenceState':_source_note(coverage),
+               '_relatedTargets':{'l1':related_l1,'l2':[list(pair) for pair in related_sub]},
                '_sourceMap':source_map,'_groups':raw_groups}
     return partner,context,cases,evidence_deliverables
 

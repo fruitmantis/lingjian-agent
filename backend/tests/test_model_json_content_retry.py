@@ -1,5 +1,6 @@
 """B/C opt-in JSON envelopes and additive request retries, synthetic PostgreSQL/HTTP."""
 import json
+import logging
 
 import httpx
 
@@ -168,8 +169,9 @@ def test_other_structured_calls_do_not_gain_content_retry(monkeypatch,agent):
 def test_retry_metadata_omits_credentials_and_full_business_input(monkeypatch,caplog):
     synthetic_model(monkeypatch);seen=transport(monkeypatch,['{broken','{"in_scope":true}'])
     selected=resolve_model_record('partner_match');private='REQUEST_START_'+('合成私人需求'*600)+'_REQUEST_END'
-    with diagnostics.diagnostic_scope(stage='understanding'):
-        result=development_model.validated_completion(selected,[{'role':'user','content':private}],{},model_json_object)
+    with caplog.at_level(logging.WARNING, logger='uvicorn.error'):
+        with diagnostics.diagnostic_scope(stage='understanding'):
+            result=development_model.validated_completion(selected,[{'role':'user','content':private}],{},model_json_object)
     assert result=={'in_scope':True} and len(seen)==2
     logs=caplog.text+diagnostics.log_path().read_text()
     assert 'synthetic-bc-private-key' not in logs and private not in logs and 'REQUEST_START_' not in logs

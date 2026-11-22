@@ -20,8 +20,15 @@ import {responseError} from "../lib/api-request";
 
 import { tasksChanged } from "./task-navigation";
 
+type CertificationSubTag = { parent: string; name: string };
+function formatCertifiedTags(tags: string[], subs?: CertificationSubTag[]): string {
+  return tags.map(l1 => {
+    const children = (subs || []).filter(s => s.parent === l1).map(s => s.name);
+    return children.length ? `${l1}（${children.join("、")}）` : l1;
+  }).join("、");
+}
 type Recommendation = {
-  certification?: { capabilityTags: string[]; relatedCapabilityTags: string[]; servicePartnerBasis: "capability_tag" | "identity" | null; identities: string[] } | null;
+  certification?: { capabilityTags: string[]; relatedCapabilityTags: string[]; subCapabilityTags?: CertificationSubTag[]; relatedSubCapabilityTags?: CertificationSubTag[]; servicePartnerBasis: "capability_tag" | "identity" | null; identities: string[] } | null;
   partnerId: string; partnerName: string; matchScore: string; matchedCapabilities: string;
   matchedIndustries: string; matchedRegions: string; recommendationReason: string;
   evidenceCases: string; evidenceDeliverables: string; riskNotes: string;
@@ -215,8 +222,8 @@ function TaskDetail({id}:{id:string}) {
         <TaskResult as="article" id={id} className={`recommendation-item ${recommendationStyles.recommendation}`} key={item.partnerId}>
           <div id={`recommendation-${item.partnerId}`} className={`recommendation-title ${recommendationStyles.title}`}><span className="rank-badge">{index + 1}</span><div><h3>{item.partnerName}</h3><span>推荐分 {item.matchScore}</span></div><CardEntry href={`/partners/${item.partnerId}?returnTo=${encodeURIComponent(`${pathname}#recommendation-${item.partnerId}`)}`}>查看伙伴</CardEntry></div>
           {item.certification&&<dl className={recommendationStyles.summary} data-testid="recommendation-certification">
-            <div><dt>相关能力认证</dt><dd>{item.certification.relatedCapabilityTags.join("、")||"未记录本次相关能力认证"}</dd></div>
-            {item.certification.servicePartnerBasis&&<div><dt>服务伙伴依据</dt><dd>{item.certification.servicePartnerBasis==="capability_tag"?`正式能力认证：${item.certification.capabilityTags.join("、")}`:"已维护服务合作伙伴身份"}</dd></div>}
+            <div><dt>相关能力认证</dt><dd>{formatCertifiedTags(item.certification.relatedCapabilityTags,item.certification.relatedSubCapabilityTags)||"未记录本次相关能力认证"}</dd></div>
+            {item.certification.servicePartnerBasis&&<div><dt>服务伙伴依据</dt><dd>{item.certification.servicePartnerBasis==="capability_tag"?`正式能力认证：${formatCertifiedTags(item.certification.capabilityTags,item.certification.subCapabilityTags)}`:"已维护服务合作伙伴身份"}</dd></div>}
             {!!item.certification.identities.length&&<div><dt>伙伴身份</dt><dd>{item.certification.identities.join("、")}</dd></div>}
           </dl>}
           <dl className={recommendationStyles.summary}>{Object.entries({"相关能力":item.certification?"":item.matchedCapabilities,"行业经验":item.matchedIndustries,"覆盖区域":item.matchedRegions}).filter(([,value])=>value&&value!=="未核实").map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
