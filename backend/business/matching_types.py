@@ -12,8 +12,8 @@ class SubCapabilityRef(ModelOutput):
 class PartnerRequirement(ModelOutput):
     mode: Literal['required','preferred','excluded']
     match: Literal['all','any'] = 'all'
-    capabilityTags: list[str] = Field(default_factory=list, max_length=30, description='仅用户明确要求持有、优先或排除的正式一级认证或正式标签；不从工作内容、能力或部署环境推导认证条件。')
-    subCapabilityTags: list[SubCapabilityRef] = Field(default_factory=list, max_length=30, description='仅用户明确要求持有、优先或排除的二级细分正式认证，须与capability_hierarchy中一级/二级一致；不降级为宽泛一级标签。')
+    capabilityTags: list[str] = Field(default_factory=list, max_length=30, description='仅用户明确使用必须/优先/排除限定的正式一级认证或正式标签；不从工作内容、能力或部署环境推导认证条件，常规“请推荐/寻找具备XX相关认证的伙伴”不填。')
+    subCapabilityTags: list[SubCapabilityRef] = Field(default_factory=list, max_length=30, description='仅用户明确使用必须/优先/排除限定的二级细分正式认证，须与capability_hierarchy中一级/二级一致；不降级为宽泛一级标签，常规寻找句不填。')
     identities: list[str] = Field(default_factory=list, max_length=6)
     evidenceText: str = Field(min_length=2)
 
@@ -27,8 +27,8 @@ class ProjectFacts(ModelOutput):
     businessNeeds: str='未知'
     technicalNeeds: str='未知'
     deliveryNeeds: str=Field(default='未知',description='完整保留项目工作及用户明示的交付范围，供逐家针对完整需求独立评估；不拆成伙伴间分工，不增加必备认证或资格。')
-    qualificationRequirements: str=Field(default='未知',description='用户明确限定合作方本身的资质或资格及其限定对象；一般项目工作不是每家资格，未明示保持未知，不增加条件或凭证形式。')
-    caseRequirements: str=Field(default='未知',description='用户明确限定合作方本身的经验、案例或交付依据要求及其限定对象；须由对应资料支持，未明示保持未知，不增加用户未要求的合同或验收凭证形式。')
+    qualificationRequirements: str=Field(default='未知',description='仅提取用户明确限定为必须/硬性要求/准入门槛的合作方资质或资格及其限定对象；常规“请推荐/寻找具备XX能力的伙伴”不是硬性资格，未明示硬性要求保持未知，不增加条件或凭证形式。')
+    caseRequirements: str=Field(default='未知',description='仅提取用户明确限定为必须/硬性要求/准入门槛的合作方经验、案例或交付依据要求及其限定对象；常规“寻找/请推荐具备XX经验的伙伴”不作为硬性门槛，未明示硬性要求保持未知，不增加用户未要求的合同或验收凭证形式。')
     onsiteRequirement: str='未知'
     timelineRequirement: str='未知'
     cloudPlatformPreference: str='未知'
@@ -37,7 +37,7 @@ class ProjectFacts(ModelOutput):
     subCapabilityTags: list[SubCapabilityRef]=Field(default_factory=list,max_length=30,description='本次工作明确涉及的二级细分能力认证，用于相关二级认证对照；仅填写有明确需求原文依据的二级项。')
     subCapabilityEvidence: dict[str,str] = Field(default_factory=dict, description='每个相关二级能力标签对应的需求原文，键格式为“一级/二级”；仅正向工作。')
     workEvidence: list[str] | None = Field(default=None, description='本次正向工作主题的连续需求原文，不含单独的行业、区域、身份、排除条件或追问；无工作主题返回空数组。')
-    partnerRequirements: list[PartnerRequirement] = Field(default_factory=list, description='仅用户明确提出的正式认证、正式标签或六类身份条件；必须完成的工作和部署要求不转成认证门槛，无明确认证或身份条件返回空数组，业务硬要求仍交给详评。保留必须/优先/排除及或/同时，复杂条件原文交给详评，不生成嵌套规则。')
+    partnerRequirements: list[PartnerRequirement] = Field(default_factory=list, description='仅用户明确提出必须持有/优先/排除的正式认证、正式标签或六类身份条件；常规“请推荐/寻找/需要具备XX能力或相关认证的伙伴”只填capabilityTags/subCapabilityTags，必须完成的工作和部署要求不转成认证门槛，无明确强制/优先/排除认证或身份条件返回空数组，业务硬要求仍交给详评。保留必须/优先/排除及或/同时，复杂条件原文交给详评，不生成嵌套规则。')
     deliveryTypeTags: str=''
     complexityLevel: Literal['高','中','低','未知']='未知'
     urgencyLevel: Literal['高','中','低','未知']='未知'
@@ -82,7 +82,7 @@ class Candidate(AnalysisReference):
 
 
 class MatchAnswer(ModelOutput):
-    recommendations: list[Candidate]=Field(default_factory=list,max_length=5,description='只列对应资料支持用户明确必备条件且不触发排除的伙伴；明确必备条件未证实或冲突时不列入，放在gapAnalysis说明，降低分数或风险备注待确认不能替代入选条件。不把普通未知增加为门槛。')
+    recommendations: list[Candidate]=Field(default_factory=list,max_length=5,description='明确必备条件未证实或冲突时不列入，放在gapAnalysis说明，降低分数或风险备注待确认不能替代入选条件；仅用户明确设为必须/硬性/仅限/不接受/排除的条件适用硬淘汰，未设为硬性门槛的常规多项能力、相关认证或经验诉求按独立适配程度择优推荐并在riskNotes与gapAnalysis如实说明未覆盖项。')
     supplyStatus: Literal['sufficient','partial','gap','unknown']
     gapAnalysis: str=Field(default='',max_length=2000,description='逐家针对完整需求独立适配的比较及影响取舍的具体缺口，可说明因明确必备条件未证实或冲突而未推荐的伙伴；资料未知不等于实际不具备。用业务语言，不复述实现字段或枚举，不拼接多家能力或生成伙伴间责任安排，不逐项罗列所有未知。按独立适配比较、具体缺口与接洽要点的顺序写，用空行分段，通常每段1～2句，无实质内容的主题省略，不重复卡片理由。')
     analysisRefs: list[AnalysisReference]

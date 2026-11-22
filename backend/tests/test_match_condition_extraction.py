@@ -70,10 +70,13 @@ def test_real_failure_conditions_reproduce_empty_recall_and_corrected_contract_k
             prompt = messages[0]['content']
             assert '用于认证优先召回，不表示用户要求伙伴持有认证' in prompt
             assert '必须、优先或排除须限定持有认证、正式标签或身份' in prompt
+            assert '仅当用户使用明确强制、优先或排他限定词' in prompt
             assert '相关capabilityTags为数据库、容器，partnerRequirements为空，不推导HCS认证' in prompt
             props = schema['$defs']['ProjectFacts']['properties']
             assert '不表示必须持有认证' in props['capabilityTags']['description']
             assert '必须完成的工作和部署要求不转成认证门槛' in props['partnerRequirements']['description']
+            assert '仅提取用户明确限定为必须/硬性要求/准入门槛' in props['qualificationRequirements']['description']
+            assert '仅提取用户明确限定为必须/硬性要求/准入门槛' in props['caseRequirements']['description']
             assert '不从工作内容、能力或部署环境推导认证条件' in schema['$defs']['PartnerRequirement']['properties']['capabilityTags']['description']
             evidence = os.getenv('BANFEI_MATCH_CONDITION_EVIDENCE_DIR')
             if evidence:
@@ -81,6 +84,8 @@ def test_real_failure_conditions_reproduce_empty_recall_and_corrected_contract_k
             # Fixed expected extraction; this does not claim real model adherence.
             return json.dumps({'in_scope': True, 'facts': facts}, ensure_ascii=False)
         assert schema['title'] == 'MatchAnswer'
+        assert '严格区分“明示硬性必备/排除条件”与“常规多项能力或经验期望”' in messages[0]['content']
+        assert '仅用户明确设为必须/硬性/仅限/不接受/排除的条件适用硬淘汰' in schema['properties']['recommendations']['description']
         assert data['facts']['partnerRequirements'] == []
         assert all(HCS not in candidate['certification']['relatedCapabilityTags'] for candidate in data['candidates'])
         assert data['facts']['onsiteRequirement'] == '必须支持在企业本地部署'

@@ -32,7 +32,8 @@ def forbid_external_calls(monkeypatch):
  ('深圳,广州,西安,杭州','region','广东,陕西,浙江',[]),
  ('北京,广东,亚太,欧洲','region','北京,广东,亚太,欧洲',[]),
  ('全国,华东,海外地区,俄罗斯','region','',['全国','华东','海外地区','俄罗斯']),
- ('政务,通信,文旅,金融','industry','金融',['政务','通信','文旅']),
+ ('政务,通信,文旅,金融','industry','部委与公共事业,金融',['通信','文旅']),
+ ('政务,政府','industry','部委与公共事业',[]),
 ])
 def test_deterministic_and_pending(value,kind,expected,pending):
  assert canonical(value,kind)==expected
@@ -64,20 +65,20 @@ def test_multiselect_admin_write_and_legacy_retention(client):
  assert client.post('/partners',headers=auth_headers(user),json=body).status_code==403
  r=client.post('/partners',headers=auth_headers(admin),json=body);assert r.status_code==201,r.text
  data=r.json();assert data['service_areas']=='广东,陕西,亚太,欧洲' and data['industries']=='互联网,金融'
- with get_db() as conn:conn.execute("UPDATE partners SET industries='银行,政务',service_areas='深圳,全国' WHERE id=?",(data['id'],))
+ with get_db() as conn:conn.execute("UPDATE partners SET industries='银行,文旅',service_areas='深圳,全国' WHERE id=?",(data['id'],))
  detail=client.get('/partners/'+data['id'],headers=auth_headers(user)).json()
  assert detail['industries']=='金融' and detail['service_areas']=='广东'
- assert detail['classification_pending']=={'industries':['政务'],'regions':['全国']}
+ assert detail['classification_pending']=={'industries':['文旅'],'regions':['全国']}
  r=client.put('/partners/'+data['id'],headers=auth_headers(admin),json={'industries':['金融','零售'],'service_areas':['广东','欧洲']})
  assert r.status_code==200
  with get_db() as conn:
   row=conn.execute('SELECT industries,service_areas FROM partners WHERE id=?',(data['id'],)).fetchone()
- assert tuple(row)==('金融,零售,政务','广东,欧洲,全国')
+ assert tuple(row)==('金融,零售,文旅','广东,欧洲,全国')
 
 def test_model_structured_projection_leaves_narrative():
  p=make_partner()
  with get_db() as conn:
-  conn.execute("UPDATE partners SET industries='银行,政务',service_areas='深圳,全国',ai_profile='长期深耕深圳银行业务' WHERE id=?",(p['id'],))
+  conn.execute("UPDATE partners SET industries='银行,文旅',service_areas='深圳,全国',ai_profile='长期深耕深圳银行业务' WHERE id=?",(p['id'],))
   ctx=profile_context(conn,{'target_partner_id':p['id'],'model_input_allowed':True})
  assert ctx['industries']=='金融' and ctx['service_areas']=='广东'
  assert ctx['region_groups']==[{'region_type':'domestic','regions':['广东']}]
@@ -85,7 +86,7 @@ def test_model_structured_projection_leaves_narrative():
  assert 'classification_pending' not in ctx
 
 def test_stats_and_filter_only_canonical_values():
- rows=[{'industry_tags':'银行,金融,政务','region_tags':'深圳,广州,全国'}, {'industry_tags':'电商','region_tags':'亚太'}]
+ rows=[{'industry_tags':'银行,金融,文旅','region_tags':'深圳,广州,全国'}, {'industry_tags':'电商','region_tags':'亚太'}]
  assert _count_tags(rows,'industry_tags')=={'金融':1,'互联网':1}
  assert _count_tags(rows,'region_tags')=={'广东':1,'亚太':1}
  assert len(standard_filter(rows,'金融,互联网','广东','industry_tags','region_tags'))==1
@@ -94,7 +95,7 @@ def test_stats_and_filter_only_canonical_values():
 def test_update_only_atomic_rollback_and_no_data_loss(fault):
  make_partner()
  with get_db() as conn:
-  conn.execute("UPDATE partners SET industries='银行,政务',service_areas='深圳,广州,全国',ai_profile='深圳银行案例' WHERE id='partner-1'")
+  conn.execute("UPDATE partners SET industries='银行,文旅',service_areas='深圳,广州,全国',ai_profile='深圳银行案例' WHERE id='partner-1'")
  with get_db() as conn:
   before=state(conn);other=state(conn,True);baseline=checks(conn);changes,pending=plan(conn)
   assert len(changes)==2 and pending
@@ -103,7 +104,7 @@ def test_update_only_atomic_rollback_and_no_data_loss(fault):
    assert state(conn)==before
   else:
    update_transaction(conn,changes,before)
-   assert tuple(conn.execute("SELECT industries,service_areas,ai_profile FROM partners").fetchone())==('金融,政务','广东,全国','深圳银行案例')
+   assert tuple(conn.execute("SELECT industries,service_areas,ai_profile FROM partners").fetchone())==('金融,文旅','广东,全国','深圳银行案例')
    assert not plan(conn)[0]
   assert checks(conn)==baseline and state(conn,True)==other
 
