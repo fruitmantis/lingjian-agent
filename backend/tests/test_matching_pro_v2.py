@@ -133,7 +133,7 @@ def test_whole_group_budget_loss_retains_other_candidate_and_model_gap(setup):
     item=legal_item(row)
     other=make_partner('oversized-other','超长合成伙伴')
     source = 'partner:oversized-other:profile:0'
-    body = 'NovelVision方向\\n' + '企业自述。' * 6000 + '\\n仅限规划，尚未交付。'
+    body = 'NovelVision方向\\n' + '企业自述。' * (partner_match_context.DETAIL_CHAR_LIMIT // 5) + '\\n仅限规划，尚未交付。'
     bad_context = {'partnerId':other['id'],'name':other['name'],
         'capabilities':'','industries':'','regions':'','profilePassages':[{'source':source,'text':body}],
         'visibleCases':[],'deliverables':[],'inputCoverage':{'complete':True,'omissions':[],

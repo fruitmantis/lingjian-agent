@@ -109,12 +109,14 @@ def test_native_wrapped_fact_and_table_are_continuous_with_original_headings():
     assert '名称\t范围\n设备甲\t仅限表面\n设备乙\t保留日期' in original[ranges[0][0]:ranges[0][1]]
 
 
-def test_additional_evidence_rotates_before_first_candidate_exhausts_budget():
+def test_additional_evidence_rotates_before_first_candidate_exhausts_budget(monkeypatch):
+    monkeypatch.setattr(partner_match_context,'DETAIL_CHAR_LIMIT',25_000)
+    monkeypatch.setattr(partner_match_context,'CANDIDATE_EVIDENCE_CHAR_LIMIT',20_000)
     rows=[raw_row({'id':key,'name':name},[name+'的主要依据。','补充事实。'+char*8000]+
                   (['另一事实。'+char*8000] if key=='a' else []))
           for key,name,char in [('a','甲','A'),('b','乙','B'),('c','丙','C')]]
     _,chars,_=assemble(rows)
-    assert chars<=25000
+    assert chars<=partner_match_context.DETAIL_CHAR_LIMIT
     assert len(rows[0][1]['profilePassages'])==2
     assert len(rows[1][1]['profilePassages'])==2  # Greedy per-partner fill would starve this turn.
     assert all(row[1]['profilePassages'] for row in rows)

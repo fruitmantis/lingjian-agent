@@ -141,7 +141,7 @@ def test_tag_only_detail_and_saved_snapshot_are_program_owned_and_legacy_is_not_
             'capabilityTags':['数据库'],'relatedCapabilityTags':['数据库'],
             'subCapabilityTags':[],'relatedSubCapabilityTags':[],
             'servicePartnerBasis':'capability_tag','identities':['云经销商']}
-        assert context.input_metrics(config,messages,schema)[0]<=25000
+        assert context.input_metrics(config,messages,schema)[0]<=context.DETAIL_CHAR_LIMIT
         assert not any(k.startswith('_') for k in candidate)
         return json.dumps({'recommendations':[{**recommendation('cert','cert'),
             'evidenceCases':[],'evidenceDeliverables':[],'profileEvidence':[],
@@ -425,7 +425,7 @@ def test_elastic_recall_adds_four_lexical_candidates_only_when_no_required_gate_
         conn.execute("DELETE FROM partners WHERE id='tier2-pref-dealer'")
 
     # Add 5 more certified partners (total tier0 == 14):
-    # Without required gate -> 12 tier0 + 4 non-tier0 = 16, and Stage 2 production _detail_content trims excess case payload <= 25,000 chars while giving every extra candidate case evidence.
+    # Without required gate -> 12 tier0 + 4 non-tier0 = 16, and Stage 2 production _detail_content trims excess case payload <= 50,000 chars while giving every extra candidate case evidence.
     for i in range(9, 14):
         partner(f'tier0-{i:02}', '数据库', name=f'持证伙伴{i:02}')
     with get_db() as conn:
@@ -439,7 +439,7 @@ def test_elastic_recall_adds_four_lexical_candidates_only_when_no_required_gate_
             )
             conn.execute(
                 "INSERT INTO cases (id, partner_id, category_id, visible, title, description, created_at) VALUES (?, ?, 'technical-1', 1, ?, ?, '2026-11-22T00:00:00Z')",
-                (f'c2-{pid}', pid, f'{pid}扩展超长案例', '扩展补充说明：' + '详尽项目细节与验收记录。' * 160),
+                (f'c2-{pid}', pid, f'{pid}扩展超长案例', '扩展补充说明：' + '详尽项目细节与验收记录。' * 280),
             )
         rows = [
             context.detailed_candidate(conn, item['partnerId'], item['verificationFocus'], requirement, facts=understood, hits=item['hits'])
@@ -562,3 +562,132 @@ def test_recall_query_merges_grounded_capability_evidence_without_polluting_empt
         'capabilityTags': ['大数据'],
         'capabilityEvidence': {'大数据': '学习分析'},
     }) == ([], [])
+
+
+def test_per_candidate_soft_cap_limits_extra_passages_without_dropping_primary_fact():
+    from backend.tests.test_matching_v3 import raw_row, assemble
+
+    # 1. Small candidate set (2 partners, 10x1000-char passages each = 20,000 total < 50,000):
+    # each partner is capped at <= 4,000 chars rather than consuming ~20,000 chars.
+    rows2 = [
+        raw_row({'id': f'p-{i}', 'name': f'长文伙伴{i}'}, [f'片段{k}-' + ('实' * 996) for k in range(10)])
+        for i in range(2)
+    ]
+    _, chars2, _ = assemble(rows2)
+    assert chars2 <= context.DETAIL_CHAR_LIMIT
+    for r in rows2:
+        total_len = sum(len(p['text']) for p in r[1]['profilePassages'])
+        assert total_len == 4000
+        assert any(o['reason'] == 'selection_budget' for o in r[1]['inputCoverage']['omissions'])
+
+    # 2. A candidate whose first primary passage exceeds 4,000 chars STILL receives it (never empty),
+    # and rejects any additional passage past the soft cap.
+    row_big = raw_row({'id': 'big-primary', 'name': '超长首段伙伴'}, ['主依据：' + ('首' * 5000), '次依据：' + ('次' * 500)])
+    _, chars_big, _ = assemble([row_big])
+    assert chars_big <= context.DETAIL_CHAR_LIMIT
+    assert len(row_big[1]['profilePassages']) == 1
+    assert row_big[1]['profilePassages'][0]['text'].startswith('主依据：')
+    assert any(o['reason'] == 'selection_budget' for o in row_big[1]['inputCoverage']['omissions'])
+
+    # 3. 16 candidates each with 3x600-char passages (28,800 chars + fixed shell <= 50,000):
+    # all 16 candidates (including the 4 extra non-tier0 slots) receive their ~1,800-char evidence cleanly.
+    rows16 = [
+        raw_row({'id': f's16-{i:02}', 'name': f'伙伴{i:02}'}, [f'正文{k}-' + ('案' * 595) for k in range(3)])
+        for i in range(16)
+    ]
+    _, chars16, _ = assemble(rows16)
+    assert 25000 < chars16 <= context.DETAIL_CHAR_LIMIT
+    assert all(len(r[1]['profilePassages']) == 3 for r in rows16)
+
+
+def test_assemble_details_case_soft_cap_primary_completeness_and_deliverable_rotation(monkeypatch):
+    from backend.tests.test_matching_v3 import raw_row, assemble
+
+    # 1. Pure same-source matched case (case:c1) keeps complete=True and clears evidenceState.
+    primary_row = raw_row({'id': 'primary-case-p', 'name': '主案例伙伴'}, ['主片段' + ('甲' * 1997)])
+    first_key = primary_row[1]['_groups'][0]['sources'][0]
+    primary_row[1]['_sourceMap'][first_key]['sourceRef'] = 'case:c1'
+    primary_row[2].append({'id': 'c1', 'title': '主案例', 'description': '主' * 2497})
+    assemble([primary_row])
+    assert [c['id'] for c in primary_row[1]['visibleCases']] == ['c1']
+    assert primary_row[1]['profilePassages'] == []
+    assert primary_row[1]['inputCoverage']['complete'] is True
+    assert primary_row[1]['evidenceState'] == ''
+    assert not any(
+        o['reason'] == 'primary_evidence_budget'
+        for o in primary_row[1]['inputCoverage']['omissions']
+    )
+
+    # 1b. Rank-0 independent document wins Turn-1 over lower-priority matched case (c-low).
+    doc_first_row = raw_row(
+        {'id': 'doc-first-p', 'name': '文档优先伙伴'},
+        ['支持本地部署' + ('文' * 1994), '容器部署案例' + ('案' * 2495)],
+    )
+    second_key = doc_first_row[1]['_groups'][1]['sources'][0]
+    doc_first_row[1]['_sourceMap'][second_key]['sourceRef'] = 'case:c-low'
+    doc_first_row[2].append({'id': 'c-low', 'title': '容器部署案例', 'description': '案' * 2495})
+    assemble([doc_first_row])
+    assert len(doc_first_row[1]['profilePassages']) == 1
+    assert doc_first_row[1]['profilePassages'][0]['text'].startswith('支持本地部署')
+    assert doc_first_row[1]['visibleCases'] == []
+    assert doc_first_row[1]['inputCoverage']['complete'] is True
+    assert doc_first_row[1]['evidenceState'] == ''
+
+    # 1c. Rank-0 matched case sent on Turn-1 does NOT mask omitted independent document hit groups.
+    case_first_row = raw_row(
+        {'id': 'case-first-p', 'name': '案例优先伙伴'},
+        ['主案例摘录' + ('案' * 2495), '独立文档依据' + ('文' * 1994)],
+    )
+    top_case_key = case_first_row[1]['_groups'][0]['sources'][0]
+    case_first_row[1]['_sourceMap'][top_case_key]['sourceRef'] = 'case:c-top'
+    case_first_row[2].append({'id': 'c-top', 'title': '主案例', 'description': '案' * 2497})
+    assemble([case_first_row])
+    assert [c['id'] for c in case_first_row[1]['visibleCases']] == ['c-top']
+    assert case_first_row[1]['profilePassages'] == []
+    assert case_first_row[1]['inputCoverage']['complete'] is False
+    assert any(
+        o['reason'] == 'primary_evidence_budget' and o['hitIndexes'] == [1]
+        for o in case_first_row[1]['inputCoverage']['omissions']
+    )
+    assert case_first_row[1]['evidenceState'] == '主要命中原文因本次额度未能送达。'
+
+    # 2. Unmatched secondary visibleCase without prior passages still obeys CANDIDATE_EVIDENCE_CHAR_LIMIT.
+    unmatched_row = raw_row({'id': 'sec-only-p', 'name': '纯超限案例伙伴'}, [])
+    unmatched_row[2].append({'id': 'sec-oversized', 'title': '纯超限案例', 'description': '案' * 4500})
+    assemble([unmatched_row])
+    assert unmatched_row[1]['visibleCases'] == []
+    assert any(
+        o['reason'] == 'case_selection_budget' and o['caseId'] == 'sec-oversized'
+        for o in unmatched_row[1]['inputCoverage']['omissions']
+    )
+
+    # 3. Skipped cases' deliverables do not consume rotation turns before peer candidates.
+    def _fair_rows(files_pa, files_pb):
+        row_a = raw_row({'id': 'pa', 'name': '甲伙伴'}, ['甲主段落' + ('甲' * 496)])
+        row_a[2].extend([
+            {'id': 'ca1', 'title': '甲超限案例', 'description': '长' * 3600},
+            {'id': 'ca2', 'title': '甲入选案例', 'description': '短' * 190},
+        ])
+        row_a[3].extend(files_pa)
+        row_b = raw_row({'id': 'pb', 'name': '乙伙伴'}, ['乙主段落' + ('乙' * 496)])
+        row_b[2].append({'id': 'cb1', 'title': '乙入选案例', 'description': '短' * 190})
+        row_b[3].extend(files_pb)
+        return [row_a, row_b]
+
+    fa1_1 = {'id': 'fa1-1', 'case_id': 'ca1', 'filename': '甲跳过附件一.pdf', 'case_title': '甲超限案例'}
+    fa1_2 = {'id': 'fa1-2', 'case_id': 'ca1', 'filename': '甲跳过附件二.pdf', 'case_title': '甲超限案例'}
+    fa2_1 = {'id': 'fa2-1', 'case_id': 'ca2', 'filename': '甲有效附件详细版.pdf', 'case_title': '甲入选案例'}
+    fb1_1 = {'id': 'fb1-1', 'case_id': 'cb1', 'filename': '乙有效附件一.pdf', 'case_title': '乙入选案例'}
+    fb1_2 = {'id': 'fb1-2', 'case_id': 'cb1', 'filename': '乙附件二.pdf', 'case_title': '乙入选案例'}
+
+    _, two_files_chars, _ = assemble(_fair_rows([fa2_1], [fb1_1]))
+    monkeypatch.setattr(context, 'DETAIL_CHAR_LIMIT', two_files_chars)
+    fair_rows = _fair_rows([fa1_1, fa1_2, fa2_1], [fb1_1, fb1_2])
+    assemble(fair_rows)
+    assert [c['id'] for c in fair_rows[0][1]['visibleCases']] == ['ca2']
+    assert [d['id'] for d in fair_rows[0][1]['deliverables']] == ['fa2-1']
+    assert [d['id'] for d in fair_rows[1][1]['deliverables']] == ['fb1-1']
+    assert any(
+        o['reason'] == 'file_selection_budget' and o['fileId'] == 'fb1-2'
+        for o in fair_rows[1][1]['inputCoverage']['omissions']
+    )

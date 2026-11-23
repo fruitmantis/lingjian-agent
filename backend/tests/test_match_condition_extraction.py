@@ -65,7 +65,7 @@ def test_real_failure_conditions_reproduce_empty_recall_and_corrected_contract_k
         calls.append(schema['title'])
         data = json.loads(messages[-1]['content'])
         assert data['requirement'] == REQUIREMENT
-        assert context.input_metrics(config, messages, schema)[0] <= 25000
+        assert context.input_metrics(config, messages, schema)[0] <= context.DETAIL_CHAR_LIMIT
         if schema['title'] == 'MatchUnderstanding':
             prompt = messages[0]['content']
             assert '用于认证优先召回，不表示用户要求伙伴持有认证' in prompt

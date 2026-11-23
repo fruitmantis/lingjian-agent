@@ -60,7 +60,7 @@ class MatchUnderstanding(ModelOutput):
 
 class ProfileEvidence(StrictModel):
     source: str = Field(min_length=1, max_length=200)
-    quote: str = Field(min_length=2, max_length=25000)
+    quote: str = Field(min_length=2, max_length=50000)
 
 
 class AnalysisReference(ModelOutput):

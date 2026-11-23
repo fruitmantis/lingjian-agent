@@ -23,7 +23,8 @@ from .task_failures import MatchInputBudgetError
 from backend.business import matching
 
 
-DETAIL_CHAR_LIMIT = 25_000
+DETAIL_CHAR_LIMIT = 50_000
+CANDIDATE_EVIDENCE_CHAR_LIMIT = 4_000
 _LOG = logging.getLogger('uvicorn.error')
 _SYNONYM_L1_GROUPS = (frozenset({'大数据', '数据管理分析与流通'}),)
 
@@ -780,14 +781,27 @@ def assemble_details(rows, config, content_builder, schema):
     checked()  # System, schema, full demand, facts and candidate fixed fields already count.
     for row in rows:
         row[1]['inputCoverage'].update(fixedInputChars=fixed_chars, fixedEstimatedTokens=fixed_tokens)
+    def _candidate_evidence_chars(ctx) -> int:
+        return (
+            sum(len(p['text']) for p in ctx['profilePassages'])
+            + sum(len(c['title']) + len(c['relevantDescription']) for c in ctx['visibleCases'])
+        )
     def add_group(index, group_index, group):
         _, context, _, _ = rows[index]
         raw = material[index]
         raw['processed'].add(group_index)
         old_passages,old_map = context['profilePassages'],context['_sourceMap']
         old_chars = sum(len(p['text']) for p in old_passages)
+        old_total = _candidate_evidence_chars(context)
         entries = list(old_map.items())+[(source,raw['source_map'][source]) for source in group['sources']]
         passages,mapping,aliases = _coalesced_passages(entries,set(old_map))
+        new_passages_chars = sum(len(p['text']) for p in passages)
+        cases_chars = sum(len(c['title']) + len(c['relevantDescription']) for c in context['visibleCases'])
+        if old_total > 0 and new_passages_chars > old_chars and new_passages_chars + cases_chars > CANDIDATE_EVIDENCE_CHAR_LIMIT:
+            coverage = context['inputCoverage']
+            coverage['omissions'].append({'reason':'selection_budget','hitIndexes':group['hitIndexes']})
+            coverage['budgetSkippedGroups'] += 1
+            return False
         old_state = context['evidenceState']
         context['evidenceState'] = raw['source_note']
         context['profilePassages'],context['_sourceMap'] = passages,mapping
@@ -806,23 +820,31 @@ def assemble_details(rows, config, content_builder, schema):
         if sum(len(p['text']) for p in passages) == old_chars:
             context['inputCoverage']['deduplicatedGroups'] += 1
         return True
+    def _case_ids_for_group(raw, group):
+        refs = [raw['source_map'][key]['sourceRef'] for key in group['sources'] if key in raw['source_map']]
+        if not refs or not all(ref.startswith('case:') for ref in refs):
+            return None
+        return {ref.split(':', 1)[1] for ref in refs}
     def add_case(index, entry):
         _,context,sent_cases,_=rows[index]
         if entry['id'] in {c['id'] for c in sent_cases}:
             return True
+        old_state = context['evidenceState']
+        context['evidenceState'] = material[index]['source_note']
         item={'id':entry['id'],'title':entry['title'],'relevantDescription':entry.get('description') or ''}
         context['visibleCases'].append(item)
         try:
             checked()
         except MatchInputBudgetError:
             context['visibleCases'].pop()
+            context['evidenceState'] = old_state
             return False
         sent_cases.append(entry)
         return True
     # Each candidate receives its primary fact on its existing first turn.
     for index, raw in enumerate(material):
-        primary_ids={entry['sourceRef'].split(':',1)[1] for entry in raw['source_map'].values() if entry['sourceRef'].startswith('case:')}
-        primary=next((case for case in raw['cases'] if case['id'] in primary_ids),None)
+        top_case_ids = _case_ids_for_group(raw, raw['groups'][0][1]) if raw['groups'] else None
+        primary = next((case for case in raw['cases'] if case['id'] in top_case_ids), None) if top_case_ids else None
         if primary is not None and add_case(index,primary):
             continue
         for group_index, group in raw['groups']:
@@ -841,43 +863,68 @@ def assemble_details(rows, config, content_builder, schema):
         turn=min(material[index]['group_turns'][group[0]] for index,group in pending)
         for index,group in pending:
             if material[index]['group_turns'][group[0]]==turn:add_group(index,*group)
+
+    def _try_append_selection(context, target, sent, item, entry, reason, id_key):
+        target.append(item)
+        try:
+            checked()
+        except MatchInputBudgetError:
+            target.pop()
+            context['inputCoverage']['omissions'].append({'reason': reason, id_key: entry['id']})
+            return False
+        sent.append(entry)
+        return True
+
     # Related visible cases rotate first, then filenames belonging to sent cases.
-    for kind in ('cases','files'):
-        for offset in range(max((len(raw[kind]) for raw in material),default=0)):
-            for index,raw in enumerate(material):
-                if offset >= len(raw[kind]):
-                    continue
-                _,context,sent_cases,sent_files = rows[index]
-                entry = raw[kind][offset]
-                if kind == 'cases':
-                    if entry['id'] in {c['id'] for c in sent_cases}:
-                        continue
-                    target,sent = context['visibleCases'],sent_cases
-                    item = {'id':entry['id'],'title':entry['title'],
-                            'relevantDescription':entry.get('description') or ''}
-                else:
-                    if entry['case_id'] not in {c['id'] for c in sent_cases}:
-                        continue
-                    target,sent = context['deliverables'],sent_files
-                    item = {'id':entry['id'],'caseId':entry['case_id'],
-                            'filename':entry['filename'],'caseTitle':entry['case_title']}
-                target.append(item)
-                try:
-                    checked()
-                except MatchInputBudgetError:
-                    target.pop()
-                    context['inputCoverage']['omissions'].append({
-                        'reason':'case_selection_budget' if kind=='cases' else 'file_selection_budget',
-                        'caseId' if kind=='cases' else 'fileId':entry['id']})
-                else:
-                    sent.append(entry)
+    for offset in range(max((len(raw['cases']) for raw in material), default=0)):
+        for index, raw in enumerate(material):
+            if offset >= len(raw['cases']):
+                continue
+            _, context, sent_cases, _ = rows[index]
+            entry = raw['cases'][offset]
+            if entry['id'] in {c['id'] for c in sent_cases}:
+                continue
+            item = {'id': entry['id'], 'title': entry['title'],
+                    'relevantDescription': entry.get('description') or ''}
+            old_total = _candidate_evidence_chars(context)
+            item_chars = len(item['title']) + len(item['relevantDescription'])
+            if old_total + item_chars > CANDIDATE_EVIDENCE_CHAR_LIMIT:
+                context['inputCoverage']['omissions'].append({
+                    'reason': 'case_selection_budget', 'caseId': entry['id']})
+                continue
+            _try_append_selection(
+                context, context['visibleCases'], sent_cases, item, entry, 'case_selection_budget', 'caseId'
+            )
+    eligible_files = [
+        [e for e in raw['files'] if e['case_id'] in {c['id'] for c in rows[index][2]}]
+        for index, raw in enumerate(material)
+    ]
+    for offset in range(max((len(entries) for entries in eligible_files), default=0)):
+        for index, entries in enumerate(eligible_files):
+            if offset >= len(entries):
+                continue
+            _, context, _, sent_files = rows[index]
+            entry = entries[offset]
+            item = {'id': entry['id'], 'caseId': entry['case_id'],
+                    'filename': entry['filename'], 'caseTitle': entry['case_title']}
+            _try_append_selection(
+                context, context['deliverables'], sent_files, item, entry, 'file_selection_budget', 'fileId'
+            )
     for index,raw in enumerate(material):
         context = rows[index][1]
         coverage = context['inputCoverage']
-        if raw['groups'] and not context['_groups']:
+        sent_case_ids = {c['id'] for c in rows[index][2]}
+        uncovered_groups = [
+            (gi, g)
+            for gi, g in raw['groups']
+            if not ((case_ids := _case_ids_for_group(raw, g)) is not None and case_ids <= sent_case_ids)
+        ]
+        if uncovered_groups and not context['_groups']:
             coverage['complete'] = False
             coverage['omissions'].append({'reason':'primary_evidence_budget',
-                'hitIndexes':sorted({hit for _,g in raw['groups'] for hit in g['hitIndexes']})})
+                'hitIndexes':sorted({hit for _,g in uncovered_groups for hit in g['hitIndexes']})})
+            if not context['evidenceState']:
+                context['evidenceState'] = pending_note
         coverage['selectedGroupCount'] = len(context['_groups'])
         coverage['omittedHitGroups'] = sum(bool(entry.get('hitIndexes')) for entry in coverage['omissions'])
     return checked()

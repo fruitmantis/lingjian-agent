@@ -27,21 +27,21 @@ def test_number_space_native_sections_keep_business_qualifiers_without_archive_r
 def test_ancillary_material_cannot_take_budget_before_business_body():
     row=raw_row({'id':'mixed','name':'合成主体'},['目录导航\n'+'x'*18000,'会员和系统实践。'+'正文事实。'*700])
     row[1]['_groups'][0]['ancillary']=True
-    _,chars,_=assemble([row]);assert chars<=25000
+    _,chars,_=assemble([row]);assert chars<=ctx.DETAIL_CHAR_LIMIT
     assert any('会员和系统实践' in p['text'] for p in row[1]['profilePassages'])
     assert any(entry['reason']=='selection_budget' and entry['hitIndexes']==[0] for entry in row[1]['inputCoverage']['omissions'])
 
 
 def test_existing_candidate_rotation_gives_another_source_body_its_first_turn():
-    texts=['长文事实'+str(i)+'。'+'甲'*4500 for i in range(4)]+['会员与系统项目事实。'+'乙'*1200]
+    texts=['长文事实'+str(i)+'。'+'甲'*1800 for i in range(4)]+['会员与系统项目事实。'+'乙'*900]
     row=raw_row({'id':'mixed-sources','name':'多来源主体'},texts)
     offset=0
     for passage in row[1]['profilePassages'][:4]:
         entry=row[1]['_sourceMap'][passage['source']]
         entry.update(sourceRef='document:one-long-document',start=offset,end=offset+len(entry['text']))
         offset=entry['end']
-    peer=raw_row({'id':'peer','name':'另一主体'},['另一个伙伴的完整主要事实。'+'丙'*6000])
-    _,characters,_=assemble([row,peer]);assert characters<=25000
+    peer=raw_row({'id':'peer','name':'另一主体'},['另一个伙伴的完整主要事实。'+'丙'*1200])
+    _,characters,_=assemble([row,peer]);assert characters<=ctx.DETAIL_CHAR_LIMIT
     assert any('会员与系统项目事实' in p['text'] for p in row[1]['profilePassages'])
     assert peer[1]['profilePassages'] and any('长文事实0' in p['text'] for p in row[1]['profilePassages'])
 

@@ -105,7 +105,7 @@ def test_foreign_source_or_invented_quote_cannot_establish_current_capability(se
         assert result['recommendations']==[] and not result['analysisComplete']
 
 def test_actual_payload_records_core_omission_when_global_budget_cannot_fit(setup,monkeypatch):
-    body='集团口径，企业自述，待核实。\\n具备药物研发能力：'+'甲'*24000+'。'
+    body='集团口径，企业自述，待核实。\\n具备药物研发能力：'+'甲' * (partner_match_context.DETAIL_CHAR_LIMIT - 1000)+'。'
     upload(setup,'synthetic-over-global.txt',body)
     owner=make_user('over-global-owner')
     seen=[]

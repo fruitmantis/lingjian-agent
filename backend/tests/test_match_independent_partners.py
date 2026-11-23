@@ -45,7 +45,7 @@ def test_full_request_and_independent_contract_reach_both_stages_without_changin
         assert '即使用户主动要求合作，也不生成伙伴间分工、牵头、总集或责任安排' in prompt
         assert '允许伙伴按各自能力分工' not in prompt
         assert '只有用户明确要求单家包办' not in prompt
-        assert partner_match_context.input_metrics(config, messages, schema)[0] <= 25000
+        assert partner_match_context.input_metrics(config, messages, schema)[0] <= partner_match_context.DETAIL_CHAR_LIMIT
         if schema['title'] == 'MatchUnderstanding':
             props = schema['$defs']['ProjectFacts']['properties']
             assert '完整需求独立评估' in props['deliveryNeeds']['description']
@@ -173,7 +173,7 @@ def test_explicit_business_conditions_and_ordinary_unknowns_keep_distinct_admiss
         calls.append(schema['title'])
         data = json.loads(messages[-1]['content'])
         assert data['requirement'] == requirement
-        assert partner_match_context.input_metrics(config, messages, schema)[0] <= 25000
+        assert partner_match_context.input_metrics(config, messages, schema)[0] <= partner_match_context.DETAIL_CHAR_LIMIT
         if schema['title'] == 'MatchUnderstanding':
             return json.dumps({'in_scope': True, 'facts': facts}, ensure_ascii=False)
         assert schema['title'] == 'MatchAnswer'
